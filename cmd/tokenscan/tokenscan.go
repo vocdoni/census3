@@ -5,7 +5,6 @@ import (
 	"flag"
 	"os"
 
-	"github.com/vocdoni/tokenstate"
 	state "github.com/vocdoni/tokenstate"
 	"github.com/vocdoni/tokenstate/entitybridge"
 	"gitlab.com/vocdoni/go-dvote/log"
@@ -19,6 +18,8 @@ func main() {
 	home += "/.tokenscan"
 	contract := flag.String("contract", "0x106c8eBaD6D9A71c962Da4088721221de9BD4fB7", "token contract address")
 	url := flag.String("url", "https://rpc.xdaichain.com/", "ethereum RPC url")
+	gwUrl := flag.String("gwUrl", "", "gateway api endpoint")
+	signer := flag.String("signer", "", "ethereum sign keys private key")
 	fromblock := flag.Int64("from", 0, "from block number")
 	//blocks := flag.Int64("blocks", 10000, "number of blocks to scan")
 	dataDir := flag.String("dataDir", home, "data directory for persistent storage")
@@ -32,20 +33,20 @@ func main() {
 	defer ts.Close()
 
 	b := entitybridge.NewEntityBridgeService()
-	if err := b.Init(context.Background(), *url, *contract); err != nil {
+	if err := b.Init(context.Background(), *url, *gwUrl, *contract, *signer); err != nil {
 		log.Infof("service initialization error: %s\n", err)
 		return
 	}
 
-	// get token data
-	var tokenData *tokenstate.TokenData
-	if tokenData, err = b.Web3.GetTokenData(); err != nil {
+	// create token entity
+	res, err := b.CreateEntityMetadata()
+	if err != nil {
 		log.Fatal(err)
 	}
-	log.Infof("token data: %+v", *tokenData)
+	log.Infof("ipfs file URL: %s", res)
 
 	// scan token
-	if err := b.Web3.ScanERC20Holders(&ts, uint64(*fromblock), *contract, tokenData.Decimals); err != nil {
+	if err := b.TokenState.ScanERC20Holders(&ts, uint64(*fromblock), *contract); err != nil {
 		log.Fatal(err)
 	}
 

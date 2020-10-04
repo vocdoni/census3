@@ -24,6 +24,7 @@ var BlocksToScan = 10000
 type Web3 struct {
 	client    *ethclient.Client
 	token     *ERC20BaseContractCaller
+	tokenAddr string
 	networkID *big.Int
 }
 
@@ -50,12 +51,13 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint, contractAddress string) e
 	if w.token, err = NewERC20BaseContractCaller(caddr, w.client); err != nil {
 		return err
 	}
+	w.tokenAddr = contractAddress
 	log.Infof("loaded token contract %s", caddr.String())
 	return nil
 }
 
 func (w *Web3) GetTokenData() (*TokenData, error) {
-	td := &TokenData{}
+	td := &TokenData{Address: w.tokenAddr}
 	var err error
 
 	if td.Name, err = w.TokenName(); err != nil {
@@ -78,10 +80,15 @@ func (w *Web3) GetTokenData() (*TokenData, error) {
 }
 
 type TokenData struct {
-	Name        string
-	Symbol      string
-	Decimals    uint8
-	TotalSupply *big.Int
+	Address     string   `json:"address"`
+	Name        string   `json:"name"`
+	Symbol      string   `json:"symbol"`
+	Decimals    uint8    `json:"decimals"`
+	TotalSupply *big.Int `json:"totalSupply,omitempty"`
+}
+
+func (t *TokenData) String() string {
+	return fmt.Sprintf(`{"name":%s,"symbol":%s,"decimals":%s,"totalSupply":%s}`, t.Name, t.Symbol, string(t.Decimals), t.TotalSupply.String())
 }
 
 // TokenName wraps the name() function contract call
@@ -105,7 +112,7 @@ func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 }
 
 // ScanERC20Holders scans the Ethereum network and updates the token holders state
-func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract string, decimals uint8) error {
+func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract string) error {
 	ctx := context.Background()
 	thash := common.Hash{}
 	tbytes, err := hex.DecodeString("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
@@ -126,7 +133,10 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 	caddr.SetBytes(c)
 
 	log.Infof("scaning logs for contract %s", caddr.String())
-
+	decimals, err := w.TokenDecimals()
+	if err != nil {
+		return err
+	}
 	header, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return err
@@ -176,6 +186,7 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 				log.Warnf("cannot parse amount")
 				continue
 			}
+
 			amount.Mul(amount, big.NewFloat(float64(decimals)))
 			fromstr := from.String()
 			fromstr = fromstr[len(fromstr)-40:]

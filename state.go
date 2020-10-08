@@ -81,7 +81,7 @@ func (t *TokenState) List(blocknumber uint64) map[string]*big.Float {
 	total := big.NewFloat(0)
 	balance := big.NewFloat(0)
 	zero := big.NewFloat(0)
-	t.storage.Tree(amountstree).Iterate("", "", func(k, v []byte) bool {
+	t.storage.Tree(amountstree).Iterate(nil, func(k, v []byte) bool {
 		a := big.Float{}
 		a.SetString(string(v))
 		amounts[string(k)] = &a

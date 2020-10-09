@@ -8,32 +8,34 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/vocdoni/tokenstate"
+	"github.com/vocdoni/tokenstate/tokenstate"
 	"gitlab.com/vocdoni/go-dvote/crypto/ethereum"
 	log "gitlab.com/vocdoni/go-dvote/log"
 	"gitlab.com/vocdoni/go-dvote/types"
 )
 
 type EntityBridgeService struct {
-	TokenState *tokenstate.Web3
-	ENS        *ENS
-	SignKey    *ethereum.SignKeys
-	Gateway    string
+	Token   *tokenstate.Web3
+	ENS     *ENS
+	SignKey *ethereum.SignKeys
+	Gateway string
 }
 
 func NewEntityBridgeService() *EntityBridgeService {
 	return &EntityBridgeService{
-		TokenState: new(tokenstate.Web3),
-		ENS:        new(ENS),
+		Token: new(tokenstate.Web3),
+		ENS:   new(ENS),
 	}
 }
-func (bs *EntityBridgeService) Init(ctx context.Context, web3Endpoint, gwEndpoint, contractAddress string, privKey string) error {
-	// add sign key
-	bs.SignKey = new(ethereum.SignKeys)
-	bs.SignKey.AddHexKey(privKey)
-	bs.Gateway = gwEndpoint
-	// conect to eth and the contract
-	if err := bs.TokenState.Init(ctx, web3Endpoint, contractAddress); err != nil {
+func (bs *EntityBridgeService) Init(ctx context.Context, cfg *Config, signKey *ethereum.SignKeys) error {
+	bs.SignKey = signKey
+	bs.Gateway = cfg.GatewayURL
+	// conect to home network and get token contract
+	if err := bs.Token.Init(ctx, cfg.Web3HomeEndpoint, cfg.TokenContract); err != nil {
+		return err
+	}
+	// connect foreign network and get ens contracts
+	if err := bs.ENS.Init(ctx, cfg.Web3ForeignEndpoint, cfg.RegistryContract, cfg.ResolverContract); err != nil {
 		return err
 	}
 	return nil
@@ -41,7 +43,7 @@ func (bs *EntityBridgeService) Init(ctx context.Context, web3Endpoint, gwEndpoin
 
 func (bs *EntityBridgeService) CreateEntityMetadata() (string, error) {
 	// get token data
-	td, err := bs.TokenState.GetTokenData()
+	td, err := bs.Token.GetTokenData()
 	if err != nil {
 		return "", err
 	}

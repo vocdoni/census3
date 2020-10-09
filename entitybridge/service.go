@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/vocdoni/tokenstate/tokenstate"
 	"gitlab.com/vocdoni/go-dvote/crypto/ethereum"
@@ -68,14 +69,14 @@ func (bs *EntityBridgeService) CreateEntityMetadata() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var metaResp *types.MetaResponse
-	if err := json.Unmarshal(body, metaResp); err != nil {
+	var metaResp types.MetaResponse
+	if err := json.Unmarshal(body, &metaResp); err != nil {
 		return "", nil
 	}
 	log.Infof("upload file uri: %s", metaResp.URI)
 
 	// eid == token address
-	eIDBytes, err := hex.DecodeString(td.Address)
+	eIDBytes, err := hex.DecodeString(strings.TrimPrefix(td.Address, "0x"))
 	if err != nil {
 		return "", err
 	}

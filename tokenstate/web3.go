@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vocdoni/tokenstate/contracts"
+
 	eth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -23,7 +25,7 @@ var BlocksToScan = 10000
 // optional ERC20 functions: {name, symbol, decimals, totalSupply}
 type Web3 struct {
 	client    *ethclient.Client
-	token     *ERC20BaseContractCaller
+	token     *contracts.ERC20BaseContractCaller
 	tokenAddr string
 	networkID *big.Int
 }
@@ -48,7 +50,7 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint, contractAddress string) e
 	}
 	caddr := common.Address{}
 	caddr.SetBytes(c)
-	if w.token, err = NewERC20BaseContractCaller(caddr, w.client); err != nil {
+	if w.token, err = contracts.NewERC20BaseContractCaller(caddr, w.client); err != nil {
 		return err
 	}
 	w.tokenAddr = contractAddress

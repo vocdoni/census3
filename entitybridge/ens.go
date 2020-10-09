@@ -17,7 +17,31 @@ import (
 type ENS struct {
 	*contracts.EntityResolver
 	*contracts.EnsRegistryWithFallback
-	client *ethclient.Client
+	client    *ethclient.Client
+	networkID *big.Int
+}
+
+func (e *ENS) Init(ctx context.Context, endpoint, registryAddr, resolverAddr string) error {
+	var err error
+	e.client, err = ethclient.Dial(endpoint)
+	if err != nil {
+		log.Fatal(err)
+	}
+	e.networkID, err = e.client.ChainID(ctx)
+	if err != nil {
+		return err
+	}
+	log.Infof("found network %s", e.networkID.String())
+	if err := e.NewRegistry(registryAddr); err != nil {
+		return err
+	}
+	log.Infof("found registry at address %s", registryAddr)
+
+	if err := e.NewResolver(resolverAddr); err != nil {
+		return err
+	}
+	log.Infof("found resolver at address %s", resolverAddr)
+	return nil
 }
 
 func (e *ENS) NewRegistry(address string) error {
@@ -25,7 +49,7 @@ func (e *ENS) NewRegistry(address string) error {
 	ethAddress := common.HexToAddress(address)
 	e.EnsRegistryWithFallback, err = contracts.NewEnsRegistryWithFallback(ethAddress, e.client)
 	if err != nil {
-		log.Warnf("error constructing contracts handle: %s", err)
+		log.Warnf("error constructing registry contract handle: %s", err)
 		return err
 	}
 	return nil
@@ -36,7 +60,7 @@ func (e *ENS) NewResolver(address string) error {
 	ethAddress := common.HexToAddress(address)
 	e.EntityResolver, err = contracts.NewEntityResolver(ethAddress, e.client)
 	if err != nil {
-		log.Warnf("error constructing contracts handle: %s", err)
+		log.Warnf("error constructing resolver contract handle: %s", err)
 		return err
 	}
 	return nil

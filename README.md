@@ -6,6 +6,8 @@ The aim for this tool is to provide a GoLang library and a HTTP/API service that
 
 The token holders list and the amounts are stored into a MerkleTree data storage (currently Graviton, but any other might be used). To this end, the tool will provide a MerkleRoot for a Token+Block and any MerkleProof of a token holder. The Proof can be used anywhere offchain to demonstrate the tokens holding and the Root can be added to any blockchain in order to validate it.
 
+The API is being defined here: https://github.com/vocdoni/tokenstate/wiki/API
+
 ### Examples
 
 Scan for the Aragon contract

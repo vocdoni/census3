@@ -42,7 +42,7 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint, contractAddress string) e
 	if err != nil {
 		return err
 	}
-	log.Infof("found network %s", w.networkID.String())
+	log.Debugf("found ethereum network id %s", w.networkID.String())
 	// load token contract
 	c, err := hex.DecodeString(util.TrimHex(contractAddress))
 	if err != nil {
@@ -81,6 +81,10 @@ func (w *Web3) GetTokenData() (*TokenData, error) {
 	return td, nil
 }
 
+func (w *Web3) Balance(ctx context.Context, address string) (*big.Int, error) {
+	return w.client.BalanceAt(ctx, common.HexToAddress(address), nil)
+}
+
 type TokenData struct {
 	Address     string   `json:"address"`
 	Name        string   `json:"name"`
@@ -114,12 +118,12 @@ func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 }
 
 // ScanERC20Holders scans the Ethereum network and updates the token holders state
-func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract string) error {
+func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract string) (uint64, error) {
 	ctx := context.Background()
 	thash := common.Hash{}
 	tbytes, err := hex.DecodeString("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	thash.SetBytes(tbytes)
 
@@ -129,7 +133,7 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 
 	c, err := hex.DecodeString(util.TrimHex(contract))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	caddr := common.Address{}
 	caddr.SetBytes(c)
@@ -137,11 +141,11 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 	log.Infof("scaning logs for contract %s", caddr.String())
 	decimals, err := w.TokenDecimals()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	header, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	currentblock := header.Number.Uint64()
 	var blocks uint64
@@ -156,6 +160,7 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 			ToBlock:   big.NewInt(int64(fromBlock + blocks)),
 		}
 		ctx2, cancel := context.WithTimeout(ctx, time.Second*10)
+		defer cancel()
 		logs, err := w.client.FilterLogs(ctx2, query)
 		if err != nil {
 			if strings.Contains(err.Error(), "query returned more than") {
@@ -163,14 +168,15 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 				log.Warnf("too much results on query, decreasing blocks to %d", blocks)
 				continue
 			} else {
-				return err
+				return fromBlock, err
 			}
 		}
-		defer cancel()
 
 		fromBlock += blocks
 		if len(logs) > 0 {
 			log.Infof("found %d logs...", len(logs))
+		} else {
+			continue
 		}
 		blocksToSave := make(map[uint64]bool)
 		for _, l := range logs {
@@ -202,5 +208,5 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 			ts.Save(k)
 		}
 	}
-	return nil
+	return currentblock, nil
 }

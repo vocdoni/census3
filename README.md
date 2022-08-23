@@ -4,21 +4,27 @@
 
 The aim for this tool is to provide a GoLang library and a HTTP/API service that can be used to fetch an updated list of token holders for a Ethereum token (just ERC20 at the beggining). It must allow to get the holders list, amounts on a specific block.
 
-The token holders list and the amounts are stored into a MerkleTree data storage (currently Graviton, but any other might be used). To this end, the tool will provide a MerkleRoot for a Token+Block and any MerkleProof of a token holder. The Proof can be used anywhere offchain to demonstrate the tokens holding and the Root can be added to any blockchain in order to validate it.
+The token holders list and the amounts are stored into a zkSnarks friendly Merkle Tree (currently Arbo). 
 
 ---
 
-This implementation is part of the Vocdoni DAO Bridge project.
-
-The API is being defined here: https://github.com/vocdoni/tokenstate/wiki/API
-
-![](https://gitlab.com/p4u/drawio/-/raw/master/vocdoni_dao_bridge.png)
-
 ### Examples
 
-Scan for the Aragon contract
-
+Start the token scan service, the API will listen at port 7788 HTTP. 
+```bash
+go run ./cmd/tokenscan --url=wss://mainnet.infura.io/ws/v3/INFURA_TOKEN --port=7788
 ```
-go run ./cmd/tokenscan -url=wss://mainnet.infura.io/ws/v3/INFURA_TOKEN -contract=0x960b236A07cf122663c4303350609A66A7B288C0 -from=3000000 
+
+
+Add a new contract (Aragon Network Token) and an initial block number to start the scan.
+```bash
+curl 127.0.0.1:7788/api/addContract/0xa117000000f279D81A1D3cc75430fAA017FA5A2e/11000000
+```
+
+The service will start scaning the token transfers from the initial block provided.
+
+The Balances can be fetched by calling `balances` method.
+```bash
+curl 127.0.0.1:7788/api/balances/0xa117000000f279D81A1D3cc75430fAA017FA5A2e
 ```
 

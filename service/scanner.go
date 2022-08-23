@@ -3,32 +3,36 @@ package service
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
 
 	"git.sr.ht/~sircmpwn/go-bare"
-	"github.com/vocdoni/tokenstate/tokenstate"
-	"gitlab.com/vocdoni/go-dvote/db"
-	"gitlab.com/vocdoni/go-dvote/log"
+	"github.com/vocdoni/tokenstate/contractstate"
+	"go.vocdoni.io/dvote/db"
+	"go.vocdoni.io/dvote/db/metadb"
+	"go.vocdoni.io/dvote/log"
+)
+
+const (
+	contractPrefix = "c_"
 )
 
 /*
-  c<contractAddres> = #block
+  The key value stores the relation:
+  c_<contractAddres> = #block
 
 */
 
-const contractPrefix = "c_"
-
-var scanSleepTime = time.Second * 30
+var scanSleepTime = time.Second * 10
 
 type Scanner struct {
 	dataDir    string
-	kv         *db.BadgerDB
+	kv         db.Database
 	web3       string
-	tokens     map[string]*tokenstate.TokenState
+	tokens     map[string]*contractstate.ContractState
 	tokensLock sync.RWMutex
-	close      chan (bool)
 }
 
 type TokenInfo struct {
@@ -37,51 +41,41 @@ type TokenInfo struct {
 	Symbol      string
 	Decimals    uint8
 	TotalSupply string
-	Block       uint64
+	StartBlock  uint64
+	LastBlock   uint64
 }
 
-func NewScanner(dataDir string) (*Scanner, error) {
+func NewScanner(dataDir string, w3uri string) (*Scanner, error) {
 	var s Scanner
 	var err error
-	s.kv, err = db.NewBadgerDB(dataDir)
+	s.kv, err = metadb.New(db.TypePebble, dataDir)
 	if err != nil {
 		return nil, err
 	}
 	s.dataDir = dataDir
-	s.tokens = make(map[string]*tokenstate.TokenState)
-	s.close = make(chan (bool))
+	s.tokens = make(map[string]*contractstate.ContractState)
+	s.web3 = w3uri
 	return &s, nil
 }
 
-func (s *Scanner) Start(w3uri string) {
-	s.web3 = w3uri
-	s.tokensLock.Lock()
-	for _, c := range s.ListContracts() {
-		log.Infof("initializing contract %s", c)
-		s.tokens[c] = &tokenstate.TokenState{}
-		s.tokens[c].Init(s.dataDir, c)
-	}
-	s.tokensLock.Unlock()
+func (s *Scanner) Start(ctx context.Context) {
 	for {
 		select {
-		case <-s.close:
+		case <-ctx.Done():
 			return
 		default:
 			for _, c := range s.ListContracts() {
-
-				s.scanToken(c)
+				s.scanToken(ctx, c)
 			}
 			time.Sleep(scanSleepTime)
 		}
 	}
 }
 
-func (s *Scanner) Close() {
-	s.close <- true
-}
-
 func (s *Scanner) GetContract(contract string) (*TokenInfo, error) {
-	ib, err := s.kv.Get([]byte(contractPrefix + contract))
+	tx := s.kv.ReadTx()
+	defer tx.Discard()
+	ib, err := tx.Get(([]byte(contractPrefix + contract)))
 	if err != nil {
 		return nil, err
 	}
@@ -92,16 +86,24 @@ func (s *Scanner) GetContract(contract string) (*TokenInfo, error) {
 }
 
 func (s *Scanner) ListContracts() (contracts []string) {
-	it := s.kv.NewIterator().(*db.BadgerIterator)
-	defer it.Release()
-	it.Seek([]byte(contractPrefix))
-	for it.Next() {
-		contracts = append(contracts, strings.TrimPrefix(string(it.Key()), contractPrefix))
-	}
+	s.kv.Iterate([]byte(contractPrefix), func(key, value []byte) bool {
+		contracts = append(contracts, strings.TrimPrefix(string(key), contractPrefix))
+		return true
+	})
 	return
 }
 
-func (s *Scanner) AddContract(contract string) error {
+func (s *Scanner) Balances(contract string) (map[string]*big.Float, error) {
+	s.tokensLock.RLock()
+	defer s.tokensLock.RUnlock()
+	state, ok := s.tokens[contract]
+	if !ok {
+		return nil, fmt.Errorf("contract %s is not added", contract)
+	}
+	return state.List(), nil
+}
+
+func (s *Scanner) AddContract(contract string, startBlock uint64) error {
 	if c, _ := s.GetContract(contract); c != nil {
 		return fmt.Errorf("contract %s already exist", contract)
 	}
@@ -109,7 +111,9 @@ func (s *Scanner) AddContract(contract string) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("adding new contract %+v", tinfo)
+	tinfo.StartBlock = startBlock
+	tinfo.LastBlock = startBlock
+	log.Debugf("adding new contract %+v", *tinfo)
 	if err = s.setContract(tinfo); err != nil {
 		return err
 	}
@@ -121,21 +125,22 @@ func (s *Scanner) setContract(ti *TokenInfo) error {
 	if err != nil {
 		return err
 	}
-
-	if err := s.kv.Put([]byte(contractPrefix+ti.Contract), tibytes); err != nil {
+	wtx := s.kv.WriteTx()
+	defer wtx.Discard()
+	if err := wtx.Set([]byte(contractPrefix+ti.Contract), tibytes); err != nil {
 		return err
 	}
-	return nil
+	return wtx.Commit()
 }
 
 func (s *Scanner) getOnChainContractData(contract string) (*TokenInfo, error) {
-	ts := tokenstate.Web3{}
+	w3 := contractstate.Web3{}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := ts.Init(ctx, s.web3, contract); err != nil {
+	if err := w3.Init(ctx, s.web3, contract); err != nil {
 		return nil, err
 	}
-	td, err := ts.GetTokenData()
+	td, err := w3.GetTokenData()
 	if err != nil {
 		return nil, err
 	}
@@ -144,11 +149,14 @@ func (s *Scanner) getOnChainContractData(contract string) (*TokenInfo, error) {
 
 }
 
-func (s *Scanner) scanToken(contract string) {
-	w3 := tokenstate.Web3{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	w3.Init(ctx, s.web3, contract)
-	cancel()
+func (s *Scanner) scanToken(ctx context.Context, contract string) {
+	w3 := contractstate.Web3{}
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := w3.Init(ctx2, s.web3, contract); err != nil {
+		log.Error(err)
+		return
+	}
 	tinfo, err := s.GetContract(contract)
 	if err != nil {
 		log.Error(err)
@@ -156,19 +164,21 @@ func (s *Scanner) scanToken(contract string) {
 	}
 	log.Debugf("loaded contract data: %+v", tinfo)
 	s.tokensLock.RLock()
-	ts := s.tokens[contract]
-	if ts == nil {
-		log.Info("initializing contract %s", contract)
-		s.tokens[contract] = &tokenstate.TokenState{}
-		s.tokens[contract].Init(s.dataDir, contract)
+	ts, ok := s.tokens[contract]
+	if !ok {
+		log.Infof("initializing contract %s", contract)
+		s.tokens[contract] = new(contractstate.ContractState)
+		s.tokens[contract].Init(s.dataDir, contract, int(tinfo.Decimals))
+		ts = s.tokens[contract]
 	}
 	s.tokensLock.RUnlock()
-	log.Infof("start scanning for token %s from block %d", tinfo.Name, tinfo.Block)
-	if tinfo.Block, err = w3.ScanERC20Holders(ts, tinfo.Block, contract); err != nil {
+
+	log.Infof("scanning token %s from block %d", tinfo.Name, tinfo.LastBlock)
+	if tinfo.LastBlock, err = w3.ScanERC20Holders(ctx, ts, tinfo.LastBlock, contract); err != nil {
 		if strings.Contains(err.Error(), "connection reset") ||
 			strings.Contains(err.Error(), "context deadline") ||
 			strings.Contains(err.Error(), "read limit exceeded") {
-			log.Warnf("connection reset, got until block %d, will retry on next iteration", tinfo.Block)
+			log.Warnf("connection reset on block %d, will retry on next iteration...", tinfo.StartBlock)
 			if err = s.setContract(tinfo); err != nil {
 				log.Error(err)
 			}
@@ -177,7 +187,8 @@ func (s *Scanner) scanToken(contract string) {
 		log.Error(err)
 		return
 	}
-	log.Infof("successful scanned %s until block %d", tinfo.Name, tinfo.Block)
+	log.Infof("successful scanned %s until block %d", tinfo.Name, tinfo.LastBlock)
+
 	if err = s.setContract(tinfo); err != nil {
 		log.Error(err)
 	}

@@ -1,1 +1,7 @@
-curl -s 127.0.0.1:7788/api -X POST -d '{"request":{"method":"addContract", "request":"1234", "contract":"0x744d70fdbe2ba4cf95131626614a1763df805b9e"}, "id":"1234"}'
+#!/bin/bash
+curl -s 127.0.0.1:7788/api/addContract/0xa117000000f279D81A1D3cc75430fAA017FA5A2e/11000000
+sleep 10
+curl -s 127.0.0.1:7788/api/getContract/0xa117000000f279D81A1D3cc75430fAA017FA5A2e
+sleep 10
+curl -s 127.0.0.1:7788/api/balances/0xa117000000f279D81A1D3cc75430fAA017FA5A2e
+

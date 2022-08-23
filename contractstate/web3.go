@@ -1,4 +1,4 @@
-package tokenstate
+package contractstate
 
 import (
 	"context"
@@ -13,8 +13,12 @@ import (
 	eth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"gitlab.com/vocdoni/go-dvote/log"
-	"gitlab.com/vocdoni/go-dvote/util"
+	"go.vocdoni.io/dvote/log"
+	"go.vocdoni.io/dvote/util"
+)
+
+const (
+	erc20LogTopicTransfer = "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 )
 
 var BlocksToScan = 10000
@@ -25,9 +29,10 @@ var BlocksToScan = 10000
 // optional ERC20 functions: {name, symbol, decimals, totalSupply}
 type Web3 struct {
 	client    *ethclient.Client
-	token     *contracts.ERC20BaseContractCaller
+	token     *contracts.ContractsCaller
 	tokenAddr string
 	networkID *big.Int
+	close     chan (bool)
 }
 
 // Init creates and client connection and connects to an ERC20 contract given its address
@@ -50,12 +55,16 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint, contractAddress string) e
 	}
 	caddr := common.Address{}
 	caddr.SetBytes(c)
-	if w.token, err = contracts.NewERC20BaseContractCaller(caddr, w.client); err != nil {
+	if w.token, err = contracts.NewContractsCaller(caddr, w.client); err != nil {
 		return err
 	}
 	w.tokenAddr = contractAddress
 	log.Infof("loaded token contract %s", caddr.String())
 	return nil
+}
+
+func (w *Web3) Close() {
+	w.close <- true
 }
 
 func (w *Web3) GetTokenData() (*TokenData, error) {
@@ -94,7 +103,8 @@ type TokenData struct {
 }
 
 func (t *TokenData) String() string {
-	return fmt.Sprintf(`{"name":%s,"symbol":%s,"decimals":%s,"totalSupply":%s}`, t.Name, t.Symbol, string(t.Decimals), t.TotalSupply.String())
+	return fmt.Sprintf(`{"name":%s,"symbol":%s,"decimals":%s,"totalSupply":%s}`,
+		t.Name, t.Symbol, string(t.Decimals), t.TotalSupply.String())
 }
 
 // TokenName wraps the name() function contract call
@@ -118,10 +128,10 @@ func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 }
 
 // ScanERC20Holders scans the Ethereum network and updates the token holders state
-func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract string) (uint64, error) {
-	ctx := context.Background()
+func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
+	fromBlock uint64, contract string) (uint64, error) {
 	thash := common.Hash{}
-	tbytes, err := hex.DecodeString("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
+	tbytes, err := hex.DecodeString(erc20LogTopicTransfer)
 	if err != nil {
 		return 0, err
 	}
@@ -129,7 +139,7 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 
 	from := common.Hash{}
 	to := common.Hash{}
-	amount := big.NewFloat(0)
+	amount := big.NewInt(0)
 
 	c, err := hex.DecodeString(util.TrimHex(contract))
 	if err != nil {
@@ -139,10 +149,10 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 	caddr.SetBytes(c)
 
 	log.Infof("scaning logs for contract %s", caddr.String())
-	decimals, err := w.TokenDecimals()
-	if err != nil {
-		return 0, err
-	}
+	//decimals, err := w.TokenDecimals()
+	//if err != nil {
+	//	return 0, err
+	//}
 	header, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, err
@@ -152,60 +162,67 @@ func (w *Web3) ScanERC20Holders(ts *TokenState, fromBlock uint64, contract strin
 	blocks = uint64(BlocksToScan)
 	newBlocks := make(map[uint64]bool)
 	for fromBlock < currentblock {
-		log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlock, fromBlock+blocks, (fromBlock*100)/currentblock)
-		query := eth.FilterQuery{
-			Addresses: []common.Address{caddr},
-			Topics:    [][]common.Hash{{thash}},
-			FromBlock: big.NewInt(int64(fromBlock)),
-			ToBlock:   big.NewInt(int64(fromBlock + blocks)),
-		}
-		ctx2, cancel := context.WithTimeout(ctx, time.Second*10)
-		defer cancel()
-		logs, err := w.client.FilterLogs(ctx2, query)
-		if err != nil {
-			if strings.Contains(err.Error(), "query returned more than") {
-				blocks = blocks / 2
-				log.Warnf("too much results on query, decreasing blocks to %d", blocks)
-				continue
-			} else {
-				return fromBlock, err
-			}
-		}
+		select {
+		// check if we need to close
+		case <-ctx.Done():
+			log.Warnf("scan graceful canceled by context")
+			return fromBlock, nil
 
-		fromBlock += blocks
-		if len(logs) > 0 {
-			log.Infof("found %d logs...", len(logs))
-		} else {
-			continue
-		}
-		blocksToSave := make(map[uint64]bool)
-		for _, l := range logs {
-			if _, ok := newBlocks[l.BlockNumber]; !ok {
-				if ts.HasBlock(l.BlockNumber) {
-					log.Infof("found already processe block %d", fromBlock)
+		default:
+			startTime := time.Now()
+			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlock,
+				fromBlock+blocks, (fromBlock*100)/currentblock)
+			query := eth.FilterQuery{
+				Addresses: []common.Address{caddr},
+				Topics:    [][]common.Hash{{thash}},
+				FromBlock: big.NewInt(int64(fromBlock)),
+				ToBlock:   big.NewInt(int64(fromBlock + blocks)),
+			}
+			ctx2, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+			logs, err := w.client.FilterLogs(ctx2, query)
+			if err != nil {
+				if strings.Contains(err.Error(), "query returned more than") {
+					blocks = blocks / 2
+					log.Warnf("too much results on query, decreasing blocks to %d", blocks)
 					continue
+				} else {
+					return fromBlock, err
 				}
 			}
-			blocksToSave[l.BlockNumber] = true
-			newBlocks[l.BlockNumber] = true
-			from = l.Topics[1]
-			to = l.Topics[2]
-			if _, ok := amount.SetString(fmt.Sprintf("0x%x", l.Data)); !ok {
-				log.Warnf("cannot parse amount")
+
+			fromBlock += blocks
+			if len(logs) == 0 {
 				continue
 			}
-
-			amount.Mul(amount, big.NewFloat(float64(decimals)))
-			fromstr := from.String()
-			fromstr = fromstr[len(fromstr)-40:]
-			tostr := to.String()
-			tostr = tostr[len(tostr)-40:]
-
-			ts.Add(tostr, amount)
-			ts.Sub(fromstr, amount)
-		}
-		for k := range blocksToSave {
-			ts.Save(k)
+			log.Infof("found %d logs...", len(logs))
+			blocksToSave := make(map[uint64]bool)
+			for _, l := range logs {
+				if _, ok := newBlocks[l.BlockNumber]; !ok {
+					if ts.HasBlock(l.BlockNumber) {
+						log.Debugf("found already processed block %d", fromBlock)
+						continue
+					}
+				}
+				blocksToSave[l.BlockNumber] = true
+				newBlocks[l.BlockNumber] = true
+				from = l.Topics[1]
+				to = l.Topics[2]
+				amount.SetBytes(l.Data)
+				fromAddr := common.BytesToAddress(from.Bytes())
+				toAddr := common.BytesToAddress(to.Bytes())
+				if err := ts.Add(toAddr, amount); err != nil {
+					log.Error(err)
+				}
+				if err := ts.Sub(fromAddr, amount); err != nil {
+					log.Error(err)
+				}
+			}
+			for k := range blocksToSave {
+				ts.Save(k)
+			}
+			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
+				1000*float32(len(blocksToSave))/float32(time.Now().Sub(startTime).Milliseconds()))
 		}
 	}
 	return currentblock, nil

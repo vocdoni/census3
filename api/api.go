@@ -1,126 +1,99 @@
 package api
 
 import (
-	"github.com/vocdoni/multirpc/endpoint"
-	"github.com/vocdoni/multirpc/router"
-	"github.com/vocdoni/multirpc/transports"
+	"encoding/json"
+	"strconv"
+
 	"github.com/vocdoni/tokenstate/service"
-	"gitlab.com/vocdoni/go-dvote/crypto/ethereum"
+	"go.vocdoni.io/dvote/crypto/ethereum"
+	"go.vocdoni.io/dvote/httprouter"
+	api "go.vocdoni.io/dvote/httprouter/bearerstdapi"
 )
 
-type TokenAPI struct {
-	ID        string             `json:"request"`
-	Method    string             `json:"method,omitempty"`
-	Contract  string             `json:"contract,omitempty"`
+type Reply struct {
 	Contracts []string           `json:"contracts,omitempty"`
-	Timestamp int32              `json:"timestamp"`
-	Error     string             `json:"error,omitempty"`
-	Block     int64              `json:"block,omitempty"`
-	Root      string             `json:"root,omitempty"`
-	Proof     string             `json:"proof,omitempty"`
-	Address   string             `json:"address,omitempty"`
-	Valid     bool               `json:"valid,omitempty"`
-	Ok        bool               `json:"ok,omitempty"`
 	Token     *service.TokenInfo `json:"token,omitempty"`
-}
-
-func (ta *TokenAPI) GetID() string {
-	return ta.ID
-}
-
-func (ta *TokenAPI) SetID(id string) {
-	ta.ID = id
-}
-
-func (ta *TokenAPI) SetTimestamp(ts int32) {
-	ta.Timestamp = ts
-}
-
-func (ta *TokenAPI) SetError(e string) {
-	ta.Error = e
-}
-
-func (ta *TokenAPI) GetMethod() string {
-	return ta.Method
-}
-
-func NewAPI() transports.MessageAPI {
-	return &TokenAPI{}
+	Ok        bool               `json:"ok"`
+	Error     string             `json:"error,omitempty"`
 }
 
 func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.Scanner) error {
-	ep := endpoint.HTTPWSEndPoint{}
-	ep.SetOption("listenHost", host)
-	ep.SetOption("listenPort", port)
-	listener := make(chan transports.Message)
-	if err := ep.Init(listener); err != nil {
+	r := httprouter.HTTProuter{}
+	err := r.Init(host, int(port))
+	if err != nil {
 		return err
 	}
-	transportMap := make(map[string]transports.Transport)
-	transportMap[ep.ID()] = ep.Transport()
-	r := router.NewRouter(listener, transportMap, signer, NewAPI)
-	if err := r.Transports[ep.ID()].AddNamespace("/api"); err != nil {
-		return err
-	}
+	endpoint, err := api.NewBearerStandardAPI(&r, "/api")
+	ch := contractHandler{scanner: scanner}
+	endpoint.RegisterMethod("/addContract/{contract}/{startBlock}", "GET",
+		api.MethodAccessTypePublic, ch.addContract)
+	endpoint.RegisterMethod("/listContracts", "GET",
+		api.MethodAccessTypePublic, ch.listContracts)
+	endpoint.RegisterMethod("/getContract/{contract}", "GET",
+		api.MethodAccessTypePublic, ch.getContract)
+	endpoint.RegisterMethod("/balances/{contract}", "GET",
+		api.MethodAccessTypePublic, ch.dumpBalances)
 
-	th := tokenHandler{scanner: scanner}
-
-	r.AddHandler("ping", "/api", ping, false, true)
-	if err := r.AddHandler("addContract", "/api", th.addContract, false, true); err != nil {
-		return err
-	}
-	if err := r.AddHandler("listContracts", "/api", th.listContracts, false, true); err != nil {
-		return err
-	}
-	if err := r.AddHandler("getContract", "/api", th.getContract, false, true); err != nil {
-		return err
-	}
-	go r.Route()
 	return nil
 }
 
-type tokenHandler struct {
+type contractHandler struct {
 	scanner *service.Scanner
 }
 
-func ping(rr router.RouterRequest) {
-	msg := &TokenAPI{}
-	rr.Send(router.BuildReply(msg, rr))
-}
-
-func (th *tokenHandler) addContract(rr router.RouterRequest) {
-	reqmsg := rr.Message.(*TokenAPI)
-	msg := &TokenAPI{}
-	msg.ID = rr.Id
-	err := th.scanner.AddContract(reqmsg.Contract)
-	if err != nil {
-		msg.Error = err.Error()
-		msg.Ok = false
-		rr.Send(router.BuildReply(msg, rr))
-	} else {
-		msg.Ok = true
-		rr.Send(router.BuildReply(msg, rr))
+func (ch *contractHandler) addContract(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+	startBlock := ctx.URLParam("startBlock")
+	if startBlock == "" {
+		startBlock = "0"
 	}
+	startBlockU64, err := strconv.ParseUint(startBlock, 10, 64)
+	if err != nil {
+		return err
+	}
+	if err = ch.scanner.AddContract(ctx.URLParam("contract"), startBlockU64); err != nil {
+		return err
+	}
+	resp := Reply{Ok: true}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (th *tokenHandler) listContracts(rr router.RouterRequest) {
-	msg := &TokenAPI{}
-	msg.Contracts = th.scanner.ListContracts()
-	msg.Ok = true
-	rr.Send(router.BuildReply(msg, rr))
+func (ch *contractHandler) listContracts(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+	resp := &Reply{Ok: true}
+	resp.Contracts = ch.scanner.ListContracts()
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (th *tokenHandler) getContract(rr router.RouterRequest) {
+func (ch *contractHandler) getContract(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
 	var err error
-	reqmsg := rr.Message.(*TokenAPI)
-	msg := &TokenAPI{}
-	msg.Token, err = th.scanner.GetContract(reqmsg.Contract)
+	resp := &Reply{Ok: true}
+	resp.Token, err = ch.scanner.GetContract(ctx.URLParam("contract"))
 	if err != nil {
-		msg.Ok = false
-		msg.Error = err.Error()
-		rr.Send(router.BuildReply(msg, rr))
-	} else {
-		msg.Ok = true
-		rr.Send(router.BuildReply(msg, rr))
+		return err
 	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
+}
+
+func (ch *contractHandler) dumpBalances(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+	balances, err := ch.scanner.Balances(ctx.URLParam("contract"))
+	if err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(balances, "", " ")
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/vocdoni/tokenstate/service"
@@ -13,6 +14,8 @@ import (
 type Reply struct {
 	Contracts []string           `json:"contracts,omitempty"`
 	Token     *service.TokenInfo `json:"token,omitempty"`
+	Root      string             `json:"root,omitempty"`
+	Data      []byte             `json:"data,omitempty"`
 	Ok        bool               `json:"ok"`
 }
 
@@ -34,6 +37,12 @@ func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.S
 		api.MethodAccessTypePublic, ch.dumpBalances)
 	endpoint.RegisterMethod("/rescan/{contract}", "GET",
 		api.MethodAccessTypePublic, ch.rescan)
+	endpoint.RegisterMethod("/root/{contract}", "GET",
+		api.MethodAccessTypePublic, ch.root)
+	endpoint.RegisterMethod("/root/{contract}/{blockNum}", "GET",
+		api.MethodAccessTypePublic, ch.root)
+	endpoint.RegisterMethod("/export/{contract}", "GET",
+		api.MethodAccessTypePublic, ch.dumpTree)
 
 	return nil
 }
@@ -87,12 +96,52 @@ func (ch *contractHandler) getContract(msg *api.BearerStandardAPIdata, ctx *http
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
+func (ch *contractHandler) root(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+	token, err := ch.scanner.GetContract(ctx.URLParam("contract"))
+	if err != nil {
+		return err
+	}
+	resp := &Reply{Ok: true}
+	if ctx.URLParam("blockNum") == "0" || ctx.URLParam("blockNum") == "" {
+		resp.Root = token.LastRoot
+	} else {
+		height, err := strconv.Atoi(ctx.URLParam("blockNum"))
+		if err != nil {
+			return err
+		}
+		root, err := ch.scanner.Root(token.Contract, uint64(height))
+		if err != nil {
+			return err
+		}
+		resp.Root = fmt.Sprintf("%x", root)
+	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
+}
+
 func (ch *contractHandler) dumpBalances(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
 	balances, err := ch.scanner.Balances(ctx.URLParam("contract"))
 	if err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(balances, "", " ")
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
+}
+
+func (ch *contractHandler) dumpTree(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+	var err error
+	resp := &Reply{Ok: true}
+	resp.Data, err = ch.scanner.Export(ctx.URLParam("contract"))
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}

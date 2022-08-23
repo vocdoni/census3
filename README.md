@@ -40,3 +40,13 @@ A token can be queued for rescan (there might be some missing blocks if issues w
 ```bash
 curl 127.0.0.1:7788/api/rescan/0xa117000000f279D81A1D3cc75430fAA017FA5A2e
 ```
+
+Get the last merkle root hash of the tree for a contract.
+```bash
+curl 127.0.0.1:7788/api/root/0xa117000000f279D81A1D3cc75430fAA017FA5A2e
+```
+
+Export the last tree (containing all leafs) so it can be shared on the network for generating merkle proofs.
+```bash
+curl 127.0.0.1:7788/api/export/0xa117000000f279D81A1D3cc75430fAA017FA5A2e
+```

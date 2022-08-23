@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	erc20LogTopicTransfer = "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+	erc20LogTopicTransfer     = "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+	maxScanBlocksPerIteration = 100000
+	blocksToScan              = 10000
 )
-
-var BlocksToScan = 10000
 
 // Web3 holds a reference to a go-ethereum client,
 // to an ERC20 like contract and to an ENS.
@@ -149,19 +149,21 @@ func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
 	caddr.SetBytes(c)
 
 	log.Infof("scaning logs for contract %s", caddr.String())
-	//decimals, err := w.TokenDecimals()
-	//if err != nil {
-	//	return 0, err
-	//}
 	header, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
-	currentblock := header.Number.Uint64()
+	toBlock := header.Number.Uint64()
+	if toBlock-fromBlock > maxScanBlocksPerIteration {
+		toBlock = fromBlock + maxScanBlocksPerIteration
+	}
 	var blocks uint64
-	blocks = uint64(BlocksToScan)
+	blocks = uint64(blocksToScan)
 	newBlocks := make(map[uint64]bool)
-	for fromBlock < currentblock {
+	log.Infof("start scan iteration for %s from block %d to %d (%d)",
+		contract, fromBlock, toBlock, toBlock-fromBlock)
+
+	for fromBlock < toBlock {
 		select {
 		// check if we need to close
 		case <-ctx.Done():
@@ -171,7 +173,7 @@ func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
 		default:
 			startTime := time.Now()
 			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlock,
-				fromBlock+blocks, (fromBlock*100)/currentblock)
+				fromBlock+blocks, (fromBlock*100)/toBlock)
 			query := eth.FilterQuery{
 				Addresses: []common.Address{caddr},
 				Topics:    [][]common.Hash{{thash}},
@@ -225,5 +227,5 @@ func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
 				1000*float32(len(blocksToSave))/float32(time.Now().Sub(startTime).Milliseconds()))
 		}
 	}
-	return currentblock, nil
+	return toBlock, nil
 }

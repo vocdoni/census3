@@ -84,6 +84,24 @@ func (t *ContractState) Sub(address common.Address, amount *big.Int) error {
 	return t.store(address, stAmount)
 }
 
+func (t *ContractState) LastRoot() ([]byte, error) {
+	return t.storageTree.Root(t.storageTree.DB().ReadTx())
+}
+
+func (t *ContractState) Root(blocknum uint64) ([]byte, error) {
+	tx := t.blocksKV.ReadTx()
+	defer tx.Discard()
+	return tx.Get([]byte(fmt.Sprintf("%d", blocknum)))
+}
+
+func (t *ContractState) Export() ([]byte, error) {
+	return t.storageTree.Dump()
+}
+
+func (t *ContractState) Import(data []byte) error {
+	return t.storageTree.ImportDump(data)
+}
+
 func (t *ContractState) Save(blocknum uint64) error {
 	root, err := t.storageTree.Root(t.storageTree.DB().ReadTx())
 	if err != nil {

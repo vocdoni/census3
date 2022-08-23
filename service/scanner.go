@@ -43,6 +43,7 @@ type TokenInfo struct {
 	TotalSupply string
 	StartBlock  uint64
 	LastBlock   uint64
+	LastRoot    string
 }
 
 func NewScanner(dataDir string, w3uri string) (*Scanner, error) {
@@ -64,7 +65,7 @@ func (s *Scanner) Start(ctx context.Context) {
 	for _, c := range s.ListContracts() {
 		contract, err := s.GetContract(c)
 		if err != nil {
-			log.Errorf("cannot get contract details for %s: %w", c, err)
+			log.Errorf("cannot get contract details for %s: %v", c, err)
 			continue
 		}
 		s.tokens[c] = new(contractstate.ContractState)
@@ -92,8 +93,7 @@ func (s *Scanner) GetContract(contract string) (*TokenInfo, error) {
 		return nil, err
 	}
 	ti := &TokenInfo{}
-	err = bare.Unmarshal(ib, ti)
-	return ti, err
+	return ti, bare.Unmarshal(ib, ti)
 
 }
 
@@ -110,9 +110,29 @@ func (s *Scanner) Balances(contract string) (map[string]*big.Float, error) {
 	defer s.tokensLock.RUnlock()
 	state, ok := s.tokens[contract]
 	if !ok {
-		return nil, fmt.Errorf("contract %s is not added", contract)
+		return nil, fmt.Errorf("contract %s is unknown", contract)
 	}
 	return state.List(), nil
+}
+
+func (s *Scanner) Root(contract string, height uint64) ([]byte, error) {
+	s.tokensLock.RLock()
+	defer s.tokensLock.RUnlock()
+	state, ok := s.tokens[contract]
+	if !ok {
+		return nil, fmt.Errorf("contract %s is unknown", contract)
+	}
+	return state.Root(height)
+}
+
+func (s *Scanner) Export(contract string) ([]byte, error) {
+	s.tokensLock.RLock()
+	defer s.tokensLock.RUnlock()
+	state, ok := s.tokens[contract]
+	if !ok {
+		return nil, fmt.Errorf("contract %s is unknown", contract)
+	}
+	return state.Export()
 }
 
 func (s *Scanner) AddContract(contract string, startBlock uint64) error {
@@ -188,14 +208,13 @@ func (s *Scanner) scanToken(ctx context.Context, contract string) {
 	s.tokensLock.RLock()
 	ts, ok := s.tokens[contract]
 	if !ok {
-		log.Infof("initializing contract %s", contract)
+		log.Infof("initializing contract %s (%s)", contract, tinfo.Name)
 		s.tokens[contract] = new(contractstate.ContractState)
 		s.tokens[contract].Init(s.dataDir, contract, int(tinfo.Decimals))
 		ts = s.tokens[contract]
 	}
 	s.tokensLock.RUnlock()
 
-	log.Infof("scanning token %s from block %d", tinfo.Name, tinfo.LastBlock)
 	if tinfo.LastBlock, err = w3.ScanERC20Holders(ctx, ts, tinfo.LastBlock, contract); err != nil {
 		if strings.Contains(err.Error(), "connection reset") ||
 			strings.Contains(err.Error(), "context deadline") ||
@@ -210,7 +229,11 @@ func (s *Scanner) scanToken(ctx context.Context, contract string) {
 		return
 	}
 	log.Infof("successful scanned %s until block %d", tinfo.Name, tinfo.LastBlock)
-
+	root, err := s.tokens[contract].LastRoot()
+	if err != nil {
+		log.Warnf("cannot fetch last root for contract %s: %w", contract, err)
+	}
+	tinfo.LastRoot = fmt.Sprintf("%x", root)
 	if err = s.setContract(tinfo); err != nil {
 		log.Error(err)
 	}

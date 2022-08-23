@@ -59,6 +59,18 @@ func NewScanner(dataDir string, w3uri string) (*Scanner, error) {
 }
 
 func (s *Scanner) Start(ctx context.Context) {
+	// load existing contracts
+	log.Infof("loading stored contracts...")
+	for _, c := range s.ListContracts() {
+		contract, err := s.GetContract(c)
+		if err != nil {
+			log.Errorf("cannot get contract details for %s: %w", c, err)
+			continue
+		}
+		s.tokens[c] = new(contractstate.ContractState)
+		s.tokens[c].Init(s.dataDir, c, int(contract.Decimals))
+	}
+	// monitor for new contracts added and update existing
 	for {
 		select {
 		case <-ctx.Done():

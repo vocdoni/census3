@@ -125,15 +125,18 @@ func (t *ContractState) List() map[string]*big.Float {
 	amounts := make(map[string]*big.Float)
 	total := big.NewFloat(0)
 	zero := big.NewFloat(0)
+	null := common.Address{}
 	holders := 0
 	t.storageTree.IterateLeaves(nil, func(k, v []byte) bool {
 		af := new(big.Float).SetInt(new(big.Int).SetBytes(v))
 		af.Quo(af, t.decimals)
 		if af.Cmp(zero) > 0 {
-			amounts[common.BytesToAddress(k).Hex()] = af
-			total.Add(total, af)
-			holders++
-
+			addr := common.BytesToAddress(k)
+			if addr != null {
+				amounts[addr.Hex()] = af
+				total.Add(total, af)
+				holders++
+			}
 		}
 		return false
 	})

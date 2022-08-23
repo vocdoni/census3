@@ -14,7 +14,6 @@ type Reply struct {
 	Contracts []string           `json:"contracts,omitempty"`
 	Token     *service.TokenInfo `json:"token,omitempty"`
 	Ok        bool               `json:"ok"`
-	Error     string             `json:"error,omitempty"`
 }
 
 func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.Scanner) error {
@@ -33,6 +32,8 @@ func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.S
 		api.MethodAccessTypePublic, ch.getContract)
 	endpoint.RegisterMethod("/balances/{contract}", "GET",
 		api.MethodAccessTypePublic, ch.dumpBalances)
+	endpoint.RegisterMethod("/rescan/{contract}", "GET",
+		api.MethodAccessTypePublic, ch.rescan)
 
 	return nil
 }
@@ -92,6 +93,18 @@ func (ch *contractHandler) dumpBalances(msg *api.BearerStandardAPIdata, ctx *htt
 		return err
 	}
 	data, err := json.MarshalIndent(balances, "", " ")
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
+}
+
+func (ch *contractHandler) rescan(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+	if err := ch.scanner.RescanContract(ctx.URLParam("contract")); err != nil {
+		return err
+	}
+	resp := &Reply{Ok: true}
+	data, err := json.Marshal(resp)
 	if err != nil {
 		return err
 	}

@@ -132,6 +132,16 @@ func (s *Scanner) AddContract(contract string, startBlock uint64) error {
 	return nil
 }
 
+func (s *Scanner) RescanContract(contract string) error {
+	c, err := s.GetContract(contract)
+	if err != nil {
+		return fmt.Errorf("cannot rescan contract: %w", err)
+	}
+	c.LastBlock = c.StartBlock
+	log.Debugf("queued contract %+v for rescan", c.Contract)
+	return s.setContract(c)
+}
+
 func (s *Scanner) setContract(ti *TokenInfo) error {
 	tibytes, err := bare.Marshal(ti)
 	if err != nil {

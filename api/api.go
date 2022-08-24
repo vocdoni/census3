@@ -16,6 +16,7 @@ type Reply struct {
 	Token     *service.TokenInfo `json:"token,omitempty"`
 	Root      string             `json:"root,omitempty"`
 	Data      []byte             `json:"data,omitempty"`
+	Block     uint64             `json:"block,omitempty"`
 	Ok        bool               `json:"ok"`
 }
 
@@ -41,9 +42,10 @@ func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.S
 		api.MethodAccessTypePublic, ch.root)
 	endpoint.RegisterMethod("/root/{contract}/{blockNum}", "GET",
 		api.MethodAccessTypePublic, ch.root)
-	endpoint.RegisterMethod("/export/{contract}", "GET",
-		api.MethodAccessTypePublic, ch.dumpTree)
-
+	endpoint.RegisterMethod("/queueExport/{contract}", "GET",
+		api.MethodAccessTypePublic, ch.exportTree)
+	endpoint.RegisterMethod("/fetchExport/{contract}/{blockNum}", "GET",
+		api.MethodAccessTypePublic, ch.fetchTree)
 	return nil
 }
 
@@ -134,10 +136,28 @@ func (ch *contractHandler) dumpBalances(msg *api.BearerStandardAPIdata, ctx *htt
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (ch *contractHandler) dumpTree(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) exportTree(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
 	var err error
 	resp := &Reply{Ok: true}
-	resp.Data, err = ch.scanner.Export(ctx.URLParam("contract"))
+	resp.Block, err = ch.scanner.QueueExport(ctx.URLParam("contract"))
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
+}
+
+func (ch *contractHandler) fetchTree(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+	var err error
+	block, err := strconv.Atoi(ctx.URLParam("blockNum"))
+	if err != nil {
+		return err
+	}
+	resp := &Reply{Ok: true}
+	resp.Data, err = ch.scanner.FetchExport(ctx.URLParam("contract"), uint64(block))
 	if err != nil {
 		return err
 	}

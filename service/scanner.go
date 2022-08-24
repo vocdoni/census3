@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -16,16 +18,15 @@ import (
 )
 
 const (
-	contractPrefix = "c_"
+	/*
+	   The key value stores the relation:
+	   c_<contractAddres> = #block
+
+	*/
+	contractPrefix = "c_" // KV prefix for identify contracts
+	snapshotBlocks = 100  // a snapshot and reset of the tree is performed every snapshotBlocks
+	scanSleepTime  = time.Second * 10
 )
-
-/*
-  The key value stores the relation:
-  c_<contractAddres> = #block
-
-*/
-
-var scanSleepTime = time.Second * 10
 
 type Scanner struct {
 	dataDir    string
@@ -36,14 +37,15 @@ type Scanner struct {
 }
 
 type TokenInfo struct {
-	Name        string
-	Contract    string
-	Symbol      string
-	Decimals    uint8
-	TotalSupply string
-	StartBlock  uint64
-	LastBlock   uint64
-	LastRoot    string
+	Name         string
+	Contract     string
+	Symbol       string
+	Decimals     uint8
+	TotalSupply  string
+	StartBlock   uint64
+	LastBlock    uint64
+	LastRoot     string
+	LastSnapshot uint64
 }
 
 func NewScanner(dataDir string, w3uri string) (*Scanner, error) {
@@ -78,7 +80,9 @@ func (s *Scanner) Start(ctx context.Context) {
 			return
 		default:
 			for _, c := range s.ListContracts() {
-				s.scanToken(ctx, c)
+				if err := s.scanToken(ctx, c); err != nil {
+					log.Error(err)
+				}
 			}
 			time.Sleep(scanSleepTime)
 		}
@@ -125,14 +129,44 @@ func (s *Scanner) Root(contract string, height uint64) ([]byte, error) {
 	return state.Root(height)
 }
 
-func (s *Scanner) Export(contract string) ([]byte, error) {
+func (s *Scanner) QueueExport(contract string) (uint64, error) {
 	s.tokensLock.RLock()
 	defer s.tokensLock.RUnlock()
 	state, ok := s.tokens[contract]
 	if !ok {
-		return nil, fmt.Errorf("contract %s is unknown", contract)
+		return 0, fmt.Errorf("contract %s is unknown", contract)
 	}
-	return state.Export()
+	ti, err := s.GetContract(contract)
+	if err != nil {
+		return 0, err
+	}
+	go func() {
+		dump, err := state.Export()
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		if err := os.MkdirAll(filepath.Join(s.dataDir, "dumps", contract), 750); err != nil {
+			log.Error(err)
+			return
+		}
+		if err := os.WriteFile(
+			filepath.Join(
+				s.dataDir, "dumps", contract, fmt.Sprintf("%d", ti.LastBlock)),
+			dump, 640); err != nil {
+			log.Error(err)
+			return
+		}
+		log.Infof("export dump for contract %s and block %d saved", contract, ti.LastBlock)
+	}()
+	return ti.LastBlock, nil
+}
+
+func (s *Scanner) FetchExport(contract string, block uint64) ([]byte, error) {
+	s.tokensLock.RLock()
+	defer s.tokensLock.RUnlock()
+	return os.ReadFile(filepath.Join(
+		s.dataDir, "dumps", contract, fmt.Sprintf("%d", block)))
 }
 
 func (s *Scanner) AddContract(contract string, startBlock uint64) error {
@@ -191,20 +225,18 @@ func (s *Scanner) getOnChainContractData(contract string) (*TokenInfo, error) {
 
 }
 
-func (s *Scanner) scanToken(ctx context.Context, contract string) {
+func (s *Scanner) scanToken(ctx context.Context, contract string) error {
 	w3 := contractstate.Web3{}
 	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	if err := w3.Init(ctx2, s.web3, contract); err != nil {
-		log.Error(err)
-		return
+		return err
 	}
 	tinfo, err := s.GetContract(contract)
 	if err != nil {
-		log.Error(err)
-		return
+		return err
 	}
-	log.Debugf("loaded contract data: %+v", tinfo)
+	log.Debugf("loaded contract data: %+v", *tinfo)
 	s.tokensLock.RLock()
 	ts, ok := s.tokens[contract]
 	if !ok {
@@ -220,13 +252,12 @@ func (s *Scanner) scanToken(ctx context.Context, contract string) {
 			strings.Contains(err.Error(), "context deadline") ||
 			strings.Contains(err.Error(), "read limit exceeded") {
 			log.Warnf("connection reset on block %d, will retry on next iteration...", tinfo.StartBlock)
-			if err = s.setContract(tinfo); err != nil {
+			if err := s.setContract(tinfo); err != nil {
 				log.Error(err)
 			}
-			return
+			return nil
 		}
-		log.Error(err)
-		return
+		return err
 	}
 	log.Infof("successful scanned %s until block %d", tinfo.Name, tinfo.LastBlock)
 	root, err := s.tokens[contract].LastRoot()
@@ -234,7 +265,26 @@ func (s *Scanner) scanToken(ctx context.Context, contract string) {
 		log.Warnf("cannot fetch last root for contract %s: %w", contract, err)
 	}
 	tinfo.LastRoot = fmt.Sprintf("%x", root)
-	if err = s.setContract(tinfo); err != nil {
-		log.Error(err)
+	if err := s.setContract(tinfo); err != nil {
+		return err
 	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			// Perform the snapshot and reset of the tree if snapshotBlocks reached
+			if tinfo.LastSnapshot+snapshotBlocks <= tinfo.LastBlock {
+				if err := s.tokens[contract].Snapshot(); err != nil {
+					log.Error(err)
+					return
+				}
+				tinfo.LastSnapshot = tinfo.LastBlock
+				if err := s.setContract(tinfo); err != nil {
+					log.Error(err)
+				}
+			}
+		}
+	}()
+	return nil
 }

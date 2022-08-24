@@ -19,8 +19,9 @@ import (
 
 const (
 	erc20LogTopicTransfer     = "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-	maxScanBlocksPerIteration = 100000
-	blocksToScan              = 10000
+	maxScanBlocksPerIteration = 2000000
+	maxScanLogsPerIteration   = 50000
+	blocksToScanAtOnce        = 10000
 )
 
 // Web3 holds a reference to a go-ethereum client,
@@ -148,7 +149,6 @@ func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
 	caddr := common.Address{}
 	caddr.SetBytes(c)
 
-	log.Infof("scaning logs for contract %s", caddr.String())
 	header, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, err
@@ -158,14 +158,15 @@ func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
 		toBlock = fromBlock + maxScanBlocksPerIteration
 	}
 	var blocks uint64
-	blocks = uint64(blocksToScan)
+	var logCount int
+	blocks = uint64(blocksToScanAtOnce)
 	newBlocks := make(map[uint64]bool)
 	log.Infof("start scan iteration for %s from block %d to %d (%d)",
 		contract, fromBlock, toBlock, toBlock-fromBlock)
 
 	for fromBlock < toBlock {
 		select {
-		// check if we need to close
+		// check if we need to close due context signal
 		case <-ctx.Done():
 			log.Warnf("scan graceful canceled by context")
 			return fromBlock, nil
@@ -197,7 +198,8 @@ func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
 			if len(logs) == 0 {
 				continue
 			}
-			log.Infof("found %d logs...", len(logs))
+			logCount += len(logs)
+			log.Infof("found %d logs, iteration count %d", len(logs), logCount)
 			blocksToSave := make(map[uint64]bool)
 			for _, l := range logs {
 				if _, ok := newBlocks[l.BlockNumber]; !ok {
@@ -225,6 +227,10 @@ func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
 			}
 			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
 				1000*float32(len(blocksToSave))/float32(time.Now().Sub(startTime).Milliseconds()))
+			// check if we need to exit because max logs reached for iteration
+			if logCount > maxScanLogsPerIteration {
+				return fromBlock, nil
+			}
 		}
 	}
 	return toBlock, nil

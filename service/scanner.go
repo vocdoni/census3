@@ -23,8 +23,8 @@ const (
 	   c_<contractAddres> = #block
 
 	*/
-	contractPrefix = "c_" // KV prefix for identify contracts
-	snapshotBlocks = 100  // a snapshot and reset of the tree is performed every snapshotBlocks
+	contractPrefix = "c_"   // KV prefix for identify contracts
+	snapshotBlocks = 100000 // a snapshot and reset of the tree is performed every snapshotBlocks
 	scanSleepTime  = time.Second * 10
 )
 
@@ -247,7 +247,7 @@ func (s *Scanner) scanToken(ctx context.Context, contract string) error {
 	}
 	s.tokensLock.RUnlock()
 
-	if tinfo.LastBlock, err = w3.ScanERC20Holders(ctx, ts, tinfo.LastBlock, contract); err != nil {
+	if tinfo.LastBlock, err = w3.ScanERC20Holders(ctx, ts, tinfo.LastBlock+1); err != nil {
 		if strings.Contains(err.Error(), "connection reset") ||
 			strings.Contains(err.Error(), "context deadline") ||
 			strings.Contains(err.Error(), "read limit exceeded") {

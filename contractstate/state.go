@@ -24,6 +24,7 @@ const (
 )
 
 type ContractState struct {
+	Contract     string
 	tree         *dvoteTree.Tree
 	treeDataDir  string
 	blocksKV     db.Database
@@ -49,6 +50,7 @@ func (t *ContractState) Init(datadir, contract string, decimals int) error {
 	if err != nil {
 		return err
 	}
+	t.Contract = contract
 	t.decimals = big.NewFloat(math.Pow(10, float64(decimals)))
 	return nil
 }

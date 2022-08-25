@@ -19,9 +19,9 @@ import (
 
 const (
 	erc20LogTopicTransfer     = "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-	maxScanBlocksPerIteration = 2000000
-	maxScanLogsPerIteration   = 50000
-	blocksToScanAtOnce        = 10000
+	maxScanBlocksPerIteration = 1000000
+	maxScanLogsPerIteration   = 80000
+	blocksToScanAtOnce        = 5000
 )
 
 // Web3 holds a reference to a go-ethereum client,
@@ -129,8 +129,8 @@ func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 }
 
 // ScanERC20Holders scans the Ethereum network and updates the token holders state
-func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
-	fromBlock uint64, contract string) (uint64, error) {
+func (w *Web3) ScanERC20Holders(ctx context.Context,
+	ts *ContractState, fromBlock uint64) (uint64, error) {
 	thash := common.Hash{}
 	tbytes, err := hex.DecodeString(erc20LogTopicTransfer)
 	if err != nil {
@@ -142,7 +142,7 @@ func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
 	to := common.Hash{}
 	amount := big.NewInt(0)
 
-	c, err := hex.DecodeString(util.TrimHex(contract))
+	c, err := hex.DecodeString(util.TrimHex(ts.Contract))
 	if err != nil {
 		return 0, err
 	}
@@ -162,7 +162,7 @@ func (w *Web3) ScanERC20Holders(ctx context.Context, ts *ContractState,
 	blocks = uint64(blocksToScanAtOnce)
 	newBlocks := make(map[uint64]bool)
 	log.Infof("start scan iteration for %s from block %d to %d (%d)",
-		contract, fromBlock, toBlock, toBlock-fromBlock)
+		ts.Contract, fromBlock, toBlock, toBlock-fromBlock)
 
 	for fromBlock < toBlock {
 		select {

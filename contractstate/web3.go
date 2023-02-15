@@ -154,6 +154,10 @@ func (w *Web3) ScanERC20Holders(ctx context.Context,
 		return 0, err
 	}
 	toBlock := header.Number.Uint64()
+	if fromBlock >= toBlock {
+		log.Infof("no new blocks to scan for %s", ts.Contract)
+		return toBlock, nil
+	}
 	if toBlock-fromBlock > maxScanBlocksPerIteration {
 		toBlock = fromBlock + maxScanBlocksPerIteration
 	}

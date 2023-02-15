@@ -33,6 +33,7 @@ type Scanner struct {
 	kv         db.Database
 	web3       string
 	tokens     map[string]*contractstate.ContractState
+	snapshots  map[string]*contractstate.ContractState
 	tokensLock sync.RWMutex
 }
 
@@ -57,6 +58,7 @@ func NewScanner(dataDir string, w3uri string) (*Scanner, error) {
 	}
 	s.dataDir = dataDir
 	s.tokens = make(map[string]*contractstate.ContractState)
+	s.snapshots = make(map[string]*contractstate.ContractState)
 	s.web3 = w3uri
 	return &s, nil
 }
@@ -225,6 +227,31 @@ func (s *Scanner) getOnChainContractData(contract string) (*TokenInfo, error) {
 
 }
 
+// ChildSnapshot uses the list of holders for parent to update the balances on child.
+func (s *Scanner) ChildSnapshot(ctx context.Context, parentContract, childContract string, atBlock uint64) error {
+	log.Infof("snapshotting child contract %s at block %d", childContract, atBlock)
+	state, ok := s.tokens[parentContract]
+	if !ok {
+		return fmt.Errorf("contract %s is unknown", parentContract)
+	}
+	w3 := contractstate.Web3{}
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := w3.Init(ctx2, s.web3, childContract); err != nil {
+		return err
+	}
+	if err := s.AddContract(childContract, atBlock); err != nil {
+		return err
+	}
+	info, err := s.GetContract(childContract)
+	if err != nil {
+		return err
+	}
+	s.snapshots[childContract] = new(contractstate.ContractState)
+	s.snapshots[childContract].InitSnapshot(s.dataDir, childContract, int(info.Decimals), atBlock)
+	return w3.SnapshotChildERC20Holders(ctx, state, s.tokens[childContract], atBlock)
+}
+
 func (s *Scanner) scanToken(ctx context.Context, contract string) error {
 	w3 := contractstate.Web3{}
 	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -262,7 +289,7 @@ func (s *Scanner) scanToken(ctx context.Context, contract string) error {
 	log.Infof("successful scanned %s until block %d", tinfo.Name, tinfo.LastBlock)
 	root, err := s.tokens[contract].LastRoot()
 	if err != nil {
-		log.Warnf("cannot fetch last root for contract %s: %w", contract, err)
+		log.Warnf("cannot fetch last root for contract %s: %v", contract, err)
 	}
 	tinfo.LastRoot = fmt.Sprintf("%x", root)
 	if err := s.setContract(tinfo); err != nil {

@@ -55,6 +55,16 @@ func (t *ContractState) Init(datadir, contract string, decimals int) error {
 	return nil
 }
 
+func (t *ContractState) InitSnapshot(datadir, contract string, decimals int, atBlock uint64) error {
+	t.treeDataDir = filepath.Join(datadir, contract, "snapshotTree", fmt.Sprintf("%d", atBlock))
+	if err := t.loadTree(); err != nil {
+		return err
+	}
+	t.Contract = contract
+	t.decimals = big.NewFloat(math.Pow(10, float64(decimals)))
+	return nil
+}
+
 func (t *ContractState) Add(address common.Address, amount *big.Int) error {
 	t.snapshotLock.RLock()
 	defer t.snapshotLock.RUnlock()
@@ -121,6 +131,17 @@ func (t *ContractState) Snapshot() error {
 	}
 	log.Debugf("snapshot import took %s", time.Now().Sub(startTime))
 	return err
+}
+
+func (t *ContractState) Remove() error {
+	t.snapshotLock.Lock()
+	defer t.snapshotLock.Unlock()
+	log.Debugf("removing tree...")
+	if err := t.removeTree(); err != nil {
+		return err
+	}
+	log.Debugf("create new tree...")
+	return t.loadTree()
 }
 
 func (t *ContractState) GenProof(key []byte) (*Proof, error) {

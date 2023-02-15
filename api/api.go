@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -30,6 +31,8 @@ func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.S
 	ch := contractHandler{scanner: scanner}
 	endpoint.RegisterMethod("/addContract/{contract}/{startBlock}", "GET",
 		api.MethodAccessTypePublic, ch.addContract)
+	endpoint.RegisterMethod("/snapshot/{contract}/child/{childContract}/block/{blockNum}", "GET",
+		api.MethodAccessTypePublic, ch.snapshotChildContract)
 	endpoint.RegisterMethod("/listContracts", "GET",
 		api.MethodAccessTypePublic, ch.listContracts)
 	endpoint.RegisterMethod("/getContract/{contract}", "GET",
@@ -63,6 +66,25 @@ func (ch *contractHandler) addContract(msg *api.BearerStandardAPIdata, ctx *http
 		return err
 	}
 	if err = ch.scanner.AddContract(ctx.URLParam("contract"), startBlockU64); err != nil {
+		return err
+	}
+	resp := Reply{Ok: true}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
+}
+
+func (ch *contractHandler) snapshotChildContract(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+	atBlock, err := strconv.ParseUint(ctx.URLParam("blockNum"), 10, 64)
+	if err != nil {
+		return err
+	}
+	if err := ch.scanner.ChildSnapshot(context.Background(),
+		ctx.URLParam("contract"),
+		ctx.URLParam("childContract"),
+		atBlock); err != nil {
 		return err
 	}
 	resp := Reply{Ok: true}

@@ -91,13 +91,12 @@ func (w *Web3) GetTokenData() (*TokenData, error) {
 	return td, nil
 }
 
-func (w *Web3) Balance(ctx context.Context, address string, atBlock *big.Int) (*big.Int, error) {
+func (w *Web3) BalanceETH(ctx context.Context, address string, atBlock *big.Int) (*big.Int, error) {
 	return w.client.BalanceAt(ctx, common.HexToAddress(address), atBlock)
 }
 
-func (w *Web3) TokenBalance(ctx context.Context, address string, atBlock *big.Int) (*big.Int, error) {
-
-	return w.client.BalanceAt(ctx, common.HexToAddress(address), atBlock)
+func (w *Web3) BalanceOf(tokenHolderAddress common.Address) (*big.Int, error) {
+	return w.token.BalanceOf(nil, tokenHolderAddress)
 }
 
 type TokenData struct {
@@ -142,10 +141,6 @@ func (w *Web3) ScanERC20Holders(ctx context.Context,
 		return 0, err
 	}
 	thash.SetBytes(tbytes)
-
-	from := common.Hash{}
-	to := common.Hash{}
-	amount := big.NewInt(0)
 
 	c, err := hex.DecodeString(util.TrimHex(ts.Contract))
 	if err != nil {
@@ -219,9 +214,9 @@ func (w *Web3) ScanERC20Holders(ctx context.Context,
 				}
 				blocksToSave[l.BlockNumber] = true
 				newBlocks[l.BlockNumber] = true
-				from = l.Topics[1]
-				to = l.Topics[2]
-				amount.SetBytes(l.Data)
+				from := l.Topics[1]
+				to := l.Topics[2]
+				amount := new(big.Int).SetBytes(l.Data)
 				fromAddr := common.BytesToAddress(from.Bytes())
 				toAddr := common.BytesToAddress(to.Bytes())
 				if err := ts.Add(toAddr, amount); err != nil {
@@ -252,7 +247,7 @@ func (w *Web3) SnapshotChildERC20Holders(ctx context.Context,
 	// Get the list of token holders from the parent contract
 	for addr := range parent.List() {
 		// Get the balance of the token holder
-		balance, err := w.Balance(ctx, addr, big.NewInt(int64(atBlock)))
+		balance, err := w.BalanceOf(common.HexToAddress(addr))
 		if err != nil {
 			return err
 		}
@@ -262,8 +257,4 @@ func (w *Web3) SnapshotChildERC20Holders(ctx context.Context,
 		}
 	}
 	return nil
-}
-
-func (w *Web3) BalanceOf(tokenHolderAddress common.Address) (*big.Int, error) {
-	return w.token.BalanceOf(nil, tokenHolderAddress)
 }

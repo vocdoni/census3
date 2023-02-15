@@ -42,6 +42,12 @@ func NewNation3Scanner(dataDir string, w3uri string) (*Nation3Scanner, error) {
 func (s *Nation3Scanner) Start(ctx context.Context) {
 	// load existing contracts
 	log.Infof("loading stored contracts...")
+	contractAddresses := [3]string{
+		"3337dac9F251d4E403D6030E18e3cfB6a2cb1333", // PASSPORT
+		"F7deF1D2FBDA6B74beE7452fdf7894Da9201065d", // VENATION
+		"333A4823466879eeF910A04D473505da62142069", // NATION3
+	}
+	s.AddContracts(contractAddresses, 14866289)
 	for _, c := range s.ListContracts() {
 		contract, err := s.GetContract(c)
 		if err != nil {
@@ -57,10 +63,6 @@ func (s *Nation3Scanner) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			contractAddresses := [3]string{}
-			for idx, c := range s.ListContracts() {
-				contractAddresses[idx] = c
-			}
 			if err := s.scanTokens(ctx, contractAddresses); err != nil {
 				log.Error(err)
 			}

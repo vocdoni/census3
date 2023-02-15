@@ -222,9 +222,25 @@ func (t *ContractState) List() map[string]*big.Float {
 		}
 		return false
 	})
-	amounts["holders"] = big.NewFloat(float64(holders))
-	amounts["total"] = total
 	return amounts
+}
+
+// TotalHolders returns the number of holders and the total amount.
+func (t *ContractState) TotalHolders() (int, *big.Float) {
+	t.snapshotLock.RLock()
+	defer t.snapshotLock.RUnlock()
+	total := big.NewFloat(0)
+	zero := big.NewFloat(0)
+	holders := 0
+	t.tree.IterateLeaves(nil, func(k, v []byte) bool {
+		af := new(big.Float).SetInt(new(big.Int).SetBytes(v))
+		af.Quo(af, t.decimals)
+		if af.Cmp(zero) > 0 {
+			holders++
+		}
+		return false
+	})
+	return holders, total
 }
 
 func (t *ContractState) loadTree() error {

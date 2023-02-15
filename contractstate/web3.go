@@ -91,8 +91,13 @@ func (w *Web3) GetTokenData() (*TokenData, error) {
 	return td, nil
 }
 
-func (w *Web3) Balance(ctx context.Context, address string) (*big.Int, error) {
-	return w.client.BalanceAt(ctx, common.HexToAddress(address), nil)
+func (w *Web3) Balance(ctx context.Context, address string, atBlock *big.Int) (*big.Int, error) {
+	return w.client.BalanceAt(ctx, common.HexToAddress(address), atBlock)
+}
+
+func (w *Web3) TokenBalance(ctx context.Context, address string, atBlock *big.Int) (*big.Int, error) {
+
+	return w.client.BalanceAt(ctx, common.HexToAddress(address), atBlock)
 }
 
 type TokenData struct {
@@ -238,4 +243,23 @@ func (w *Web3) ScanERC20Holders(ctx context.Context,
 		}
 	}
 	return toBlock, nil
+}
+
+// SnapshotChildERC20Holders scans the Ethereum network and updates the token holders state for the child contract.
+// The list of token holders is taken from the parent contract.
+func (w *Web3) SnapshotChildERC20Holders(ctx context.Context,
+	parent, child *ContractState, atBlock uint64) error {
+	// Get the list of token holders from the parent contract
+	for addr := range parent.List() {
+		// Get the balance of the token holder
+		balance, err := w.Balance(ctx, addr, big.NewInt(int64(atBlock)))
+		if err != nil {
+			return err
+		}
+		// Add the token holder to the child contract state
+		if err := child.Add(common.HexToAddress(addr), balance); err != nil {
+			log.Error(err)
+		}
+	}
+	return nil
 }

@@ -5,7 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
+	"time"
 
+	eth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	nation3Passportcontracts "github.com/vocdoni/tokenstate/contracts/nation3/passport"
@@ -20,6 +23,18 @@ const (
 	PASSPORT = iota
 	VENATION
 	NATION3
+)
+
+const (
+	PASSPORT_TRANSFER_LOG_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+	VENATION_DEPOSIT_LOG_TOPIC  = "0x4566dfc29f6f11d13a418c26a02bef7c28bae749d4de47e4e6a7cddea6730d59"
+	VENATION_WITHDRAW_LOG_TOPIC = "0xf279e6a1f5e320cca91135676d9cb6e44ca8a08c0b88342bcdb1144f6511b568"
+)
+
+const (
+	maxScanBlocksPerIteration = 1000000
+	maxScanLogsPerIteration   = 80000
+	blocksToScanAtOnce        = 5000
 )
 
 type Contracts struct {
@@ -193,4 +208,274 @@ func (n *Nation3) BalanceOfOrAt(ctx context.Context, op uint8, address string, a
 	}
 
 	return balance, nil
+}
+
+// GetTotalPassports returns the total number of passports
+func (n *Nation3) GetTotalPassports(ctx context.Context) (*big.Int, error) {
+	// nextId - 1 = total passports
+	nextId, err := n.contacts.Passport.GetNextId(nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get next passport id: %s", err)
+	}
+	total := big.NewInt(0)
+	total.Sub(nextId, big.NewInt(1))
+	return total, nil
+}
+
+// ScanPassportHolders scans the Ethereum network and updates the nation3 passport holders state
+func (n *Nation3) ScanPassportHolders(ctx context.Context,
+	ts *contractstate.ContractState, fromBlock uint64) (uint64, error) {
+
+	thash := common.Hash{}
+	tbytes, err := hex.DecodeString(PASSPORT_TRANSFER_LOG_TOPIC)
+	if err != nil {
+		return 0, err
+	}
+	thash.SetBytes(tbytes)
+
+	from := common.Hash{}
+	to := common.Hash{}
+	id := big.NewInt(0)
+
+	c, err := hex.DecodeString(util.TrimHex(ts.Contract))
+	if err != nil {
+		return 0, err
+	}
+	caddr := common.Address{}
+	caddr.SetBytes(c)
+
+	header, err := n.client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	toBlock := header.Number.Uint64()
+	if fromBlock >= toBlock {
+		log.Infof("no new blocks to scan for %s", ts.Contract)
+		return toBlock, nil
+	}
+	if toBlock-fromBlock > maxScanBlocksPerIteration {
+		toBlock = fromBlock + maxScanBlocksPerIteration
+	}
+	var blocks uint64
+	var logCount int
+	blocks = uint64(blocksToScanAtOnce)
+	newBlocks := make(map[uint64]bool)
+	log.Infof("start scan iteration for %s from block %d to %d (%d)",
+		ts.Contract, fromBlock, toBlock, toBlock-fromBlock)
+
+	for fromBlock < toBlock {
+		select {
+		// check if we need to close due context signal
+		case <-ctx.Done():
+			log.Warnf("scan graceful canceled by context")
+			return fromBlock, nil
+
+		default:
+			startTime := time.Now()
+			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlock,
+				fromBlock+blocks, (fromBlock*100)/toBlock)
+			query := eth.FilterQuery{
+				Addresses: []common.Address{caddr},
+				Topics:    [][]common.Hash{{thash}},
+				FromBlock: big.NewInt(int64(fromBlock)),
+				ToBlock:   big.NewInt(int64(fromBlock + blocks)),
+			}
+			ctx2, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+			logs, err := n.client.FilterLogs(ctx2, query)
+			if err != nil {
+				if strings.Contains(err.Error(), "query returned more than") {
+					blocks = blocks / 2
+					log.Warnf("too much results on query, decreasing blocks to %d", blocks)
+					continue
+				} else {
+					return fromBlock, err
+				}
+			}
+
+			fromBlock += blocks
+			if len(logs) == 0 {
+				continue
+			}
+			logCount += len(logs)
+			log.Infof("found %d logs, iteration count %d", len(logs), logCount)
+			blocksToSave := make(map[uint64]bool)
+			for _, l := range logs {
+				if _, ok := newBlocks[l.BlockNumber]; !ok {
+					if ts.HasBlock(l.BlockNumber) {
+						log.Debugf("found already processed block %d", fromBlock)
+						continue
+					}
+				}
+				blocksToSave[l.BlockNumber] = true
+				newBlocks[l.BlockNumber] = true
+				from = l.Topics[1]
+				to = l.Topics[2]
+				id.SetBytes(l.Data)
+				fromAddr := common.BytesToAddress(from.Bytes())
+				toAddr := common.BytesToAddress(to.Bytes())
+				if err := ts.Add(toAddr, id); err != nil {
+					log.Error(err)
+				}
+				if err := ts.Sub(fromAddr, id); err != nil {
+					log.Error(err)
+				}
+			}
+			for k := range blocksToSave {
+				ts.Save(k)
+			}
+			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
+				1000*float32(len(blocksToSave))/float32(time.Now().Sub(startTime).Milliseconds()))
+			// check if we need to exit because max logs reached for iteration
+			if logCount > maxScanLogsPerIteration {
+				return fromBlock, nil
+			}
+		}
+	}
+	return toBlock, nil
+}
+
+// ScanVeNationHolders scans the Ethereum network and updates the venation token holders state
+func (n *Nation3) ScanVeNationHolders(ctx context.Context,
+	ts *contractstate.ContractState, fromBlock uint64) (uint64, error) {
+
+	// deposit
+	thash := common.Hash{}
+	tbytes, err := hex.DecodeString(VENATION_DEPOSIT_LOG_TOPIC)
+	if err != nil {
+		return 0, err
+	}
+	thash.SetBytes(tbytes)
+	// whitdraw
+	thash2 := common.Hash{}
+	tbytes2, err := hex.DecodeString(VENATION_WITHDRAW_LOG_TOPIC)
+	if err != nil {
+		return 0, err
+	}
+	thash2.SetBytes(tbytes2)
+
+	from := common.Hash{}
+	to := common.Hash{}
+
+	c, err := hex.DecodeString(util.TrimHex(ts.Contract))
+	if err != nil {
+		return 0, err
+	}
+	caddr := common.Address{}
+	caddr.SetBytes(c)
+
+	header, err := n.client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	toBlock := header.Number.Uint64()
+	if fromBlock >= toBlock {
+		log.Infof("no new blocks to scan for %s", ts.Contract)
+		return toBlock, nil
+	}
+	if toBlock-fromBlock > maxScanBlocksPerIteration {
+		toBlock = fromBlock + maxScanBlocksPerIteration
+	}
+	var blocks uint64
+	var logCount int
+	blocks = uint64(blocksToScanAtOnce)
+	newBlocks := make(map[uint64]bool)
+	log.Infof("start scan iteration for %s from block %d to %d (%d)",
+		ts.Contract, fromBlock, toBlock, toBlock-fromBlock)
+
+	for fromBlock < toBlock {
+		select {
+		// check if we need to close due context signal
+		case <-ctx.Done():
+			log.Warnf("scan graceful canceled by context")
+			return fromBlock, nil
+
+		default:
+			startTime := time.Now()
+			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlock,
+				fromBlock+blocks, (fromBlock*100)/toBlock)
+			query := eth.FilterQuery{
+				Addresses: []common.Address{caddr},
+				Topics:    [][]common.Hash{{thash}, {thash2}},
+				FromBlock: big.NewInt(int64(fromBlock)),
+				ToBlock:   big.NewInt(int64(fromBlock + blocks)),
+			}
+			ctx2, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+			logs, err := n.client.FilterLogs(ctx2, query)
+			if err != nil {
+				if strings.Contains(err.Error(), "query returned more than") {
+					blocks = blocks / 2
+					log.Warnf("too much results on query, decreasing blocks to %d", blocks)
+					continue
+				} else {
+					return fromBlock, err
+				}
+			}
+
+			fromBlock += blocks
+			if len(logs) == 0 {
+				continue
+			}
+			logCount += len(logs)
+			log.Infof("found %d logs, iteration count %d", len(logs), logCount)
+			blocksToSave := make(map[uint64]bool)
+			for _, l := range logs {
+				switch l.Topics[0] {
+				case thash: // DEPOSIT
+					if _, ok := newBlocks[l.BlockNumber]; !ok {
+						if ts.HasBlock(l.BlockNumber) {
+							log.Debugf("found already processed block %d", fromBlock)
+							continue
+						}
+					}
+					blocksToSave[l.BlockNumber] = true
+					newBlocks[l.BlockNumber] = true
+					from = l.Topics[1]
+					to = l.Topics[2] // todo: amount not indexed in topic[2] extract from logData at first position
+					amount := big.NewInt(0)
+					amount.SetBytes(l.Data)
+					fromAddr := common.BytesToAddress(from.Bytes())
+					toAddr := common.BytesToAddress(to.Bytes())
+					if err := ts.Add(toAddr, amount); err != nil {
+						log.Error(err)
+					}
+					if err := ts.Sub(fromAddr, amount); err != nil {
+						log.Error(err)
+					}
+				case thash2: // WITHDRAW
+					if _, ok := newBlocks[l.BlockNumber]; !ok {
+						if ts.HasBlock(l.BlockNumber) {
+							log.Debugf("found already processed block %d", fromBlock)
+							continue
+						}
+					}
+					blocksToSave[l.BlockNumber] = true
+					newBlocks[l.BlockNumber] = true
+					from = l.Topics[1]
+					to = l.Topics[2]
+					amount := big.NewInt(0)
+					amount.SetBytes(l.Data)
+					fromAddr := common.BytesToAddress(from.Bytes())
+					toAddr := common.BytesToAddress(to.Bytes())
+					if err := ts.Add(toAddr, amount); err != nil {
+						log.Error(err)
+					}
+					if err := ts.Sub(fromAddr, amount); err != nil {
+						log.Error(err)
+					}
+				}
+			}
+			for k := range blocksToSave {
+				ts.Save(k)
+			}
+			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
+				1000*float32(len(blocksToSave))/float32(time.Now().Sub(startTime).Milliseconds()))
+			// check if we need to exit because max logs reached for iteration
+			if logCount > maxScanLogsPerIteration {
+				return fromBlock, nil
+			}
+		}
+	}
+	return toBlock, nil
 }

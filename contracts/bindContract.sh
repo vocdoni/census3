@@ -1,3 +1,3 @@
 #!/bin/sh
 
-abigen --abi=IERC20.abi --pkg=contracts --out=IERC20.go
+abigen --abi=ERC20.abi --pkg=contracts --out=erc20.go

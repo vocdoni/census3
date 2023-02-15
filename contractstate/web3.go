@@ -263,3 +263,7 @@ func (w *Web3) SnapshotChildERC20Holders(ctx context.Context,
 	}
 	return nil
 }
+
+func (w *Web3) BalanceOf(tokenHolderAddress common.Address) (*big.Int, error) {
+	return w.token.BalanceOf(nil, tokenHolderAddress)
+}

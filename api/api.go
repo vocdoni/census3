@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/vocdoni/tokenstate/contractstate"
 	"github.com/vocdoni/tokenstate/service"
 	"go.vocdoni.io/dvote/crypto/ethereum"
 	"go.vocdoni.io/dvote/httprouter"
@@ -28,8 +30,13 @@ func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.S
 		return err
 	}
 	endpoint, err := api.NewBearerStandardAPI(&r, "/api")
+	if err != nil {
+		return err
+	}
 	ch := contractHandler{scanner: scanner}
-	endpoint.RegisterMethod("/addContract/{contract}/{startBlock}", "GET",
+	endpoint.RegisterMethod("/supportedContracts", "GET",
+		api.MethodAccessTypePublic, ch.supportedContracts)
+	endpoint.RegisterMethod("/addContract/{contract}/{type}/{startBlock}", "GET",
 		api.MethodAccessTypePublic, ch.addContract)
 	endpoint.RegisterMethod("/snapshot/{contract}/child/{childContract}/block/{blockNum}", "GET",
 		api.MethodAccessTypePublic, ch.snapshotChildContract)
@@ -56,6 +63,18 @@ type contractHandler struct {
 	scanner *service.Scanner
 }
 
+func (ch *contractHandler) supportedContracts(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+	resp := Reply{Ok: true, Contracts: make([]string, 0)}
+	for k := range contractstate.ContractTypeIntMap {
+		resp.Contracts = append(resp.Contracts, k)
+	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return err
+	}
+	return ctx.Send(data, api.HTTPstatusCodeOK)
+}
+
 func (ch *contractHandler) addContract(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
 	startBlock := ctx.URLParam("startBlock")
 	if startBlock == "" {
@@ -65,7 +84,14 @@ func (ch *contractHandler) addContract(msg *api.BearerStandardAPIdata, ctx *http
 	if err != nil {
 		return err
 	}
-	if err = ch.scanner.AddContract(ctx.URLParam("contract"), startBlockU64); err != nil {
+	// get contract type from url param type
+	cType := ctx.URLParam("type")
+	if cType == "" {
+		return fmt.Errorf("contract type not specified")
+	}
+	ccType := contractstate.ContractTypeFromString(cType)
+	contract := common.HexToAddress(ctx.URLParam("contract"))
+	if err = ch.scanner.AddContract(contract, ccType, startBlockU64); err != nil {
 		return err
 	}
 	resp := Reply{Ok: true}
@@ -97,7 +123,10 @@ func (ch *contractHandler) snapshotChildContract(msg *api.BearerStandardAPIdata,
 
 func (ch *contractHandler) listContracts(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
 	resp := &Reply{Ok: true}
-	resp.Contracts = ch.scanner.ListContracts()
+	contracts := ch.scanner.ListContracts()
+	for _, c := range contracts {
+		resp.Contracts = append(resp.Contracts, c.Hex())
+	}
 	data, err := json.Marshal(resp)
 	if err != nil {
 		return err
@@ -108,7 +137,7 @@ func (ch *contractHandler) listContracts(msg *api.BearerStandardAPIdata, ctx *ht
 func (ch *contractHandler) getContract(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
 	var err error
 	resp := &Reply{Ok: true}
-	resp.Token, err = ch.scanner.GetContract(ctx.URLParam("contract"))
+	resp.Token, err = ch.scanner.GetContract(common.HexToAddress(ctx.URLParam("contract")))
 	if err != nil {
 		return err
 	}
@@ -121,7 +150,7 @@ func (ch *contractHandler) getContract(msg *api.BearerStandardAPIdata, ctx *http
 }
 
 func (ch *contractHandler) root(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
-	token, err := ch.scanner.GetContract(ctx.URLParam("contract"))
+	token, err := ch.scanner.GetContract(common.HexToAddress(ctx.URLParam("contract")))
 	if err != nil {
 		return err
 	}
@@ -133,7 +162,7 @@ func (ch *contractHandler) root(msg *api.BearerStandardAPIdata, ctx *httprouter.
 		if err != nil {
 			return err
 		}
-		root, err := ch.scanner.Root(token.Contract, uint64(height))
+		root, err := ch.scanner.Root(token.Address, uint64(height))
 		if err != nil {
 			return err
 		}
@@ -147,7 +176,7 @@ func (ch *contractHandler) root(msg *api.BearerStandardAPIdata, ctx *httprouter.
 }
 
 func (ch *contractHandler) dumpBalances(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
-	balances, err := ch.scanner.Balances(ctx.URLParam("contract"))
+	balances, err := ch.scanner.Balances(common.HexToAddress(ctx.URLParam("contract")))
 	if err != nil {
 		return err
 	}
@@ -161,7 +190,7 @@ func (ch *contractHandler) dumpBalances(msg *api.BearerStandardAPIdata, ctx *htt
 func (ch *contractHandler) exportTree(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
 	var err error
 	resp := &Reply{Ok: true}
-	resp.Block, err = ch.scanner.QueueExport(ctx.URLParam("contract"))
+	resp.Block, err = ch.scanner.QueueExport(common.HexToAddress(ctx.URLParam("contract")))
 	if err != nil {
 		return err
 	}
@@ -179,7 +208,7 @@ func (ch *contractHandler) fetchTree(msg *api.BearerStandardAPIdata, ctx *httpro
 		return err
 	}
 	resp := &Reply{Ok: true}
-	resp.Data, err = ch.scanner.FetchExport(ctx.URLParam("contract"), uint64(block))
+	resp.Data, err = ch.scanner.FetchExport(common.HexToAddress(ctx.URLParam("contract")), uint64(block))
 	if err != nil {
 		return err
 	}
@@ -191,7 +220,7 @@ func (ch *contractHandler) fetchTree(msg *api.BearerStandardAPIdata, ctx *httpro
 }
 
 func (ch *contractHandler) rescan(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
-	if err := ch.scanner.RescanContract(ctx.URLParam("contract")); err != nil {
+	if err := ch.scanner.RescanContract(common.HexToAddress(ctx.URLParam("contract"))); err != nil {
 		return err
 	}
 	resp := &Reply{Ok: true}

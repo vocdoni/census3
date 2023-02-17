@@ -18,17 +18,17 @@ import (
 	"go.vocdoni.io/dvote/types"
 )
 
-const (
-	amountsTreeName = "amounts"
-	blocksTreeName  = "blocks"
-)
-
 type ContractState struct {
-	Contract     string
-	tree         *dvoteTree.Tree
-	treeDataDir  string
-	blocksKV     db.Database
-	decimals     *big.Float
+	// address is the contract address
+	address common.Address
+	// ctype is the contract type (erc20, erc721, erc1155, erc777, custom...)
+	ctype ContractType
+	// decimals is the number of decimals if the contract is a token contract
+	decimals    *big.Float
+	treeDataDir string
+	tree        *dvoteTree.Tree
+	blocksKV    db.Database
+
 	snapshotLock sync.RWMutex
 }
 
@@ -37,32 +37,31 @@ type Proof struct {
 	Siblings types.HexBytes
 }
 
-func (t *ContractState) Init(datadir, contract string, decimals int) error {
-	t.treeDataDir = filepath.Join(datadir, contract, "tree")
+func (t *ContractState) Init(datadir string, address common.Address, ctype ContractType, decimals int) error {
+	log.Infof("initializing contract %s of type %d", address, ctype)
+	t.treeDataDir = filepath.Join(datadir, address.Hex(), "tree")
 	if err := t.loadTree(); err != nil {
 		return err
 	}
 	var err error
-	t.blocksKV, err = metadb.New(
+	if t.blocksKV, err = metadb.New(
 		db.TypePebble,
-		filepath.Join(datadir, contract, "blocks"),
-	)
-	if err != nil {
+		filepath.Join(datadir, address.Hex(), "blocks"),
+	); err != nil {
 		return err
 	}
-	t.Contract = contract
+	t.address = address
+	t.ctype = ctype
 	t.decimals = big.NewFloat(math.Pow(10, float64(decimals)))
 	return nil
 }
 
-func (t *ContractState) InitSnapshot(datadir, contract string, decimals int, atBlock uint64) error {
-	t.treeDataDir = filepath.Join(datadir, contract, "snapshotTree", fmt.Sprintf("%d", atBlock))
-	if err := t.loadTree(); err != nil {
-		return err
-	}
-	t.Contract = contract
-	t.decimals = big.NewFloat(math.Pow(10, float64(decimals)))
-	return nil
+func (t *ContractState) Address() common.Address {
+	return t.address
+}
+
+func (t *ContractState) Type() ContractType {
+	return t.ctype
 }
 
 func (t *ContractState) Add(address common.Address, amount *big.Int) error {
@@ -87,13 +86,19 @@ func (t *ContractState) Sub(address common.Address, amount *big.Int) error {
 	return t.store(address, stAmount)
 }
 
+func (t *ContractState) Reset(address common.Address) error {
+	t.snapshotLock.Lock()
+	defer t.snapshotLock.Unlock()
+	return t.store(address, big.NewInt(0))
+}
+
 func (t *ContractState) LastRoot() ([]byte, error) {
 	t.snapshotLock.RLock()
 	defer t.snapshotLock.RUnlock()
 	return t.tree.Root(t.tree.DB().ReadTx())
 }
 
-func (t *ContractState) Root(blocknum uint64) ([]byte, error) {
+func (t *ContractState) BlockRootHash(blocknum uint64) ([]byte, error) {
 	t.snapshotLock.RLock()
 	defer t.snapshotLock.RUnlock()
 	tx := t.blocksKV.ReadTx()
@@ -114,7 +119,7 @@ func (t *ContractState) Snapshot() error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("snapshot took %s", time.Now().Sub(startTime))
+	log.Debugf("snapshot took %s", time.Since(startTime))
 	log.Infof("snapshot dump has %d bytes", len(dump))
 	log.Debugf("removing tree...")
 	if err := t.removeTree(); err != nil {
@@ -129,7 +134,7 @@ func (t *ContractState) Snapshot() error {
 	if err := t.tree.ImportDump(dump); err != nil {
 		return err
 	}
-	log.Debugf("snapshot import took %s", time.Now().Sub(startTime))
+	log.Debugf("snapshot import took %s", time.Since(startTime))
 	return err
 }
 
@@ -159,7 +164,7 @@ func (t *ContractState) GenProof(key []byte) (*Proof, error) {
 	}, nil
 }
 
-func (t *ContractState) Export() ([]byte, error) {
+func (t *ContractState) ExportTree() ([]byte, error) {
 	t.snapshotLock.Lock()
 	defer t.snapshotLock.Unlock()
 	log.Debugf("creating export dump...")
@@ -171,13 +176,13 @@ func (t *ContractState) Export() ([]byte, error) {
 	return dump, nil
 }
 
-func (t *ContractState) Import(dump []byte) error {
+func (t *ContractState) ImportTree(dump []byte) error {
 	t.snapshotLock.Lock()
 	defer t.snapshotLock.Unlock()
 	return t.tree.ImportDump(dump)
 }
 
-func (t *ContractState) Save(blocknum uint64) error {
+func (t *ContractState) SaveBlock(blocknum uint64) error {
 	t.snapshotLock.Lock()
 	defer t.snapshotLock.Unlock()
 	root, err := t.tree.Root(t.tree.DB().ReadTx())
@@ -201,7 +206,7 @@ func (t *ContractState) HasBlock(blocknum uint64) bool {
 	return err == nil
 }
 
-func (t *ContractState) Close() {
+func (t *ContractState) CloseBlocksDB() {
 	t.snapshotLock.RLock()
 	defer t.snapshotLock.RUnlock()
 	t.blocksKV.Close()
@@ -222,43 +227,32 @@ func (t *ContractState) Get(address common.Address) (*big.Int, error) {
 	return stAmount, nil
 }
 
-func (t *ContractState) List() map[string]*big.Float {
+func (t *ContractState) Holders() map[common.Address]*big.Int {
 	t.snapshotLock.RLock()
 	defer t.snapshotLock.RUnlock()
-	amounts := make(map[string]*big.Float)
-	total := big.NewFloat(0)
-	zero := big.NewFloat(0)
-	null := common.Address{}
-	holders := 0
+	holders := make(map[common.Address]*big.Int)
 	t.tree.IterateLeaves(nil, func(k, v []byte) bool {
-		af := new(big.Float).SetInt(new(big.Int).SetBytes(v))
-		af.Quo(af, t.decimals)
-		if af.Cmp(zero) > 0 {
-			addr := common.BytesToAddress(k)
-			if addr != null {
-				amounts[addr.Hex()] = af
-				total.Add(total, af)
-				holders++
-			}
+		af := new(big.Int).SetBytes(v)
+		if af.Cmp(big.NewInt(0)) > 0 {
+			holders[common.BytesToAddress(k)] = af
 		}
 		return false
 	})
-	return amounts
+	return holders
 }
 
-// TotalHolders returns the number of holders and the total amount.
-func (t *ContractState) TotalHolders() (int, *big.Float) {
+// TotalHoldersAndAmount returns the number of holders and the total amount.
+func (t *ContractState) TotalHoldersAndAmount() (int, *big.Int) {
 	t.snapshotLock.RLock()
 	defer t.snapshotLock.RUnlock()
-	total := big.NewFloat(0)
-	zero := big.NewFloat(0)
+	total := big.NewInt(0)
 	holders := 0
 	t.tree.IterateLeaves(nil, func(k, v []byte) bool {
-		af := new(big.Float).SetInt(new(big.Int).SetBytes(v))
-		af.Quo(af, t.decimals)
-		if af.Cmp(zero) > 0 {
+		af := new(big.Int).SetBytes(v)
+		if af.Cmp(big.NewInt(0)) > 0 {
 			holders++
 		}
+		total.Add(total, af)
 		return false
 	})
 	return holders, total
@@ -272,15 +266,17 @@ func (t *ContractState) loadTree() error {
 	if err != nil {
 		return err
 	}
-	t.tree, err = dvoteTree.New(
+	if t.tree, err = dvoteTree.New(
 		nil,
 		dvoteTree.Options{
 			DB:        treeKV,
 			HashFunc:  arbo.HashFunctionPoseidon,
 			MaxLevels: 160,
 		},
-	)
-	return err
+	); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (t *ContractState) removeTree() error {

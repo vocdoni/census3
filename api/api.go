@@ -35,6 +35,10 @@ func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.S
 	ch := contractHandler{scanner: scanner}
 	endpoint.RegisterMethod("/supportedContracts", "GET",
 		api.MethodAccessTypePublic, ch.supportedContracts)
+	// TODO: Start block not required, get the block where the contract was deployed.
+	// Using a startblock can lead to errors on token holders and balances as some logs
+	// can be missed.
+	// To get the block where the contract was deployed use the GetTransactionReceipt JSONRPC call
 	endpoint.RegisterMethod("/addContract/{contract}/{type}/{startBlock}", "GET",
 		api.MethodAccessTypePublic, ch.addContract)
 	endpoint.RegisterMethod("/listContracts", "GET",

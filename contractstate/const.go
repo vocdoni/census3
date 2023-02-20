@@ -10,6 +10,8 @@ const (
 	CONTRACT_TYPE_ERC1155
 	CONTRACT_TYPE_ERC777
 	CONTRACT_TYPE_CUSTOM_NATION3_VENATION
+	CONTRACT_TYPE_ERC897
+	CONTRACT_TYPE_CUSTOM_ARAGON_WANT
 )
 
 var ContractTypeStringMap = map[ContractType]string{
@@ -18,7 +20,9 @@ var ContractTypeStringMap = map[ContractType]string{
 	CONTRACT_TYPE_ERC721:                  "erc721",
 	CONTRACT_TYPE_ERC1155:                 "erc1155",
 	CONTRACT_TYPE_ERC777:                  "erc777",
+	CONTRACT_TYPE_ERC897:                  "erc897",
 	CONTRACT_TYPE_CUSTOM_NATION3_VENATION: "nation3",
+	CONTRACT_TYPE_CUSTOM_ARAGON_WANT:      "want",
 }
 
 var ContractTypeIntMap = map[string]ContractType{
@@ -28,6 +32,8 @@ var ContractTypeIntMap = map[string]ContractType{
 	"erc1155": CONTRACT_TYPE_ERC1155,
 	"erc777":  CONTRACT_TYPE_ERC777,
 	"nation3": CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
+	"erc897":  CONTRACT_TYPE_ERC897,
+	"want":    CONTRACT_TYPE_CUSTOM_ARAGON_WANT,
 }
 
 func (c ContractType) String() string {
@@ -51,6 +57,8 @@ const (
 	LOG_TOPIC_ERC20_TRANSFER          = "ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 	LOG_TOPIC_ERC1155_TRANSFER_SINGLE = "c3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62"
 	LOG_TOPIC_ERC1155_TRANSFER_BATCH  = "4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb"
+	LOG_TOPIC_WANT_DEPOSIT            = "e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c"
+	LOG_TOPIC_WANT_WITHDRAWAL         = "7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"
 	// Add more topics here
 
 	// OTHER CONSTANTS

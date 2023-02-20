@@ -8,3 +8,7 @@ abigen --abi=./openzeppelin/erc777/ERC777.abi --pkg=ERC777Contract --out=./openz
 abigen --abi=./nation3/passport/passport.abi --pkg=Nation3PassportContract --out=./nation3/passport/passport.go
 abigen --abi=./nation3/vestedToken/veNation.abi --pkg=Nation3VestedTokenContract --out=./nation3/vestedToken/veNation.go
 abigen --abi=./nation3/token/nation3.abi --pkg=Nation3TokenContract --out=./nation3/token/nation3.go
+
+abigen --abi=./proxy/erc897/erc897.abi --pkg=ERC897Contract --out=./proxy/erc897/erc897.go
+
+abigen --abi=./aragon/want/want.abi --pkg=AragonWrappedANTTokenContract --out=./aragon/want/want.go

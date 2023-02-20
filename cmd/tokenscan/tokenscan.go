@@ -36,8 +36,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	api.Init("0.0.0.0", *port, &signer, sc)
-	ctx, close := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	go sc.Start(ctx)
 
 	// Wait for SIGTERM
@@ -45,8 +46,8 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 	log.Warnf("received SIGTERM, exiting at %s", time.Now().Format(time.RFC850))
-	close()
+	cancel()
 	log.Infof("waiting for routines to end gracefuly...")
-	time.Sleep(12 * time.Second)
+	time.Sleep(2 * time.Second)
 	os.Exit(0)
 }

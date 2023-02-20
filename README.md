@@ -9,6 +9,7 @@ The list of supported tokens is:
 - ERC1155
 - ERC777
 - Nation3 (veNation)
+- wANT
 
 It must allow to get the holders list, amounts on a specific block.
 

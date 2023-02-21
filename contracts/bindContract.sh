@@ -1,10 +1,15 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
-abigen --abi=./openzeppelin/erc20/ERC20.abi --pkg=ERC20Contract --out=./openzeppelin/erc20/erc20.go
-abigen --abi=./openzeppelin/erc721/ERC721.abi --pkg=ERC721Contract --out=./openzeppelin/erc721/erc721.go
-abigen --abi=./openzeppelin/erc1155/ERC1155.abi --pkg=ERC1155Contract --out=./openzeppelin/erc1155/erc1155.go
-abigen --abi=./openzeppelin/erc777/ERC777.abi --pkg=ERC777Contract --out=./openzeppelin/erc777/erc777.go
+set -euo pipefail
 
-abigen --abi=./nation3/vestedToken/veNation.abi --pkg=Nation3VestedTokenContract --out=./nation3/vestedToken/veNation.go
+abi() {
+  abigen --abi="$1" --pkg="$2" --out="$3"
+}
 
-abigen --abi=./aragon/want/want.abi --pkg=AragonWrappedANTTokenContract --out=./aragon/want/want.go
+abi './openzeppelin/erc20/ERC20.abi' ERC20Contract './openzeppelin/erc20/erc20.go'
+abi './openzeppelin/erc721/ERC721.abi' ERC721Contract './openzeppelin/erc721/erc721.go'
+abi './openzeppelin/erc1155/ERC1155.abi' ERC1155Contract './openzeppelin/erc1155/erc1155.go'
+abi './openzeppelin/erc777/ERC777.abi' ERC777Contract './openzeppelin/erc777/erc777.go'
+
+abi './nation3/vestedToken/veNation.abi' Nation3VestedTokenContract './nation3/vestedToken/veNation.go'
+abi './aragon/want/want.abi' AragonWrappedANTTokenContract './aragon/want/want.go'

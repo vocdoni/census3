@@ -82,11 +82,6 @@ func (w *Web3) Close() {
 	w.client.Close()
 }
 
-// Balance returns the balance of an address at a given block
-func (w *Web3) Balance(ctx context.Context, address string, atBlock *big.Int) (*big.Int, error) {
-	return w.client.BalanceAt(ctx, common.HexToAddress(address), atBlock)
-}
-
 // TokenName wraps the name() function contract call
 func (w *Web3) TokenName() (string, error) {
 	switch w.contractType {

@@ -234,7 +234,6 @@ func (s *Scanner) getOnChainContractData(contractAddress common.Address, contrac
 	}
 	return &TokenInfo{Name: td.Name, Address: contractAddress, Type: contractType, Symbol: td.Symbol,
 		TotalSupply: td.TotalSupply.String(), Decimals: td.Decimals}, nil
-
 }
 
 func (s *Scanner) scanToken(ctx context.Context, contractAddress common.Address) error {

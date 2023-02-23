@@ -30,11 +30,11 @@ const (
 )
 
 type Scanner struct {
-	dataDir    string
-	kv         db.Database
-	web3       string
-	tokens     map[common.Address]*contractstate.ContractState
-	tokensLock sync.RWMutex
+	dataDir string
+	kv      db.Database
+	web3    string
+	tokens  map[common.Address]*contractstate.ContractState
+	mutex   sync.RWMutex
 }
 
 type TokenInfo struct {
@@ -119,8 +119,8 @@ func (s *Scanner) ListContracts() []common.Address {
 }
 
 func (s *Scanner) Balances(contractAddress common.Address) (map[common.Address]*big.Int, error) {
-	s.tokensLock.RLock()
-	defer s.tokensLock.RUnlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	ts, ok := s.tokens[contractAddress]
 	if !ok {
 		return nil, fmt.Errorf("contract %s not added", contractAddress)
@@ -129,8 +129,8 @@ func (s *Scanner) Balances(contractAddress common.Address) (map[common.Address]*
 }
 
 func (s *Scanner) Root(contractAddress common.Address, height uint64) ([]byte, error) {
-	s.tokensLock.RLock()
-	defer s.tokensLock.RUnlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	state, ok := s.tokens[contractAddress]
 	if !ok {
 		return nil, fmt.Errorf("contract %s is unknown", contractAddress)
@@ -139,8 +139,8 @@ func (s *Scanner) Root(contractAddress common.Address, height uint64) ([]byte, e
 }
 
 func (s *Scanner) QueueExport(contractAddress common.Address) (uint64, error) {
-	s.tokensLock.RLock()
-	defer s.tokensLock.RUnlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	state, ok := s.tokens[contractAddress]
 	if !ok {
 		return 0, fmt.Errorf("contract %s is unknown", contractAddress)
@@ -172,8 +172,8 @@ func (s *Scanner) QueueExport(contractAddress common.Address) (uint64, error) {
 }
 
 func (s *Scanner) FetchExport(contractAddress common.Address, block uint64) ([]byte, error) {
-	s.tokensLock.RLock()
-	defer s.tokensLock.RUnlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return os.ReadFile(filepath.Join(
 		s.dataDir, "dumps", contractAddress.Hex(), fmt.Sprintf("%d", block)))
 }
@@ -249,7 +249,8 @@ func (s *Scanner) scanToken(ctx context.Context, contractAddress common.Address)
 	if err := w3.Init(ctx2, s.web3, contractAddress, tinfo.Type); err != nil {
 		return err
 	}
-	s.tokensLock.Lock()
+
+	s.mutex.Lock()
 	ts, ok := s.tokens[contractAddress]
 	if !ok {
 		log.Infof("initializing contract %s (%s)", contractAddress.Hex(), tinfo.Name)
@@ -257,7 +258,7 @@ func (s *Scanner) scanToken(ctx context.Context, contractAddress common.Address)
 		s.tokens[contractAddress].Init(s.dataDir, contractAddress, tinfo.Type, int(tinfo.Decimals))
 		ts = s.tokens[contractAddress]
 	}
-	s.tokensLock.Unlock()
+	s.mutex.Unlock()
 
 	if tinfo.LastBlock, err = w3.ScanTokenHolders(ctx, ts, tinfo.LastBlock+1); err != nil {
 		if strings.Contains(err.Error(), "connection reset") ||

@@ -1,0 +1,58 @@
+version: "3.7"
+
+services:
+  tokenscan:
+    image: ghcr.io/vocdoni/tokenscan:master
+    build: .
+    env_file: ".env"
+    sysctls:
+      net.core.somaxconn: 8128
+    volumes:
+      - tokenscan:/app/data
+    command:
+      - "--url=${WEB3_PROVIDER}"
+      - "--port=${PORT}"
+      - "--logLevel=${LOGLEVEL}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tokenscan.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.tokenscan.entrypoints=websecure"
+      - "traefik.http.routers.tokenscan.tls.certresolver=le"
+      - "traefik.http.routers.tokenscan.service=tokenscan"
+      - "traefik.http.services.tokenscan.loadbalancer.server.port=${PORT}"
+
+  traefik:
+    image: traefik:2.5
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    command:
+      - "--log.level=DEBUG"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.httpchallenge=true"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.le.acme.email=email@foo.bar"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+    restart: always
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - com.centurylinklabs.watchtower.enable="false"
+    command: --interval 30 --cleanup
+
+
+volumes:
+  tokenscan: {}
+  traefik: {}
+

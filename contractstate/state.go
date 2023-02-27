@@ -65,6 +65,7 @@ func (t *ContractState) Type() ContractType {
 }
 
 func (t *ContractState) Add(address common.Address, amount *big.Int) error {
+	log.Debugf("adding %s to %s", amount, address.Hex())
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 	tAmount, err := t.Get(address)
@@ -82,6 +83,7 @@ func (t *ContractState) Sub(address common.Address, amount *big.Int) error {
 	if err != nil {
 		return err
 	}
+	log.Debugf("subtracting %s to %s", amount, address.Hex())
 	tAmount.Sub(tAmount, amount)
 	return t.store(address, tAmount)
 }
@@ -201,8 +203,9 @@ func (t *ContractState) Get(address common.Address) (*big.Int, error) {
 	}
 	amount := new(big.Int).SetUint64(0)
 	if amountBytes != nil {
-		amount.SetBytes(amountBytes)
+		amount = arbo.BytesToBigInt(amountBytes)
 	}
+	log.Debugf("got %s for %s", amount, address.Hex())
 	return amount, nil
 }
 
@@ -211,7 +214,7 @@ func (t *ContractState) Holders() map[common.Address]*big.Int {
 	defer t.mutex.RUnlock()
 	holders := make(map[common.Address]*big.Int)
 	if err := t.tree.Iterate(nil, func(k, v []byte) {
-		af := new(big.Int).SetBytes(v)
+		af := arbo.BytesToBigInt(v)
 		if af.Cmp(big.NewInt(0)) > 0 {
 			holders[common.BytesToAddress(k)] = af
 		}
@@ -229,7 +232,7 @@ func (t *ContractState) TotalHoldersAndAmount() (int, *big.Int) {
 	total := big.NewInt(0)
 	holders := 0
 	if err := t.tree.Iterate(nil, func(k, v []byte) {
-		af := new(big.Int).SetBytes(v)
+		af := arbo.BytesToBigInt(v)
 		if af.Cmp(big.NewInt(0)) > 0 {
 			holders++
 		}
@@ -262,11 +265,12 @@ func (t *ContractState) loadTree() error {
 }
 
 func (t *ContractState) store(address common.Address, amount *big.Int) error {
-	if err := t.tree.Update(address.Bytes(), amount.Bytes()); err != nil {
+	if err := t.tree.Update(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount)); err != nil {
 		if err == arbo.ErrKeyNotFound {
-			return t.tree.Add(address.Bytes(), amount.Bytes())
+			return t.tree.Add(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount))
 		}
 		return err
 	}
+	log.Debugf("stored %s for %s", amount, address.Hex())
 	return nil
 }

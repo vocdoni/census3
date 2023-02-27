@@ -250,7 +250,7 @@ func (s *Scanner) scanToken(ctx context.Context, contractAddress common.Address)
 		return err
 	}
 
-	s.mutex.Lock()
+	s.mutex.RLock()
 	ts, ok := s.tokens[contractAddress]
 	if !ok {
 		log.Infof("initializing contract %s (%s)", contractAddress.Hex(), tinfo.Name)
@@ -258,7 +258,7 @@ func (s *Scanner) scanToken(ctx context.Context, contractAddress common.Address)
 		s.tokens[contractAddress].Init(s.dataDir, contractAddress, tinfo.Type, int(tinfo.Decimals))
 		ts = s.tokens[contractAddress]
 	}
-	s.mutex.Unlock()
+	s.mutex.RUnlock()
 
 	if tinfo.LastBlock, err = w3.ScanTokenHolders(ctx, ts, tinfo.LastBlock+1); err != nil {
 		if strings.Contains(err.Error(), "connection reset") ||

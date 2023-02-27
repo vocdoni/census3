@@ -53,25 +53,21 @@ func (t *ContractState) Init(datadir string, address common.Address, ctype Contr
 }
 
 func (t *ContractState) Address() common.Address {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
 	return t.address
 }
 
 func (t *ContractState) Type() ContractType {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
 	return t.ctype
 }
 
 func (t *ContractState) Add(address common.Address, amount *big.Int) error {
-	log.Debugf("adding %s to %s", amount, address.Hex())
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 	tAmount, err := t.Get(address)
 	if err != nil {
 		return err
 	}
+	log.Debugf("Adding %s to %s", amount, address.Hex())
 	tAmount.Add(tAmount, amount)
 	return t.store(address, tAmount)
 }
@@ -83,15 +79,9 @@ func (t *ContractState) Sub(address common.Address, amount *big.Int) error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("subtracting %s to %s", amount, address.Hex())
+	log.Debugf("Subtracting %s to %s", amount, address.Hex())
 	tAmount.Sub(tAmount, amount)
 	return t.store(address, tAmount)
-}
-
-func (t *ContractState) Reset(address common.Address) error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	return t.store(address, big.NewInt(0))
 }
 
 func (t *ContractState) LastRoot() ([]byte, error) {
@@ -155,8 +145,8 @@ func (t *ContractState) GenProof(key []byte) (*Proof, error) {
 }
 
 func (t *ContractState) ExportTree() ([]byte, error) {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	log.Debugf("creating export dump...")
 	dump, err := t.tree.Dump(nil)
 	if err != nil {
@@ -197,16 +187,16 @@ func (t *ContractState) HasBlock(blocknum uint64) bool {
 }
 
 func (t *ContractState) Get(address common.Address) (*big.Int, error) {
-	amountBytes, _, err := t.tree.Get(address.Bytes())
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	_, amountBytes, err := t.tree.Get(address.Bytes())
 	if err != nil && err != arbo.ErrKeyNotFound {
 		return nil, err
 	}
-	amount := new(big.Int).SetUint64(0)
-	if amountBytes != nil {
-		amount = arbo.BytesToBigInt(amountBytes)
+	if err == arbo.ErrKeyNotFound {
+		return new(big.Int).SetUint64(0), nil
 	}
-	log.Debugf("got %s for %s", amount, address.Hex())
-	return amount, nil
+	return arbo.BytesToBigInt(amountBytes), nil
 }
 
 func (t *ContractState) Holders() map[common.Address]*big.Int {
@@ -218,6 +208,7 @@ func (t *ContractState) Holders() map[common.Address]*big.Int {
 		if af.Cmp(big.NewInt(0)) > 0 {
 			holders[common.BytesToAddress(k)] = af
 		}
+		log.Debugf("Got %s with amount %s", common.BytesToAddress(k).String(), af.String())
 	}); err != nil {
 		log.Errorf("error iterating tree: %v", err)
 		return nil
@@ -265,12 +256,12 @@ func (t *ContractState) loadTree() error {
 }
 
 func (t *ContractState) store(address common.Address, amount *big.Int) error {
-	if err := t.tree.Update(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount)); err != nil {
-		if err == arbo.ErrKeyNotFound {
-			return t.tree.Add(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount))
+	log.Debugf("Storing %s for %s", amount, address.Hex())
+	if _, _, err := t.tree.Get(address.Bytes()); err != nil {
+		if err != arbo.ErrKeyNotFound {
+			return err
 		}
-		return err
+		return t.tree.Add(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount))
 	}
-	log.Debugf("stored %s for %s", amount, address.Hex())
-	return nil
+	return t.tree.Update(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount))
 }

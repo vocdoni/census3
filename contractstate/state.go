@@ -87,7 +87,9 @@ func (t *ContractState) Sub(address common.Address, amount *big.Int) error {
 func (t *ContractState) LastRoot() ([]byte, error) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	return t.tree.Root()
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	return t.tree.RootWithTx(rTx)
 }
 
 func (t *ContractState) BlockRootHash(blocknum uint64) ([]byte, error) {
@@ -101,7 +103,9 @@ func (t *ContractState) BlockRootHash(blocknum uint64) ([]byte, error) {
 func (t *ContractState) Snapshot() error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	root, err := t.tree.Root()
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	root, err := t.tree.RootWithTx(rTx)
 	if err != nil {
 		return err
 	}
@@ -165,7 +169,9 @@ func (t *ContractState) ImportTree(dump []byte) error {
 func (t *ContractState) SaveBlock(blocknum uint64) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	root, err := t.tree.Root()
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	root, err := t.tree.RootWithTx(rTx)
 	if err != nil {
 		return err
 	}
@@ -189,7 +195,9 @@ func (t *ContractState) HasBlock(blocknum uint64) bool {
 func (t *ContractState) Get(address common.Address) (*big.Int, error) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	_, amountBytes, err := t.tree.Get(address.Bytes())
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	_, amountBytes, err := t.tree.GetWithTx(rTx, address.Bytes())
 	if err != nil && err != arbo.ErrKeyNotFound {
 		return nil, err
 	}
@@ -203,12 +211,18 @@ func (t *ContractState) Holders() map[common.Address]*big.Int {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 	holders := make(map[common.Address]*big.Int)
-	if err := t.tree.Iterate(nil, func(k, v []byte) {
-		af := arbo.BytesToBigInt(v)
-		if af.Cmp(big.NewInt(0)) > 0 {
-			holders[common.BytesToAddress(k)] = af
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	if err := t.tree.IterateWithTx(rTx, nil, func(k, v []byte) {
+		if v[0] != arbo.PrefixValueLeaf {
+			return // skip non-leaf nodes
 		}
-		log.Debugf("Got %s with amount %s", common.BytesToAddress(k).String(), af.String())
+		leafK, leafV := arbo.ReadLeafValue(v)
+		af := arbo.BytesToBigInt(leafV)
+		if af.Cmp(big.NewInt(0)) > 0 {
+			holders[common.BytesToAddress(leafK)] = af
+		}
+		log.Debugf("Got %s with amount %s", common.BytesToAddress(leafK).String(), af.String())
 	}); err != nil {
 		log.Errorf("error iterating tree: %v", err)
 		return nil
@@ -222,8 +236,14 @@ func (t *ContractState) TotalHoldersAndAmount() (int, *big.Int) {
 	defer t.mutex.RUnlock()
 	total := big.NewInt(0)
 	holders := 0
-	if err := t.tree.Iterate(nil, func(k, v []byte) {
-		af := arbo.BytesToBigInt(v)
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	if err := t.tree.IterateWithTx(rTx, nil, func(k, v []byte) {
+		if v[0] != arbo.PrefixValueLeaf {
+			return // skip non-leaf nodes
+		}
+		_, leafV := arbo.ReadLeafValue(v)
+		af := arbo.BytesToBigInt(leafV)
 		if af.Cmp(big.NewInt(0)) > 0 {
 			holders++
 		}
@@ -257,11 +277,23 @@ func (t *ContractState) loadTree() error {
 
 func (t *ContractState) store(address common.Address, amount *big.Int) error {
 	log.Debugf("Storing %s for %s", amount, address.Hex())
-	if _, _, err := t.tree.Get(address.Bytes()); err != nil {
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	if _, _, err := t.tree.GetWithTx(rTx, address.Bytes()); err != nil {
 		if err != arbo.ErrKeyNotFound {
 			return err
 		}
-		return t.tree.Add(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount))
+		wTx := t.treeDB.WriteTx()
+		defer wTx.Discard()
+		if err := t.tree.AddWithTx(wTx, address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount)); err != nil {
+			return err
+		}
+		return wTx.Commit()
 	}
-	return t.tree.Update(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount))
+	wTx := t.treeDB.WriteTx()
+	defer wTx.Discard()
+	if err := t.tree.Update(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount)); err != nil {
+		return err
+	}
+	return wTx.Commit()
 }

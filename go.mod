@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	git.sr.ht/~sircmpwn/go-bare v0.0.0-20210406120253-ab86bc2846d9
-	github.com/ethereum/go-ethereum v1.11.1
+	github.com/ethereum/go-ethereum v1.11.2
 	github.com/spf13/pflag v1.0.5
 	go.vocdoni.io/dvote v1.0.4-0.20230221205441-b7102aa30624
 )

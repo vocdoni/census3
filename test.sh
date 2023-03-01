@@ -1,7 +1,0 @@
-#!/bin/bash
-curl -s 127.0.0.1:7788/api/addContract/0xa117000000f279D81A1D3cc75430fAA017FA5A2e/11000000
-sleep 10
-curl -s 127.0.0.1:7788/api/getContract/0xa117000000f279D81A1D3cc75430fAA017FA5A2e
-sleep 10
-curl -s 127.0.0.1:7788/api/balances/0xa117000000f279D81A1D3cc75430fAA017FA5A2e
-

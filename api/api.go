@@ -10,7 +10,7 @@ import (
 	"github.com/vocdoni/tokenstate/service"
 	"go.vocdoni.io/dvote/crypto/ethereum"
 	"go.vocdoni.io/dvote/httprouter"
-	api "go.vocdoni.io/dvote/httprouter/bearerstdapi"
+	api "go.vocdoni.io/dvote/httprouter/apirest"
 )
 
 type Reply struct {
@@ -28,13 +28,17 @@ func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.S
 	if err != nil {
 		return err
 	}
-	endpoint, err := api.NewBearerStandardAPI(&r, "/api")
+	endpoint, err := api.NewAPI(&r, "/api")
 	if err != nil {
 		return err
 	}
 	ch := contractHandler{scanner: scanner}
 	endpoint.RegisterMethod("/supportedContracts", "GET",
 		api.MethodAccessTypePublic, ch.supportedContracts)
+	// TODO: Start block not required, get the block where the contract was deployed.
+	// Using a startblock can lead to errors on token holders and balances as some logs
+	// can be missed.
+	// To get the block where the contract was deployed use the GetTransactionReceipt JSONRPC call
 	endpoint.RegisterMethod("/addContract/{contract}/{type}/{startBlock}", "GET",
 		api.MethodAccessTypePublic, ch.addContract)
 	endpoint.RegisterMethod("/listContracts", "GET",
@@ -60,7 +64,7 @@ type contractHandler struct {
 	scanner *service.Scanner
 }
 
-func (ch *contractHandler) supportedContracts(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) supportedContracts(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	resp := Reply{Ok: true, Contracts: make([]string, 0)}
 	for k := range contractstate.ContractTypeIntMap {
 		resp.Contracts = append(resp.Contracts, k)
@@ -72,7 +76,7 @@ func (ch *contractHandler) supportedContracts(msg *api.BearerStandardAPIdata, ct
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (ch *contractHandler) addContract(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) addContract(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	startBlock := ctx.URLParam("startBlock")
 	if startBlock == "" {
 		startBlock = "0"
@@ -99,7 +103,7 @@ func (ch *contractHandler) addContract(msg *api.BearerStandardAPIdata, ctx *http
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (ch *contractHandler) listContracts(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) listContracts(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	resp := &Reply{Ok: true}
 	contracts := ch.scanner.ListContracts()
 	for _, c := range contracts {
@@ -112,7 +116,7 @@ func (ch *contractHandler) listContracts(msg *api.BearerStandardAPIdata, ctx *ht
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (ch *contractHandler) getContract(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) getContract(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	var err error
 	resp := &Reply{Ok: true}
 	resp.Token, err = ch.scanner.GetContract(common.HexToAddress(ctx.URLParam("contract")))
@@ -127,7 +131,7 @@ func (ch *contractHandler) getContract(msg *api.BearerStandardAPIdata, ctx *http
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (ch *contractHandler) root(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) root(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	token, err := ch.scanner.GetContract(common.HexToAddress(ctx.URLParam("contract")))
 	if err != nil {
 		return err
@@ -153,7 +157,7 @@ func (ch *contractHandler) root(msg *api.BearerStandardAPIdata, ctx *httprouter.
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (ch *contractHandler) dumpBalances(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) dumpBalances(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	balances, err := ch.scanner.Balances(common.HexToAddress(ctx.URLParam("contract")))
 	if err != nil {
 		return err
@@ -165,7 +169,7 @@ func (ch *contractHandler) dumpBalances(msg *api.BearerStandardAPIdata, ctx *htt
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (ch *contractHandler) exportTree(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) exportTree(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	var err error
 	resp := &Reply{Ok: true}
 	resp.Block, err = ch.scanner.QueueExport(common.HexToAddress(ctx.URLParam("contract")))
@@ -179,7 +183,7 @@ func (ch *contractHandler) exportTree(msg *api.BearerStandardAPIdata, ctx *httpr
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (ch *contractHandler) fetchTree(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) fetchTree(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	var err error
 	block, err := strconv.Atoi(ctx.URLParam("blockNum"))
 	if err != nil {
@@ -197,7 +201,7 @@ func (ch *contractHandler) fetchTree(msg *api.BearerStandardAPIdata, ctx *httpro
 	return ctx.Send(data, api.HTTPstatusCodeOK)
 }
 
-func (ch *contractHandler) rescan(msg *api.BearerStandardAPIdata, ctx *httprouter.HTTPContext) error {
+func (ch *contractHandler) rescan(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	if err := ch.scanner.RescanContract(common.HexToAddress(ctx.URLParam("contract"))); err != nil {
 		return err
 	}

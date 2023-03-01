@@ -10,11 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	want "github.com/vocdoni/tokenstate/contracts/aragon/want"
+	erc1155 "github.com/vocdoni/tokenstate/contracts/erc/erc1155"
+	erc20 "github.com/vocdoni/tokenstate/contracts/erc/erc20"
+	erc721 "github.com/vocdoni/tokenstate/contracts/erc/erc721"
+	erc777 "github.com/vocdoni/tokenstate/contracts/erc/erc777"
 	venation "github.com/vocdoni/tokenstate/contracts/nation3/vestedToken"
-	erc1155 "github.com/vocdoni/tokenstate/contracts/openzeppelin/erc1155"
-	erc20 "github.com/vocdoni/tokenstate/contracts/openzeppelin/erc20"
-	erc721 "github.com/vocdoni/tokenstate/contracts/openzeppelin/erc721"
-	erc777 "github.com/vocdoni/tokenstate/contracts/openzeppelin/erc777"
 
 	eth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -80,11 +80,6 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string, contractAddress co
 
 func (w *Web3) Close() {
 	w.client.Close()
-}
-
-// Balance returns the balance of an address at a given block
-func (w *Web3) Balance(ctx context.Context, address string, atBlock *big.Int) (*big.Int, error) {
-	return w.client.BalanceAt(ctx, common.HexToAddress(address), atBlock)
 }
 
 // TokenName wraps the name() function contract call

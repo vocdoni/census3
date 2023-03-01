@@ -2,7 +2,6 @@ package contractstate
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -10,11 +9,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vocdoni/arbo"
 	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/db/metadb"
 	"go.vocdoni.io/dvote/log"
-	dvoteTree "go.vocdoni.io/dvote/tree"
+	arbo "go.vocdoni.io/dvote/tree/arbo"
 	"go.vocdoni.io/dvote/types"
 )
 
@@ -22,14 +20,13 @@ type ContractState struct {
 	// address is the contract address
 	address common.Address
 	// ctype is the contract type (erc20, erc721, erc1155, erc777, custom...)
-	ctype ContractType
-	// decimals is the number of decimals if the contract is a token contract
-	decimals    *big.Float
+	ctype       ContractType
 	treeDataDir string
-	tree        *dvoteTree.Tree
+	tree        *arbo.Tree
+	treeDB      db.Database
 	blocksKV    db.Database
 
-	snapshotLock sync.RWMutex
+	mutex sync.RWMutex
 }
 
 type Proof struct {
@@ -52,7 +49,6 @@ func (t *ContractState) Init(datadir string, address common.Address, ctype Contr
 	}
 	t.address = address
 	t.ctype = ctype
-	t.decimals = big.NewFloat(math.Pow(10, float64(decimals)))
 	return nil
 }
 
@@ -65,64 +61,65 @@ func (t *ContractState) Type() ContractType {
 }
 
 func (t *ContractState) Add(address common.Address, amount *big.Int) error {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
-	stAmount, err := t.Get(address)
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	tAmount, err := t.Get(address)
 	if err != nil {
 		return err
 	}
-	stAmount.Add(stAmount, amount)
-	return t.store(address, stAmount)
+	log.Debugf("Adding %s to %s", amount, address.Hex())
+	tAmount.Add(tAmount, amount)
+	return t.store(address, tAmount)
 }
 
 func (t *ContractState) Sub(address common.Address, amount *big.Int) error {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
-	stAmount, err := t.Get(address)
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	tAmount, err := t.Get(address)
 	if err != nil {
 		return err
 	}
-	stAmount.Sub(stAmount, amount)
-	return t.store(address, stAmount)
-}
-
-func (t *ContractState) Reset(address common.Address) error {
-	t.snapshotLock.Lock()
-	defer t.snapshotLock.Unlock()
-	return t.store(address, big.NewInt(0))
+	log.Debugf("Subtracting %s to %s", amount, address.Hex())
+	tAmount.Sub(tAmount, amount)
+	return t.store(address, tAmount)
 }
 
 func (t *ContractState) LastRoot() ([]byte, error) {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
-	return t.tree.Root(t.tree.DB().ReadTx())
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	return t.tree.RootWithTx(rTx)
 }
 
 func (t *ContractState) BlockRootHash(blocknum uint64) ([]byte, error) {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 	tx := t.blocksKV.ReadTx()
 	defer tx.Discard()
 	return tx.Get([]byte(fmt.Sprintf("%d", blocknum)))
 }
 
 func (t *ContractState) Snapshot() error {
-	t.snapshotLock.Lock()
-	defer t.snapshotLock.Unlock()
-	root, err := t.tree.Root(t.tree.DB().ReadTx())
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	root, err := t.tree.RootWithTx(rTx)
 	if err != nil {
 		return err
 	}
 	startTime := time.Now()
 	log.Infof("performing snapshot at root %x", root)
-	dump, err := t.tree.Dump()
+	dump, err := t.tree.Dump(nil)
 	if err != nil {
 		return err
 	}
 	log.Debugf("snapshot took %s", time.Since(startTime))
 	log.Infof("snapshot dump has %d bytes", len(dump))
 	log.Debugf("removing tree...")
-	if err := t.removeTree(); err != nil {
+	t.treeDB.Close()
+	if err := os.RemoveAll(t.treeDataDir); err != nil {
 		return err
 	}
 	log.Debugf("create new tree...")
@@ -138,23 +135,10 @@ func (t *ContractState) Snapshot() error {
 	return err
 }
 
-func (t *ContractState) Remove() error {
-	t.snapshotLock.Lock()
-	defer t.snapshotLock.Unlock()
-	log.Debugf("removing tree...")
-	if err := t.removeTree(); err != nil {
-		return err
-	}
-	log.Debugf("create new tree...")
-	return t.loadTree()
-}
-
 func (t *ContractState) GenProof(key []byte) (*Proof, error) {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
-	tx := t.tree.DB().ReadTx()
-	defer tx.Discard()
-	value, siblings, err := t.tree.GenProof(tx, key)
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	value, siblings, _, _, err := t.tree.GenProof(key)
 	if err != nil {
 		return nil, err
 	}
@@ -165,10 +149,10 @@ func (t *ContractState) GenProof(key []byte) (*Proof, error) {
 }
 
 func (t *ContractState) ExportTree() ([]byte, error) {
-	t.snapshotLock.Lock()
-	defer t.snapshotLock.Unlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	log.Debugf("creating export dump...")
-	dump, err := t.tree.Dump()
+	dump, err := t.tree.Dump(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -177,15 +161,17 @@ func (t *ContractState) ExportTree() ([]byte, error) {
 }
 
 func (t *ContractState) ImportTree(dump []byte) error {
-	t.snapshotLock.Lock()
-	defer t.snapshotLock.Unlock()
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	return t.tree.ImportDump(dump)
 }
 
 func (t *ContractState) SaveBlock(blocknum uint64) error {
-	t.snapshotLock.Lock()
-	defer t.snapshotLock.Unlock()
-	root, err := t.tree.Root(t.tree.DB().ReadTx())
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	root, err := t.tree.RootWithTx(rTx)
 	if err != nil {
 		return err
 	}
@@ -198,80 +184,90 @@ func (t *ContractState) SaveBlock(blocknum uint64) error {
 }
 
 func (t *ContractState) HasBlock(blocknum uint64) bool {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 	tx := t.blocksKV.ReadTx()
 	defer tx.Discard()
 	_, err := tx.Get([]byte(fmt.Sprintf("%d", blocknum)))
 	return err == nil
 }
 
-func (t *ContractState) CloseBlocksDB() {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
-	t.blocksKV.Close()
-	t.tree.DB().Close()
-}
-
 func (t *ContractState) Get(address common.Address) (*big.Int, error) {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
-	stAmountBytes, err := t.tree.Get(t.tree.DB().ReadTx(), address.Bytes())
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	_, amountBytes, err := t.tree.GetWithTx(rTx, address.Bytes())
 	if err != nil && err != arbo.ErrKeyNotFound {
 		return nil, err
 	}
-	stAmount := new(big.Int).SetUint64(0)
-	if stAmountBytes != nil {
-		stAmount.SetBytes(stAmountBytes)
+	if err == arbo.ErrKeyNotFound {
+		return new(big.Int).SetUint64(0), nil
 	}
-	return stAmount, nil
+	return arbo.BytesToBigInt(amountBytes), nil
 }
 
 func (t *ContractState) Holders() map[common.Address]*big.Int {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 	holders := make(map[common.Address]*big.Int)
-	t.tree.IterateLeaves(nil, func(k, v []byte) bool {
-		af := new(big.Int).SetBytes(v)
-		if af.Cmp(big.NewInt(0)) > 0 {
-			holders[common.BytesToAddress(k)] = af
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	if err := t.tree.IterateWithTx(rTx, nil, func(k, v []byte) {
+		if v[0] != arbo.PrefixValueLeaf {
+			return // skip non-leaf nodes
 		}
-		return false
-	})
+		leafK, leafV := arbo.ReadLeafValue(v)
+		af := arbo.BytesToBigInt(leafV)
+		if af.Cmp(big.NewInt(0)) > 0 {
+			holders[common.BytesToAddress(leafK)] = af
+		}
+		log.Debugf("Got %s with amount %s", common.BytesToAddress(leafK).String(), af.String())
+	}); err != nil {
+		log.Errorf("error iterating tree: %v", err)
+		return nil
+	}
 	return holders
 }
 
 // TotalHoldersAndAmount returns the number of holders and the total amount.
 func (t *ContractState) TotalHoldersAndAmount() (int, *big.Int) {
-	t.snapshotLock.RLock()
-	defer t.snapshotLock.RUnlock()
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
 	total := big.NewInt(0)
 	holders := 0
-	t.tree.IterateLeaves(nil, func(k, v []byte) bool {
-		af := new(big.Int).SetBytes(v)
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	if err := t.tree.IterateWithTx(rTx, nil, func(k, v []byte) {
+		if v[0] != arbo.PrefixValueLeaf {
+			return // skip non-leaf nodes
+		}
+		_, leafV := arbo.ReadLeafValue(v)
+		af := arbo.BytesToBigInt(leafV)
 		if af.Cmp(big.NewInt(0)) > 0 {
 			holders++
 		}
 		total.Add(total, af)
-		return false
-	})
+	}); err != nil {
+		log.Errorf("error iterating tree: %v", err)
+		return 0, nil
+	}
 	return holders, total
 }
 
 func (t *ContractState) loadTree() error {
-	treeKV, err := metadb.New(
+	var err error
+	if t.treeDB, err = metadb.New(
 		db.TypePebble,
 		t.treeDataDir,
-	)
-	if err != nil {
+	); err != nil {
 		return err
 	}
-	if t.tree, err = dvoteTree.New(
-		nil,
-		dvoteTree.Options{
-			DB:        treeKV,
-			HashFunc:  arbo.HashFunctionPoseidon,
-			MaxLevels: 160,
+	if t.tree, err = arbo.NewTree(
+		arbo.Config{
+			Database:     t.treeDB,
+			HashFunction: arbo.HashFunctionPoseidon,
+			MaxLevels:    160,
 		},
 	); err != nil {
 		return err
@@ -279,16 +275,25 @@ func (t *ContractState) loadTree() error {
 	return nil
 }
 
-func (t *ContractState) removeTree() error {
-	_ = t.tree.DB().Close()
-	return os.RemoveAll(t.treeDataDir)
-}
-
 func (t *ContractState) store(address common.Address, amount *big.Int) error {
-	wTx := t.tree.DB().WriteTx()
+	log.Debugf("Storing %s for %s", amount, address.Hex())
+	rTx := t.treeDB.ReadTx()
+	defer rTx.Discard()
+	if _, _, err := t.tree.GetWithTx(rTx, address.Bytes()); err != nil {
+		if err != arbo.ErrKeyNotFound {
+			return err
+		}
+		wTx := t.treeDB.WriteTx()
+		defer wTx.Discard()
+		if err := t.tree.AddWithTx(wTx, address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount)); err != nil {
+			return err
+		}
+		return wTx.Commit()
+	}
+	wTx := t.treeDB.WriteTx()
 	defer wTx.Discard()
-	if err := t.tree.Set(wTx, address.Bytes(), amount.Bytes()); err != nil {
-		return fmt.Errorf("cannot store amount %s for address %x: %w", amount.String(), address.Bytes(), err)
+	if err := t.tree.Update(address.Bytes(), arbo.BigIntToBytes(len(amount.Bytes()), amount)); err != nil {
+		return err
 	}
 	return wTx.Commit()
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	want "github.com/vocdoni/census3/contracts/aragon/want"
@@ -460,14 +461,15 @@ func (w *Web3) ScanTokenHolders(ctx context.Context, ts *ContractState, fromBloc
 	return lastBlockNumber, nil
 }
 
-func (w *Web3) ScanForNewHolders(ctx context.Context, th *TokenHolders, fromBlockNumber uint64) (uint64, error) {
+func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlockNumber uint64) (uint64, error) {
 	// Posible steps:
 	// 1. Calculate lastBlockNumber and chunk size.
-	// 2. Query logs and read the transfers 'to' addresses to get holder
-	//    candidates.
-	// 3. Check the balances of the candidate holders and remove the holders
-	//    with no funds (or less than the threshold -> this logic goes to strategies).
-	// 4. Add the candidate holders to the current holders (check the holder balances during logs review).
+	// 2. Query logs and get new candidates to holder. A valid candidate is any
+	//    address with positive balance at the end of logs review. It requires
+	// 	  to take account of the countability of candidates balanceses.
+	// 3. Check the balances of the current holders that are not in the candidates,
+	//    and remove these that have not founds.
+	// 4. Add the candidate holders to the current holders.
 
 	// [1]
 	// fetch the last block header
@@ -493,7 +495,7 @@ func (w *Web3) ScanForNewHolders(ctx context.Context, th *TokenHolders, fromBloc
 	// [2]
 	logCount := 0
 	newBlocksMap := make(map[uint64]bool)
-	holdersCandidates := make([]common.Address, 0)
+	holdersCandidates := make(map[common.Address]*big.Int)
 	for fromBlockNumber < lastBlockNumber {
 		select {
 		// check if we need to close due context signal
@@ -540,7 +542,7 @@ func (w *Web3) ScanForNewHolders(ctx context.Context, th *TokenHolders, fromBloc
 			log.Infof("found %d logs, iteration count %d", len(logs), logCount)
 			// iterate over the logs and update the token holders state
 			for _, l := range logs {
-				if _, ok := newBlocksMap[l.BlockNumber]; !ok {
+				if done, ok := newBlocksMap[l.BlockNumber]; ok && done {
 					continue
 				}
 				newBlocksMap[l.BlockNumber] = true
@@ -553,7 +555,17 @@ func (w *Web3) ScanForNewHolders(ctx context.Context, th *TokenHolders, fromBloc
 						log.Errorf("error parsing log data %s", err)
 						continue
 					}
-					holdersCandidates = append(holdersCandidates, logData.To)
+
+					if toCandidate, exists := holdersCandidates[logData.To]; exists {
+						holdersCandidates[logData.To] = new(big.Int).Add(toCandidate, logData.Value)
+					} else {
+						holdersCandidates[logData.To] = logData.Value
+					}
+					if fromCandidate, exists := holdersCandidates[logData.From]; exists {
+						holdersCandidates[logData.From] = new(big.Int).Sub(fromCandidate, logData.Value)
+					} else {
+						holdersCandidates[logData.From] = new(big.Int).Neg(logData.Value)
+					}
 				}
 			}
 			// check if we need to exit because max logs reached for iteration
@@ -563,27 +575,38 @@ func (w *Web3) ScanForNewHolders(ctx context.Context, th *TokenHolders, fromBloc
 		}
 	}
 
-	// [3]
-	th.Append(holdersCandidates...)
+	// delete holder candidates with no fund
+	newHolders := make([]common.Address, 0)
+	for addr, amount := range holdersCandidates {
+		if amount.Cmp(big.NewInt(0)) != 0 {
+			newHolders = append(newHolders, addr)
+		}
+	}
 
-	// [4]
+	// [3]
+	holdersToCheck := make([]common.Address, 0)
+	for _, currentHolder := range th.Holders() {
+		if _, exists := holdersCandidates[currentHolder]; !exists {
+			holdersToCheck = append(holdersToCheck, currentHolder)
+		}
+	}
+
 	switch th.Type() {
 	case CONTRACT_TYPE_ERC20:
 		balanceOf := w.contract.(*erc20.ERC20Contract).BalanceOf
-
-		currentHolders := th.Holders()
-		for _, currentHolder := range currentHolders {
-			amount, err := balanceOf(nil, currentHolder)
+		for _, holder := range holdersToCheck {
+			amount, err := balanceOf(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(lastBlockNumber)}, holder)
 			if err != nil {
 				return 0, err
 			}
-			if amount.Cmp(big.NewInt(0)) <= 0 {
-				th.Del(currentHolder)
+			if amount.Cmp(big.NewInt(0)) == 0 {
+				th.Del(holder)
 			}
 		}
-	default:
-		return 0, fmt.Errorf("unknown contract type %d", th.Type())
 	}
+
+	// [4]
+	th.Append(newHolders...)
 	return lastBlockNumber, nil
 }
 

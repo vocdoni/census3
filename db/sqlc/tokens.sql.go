@@ -9,7 +9,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/vocdoni/census3/db/types"
+	"github.com/vocdoni/census3/db"
 )
 
 const createToken = `-- name: CreateToken :execresult
@@ -28,11 +28,11 @@ VALUES (
 `
 
 type CreateTokenParams struct {
-	ID            types.BigInt
+	ID            db.BigInt
 	Name          sql.NullString
 	Symbol        sql.NullString
 	Decimals      sql.NullInt32
-	TotalSupply   types.Address
+	TotalSupply   db.Address
 	CreationBlock int64
 	TypeID        int64
 }
@@ -54,7 +54,7 @@ DELETE FROM Tokens
 WHERE id = ?
 `
 
-func (q *Queries) DeleteToken(ctx context.Context, id types.BigInt) (sql.Result, error) {
+func (q *Queries) DeleteToken(ctx context.Context, id db.BigInt) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteToken, id)
 }
 
@@ -106,7 +106,7 @@ WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) TokenByID(ctx context.Context, id types.BigInt) (Token, error) {
+func (q *Queries) TokenByID(ctx context.Context, id db.BigInt) (Token, error) {
 	row := q.db.QueryRowContext(ctx, tokenByID, id)
 	var i Token
 	err := row.Scan(
@@ -267,10 +267,10 @@ type UpdateTokenParams struct {
 	Name          sql.NullString
 	Symbol        sql.NullString
 	Decimals      sql.NullInt32
-	TotalSupply   types.Address
+	TotalSupply   db.Address
 	CreationBlock int64
 	TypeID        int64
-	ID            types.BigInt
+	ID            db.BigInt
 }
 
 func (q *Queries) UpdateToken(ctx context.Context, arg UpdateTokenParams) (sql.Result, error) {

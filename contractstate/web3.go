@@ -460,6 +460,133 @@ func (w *Web3) ScanTokenHolders(ctx context.Context, ts *ContractState, fromBloc
 	return lastBlockNumber, nil
 }
 
+func (w *Web3) ScanForNewHolders(ctx context.Context, ts *ContractHolders, fromBlockNumber uint64) (uint64, error) {
+	// Posible steps:
+	// 1. Calculate lastBlockNumber and chunk size.
+	// 2. Query logs and read the transfers 'to' addresses to get holder
+	//    candidates.
+	// 3. Add the candidate holders to the current holders.
+	// 4. Check the balances of the candidate holders and remove the holders
+	//    with no funds (or less than the threshold).
+
+	// [1]
+	// fetch the last block header
+	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	log.Debugf("last block number: %d", lastBlockHeader.Number.Uint64())
+	// check if there are new blocks to scan
+	lastBlockNumber := lastBlockHeader.Number.Uint64()
+	if fromBlockNumber >= lastBlockNumber {
+		log.Infof("no new blocks to scan for %s", ts.Address().String())
+		return fromBlockNumber, nil
+	}
+	// check if we need to scan more than MAX_SCAN_BLOCKS_PER_ITERATION
+	// if so, scan only MAX_SCAN_BLOCKS_PER_ITERATION blocks
+	if lastBlockNumber-fromBlockNumber > MAX_SCAN_BLOCKS_PER_ITERATION {
+		lastBlockNumber = fromBlockNumber + MAX_SCAN_BLOCKS_PER_ITERATION
+	}
+	blocks := BLOCKS_TO_SCAN_AT_ONCE
+	log.Infof("start scan iteration for %s from block %d to %d", ts.Address().Hex(), fromBlockNumber, lastBlockNumber)
+
+	// [2]
+	logCount := 0
+	newBlocksMap := make(map[uint64]bool)
+	holdersCandidates := make([]common.Address, 0)
+	for fromBlockNumber < lastBlockNumber {
+		select {
+		// check if we need to close due context signal
+		case <-ctx.Done():
+			log.Warnf("scan graceful canceled by context")
+			return fromBlockNumber, nil
+
+		default:
+			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlockNumber,
+				fromBlockNumber+blocks, (fromBlockNumber*100)/lastBlockNumber)
+
+			// create the filter query
+			query := eth.FilterQuery{
+				Addresses: []common.Address{ts.Address()},
+				FromBlock: big.NewInt(int64(fromBlockNumber)),
+				ToBlock:   big.NewInt(int64(fromBlockNumber + blocks)),
+			}
+			// set the topics to filter depending on the contract type
+			switch ts.Type() {
+			case CONTRACT_TYPE_ERC20:
+				query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20_TRANSFER)}}
+			default:
+				return 0, fmt.Errorf("unknown contract type %d", ts.Type())
+			}
+			// execute the filter query
+			ctx2, cancel := context.WithTimeout(context.Background(), time.Second*10)
+			defer cancel()
+			logs, err := w.client.FilterLogs(ctx2, query)
+			if err != nil {
+				// if we have too much results, decrease the blocks to scan
+				if strings.Contains(err.Error(), "query returned more than") {
+					blocks = blocks / 2
+					log.Warnf("too much results on query, decreasing blocks to %d", blocks)
+					continue
+				} else {
+					return fromBlockNumber, err
+				}
+			}
+			fromBlockNumber += blocks
+			if len(logs) == 0 {
+				continue
+			}
+			logCount += len(logs)
+			log.Infof("found %d logs, iteration count %d", len(logs), logCount)
+			// iterate over the logs and update the token holders state
+			for _, l := range logs {
+				if _, ok := newBlocksMap[l.BlockNumber]; !ok {
+					continue
+				}
+				newBlocksMap[l.BlockNumber] = true
+				// update the token holders state with the log data
+				switch ts.Type() {
+				case CONTRACT_TYPE_ERC20:
+					filter := w.contract.(*erc20.ERC20Contract).ERC20ContractFilterer
+					logData, err := filter.ParseTransfer(l)
+					if err != nil {
+						log.Errorf("error parsing log data %s", err)
+						continue
+					}
+					holdersCandidates = append(holdersCandidates, logData.To)
+				}
+			}
+			// check if we need to exit because max logs reached for iteration
+			if logCount > MAX_SCAN_LOGS_PER_ITERATION {
+				return fromBlockNumber, nil
+			}
+		}
+	}
+
+	// [3]
+	ts.Append(holdersCandidates...)
+
+	// [4]
+	switch ts.Type() {
+	case CONTRACT_TYPE_ERC20:
+		balanceOf := w.contract.(*erc20.ERC20Contract).BalanceOf
+
+		currentHolders := ts.Holders()
+		for _, currentHolder := range currentHolders {
+			amount, err := balanceOf(nil, currentHolder)
+			if err != nil {
+				return 0, err
+			}
+			if amount.Cmp(big.NewInt(0)) <= 0 {
+				ts.Del(currentHolder)
+			}
+		}
+	default:
+		return 0, fmt.Errorf("unknown contract type %d", ts.Type())
+	}
+	return lastBlockNumber, nil
+}
+
 type TokenData struct {
 	Address     common.Address
 	Type        ContractType

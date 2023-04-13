@@ -19,7 +19,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	home += "/.tokenscan"
+	home += "/.census3"
 	url := flag.String("url", "", "ethereum web3 url")
 	dataDir := flag.String("dataDir", home, "data directory for persistent storage")
 	logLevel := flag.String("logLevel", "info", "log level (debug, info, warn, error)")
@@ -27,16 +27,19 @@ func main() {
 	flag.Parse()
 	log.Init(*logLevel, "stdout")
 
-	signer := ethereum.SignKeys{}
-	if err := signer.Generate(); err != nil {
-		log.Fatal(err)
-	}
-
+	// Start the EVM logs scanner
 	sc, err := service.NewScanner(*dataDir, *url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	// Create the API signer
+	signer := ethereum.SignKeys{}
+	if err := signer.Generate(); err != nil {
+		log.Fatal(err)
+	}
+
+	// Start the API
 	api.Init("0.0.0.0", *port, &signer, sc)
 	ctx, cancel := context.WithCancel(context.Background())
 	go sc.Start(ctx)
@@ -48,6 +51,6 @@ func main() {
 	log.Warnf("received SIGTERM, exiting at %s", time.Now().Format(time.RFC850))
 	cancel()
 	log.Infof("waiting for routines to end gracefuly...")
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	os.Exit(0)
 }

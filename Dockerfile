@@ -1,13 +1,13 @@
-FROM golang:1.18 AS builder
+FROM golang:1.20 AS builder
 
 WORKDIR /src
 COPY . .
-RUN go build -o=tokenscan -ldflags="-s -w" ./cmd/tokenscan
+RUN go build -o=census3 -ldflags="-s -w" ./cmd/census3
 
 FROM debian:11.6-slim
 
 WORKDIR /app
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-COPY --from=builder /src/tokenscan /app/tokenscan
-ENTRYPOINT ["/app/tokenscan"]
+COPY --from=builder /src/census3 /app/census3
+ENTRYPOINT ["/app/census3"]
 

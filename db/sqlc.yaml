@@ -1,0 +1,36 @@
+version: 2
+sql:
+- schema: "migrations"
+  queries: "queries"
+  engine: "mysql"
+  gen:
+    go:
+      package: "queries"
+      out: "sqlc"
+      overrides:
+        # Defaults to int32 for integers, which is a bit small, use int64 instead.
+        - db_type: "int"
+          go_type: "int64"
+        # Force these blobs to be our "bytes" types.
+        - column: "tokens.id"
+          go_type: "go.vocdoni.io/census3/db/types.BigInt"
+        - column: "tokens.total_supply"
+          go_type: "go.vocdoni.io/census3/db/types.Address"
+        - column: "censuses.merkle_root"
+          go_type: "go.vocdoni.io/census3/db/types.Hash"
+        - column: "blocks.root_hash"
+          go_type: "go.vocdoni.io/census3/db/types.Hash"
+        - column: "holders.id"
+          go_type: "go.vocdoni.io/census3/db/types.Address"
+        - column: "tokenholders.token_id"
+          go_type: "go.vocdoni.io/census3/db/types.Address"
+        - column: "tokenholders.holder_id"
+          go_type: "go.vocdoni.io/census3/db/types.Address"
+        - column: "tokenholders.balance"
+          go_type: "go.vocdoni.io/census3/db/types.BigInt"
+        - column: "strategytokens.token_id"
+          go_type: "go.vocdoni.io/census3/db/types.Address"
+        - column: "strategytokens.method_hash"
+          go_type: "go.vocdoni.io/census3/db/types.MethodHash"
+        - column: "strategytokens.min_balance"
+          go_type: "go.vocdoni.io/census3/db/types.BigInt"

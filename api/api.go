@@ -6,8 +6,8 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vocdoni/tokenstate/contractstate"
-	"github.com/vocdoni/tokenstate/service"
+	"github.com/vocdoni/census3/contractstate"
+	"github.com/vocdoni/census3/service"
 	"go.vocdoni.io/dvote/crypto/ethereum"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"

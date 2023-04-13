@@ -7,7 +7,7 @@ package queries
 import (
 	"database/sql"
 
-	"go.vocdoni.io/census3/db/types"
+	"github.com/vocdoni/census3/db/types"
 )
 
 type Block struct {
@@ -21,7 +21,7 @@ type Censusblock struct {
 	BlockID  int64
 }
 
-type Censuses struct {
+type Censuse struct {
 	ID         int64
 	StrategyID int64
 	MerkleRoot types.Hash

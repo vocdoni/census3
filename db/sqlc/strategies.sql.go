@@ -9,7 +9,7 @@ import (
 	"context"
 	"database/sql"
 
-	"go.vocdoni.io/census3/db/types"
+	"github.com/vocdoni/census3/db/types"
 )
 
 const createStategy = `-- name: CreateStategy :execresult

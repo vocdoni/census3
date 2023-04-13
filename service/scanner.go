@@ -12,7 +12,7 @@ import (
 
 	"git.sr.ht/~sircmpwn/go-bare"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vocdoni/tokenstate/contractstate"
+	"github.com/vocdoni/census3/contractstate"
 	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/db/metadb"
 	"go.vocdoni.io/dvote/log"

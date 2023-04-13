@@ -8,8 +8,8 @@ import (
 	"time"
 
 	flag "github.com/spf13/pflag"
-	"github.com/vocdoni/tokenstate/api"
-	"github.com/vocdoni/tokenstate/service"
+	"github.com/vocdoni/census3/api"
+	"github.com/vocdoni/census3/service"
 	"go.vocdoni.io/dvote/crypto/ethereum"
 	"go.vocdoni.io/dvote/log"
 )

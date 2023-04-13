@@ -9,12 +9,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	want "github.com/vocdoni/tokenstate/contracts/aragon/want"
-	erc1155 "github.com/vocdoni/tokenstate/contracts/erc/erc1155"
-	erc20 "github.com/vocdoni/tokenstate/contracts/erc/erc20"
-	erc721 "github.com/vocdoni/tokenstate/contracts/erc/erc721"
-	erc777 "github.com/vocdoni/tokenstate/contracts/erc/erc777"
-	venation "github.com/vocdoni/tokenstate/contracts/nation3/vestedToken"
+	want "github.com/vocdoni/census3/contracts/aragon/want"
+	erc1155 "github.com/vocdoni/census3/contracts/erc/erc1155"
+	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
+	erc721 "github.com/vocdoni/census3/contracts/erc/erc721"
+	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
+	venation "github.com/vocdoni/census3/contracts/nation3/vestedToken"
 
 	eth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/ethclient"

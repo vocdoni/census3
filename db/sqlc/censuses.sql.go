@@ -9,7 +9,7 @@ import (
 	"context"
 	"database/sql"
 
-	"go.vocdoni.io/census3/db/types"
+	"github.com/vocdoni/census3/db/types"
 )
 
 const censusByID = `-- name: CensusByID :one
@@ -18,9 +18,9 @@ WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) CensusByID(ctx context.Context, id int64) (Censuses, error) {
+func (q *Queries) CensusByID(ctx context.Context, id int64) (Censuse, error) {
 	row := q.db.QueryRowContext(ctx, censusByID, id)
-	var i Censuses
+	var i Censuse
 	err := row.Scan(
 		&i.ID,
 		&i.StrategyID,
@@ -36,9 +36,9 @@ WHERE merkle_root = ?
 LIMIT 1
 `
 
-func (q *Queries) CensusByMerkleRoot(ctx context.Context, merkleRoot types.Hash) (Censuses, error) {
+func (q *Queries) CensusByMerkleRoot(ctx context.Context, merkleRoot types.Hash) (Censuse, error) {
 	row := q.db.QueryRowContext(ctx, censusByMerkleRoot, merkleRoot)
-	var i Censuses
+	var i Censuse
 	err := row.Scan(
 		&i.ID,
 		&i.StrategyID,
@@ -53,15 +53,15 @@ SELECT id, strategy_id, merkle_root, uri FROM Censuses
 WHERE strategy_id = ?
 `
 
-func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID int64) ([]Censuses, error) {
+func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID int64) ([]Censuse, error) {
 	rows, err := q.db.QueryContext(ctx, censusByStrategyID, strategyID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Censuses
+	var items []Censuse
 	for rows.Next() {
-		var i Censuses
+		var i Censuse
 		if err := rows.Scan(
 			&i.ID,
 			&i.StrategyID,
@@ -87,9 +87,9 @@ WHERE uri = ?
 LIMIT 1
 `
 
-func (q *Queries) CensusByURI(ctx context.Context, uri sql.NullString) (Censuses, error) {
+func (q *Queries) CensusByURI(ctx context.Context, uri sql.NullString) (Censuse, error) {
 	row := q.db.QueryRowContext(ctx, censusByURI, uri)
-	var i Censuses
+	var i Censuse
 	err := row.Scan(
 		&i.ID,
 		&i.StrategyID,
@@ -113,7 +113,7 @@ type CensusesByStrategyIDAndBlockIDParams struct {
 	Offset     int32
 }
 
-func (q *Queries) CensusesByStrategyIDAndBlockID(ctx context.Context, arg CensusesByStrategyIDAndBlockIDParams) ([]Censuses, error) {
+func (q *Queries) CensusesByStrategyIDAndBlockID(ctx context.Context, arg CensusesByStrategyIDAndBlockIDParams) ([]Censuse, error) {
 	rows, err := q.db.QueryContext(ctx, censusesByStrategyIDAndBlockID,
 		arg.StrategyID,
 		arg.BlockID,
@@ -124,9 +124,9 @@ func (q *Queries) CensusesByStrategyIDAndBlockID(ctx context.Context, arg Census
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Censuses
+	var items []Censuse
 	for rows.Next() {
-		var i Censuses
+		var i Censuse
 		if err := rows.Scan(
 			&i.ID,
 			&i.StrategyID,
@@ -159,15 +159,15 @@ type CensusesByTokenIDParams struct {
 	Offset  int32
 }
 
-func (q *Queries) CensusesByTokenID(ctx context.Context, arg CensusesByTokenIDParams) ([]Censuses, error) {
+func (q *Queries) CensusesByTokenID(ctx context.Context, arg CensusesByTokenIDParams) ([]Censuse, error) {
 	rows, err := q.db.QueryContext(ctx, censusesByTokenID, arg.TokenID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Censuses
+	var items []Censuse
 	for rows.Next() {
-		var i Censuses
+		var i Censuse
 		if err := rows.Scan(
 			&i.ID,
 			&i.StrategyID,
@@ -261,15 +261,15 @@ type PaginatedCensusesParams struct {
 	Offset int32
 }
 
-func (q *Queries) PaginatedCensuses(ctx context.Context, arg PaginatedCensusesParams) ([]Censuses, error) {
+func (q *Queries) PaginatedCensuses(ctx context.Context, arg PaginatedCensusesParams) ([]Censuse, error) {
 	rows, err := q.db.QueryContext(ctx, paginatedCensuses, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Censuses
+	var items []Censuse
 	for rows.Next() {
-		var i Censuses
+		var i Censuse
 		if err := rows.Scan(
 			&i.ID,
 			&i.StrategyID,

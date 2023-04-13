@@ -73,7 +73,7 @@ func (ch *contractHandler) supportedContracts(msg *api.APIdata, ctx *httprouter.
 	if err != nil {
 		return err
 	}
-	return ctx.Send(data, api.HTTPstatusCodeOK)
+	return ctx.Send(data, api.HTTPstatusOK)
 }
 
 func (ch *contractHandler) addContract(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -100,7 +100,7 @@ func (ch *contractHandler) addContract(msg *api.APIdata, ctx *httprouter.HTTPCon
 	if err != nil {
 		return err
 	}
-	return ctx.Send(data, api.HTTPstatusCodeOK)
+	return ctx.Send(data, api.HTTPstatusOK)
 }
 
 func (ch *contractHandler) listContracts(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -113,7 +113,7 @@ func (ch *contractHandler) listContracts(msg *api.APIdata, ctx *httprouter.HTTPC
 	if err != nil {
 		return err
 	}
-	return ctx.Send(data, api.HTTPstatusCodeOK)
+	return ctx.Send(data, api.HTTPstatusOK)
 }
 
 func (ch *contractHandler) getContract(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -128,7 +128,7 @@ func (ch *contractHandler) getContract(msg *api.APIdata, ctx *httprouter.HTTPCon
 	if err != nil {
 		return err
 	}
-	return ctx.Send(data, api.HTTPstatusCodeOK)
+	return ctx.Send(data, api.HTTPstatusOK)
 }
 
 func (ch *contractHandler) root(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -154,7 +154,7 @@ func (ch *contractHandler) root(msg *api.APIdata, ctx *httprouter.HTTPContext) e
 	if err != nil {
 		return err
 	}
-	return ctx.Send(data, api.HTTPstatusCodeOK)
+	return ctx.Send(data, api.HTTPstatusOK)
 }
 
 func (ch *contractHandler) dumpBalances(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -166,7 +166,7 @@ func (ch *contractHandler) dumpBalances(msg *api.APIdata, ctx *httprouter.HTTPCo
 	if err != nil {
 		return err
 	}
-	return ctx.Send(data, api.HTTPstatusCodeOK)
+	return ctx.Send(data, api.HTTPstatusOK)
 }
 
 func (ch *contractHandler) exportTree(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -180,7 +180,7 @@ func (ch *contractHandler) exportTree(msg *api.APIdata, ctx *httprouter.HTTPCont
 	if err != nil {
 		return err
 	}
-	return ctx.Send(data, api.HTTPstatusCodeOK)
+	return ctx.Send(data, api.HTTPstatusOK)
 }
 
 func (ch *contractHandler) fetchTree(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -198,7 +198,7 @@ func (ch *contractHandler) fetchTree(msg *api.APIdata, ctx *httprouter.HTTPConte
 	if err != nil {
 		return err
 	}
-	return ctx.Send(data, api.HTTPstatusCodeOK)
+	return ctx.Send(data, api.HTTPstatusOK)
 }
 
 func (ch *contractHandler) rescan(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -210,5 +210,5 @@ func (ch *contractHandler) rescan(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	if err != nil {
 		return err
 	}
-	return ctx.Send(data, api.HTTPstatusCodeOK)
+	return ctx.Send(data, api.HTTPstatusOK)
 }

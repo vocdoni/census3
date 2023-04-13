@@ -460,14 +460,14 @@ func (w *Web3) ScanTokenHolders(ctx context.Context, ts *ContractState, fromBloc
 	return lastBlockNumber, nil
 }
 
-func (w *Web3) ScanForNewHolders(ctx context.Context, ts *ContractHolders, fromBlockNumber uint64) (uint64, error) {
+func (w *Web3) ScanForNewHolders(ctx context.Context, th *TokenHolders, fromBlockNumber uint64) (uint64, error) {
 	// Posible steps:
 	// 1. Calculate lastBlockNumber and chunk size.
 	// 2. Query logs and read the transfers 'to' addresses to get holder
 	//    candidates.
-	// 3. Add the candidate holders to the current holders.
-	// 4. Check the balances of the candidate holders and remove the holders
-	//    with no funds (or less than the threshold).
+	// 3. Check the balances of the candidate holders and remove the holders
+	//    with no funds (or less than the threshold -> this logic goes to strategies).
+	// 4. Add the candidate holders to the current holders (check the holder balances during logs review).
 
 	// [1]
 	// fetch the last block header
@@ -479,7 +479,7 @@ func (w *Web3) ScanForNewHolders(ctx context.Context, ts *ContractHolders, fromB
 	// check if there are new blocks to scan
 	lastBlockNumber := lastBlockHeader.Number.Uint64()
 	if fromBlockNumber >= lastBlockNumber {
-		log.Infof("no new blocks to scan for %s", ts.Address().String())
+		log.Infof("no new blocks to scan for %s", th.Address().String())
 		return fromBlockNumber, nil
 	}
 	// check if we need to scan more than MAX_SCAN_BLOCKS_PER_ITERATION
@@ -488,7 +488,7 @@ func (w *Web3) ScanForNewHolders(ctx context.Context, ts *ContractHolders, fromB
 		lastBlockNumber = fromBlockNumber + MAX_SCAN_BLOCKS_PER_ITERATION
 	}
 	blocks := BLOCKS_TO_SCAN_AT_ONCE
-	log.Infof("start scan iteration for %s from block %d to %d", ts.Address().Hex(), fromBlockNumber, lastBlockNumber)
+	log.Infof("start scan iteration for %s from block %d to %d", th.Address().Hex(), fromBlockNumber, lastBlockNumber)
 
 	// [2]
 	logCount := 0
@@ -507,16 +507,16 @@ func (w *Web3) ScanForNewHolders(ctx context.Context, ts *ContractHolders, fromB
 
 			// create the filter query
 			query := eth.FilterQuery{
-				Addresses: []common.Address{ts.Address()},
+				Addresses: []common.Address{th.Address()},
 				FromBlock: big.NewInt(int64(fromBlockNumber)),
 				ToBlock:   big.NewInt(int64(fromBlockNumber + blocks)),
 			}
 			// set the topics to filter depending on the contract type
-			switch ts.Type() {
+			switch th.Type() {
 			case CONTRACT_TYPE_ERC20:
 				query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20_TRANSFER)}}
 			default:
-				return 0, fmt.Errorf("unknown contract type %d", ts.Type())
+				return 0, fmt.Errorf("unknown contract type %d", th.Type())
 			}
 			// execute the filter query
 			ctx2, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -545,7 +545,7 @@ func (w *Web3) ScanForNewHolders(ctx context.Context, ts *ContractHolders, fromB
 				}
 				newBlocksMap[l.BlockNumber] = true
 				// update the token holders state with the log data
-				switch ts.Type() {
+				switch th.Type() {
 				case CONTRACT_TYPE_ERC20:
 					filter := w.contract.(*erc20.ERC20Contract).ERC20ContractFilterer
 					logData, err := filter.ParseTransfer(l)
@@ -564,25 +564,25 @@ func (w *Web3) ScanForNewHolders(ctx context.Context, ts *ContractHolders, fromB
 	}
 
 	// [3]
-	ts.Append(holdersCandidates...)
+	th.Append(holdersCandidates...)
 
 	// [4]
-	switch ts.Type() {
+	switch th.Type() {
 	case CONTRACT_TYPE_ERC20:
 		balanceOf := w.contract.(*erc20.ERC20Contract).BalanceOf
 
-		currentHolders := ts.Holders()
+		currentHolders := th.Holders()
 		for _, currentHolder := range currentHolders {
 			amount, err := balanceOf(nil, currentHolder)
 			if err != nil {
 				return 0, err
 			}
 			if amount.Cmp(big.NewInt(0)) <= 0 {
-				ts.Del(currentHolder)
+				th.Del(currentHolder)
 			}
 		}
 	default:
-		return 0, fmt.Errorf("unknown contract type %d", ts.Type())
+		return 0, fmt.Errorf("unknown contract type %d", th.Type())
 	}
 	return lastBlockNumber, nil
 }

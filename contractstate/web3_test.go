@@ -14,17 +14,17 @@ import (
 var url = flag.String("url", "", "ethereum web3 url")
 var blocks = flag.Int("blocks", 100, "number of blocks from the latest")
 
-// go test -v -run TestUpdateTokenHolders -url http://...
+// go test -v -run TestUpdateTokenHolders -url http://... -block 100
 func TestUpdateTokenHolders(t *testing.T) {
 	log.Init(log.LogLevelDebug, "stderr")
 
 	c := qt.New(t)
 
 	th := new(TokenHolders)
-	th.Init(common.HexToAddress("0x27d0D76964E3aA11a5767A3f5772dc07166F2721"), CONTRACT_TYPE_ERC721)
+	th.Init(common.HexToAddress("0x92a8771C925ec0812325546075be51e76d2f7123"), CONTRACT_TYPE_ERC20)
 
 	w3 := Web3{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Second)
 	defer cancel()
 
 	err := w3.Init(ctx, *url, th.Address(), th.Type())
@@ -34,10 +34,15 @@ func TestUpdateTokenHolders(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 	log.Infof("getting new holders on the last %d blocks of the token %s (%s)\n", uint64(*blocks), td.Name, th.Address().String())
 
-	fromBlockNumber, err := w3.client.BlockNumber(ctx)
+	currentBlock, err := w3.client.BlockNumber(ctx)
+	fromBlock := currentBlock - uint64(*blocks)
+	lastCheckedBlock := fromBlock
 	c.Assert(err, qt.IsNil)
-	_, err = w3.UpdateTokenHolders(ctx, th, fromBlockNumber-uint64(*blocks))
-	c.Assert(err, qt.IsNil)
-
+	for lastCheckedBlock < currentBlock {
+		log.Infof("upgrading holders from block %d", lastCheckedBlock)
+		lastCheckedBlock, err = w3.UpdateTokenHolders(ctx, th, fromBlock)
+		c.Assert(err, qt.IsNil)
+		time.Sleep(time.Second)
+	}
 	log.Infof("test finished, new tokens found on the last %d blocks: %d", uint64(*blocks), len(th.Holders()))
 }

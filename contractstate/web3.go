@@ -665,10 +665,10 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 					}
 				}
 			}
-			// check if we need to exit because max logs reached for iteration
-			if logCount > MAX_SCAN_LOGS_PER_ITERATION {
-				return fromBlockNumber, nil
-			}
+		}
+		// check if we need to exit because max logs reached for iteration
+		if logCount > MAX_SCAN_LOGS_PER_ITERATION {
+			break
 		}
 	}
 	// delete holder candidates without funds
@@ -702,7 +702,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 	}
 	// add the candidate holders to the current holders
 	th.Append(newHolders...)
-	return lastBlockNumber, nil
+	return fromBlockNumber, nil
 }
 
 type TokenData struct {

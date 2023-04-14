@@ -511,8 +511,29 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 			}
 			// set the topics to filter depending on the contract type
 			switch th.Type() {
-			case CONTRACT_TYPE_ERC20:
+			case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721:
 				query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20_TRANSFER)}}
+			case CONTRACT_TYPE_ERC1155:
+				query.Topics = [][]common.Hash{
+					{
+						common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_SINGLE),
+						common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_BATCH),
+					},
+				}
+			case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+				query.Topics = [][]common.Hash{
+					{
+						common.HexToHash(LOG_TOPIC_VENATION_DEPOSIT),
+						common.HexToHash(LOG_TOPIC_VENATION_WITHDRAW),
+					},
+				}
+			case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+				query.Topics = [][]common.Hash{
+					{
+						common.HexToHash(LOG_TOPIC_WANT_DEPOSIT),
+						common.HexToHash(LOG_TOPIC_WANT_WITHDRAWAL),
+					},
+				}
 			default:
 				return 0, fmt.Errorf("unknown contract type %d", th.Type())
 			}
@@ -560,6 +581,87 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 						holdersCandidates[logData.From] = new(big.Int).Sub(fromCandidate, logData.Value)
 					} else {
 						holdersCandidates[logData.From] = new(big.Int).Neg(logData.Value)
+					}
+				case CONTRACT_TYPE_ERC777: // stores the total count per address, not all identifiers
+					filter := w.contract.(*erc777.ERC777Contract).ERC777ContractFilterer
+					logData, err := filter.ParseTransfer(l)
+					if err != nil {
+						log.Errorf("error parsing log data %s", err)
+						continue
+					}
+					if toCandidate, exists := holdersCandidates[logData.To]; exists {
+						holdersCandidates[logData.To] = new(big.Int).Add(toCandidate, big.NewInt(1))
+					} else {
+						holdersCandidates[logData.To] = big.NewInt(1)
+					}
+					if fromCandidate, exists := holdersCandidates[logData.From]; exists {
+						holdersCandidates[logData.From] = new(big.Int).Sub(fromCandidate, big.NewInt(1))
+					} else {
+						holdersCandidates[logData.From] = new(big.Int).Neg(big.NewInt(1))
+					}
+				case CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
+					filter := w.contract.(*erc721.ERC721Contract).ERC721ContractFilterer
+					logData, err := filter.ParseTransfer(l)
+					if err != nil {
+						log.Errorf("error parsing log data %s", err)
+						continue
+					}
+					if toCandidate, exists := holdersCandidates[logData.To]; exists {
+						holdersCandidates[logData.To] = new(big.Int).Add(toCandidate, big.NewInt(1))
+					} else {
+						holdersCandidates[logData.To] = big.NewInt(1)
+					}
+					if fromCandidate, exists := holdersCandidates[logData.From]; exists {
+						holdersCandidates[logData.From] = new(big.Int).Sub(fromCandidate, big.NewInt(1))
+					} else {
+						holdersCandidates[logData.From] = new(big.Int).Neg(big.NewInt(1))
+					}
+				case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+					// This token contract is a bit special, token balances
+					// are updated every block based on the contract state.
+					switch l.Topics[0] {
+					case common.HexToHash(LOG_TOPIC_VENATION_DEPOSIT):
+						provider := common.HexToAddress(l.Topics[1].Hex())
+						value := big.NewInt(0).SetBytes(l.Data[:32])
+						if balance, exists := holdersCandidates[provider]; exists {
+							holdersCandidates[provider] = new(big.Int).Add(balance, value)
+						} else {
+							holdersCandidates[provider] = value
+						}
+					case common.HexToHash(LOG_TOPIC_VENATION_WITHDRAW):
+						provider := common.HexToAddress(l.Topics[1].Hex())
+						value := big.NewInt(0).SetBytes(l.Data[:32])
+						if balance, exists := holdersCandidates[provider]; exists {
+							holdersCandidates[provider] = new(big.Int).Sub(balance, value)
+						} else {
+							holdersCandidates[provider] = new(big.Int).Neg(value)
+						}
+					}
+				case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+					filter := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractFilterer
+					switch l.Topics[0] {
+					case common.HexToHash(LOG_TOPIC_WANT_DEPOSIT):
+						logData, err := filter.ParseDeposit(l)
+						if err != nil {
+							log.Errorf("error parsing log data %s", err)
+							continue
+						}
+						if balance, exists := holdersCandidates[logData.Entity]; exists {
+							holdersCandidates[logData.Entity] = new(big.Int).Add(balance, logData.Amount)
+						} else {
+							holdersCandidates[logData.Entity] = logData.Amount
+						}
+					case common.HexToHash(LOG_TOPIC_WANT_WITHDRAWAL):
+						logData, err := filter.ParseWithdrawal(l)
+						if err != nil {
+							log.Errorf("error parsing log data %s", err)
+							continue
+						}
+						if balance, exists := holdersCandidates[logData.Entity]; exists {
+							holdersCandidates[logData.Entity] = new(big.Int).Sub(balance, logData.Amount)
+						} else {
+							holdersCandidates[logData.Entity] = new(big.Int).Neg(logData.Amount)
+						}
 					}
 				}
 			}

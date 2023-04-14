@@ -461,17 +461,13 @@ func (w *Web3) ScanTokenHolders(ctx context.Context, ts *ContractState, fromBloc
 	return lastBlockNumber, nil
 }
 
+// UpdateTokenHolders function checks the transfer logs of the given contract
+// (in the TokenHolders struct) from the given block number. It gets all
+// addresses (candidates to holders) and their balances from the given block
+// number to the latest block number. Any address with a balance not equal to
+// zero will is stored as a new holder. It also checks the balances of the
+// current holders, deleting those that were not found.
 func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlockNumber uint64) (uint64, error) {
-	// Posible steps:
-	// 1. Calculate lastBlockNumber and chunk size.
-	// 2. Query logs and get new candidates to holder. A valid candidate is any
-	//    address with positive balance at the end of logs review. It requires
-	// 	  to take account of the countability of candidates balanceses.
-	// 3. Check the balances of the current holders that are not in the candidates,
-	//    and remove these that have not founds.
-	// 4. Add the candidate holders to the current holders.
-
-	// [1]
 	// fetch the last block header
 	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -492,7 +488,9 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 	blocks := BLOCKS_TO_SCAN_AT_ONCE
 	log.Infof("start scan iteration for %s from block %d to %d", th.Address().Hex(), fromBlockNumber, lastBlockNumber)
 
-	// [2]
+	// get logs and get new candidates to holder. A valid candidate is every
+	// address with a positive balance at the end of logs review. It requires
+	// take into account the countability of the candidates' balances.
 	logCount := 0
 	newBlocksMap := make(map[uint64]bool)
 	holdersCandidates := make(map[common.Address]*big.Int)
@@ -502,11 +500,9 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 		case <-ctx.Done():
 			log.Warnf("scan graceful canceled by context")
 			return fromBlockNumber, nil
-
 		default:
 			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlockNumber,
 				fromBlockNumber+blocks, (fromBlockNumber*100)/lastBlockNumber)
-
 			// create the filter query
 			query := eth.FilterQuery{
 				Addresses: []common.Address{th.Address()},
@@ -555,7 +551,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 						log.Errorf("error parsing log data %s", err)
 						continue
 					}
-
 					if toCandidate, exists := holdersCandidates[logData.To]; exists {
 						holdersCandidates[logData.To] = new(big.Int).Add(toCandidate, logData.Value)
 					} else {
@@ -574,23 +569,22 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 			}
 		}
 	}
-
-	// delete holder candidates with no fund
+	// delete holder candidates without funds
 	newHolders := make([]common.Address, 0)
 	for addr, amount := range holdersCandidates {
 		if amount.Cmp(big.NewInt(0)) != 0 {
 			newHolders = append(newHolders, addr)
 		}
 	}
-
-	// [3]
+	// get current holders who are not candidates
 	holdersToCheck := make([]common.Address, 0)
 	for _, currentHolder := range th.Holders() {
 		if _, exists := holdersCandidates[currentHolder]; !exists {
 			holdersToCheck = append(holdersToCheck, currentHolder)
 		}
 	}
-
+	// check the balances of the current holders that are not in the candidates,
+	// and remove these that have not founds
 	switch th.Type() {
 	case CONTRACT_TYPE_ERC20:
 		balanceOf := w.contract.(*erc20.ERC20Contract).BalanceOf
@@ -604,8 +598,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 			}
 		}
 	}
-
-	// [4]
+	// add the candidate holders to the current holders
 	th.Append(newHolders...)
 	return lastBlockNumber, nil
 }

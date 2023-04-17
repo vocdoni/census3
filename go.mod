@@ -7,6 +7,8 @@ require (
 	github.com/ethereum/go-ethereum v1.11.5
 	github.com/frankban/quicktest v1.14.4
 	github.com/google/uuid v1.3.0
+	github.com/mattn/go-sqlite3 v1.14.16
+	github.com/pressly/goose/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
 	go.vocdoni.io/dvote v1.7.0
 	go.vocdoni.io/proto v1.14.4

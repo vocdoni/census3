@@ -464,9 +464,8 @@ func (w *Web3) ScanTokenHolders(ctx context.Context, ts *ContractState, fromBloc
 // UpdateTokenHolders function checks the transfer logs of the given contract
 // (in the TokenHolders struct) from the given block number. It gets all
 // addresses (candidates to holders) and their balances from the given block
-// number to the latest block number. Any address with a balance not equal to
-// zero will is stored as a new holder. It also checks the balances of the
-// current holders, deleting those that were not found.
+// number to the latest block number and submit the results using
+// Web3.submitTokenHolders function.
 func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlockNumber uint64) (uint64, error) {
 	// fetch the last block header
 	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
@@ -698,6 +697,9 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 	return lastBlockNumber, w.submitTokenHolders(th, holdersCandidates, lastBlockNumber)
 }
 
+// submitTokenHolders function checks each candidate to token holder provided,
+// and removes any with a zero balance before store them. It also checks the
+// balances of the current holders, deleting those with no funds.
 func (w *Web3) submitTokenHolders(th *TokenHolders, candidates map[common.Address]*big.Int, blockNumber uint64) error {
 	// remove null address from candidates
 	delete(candidates, common.HexToAddress(NULL_ADDRESS))
@@ -717,17 +719,27 @@ func (w *Web3) submitTokenHolders(th *TokenHolders, candidates map[common.Addres
 	}
 	// check the balances of the current holders that are not in the candidates,
 	// and remove these that have not founds
+	var balanceOf func(*bind.CallOpts, common.Address) (*big.Int, error)
 	switch th.Type() {
 	case CONTRACT_TYPE_ERC20:
-		balanceOf := w.contract.(*erc20.ERC20Contract).BalanceOf
-		for _, holder := range holdersToCheck {
-			amount, err := balanceOf(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(blockNumber)}, holder)
-			if err != nil {
-				return err
-			}
-			if amount.Cmp(big.NewInt(0)) == 0 {
-				th.Del(holder)
-			}
+		balanceOf = w.contract.(*erc20.ERC20Contract).BalanceOf
+	case CONTRACT_TYPE_ERC777:
+		balanceOf = w.contract.(*erc777.ERC777Contract).BalanceOf
+	case CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
+		balanceOf = w.contract.(*erc721.ERC721Contract).BalanceOf
+	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+		balanceOf = w.contract.(*venation.Nation3VestedTokenContract).BalanceOf
+	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+		balanceOf = w.contract.(*want.AragonWrappedANTTokenContract).BalanceOf
+	}
+
+	for _, holder := range holdersToCheck {
+		amount, err := balanceOf(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(blockNumber)}, holder)
+		if err != nil {
+			return err
+		}
+		if amount.Cmp(big.NewInt(0)) == 0 {
+			th.Del(holder)
 		}
 	}
 	// add the candidate holders to the current holders

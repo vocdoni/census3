@@ -21,7 +21,7 @@ func TestUpdateTokenHolders(t *testing.T) {
 	c := qt.New(t)
 
 	th := new(TokenHolders)
-	th.Init(common.HexToAddress("0x596f426E34b1271901777a1B8782A0D34A9c4f96"), CONTRACT_TYPE_ERC20)
+	th.Init(common.HexToAddress("0x2868dD9aBF1A88D5be7025858A55180D59bb1689"), CONTRACT_TYPE_ERC721)
 
 	w3 := Web3{}
 	ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Second)

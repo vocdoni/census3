@@ -218,7 +218,7 @@ func (w *Web3) TokenBalanceOf(tokenHolderAddress common.Address, args ...interfa
 		}
 	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		if len(args) != 2 {
-			return nil, fmt.Errorf("wrong number of arguments for Nation3VestedToken balanceOf function")
+			return nil, fmt.Errorf("wrong number of arguments for AragonWrappedANT balanceOf function")
 		}
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
 		switch args[0].(int) {
@@ -459,6 +459,15 @@ func (w *Web3) ScanTokenHolders(ctx context.Context, ts *ContractState, fromBloc
 		}
 	}
 	return lastBlockNumber, nil
+}
+
+func (w *Web3) BlockTimestamp(ctx context.Context, blockNumber uint) (string, error) {
+	blockHeader, err := w.client.HeaderByNumber(ctx, new(big.Int).SetInt64(int64(blockNumber)))
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprint(blockHeader.Time), nil
 }
 
 // UpdateTokenHolders function checks the transfer logs of the given contract

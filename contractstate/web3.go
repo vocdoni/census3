@@ -560,6 +560,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 			// iterate over the logs and update the token holders state
 			for _, l := range logs {
 				if done, ok := newBlocksMap[l.BlockNumber]; ok && done {
+					log.Debugf("found already processed block %d", fromBlockNumber)
 					continue
 				}
 				newBlocksMap[l.BlockNumber] = true
@@ -572,13 +573,14 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 						log.Errorf("error parsing log data %s", err)
 						continue
 					}
-					if toCandidate, exists := holdersCandidates[logData.To]; exists {
-						holdersCandidates[logData.To] = new(big.Int).Add(toCandidate, logData.Value)
+					log.Debugf("erc20 transfer: %s -> %s (%d)", logData.From.String(), logData.To.String(), logData.Value)
+					if toBalance, exists := holdersCandidates[logData.To]; exists {
+						holdersCandidates[logData.To] = new(big.Int).Add(toBalance, logData.Value)
 					} else {
 						holdersCandidates[logData.To] = logData.Value
 					}
-					if fromCandidate, exists := holdersCandidates[logData.From]; exists {
-						holdersCandidates[logData.From] = new(big.Int).Sub(fromCandidate, logData.Value)
+					if fromBalance, exists := holdersCandidates[logData.From]; exists {
+						holdersCandidates[logData.From] = new(big.Int).Sub(fromBalance, logData.Value)
 					} else {
 						holdersCandidates[logData.From] = new(big.Int).Neg(logData.Value)
 					}
@@ -589,13 +591,13 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 						log.Errorf("error parsing log data %s", err)
 						continue
 					}
-					if toCandidate, exists := holdersCandidates[logData.To]; exists {
-						holdersCandidates[logData.To] = new(big.Int).Add(toCandidate, big.NewInt(1))
+					if toBalance, exists := holdersCandidates[logData.To]; exists {
+						holdersCandidates[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
 					} else {
 						holdersCandidates[logData.To] = big.NewInt(1)
 					}
-					if fromCandidate, exists := holdersCandidates[logData.From]; exists {
-						holdersCandidates[logData.From] = new(big.Int).Sub(fromCandidate, big.NewInt(1))
+					if fromBalance, exists := holdersCandidates[logData.From]; exists {
+						holdersCandidates[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 					} else {
 						holdersCandidates[logData.From] = new(big.Int).Neg(big.NewInt(1))
 					}
@@ -606,13 +608,13 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 						log.Errorf("error parsing log data %s", err)
 						continue
 					}
-					if toCandidate, exists := holdersCandidates[logData.To]; exists {
-						holdersCandidates[logData.To] = new(big.Int).Add(toCandidate, big.NewInt(1))
+					if toBalance, exists := holdersCandidates[logData.To]; exists {
+						holdersCandidates[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
 					} else {
 						holdersCandidates[logData.To] = big.NewInt(1)
 					}
-					if fromCandidate, exists := holdersCandidates[logData.From]; exists {
-						holdersCandidates[logData.From] = new(big.Int).Sub(fromCandidate, big.NewInt(1))
+					if fromBalance, exists := holdersCandidates[logData.From]; exists {
+						holdersCandidates[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 					} else {
 						holdersCandidates[logData.From] = new(big.Int).Neg(big.NewInt(1))
 					}
@@ -623,16 +625,16 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 					case common.HexToHash(LOG_TOPIC_VENATION_DEPOSIT):
 						provider := common.HexToAddress(l.Topics[1].Hex())
 						value := big.NewInt(0).SetBytes(l.Data[:32])
-						if balance, exists := holdersCandidates[provider]; exists {
-							holdersCandidates[provider] = new(big.Int).Add(balance, value)
+						if toBalance, exists := holdersCandidates[provider]; exists {
+							holdersCandidates[provider] = new(big.Int).Add(toBalance, value)
 						} else {
 							holdersCandidates[provider] = value
 						}
 					case common.HexToHash(LOG_TOPIC_VENATION_WITHDRAW):
 						provider := common.HexToAddress(l.Topics[1].Hex())
 						value := big.NewInt(0).SetBytes(l.Data[:32])
-						if balance, exists := holdersCandidates[provider]; exists {
-							holdersCandidates[provider] = new(big.Int).Sub(balance, value)
+						if fromBalance, exists := holdersCandidates[provider]; exists {
+							holdersCandidates[provider] = new(big.Int).Sub(fromBalance, value)
 						} else {
 							holdersCandidates[provider] = new(big.Int).Neg(value)
 						}
@@ -646,8 +648,8 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 							log.Errorf("error parsing log data %s", err)
 							continue
 						}
-						if balance, exists := holdersCandidates[logData.Entity]; exists {
-							holdersCandidates[logData.Entity] = new(big.Int).Add(balance, logData.Amount)
+						if toBalance, exists := holdersCandidates[logData.Entity]; exists {
+							holdersCandidates[logData.Entity] = new(big.Int).Add(toBalance, logData.Amount)
 						} else {
 							holdersCandidates[logData.Entity] = logData.Amount
 						}
@@ -657,8 +659,8 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 							log.Errorf("error parsing log data %s", err)
 							continue
 						}
-						if balance, exists := holdersCandidates[logData.Entity]; exists {
-							holdersCandidates[logData.Entity] = new(big.Int).Sub(balance, logData.Amount)
+						if fromBalance, exists := holdersCandidates[logData.Entity]; exists {
+							holdersCandidates[logData.Entity] = new(big.Int).Sub(fromBalance, logData.Amount)
 						} else {
 							holdersCandidates[logData.Entity] = new(big.Int).Neg(logData.Amount)
 						}
@@ -671,6 +673,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 			break
 		}
 	}
+
 	// delete holder candidates without funds
 	newHolders := make([]common.Address, 0)
 	for addr, amount := range holdersCandidates {

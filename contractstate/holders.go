@@ -11,6 +11,7 @@ type TokenHolders struct {
 	address common.Address
 	ctype   ContractType
 	holders sync.Map
+	blocks  sync.Map
 }
 
 func (h *TokenHolders) Init(address common.Address, ctype ContractType) {
@@ -50,4 +51,13 @@ func (h *TokenHolders) Append(candidates ...common.Address) {
 
 func (h *TokenHolders) Del(address common.Address) {
 	h.holders.Delete(address)
+}
+
+func (h *TokenHolders) BlockDone(blockNumber uint64) {
+	h.blocks.Store(blockNumber, true)
+}
+
+func (h *TokenHolders) HasBlock(blockNumber uint64) bool {
+	_, exists := h.blocks.Load(blockNumber)
+	return exists
 }

@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"go.vocdoni.io/dvote/log"
 )
 
 type TokenHolders struct {
@@ -14,11 +13,11 @@ type TokenHolders struct {
 	blocks  sync.Map
 }
 
-func (h *TokenHolders) Init(address common.Address, ctype ContractType) {
-	log.Infof("initializing contract %s of type %d", address, ctype)
+func (h *TokenHolders) Init(address common.Address, ctype ContractType) *TokenHolders {
 	h.address = address
 	h.ctype = ctype
 	h.holders = sync.Map{}
+	return h
 }
 
 func (h *TokenHolders) Address() common.Address {

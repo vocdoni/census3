@@ -58,12 +58,11 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 		return
 	}
 	for _, c := range tokens {
-		th, err := s.GetHolders(c)
-		if err != nil {
+		var err error
+		if s.tokens[c], err = s.GetHolders(c); err != nil {
 			log.Errorf("cannot get contract details for %s: %v", c, err)
 			continue
 		}
-		s.tokens[c] = new(contractstate.TokenHolders).Init(c, th.Type())
 	}
 	// monitor for new contracts added and update existing
 	for {
@@ -88,8 +87,46 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 	}
 }
 
+func (s *HoldersScanner) AddToken(addr common.Address, tType contractstate.ContractType, startBlock uint64) error {
+	w3 := contractstate.Web3{}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := w3.Init(ctx, s.web3, addr, tType); err != nil {
+		return err
+	}
+	info, err := w3.GetTokenData()
+	if err != nil {
+		return err
+	}
+	var (
+		name     = new(sql.NullString)
+		symbol   = new(sql.NullString)
+		decimals = new(sql.NullInt32)
+	)
+	if err := name.Scan(info.Name); err != nil {
+		return err
+	}
+	if err := symbol.Scan(info.Symbol); err != nil {
+		return err
+	}
+	if err := decimals.Scan(info.Decimals); err != nil {
+		return err
+	}
+	_, err = s.sqlc.CreateToken(ctx, queries.CreateTokenParams{
+		ID:            db.BigInt(*info.Address.Big()),
+		Name:          *name,
+		Symbol:        *symbol,
+		Decimals:      *decimals,
+		TotalSupply:   db.Address(info.TotalSupply.Bytes()),
+		CreationBlock: int64(startBlock),
+		TypeID:        int64(tType),
+	})
+	return err
+}
+
 func (s *HoldersScanner) ListTokens() ([]common.Address, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	tokens, err := s.sqlc.PaginatedTokens(ctx, queries.PaginatedTokensParams{
 		Limit:  -1,
 		Offset: 0,
@@ -107,7 +144,8 @@ func (s *HoldersScanner) ListTokens() ([]common.Address, error) {
 }
 
 func (s *HoldersScanner) GetHolders(addr common.Address) (*contractstate.TokenHolders, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	token, err := s.sqlc.TokenByID(ctx, db.BigInt(*addr.Big()))
 	if err != nil {
 		return nil, err
@@ -134,7 +172,8 @@ func (s *HoldersScanner) GetHolders(addr common.Address) (*contractstate.TokenHo
 }
 
 func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, timestamp string) error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	// if the last block not exists, create it
 	if _, err := s.sqlc.BlockByID(ctx, int64(s.LastBlock)); err != nil {
@@ -197,9 +236,9 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 	}
 
 	w3 := contractstate.Web3{}
-	ctx2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	if err := w3.Init(ctx2, s.web3, addr, th.Type()); err != nil {
+	if err := w3.Init(ctx, s.web3, addr, th.Type()); err != nil {
 		return err
 	}
 
@@ -218,7 +257,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 			strings.Contains(err.Error(), "read limit exceeded") {
 			log.Warnf("connection reset on block %d, will retry on next iteration...", s.StartBlock)
 
-			timestamp, err := w3.BlockTimestamp(ctx2, uint(s.LastBlock))
+			timestamp, err := w3.BlockTimestamp(ctx, uint(s.LastBlock))
 			if err != nil {
 				log.Error(err)
 				return nil

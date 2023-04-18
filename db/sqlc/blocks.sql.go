@@ -81,6 +81,19 @@ func (q *Queries) DeleteBlock(ctx context.Context, id int64) (sql.Result, error)
 	return q.db.ExecContext(ctx, deleteBlock, id)
 }
 
+const lastBlock = `-- name: LastBlock :one
+SELECT id FROM Blocks 
+ORDER BY id DESC 
+LIMIT 1
+`
+
+func (q *Queries) LastBlock(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, lastBlock)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const paginatedBlocks = `-- name: PaginatedBlocks :many
 SELECT id, timestamp, root_hash FROM Blocks
 ORDER BY id

@@ -467,7 +467,8 @@ func (w *Web3) BlockTimestamp(ctx context.Context, blockNumber uint) (string, er
 		return "", err
 	}
 
-	return fmt.Sprint(blockHeader.Time), nil
+	timeLayout := "2000-01-01 10:00:00"
+	return time.Unix(int64(blockHeader.Time), 0).Format(timeLayout), nil
 }
 
 // UpdateTokenHolders function checks the transfer logs of the given contract
@@ -780,7 +781,8 @@ func (w *Web3) GetTokenData() (*TokenData, error) {
 	}
 
 	if td.Decimals, err = w.TokenDecimals(); err != nil {
-		return nil, fmt.Errorf("unable to get token data: %s", err)
+		td.Decimals = 0
+		// return nil, fmt.Errorf("unable to get token data: %s", err)
 	}
 
 	if td.TotalSupply, err = w.TokenTotalSupply(); err != nil {

@@ -45,11 +45,11 @@ type Strategytoken struct {
 }
 
 type Token struct {
-	ID            db.BigInt
+	ID            db.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
 	Decimals      sql.NullInt32
-	TotalSupply   db.Address
+	TotalSupply   db.BigInt
 	CreationBlock int64
 	TypeID        int64
 }

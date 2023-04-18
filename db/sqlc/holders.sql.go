@@ -85,6 +85,21 @@ func (q *Queries) HolderByID(ctx context.Context, id db.Address) (db.Address, er
 	return id, err
 }
 
+const lastBlockByTokenIDAndHolderID = `-- name: LastBlockByTokenIDAndHolderID :one
+SELECT block_id 
+FROM TokenHolders
+WHERE token_id = ?
+ORDER BY block_id DESC
+LIMIT 1
+`
+
+func (q *Queries) LastBlockByTokenIDAndHolderID(ctx context.Context, tokenID db.Address) (int64, error) {
+	row := q.db.QueryRowContext(ctx, lastBlockByTokenIDAndHolderID, tokenID)
+	var block_id int64
+	err := row.Scan(&block_id)
+	return block_id, err
+}
+
 const paginatedHolders = `-- name: PaginatedHolders :many
 SELECT id FROM Holders
 ORDER BY id

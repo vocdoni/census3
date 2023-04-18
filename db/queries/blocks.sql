@@ -37,3 +37,8 @@ UPDATE Blocks
 SET timestamp = sqlc.arg(timestamp),
     root_hash = sqlc.arg(root_hash)
 WHERE id = sqlc.arg(id);
+
+-- name: LastBlock :one
+SELECT id FROM Blocks 
+ORDER BY id DESC 
+LIMIT 1;

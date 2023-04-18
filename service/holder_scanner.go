@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"math/big"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -37,15 +38,32 @@ func NewHoldersScanner(dataDir string, w3uri string) (*HoldersScanner, error) {
 
 	goose.SetBaseFS(db.Census3Migrations)
 	if err := goose.SetDialect("sqlite3"); err != nil {
+		log.Errorw(err, "error during setup goose")
 		return nil, err
 	}
 
-	var database *sql.DB
+	database, err := sql.Open("sqlite3", filepath.Join(dataDir, dbFilename))
+	if err != nil {
+		log.Errorw(err, "error opening database")
+		return nil, err
+	}
+
 	if err := goose.Up(database, "migrations"); err != nil {
+		log.Errorw(err, "error during goose up")
 		return nil, err
 	}
 
 	s.sqlc = queries.New(database)
+
+	// Get latest analyzed block
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	lastBlock, err := s.sqlc.LastBlock(ctx)
+	if err == nil {
+		s.StartBlock = uint64(lastBlock)
+		s.LastBlock = uint64(lastBlock)
+	}
+
 	return &s, nil
 }
 
@@ -54,13 +72,15 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 	log.Infof("loading stored contracts...")
 	tokens, err := s.ListTokens()
 	if err != nil {
-		log.Error(err)
+		if !errors.Is(sql.ErrNoRows, err) {
+			log.Error(err)
+		}
 		return
 	}
-	for _, c := range tokens {
+	for _, addr := range tokens {
 		var err error
-		if s.tokens[c], err = s.GetHolders(c); err != nil {
-			log.Errorf("cannot get contract details for %s: %v", c, err)
+		if s.tokens[addr], err = s.GetHolders(addr); err != nil {
+			log.Errorf("cannot get contract details for %s: %v", addr, err)
 			continue
 		}
 	}
@@ -76,8 +96,8 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 				log.Error(err)
 				continue
 			}
-			for _, c := range tokens {
-				if err := s.scanHolders(ctx, c); err != nil {
+			for _, addr := range tokens {
+				if err := s.scanHolders(ctx, addr); err != nil {
 					log.Error(err)
 				}
 			}
@@ -96,6 +116,7 @@ func (s *HoldersScanner) AddToken(addr common.Address, tType contractstate.Contr
 	}
 	info, err := w3.GetTokenData()
 	if err != nil {
+		log.Errorw(err, "error getting token contract data")
 		return err
 	}
 	var (
@@ -113,15 +134,19 @@ func (s *HoldersScanner) AddToken(addr common.Address, tType contractstate.Contr
 		return err
 	}
 	_, err = s.sqlc.CreateToken(ctx, queries.CreateTokenParams{
-		ID:            db.BigInt(*info.Address.Big()),
+		ID:            info.Address.Bytes(),
 		Name:          *name,
 		Symbol:        *symbol,
 		Decimals:      *decimals,
-		TotalSupply:   db.Address(info.TotalSupply.Bytes()),
+		TotalSupply:   info.TotalSupply.Bytes(),
 		CreationBlock: int64(startBlock),
 		TypeID:        int64(tType),
 	})
-	return err
+	if err != nil {
+		log.Errorw(err, "error creating token on the database")
+		return err
+	}
+	return nil
 }
 
 func (s *HoldersScanner) ListTokens() ([]common.Address, error) {
@@ -133,20 +158,23 @@ func (s *HoldersScanner) ListTokens() ([]common.Address, error) {
 	})
 
 	if err != nil {
+		if errors.Is(sql.ErrNoRows, err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
-	addresses := make([]common.Address, len(tokens))
-	for idx, token := range tokens {
-		addresses[idx] = common.BigToAddress((*big.Int)(&token.ID))
+	results := make([]common.Address, len(tokens))
+	for _, token := range tokens {
+		results = append(results, common.BytesToAddress(token.ID))
 	}
-	return addresses, nil
+	return results, nil
 }
 
 func (s *HoldersScanner) GetHolders(addr common.Address) (*contractstate.TokenHolders, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	token, err := s.sqlc.TokenByID(ctx, db.BigInt(*addr.Big()))
+	token, err := s.sqlc.TokenByID(ctx, addr.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +194,15 @@ func (s *HoldersScanner) GetHolders(addr common.Address) (*contractstate.TokenHo
 		currentHolders[idx] = common.BytesToAddress(holder)
 	}
 
-	th := new(contractstate.TokenHolders).Init(addr, contractstate.ContractType(token.TypeID))
+	blockNumber, err := s.sqlc.LastBlockByTokenIDAndHolderID(ctx, addr.Bytes())
+	if err != nil {
+		if !errors.Is(sql.ErrNoRows, err) {
+			return nil, err
+		}
+		blockNumber = 0
+	}
+
+	th := new(contractstate.TokenHolders).Init(addr, contractstate.ContractType(token.TypeID), uint64(blockNumber))
 	th.Append(currentHolders...)
 	return th, nil
 }
@@ -182,9 +218,11 @@ func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, timestamp st
 		}
 
 		_, err = s.sqlc.CreateBlock(ctx, queries.CreateBlockParams{
-			ID:        int64(s.LastBlock),
+			ID: int64(s.LastBlock),
+			// TODO: convert to date
 			Timestamp: timestamp,
-			RootHash:  []byte{0},
+			// TODO: get block root hash
+			RootHash: []byte{0},
 		})
 		if err != nil {
 			return err
@@ -208,7 +246,7 @@ func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, timestamp st
 				TokenID:  th.Address().Bytes(),
 				HolderID: holder.Bytes(),
 				BlockID:  int64(s.LastBlock),
-				Balance:  db.BigInt(*big.NewInt(-1)),
+				Balance:  big.NewInt(-1).Bytes(),
 			})
 			if err != nil {
 				return err
@@ -230,23 +268,30 @@ func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, timestamp st
 
 func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) error {
 	log.Debugf("scanning contract %s", addr)
-	th, err := s.GetHolders(addr)
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
 	if err != nil {
 		return err
 	}
+	ttype := contractstate.ContractType(tokenInfo.TypeID)
+
+	if s.LastBlock < uint64(tokenInfo.CreationBlock) {
+		s.LastBlock = uint64(tokenInfo.CreationBlock)
+	}
 
 	w3 := contractstate.Web3{}
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	if err := w3.Init(ctx, s.web3, addr, th.Type()); err != nil {
+	if err := w3.Init(ctx, s.web3, addr, ttype); err != nil {
 		return err
 	}
 
 	s.mutex.RLock()
 	th, ok := s.tokens[addr]
 	if !ok {
-		log.Infof("initializing contract %s (%s)", addr.Hex())
-		th = new(contractstate.TokenHolders).Init(addr, th.Type())
+		log.Infof("initializing contract %s", addr.Hex())
+		th = new(contractstate.TokenHolders).Init(addr, ttype, uint64(tokenInfo.CreationBlock))
 		s.tokens[addr] = th
 	}
 	s.mutex.RUnlock()
@@ -271,5 +316,14 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 		return err
 	}
 
+	timestamp, err := w3.BlockTimestamp(ctx, uint(s.LastBlock))
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+	if err := s.SetHolders(th, timestamp); err != nil {
+		log.Error(err)
+		return err
+	}
 	return nil
 }

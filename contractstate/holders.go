@@ -2,21 +2,25 @@ package contractstate
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
 type TokenHolders struct {
-	address common.Address
-	ctype   ContractType
-	holders sync.Map
-	blocks  sync.Map
+	address     common.Address
+	ctype       ContractType
+	holders     sync.Map
+	blocks      sync.Map
+	blockNumber atomic.Uint64
 }
 
-func (h *TokenHolders) Init(address common.Address, ctype ContractType) *TokenHolders {
+func (h *TokenHolders) Init(address common.Address, ctype ContractType, blockNumber uint64) *TokenHolders {
 	h.address = address
 	h.ctype = ctype
 	h.holders = sync.Map{}
+	h.blocks = sync.Map{}
+	h.blockNumber.Store(blockNumber)
 	return h
 }
 
@@ -54,9 +58,14 @@ func (h *TokenHolders) Del(address common.Address) {
 
 func (h *TokenHolders) BlockDone(blockNumber uint64) {
 	h.blocks.Store(blockNumber, true)
+	h.blockNumber.Store(blockNumber)
 }
 
 func (h *TokenHolders) HasBlock(blockNumber uint64) bool {
 	_, exists := h.blocks.Load(blockNumber)
 	return exists
+}
+
+func (h *TokenHolders) Block() uint64 {
+	return h.blockNumber.Load()
 }

@@ -495,8 +495,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 	// check if there are new blocks to scan
 	lastBlockNumber := lastBlockHeader.Number.Uint64()
 	if fromBlockNumber >= lastBlockNumber {
-		log.Infof("no new blocks to scan for %s", th.Address().String())
-		return fromBlockNumber, nil
+		return fromBlockNumber, fmt.Errorf("no new blocks to scan for %s", th.Address().String())
 	}
 	// check if we need to scan more than MAX_SCAN_BLOCKS_PER_ITERATION
 	// if so, scan only MAX_SCAN_BLOCKS_PER_ITERATION blocks
@@ -712,7 +711,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 			}
 		}
 	}
-
 	return lastBlockNumber, w.submitTokenHolders(th, holdersCandidates, lastBlockNumber)
 }
 

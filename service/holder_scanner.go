@@ -165,8 +165,8 @@ func (s *HoldersScanner) ListTokens() ([]common.Address, error) {
 	}
 
 	results := make([]common.Address, len(tokens))
-	for _, token := range tokens {
-		results = append(results, common.BytesToAddress(token.ID))
+	for idx, token := range tokens {
+		results[idx] = common.BytesToAddress(token.ID)
 	}
 	return results, nil
 }
@@ -301,15 +301,20 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 	s.mutex.RUnlock()
 
 	if s.LastBlock, err = w3.UpdateTokenHolders(ctx, th, s.LastBlock+1); err != nil {
+		if strings.Contains(err.Error(), "no new blocks") {
+			log.Info(err)
+			return nil
+		}
 		if strings.Contains(err.Error(), "connection reset") ||
 			strings.Contains(err.Error(), "context deadline") ||
 			strings.Contains(err.Error(), "read limit exceeded") {
-			log.Warnf("connection reset on block %d, will retry on next iteration...", s.StartBlock)
+			log.Warnw("warning scanning contract", "token", th.Address().Hex(),
+				"block", s.LastBlock+1, "error", err)
 
 			timestamp, err := w3.BlockTimestamp(ctx, uint(s.LastBlock))
 			if err != nil {
 				log.Error(err)
-				return nil
+				return err
 			}
 			rootHash, err := w3.BlockRootHash(ctx, uint(s.LastBlock))
 			if err != nil {
@@ -319,26 +324,28 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 
 			if err := s.SetHolders(th, rootHash, timestamp); err != nil {
 				log.Error(err)
+				return err
 			}
 			return nil
 		}
+		log.Error("warning scanning contract", "token", th.Address().Hex(),
+			"block", s.LastBlock+1, "error", err)
 		return err
 	}
 
 	timestamp, err := w3.BlockTimestamp(ctx, uint(s.LastBlock))
 	if err != nil {
 		log.Error(err)
-		return err
+		return nil
 	}
-
 	rootHash, err := w3.BlockRootHash(ctx, uint(s.LastBlock))
 	if err != nil {
 		log.Error(err)
 		return err
 	}
+
 	if err := s.SetHolders(th, rootHash, timestamp); err != nil {
 		log.Error(err)
-		return err
 	}
 	return nil
 }

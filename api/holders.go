@@ -26,7 +26,7 @@ func initHoldersHandler(currentApi *api.API, scanner *service.HoldersScanner) {
 func (h *holdersHandler) createToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	req := CreateTokenRequest{}
 	if err := json.Unmarshal(msg.Data, &req); err != nil {
-		return new(api.APIerror).WithErr(err)
+		return new(api.APIerror).WithErr(err).Send(ctx)
 	}
 
 	tType := contractstate.ContractTypeFromString(req.Type)
@@ -41,7 +41,7 @@ func (h *holdersHandler) getHolders(msg *api.APIdata, ctx *httprouter.HTTPContex
 	addr := common.HexToAddress(ctx.URLParam("address"))
 	th, err := h.scanner.GetHolders(addr)
 	if err != nil {
-		return new(api.APIerror).WithErr(err)
+		return new(api.APIerror).WithErr(err).Send(ctx)
 	}
 
 	holders := TokenHoldersResponse{Holders: []string{}}
@@ -50,7 +50,7 @@ func (h *holdersHandler) getHolders(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	response, err := json.Marshal(holders)
 	if err != nil {
-		return new(api.APIerror).WithErr(err)
+		return new(api.APIerror).WithErr(err).Send(ctx)
 	}
 	return ctx.Send(response, api.HTTPstatusOK)
 }

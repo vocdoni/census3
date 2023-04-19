@@ -461,22 +461,24 @@ func (w *Web3) ScanTokenHolders(ctx context.Context, ts *ContractState, fromBloc
 	return lastBlockNumber, nil
 }
 
+// BlockTimestamp function returns the string timestampt of the provided block
+// number. The timestamp will be in RFC3339 format.
 func (w *Web3) BlockTimestamp(ctx context.Context, blockNumber uint) (string, error) {
 	blockHeader, err := w.client.HeaderByNumber(ctx, new(big.Int).SetInt64(int64(blockNumber)))
 	if err != nil {
 		return "", err
 	}
-
 	timeLayout := "2006-01-02T15:04:05Z07:00"
 	return time.Unix(int64(blockHeader.Time), 0).Format(timeLayout), nil
 }
 
+// BlockRootHash functions returns the root hash of the provided block number in
+// bytes.
 func (w *Web3) BlockRootHash(ctx context.Context, blockNumber uint) ([]byte, error) {
 	blockHeader, err := w.client.HeaderByNumber(ctx, new(big.Int).SetInt64(int64(blockNumber)))
 	if err != nil {
 		return nil, err
 	}
-
 	return blockHeader.Root.Bytes(), nil
 }
 

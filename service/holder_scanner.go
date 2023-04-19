@@ -19,83 +19,93 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
+// HoldersScanner struct contains the needed parameters to scan the holders of
+// the tokens stored on the database (located on 'dataDir/dbFilename'). It
+// keeps the database updated scanning the network using the web3 endpoint.
 type HoldersScanner struct {
-	dataDir string
-	web3    string
-	tokens  map[common.Address]*contractstate.TokenHolders
-	mutex   sync.RWMutex
-	sqlc    *queries.Queries
-
-	StartBlock uint64
-	LastBlock  uint64
+	dataDir   string
+	web3      string
+	tokens    map[common.Address]*contractstate.TokenHolders
+	mutex     sync.RWMutex
+	sqlc      *queries.Queries
+	lastBlock uint64
 }
 
+// NewHoldersScanner function creates a new HolderScanner using the dataDir path
+// and the web3 endpoint URI provided. It sets up a sqlite3 database instance
+// and gets the number of last block scanned from it.
 func NewHoldersScanner(dataDir string, w3uri string) (*HoldersScanner, error) {
-	var s HoldersScanner
-	s.dataDir = dataDir
-	s.tokens = make(map[common.Address]*contractstate.TokenHolders)
-	s.web3 = w3uri
-
+	// create an empty scanner
+	s := HoldersScanner{
+		dataDir: dataDir,
+		tokens:  make(map[common.Address]*contractstate.TokenHolders),
+		web3:    w3uri,
+	}
+	// get census3 goose migrations and setup for sqlite3
 	goose.SetBaseFS(db.Census3Migrations)
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		log.Errorw(err, "error during setup goose")
 		return nil, err
 	}
-
+	// open database file
 	database, err := sql.Open("sqlite3", filepath.Join(dataDir, dbFilename))
 	if err != nil {
 		log.Errorw(err, "error opening database")
 		return nil, err
 	}
-
+	// perform goose up
 	if err := goose.Up(database, "migrations"); err != nil {
 		log.Errorw(err, "error during goose up")
 		return nil, err
 	}
-
+	// init sqlc
 	s.sqlc = queries.New(database)
-
-	// Get latest analyzed block
+	// get latest analyzed block
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	lastBlock, err := s.sqlc.LastBlock(ctx)
 	if err == nil {
-		s.StartBlock = uint64(lastBlock)
-		s.LastBlock = uint64(lastBlock)
+		s.lastBlock = uint64(lastBlock)
 	}
-
 	return &s, nil
 }
 
+// Start function initialises the given scanner until the provided context is
+// canceled. It first gets the addresses of the tokens to scan and their current
+// token holders. It then starts scanning, keeping these lists updated and
+// synchronised with the database instance.
 func (s *HoldersScanner) Start(ctx context.Context) {
-	// load existing contracts
-	log.Infof("loading stored contracts...")
-	tokens, err := s.ListTokens()
+	// load existing tokes
+	log.Infof("loading stored tokens...")
+	tokens, err := s.GetTokenAddresses()
 	if err != nil {
 		if !errors.Is(sql.ErrNoRows, err) {
 			log.Error(err)
 		}
 		return
 	}
+	// get every token current holders
 	for _, addr := range tokens {
 		var err error
-		if s.tokens[addr], err = s.GetHolders(addr); err != nil {
+		if s.tokens[addr], err = s.GetTokenHolders(addr); err != nil {
 			log.Errorf("cannot get contract details for %s: %v", addr, err)
 			continue
 		}
 	}
-	// monitor for new contracts added and update existing
+	// monitor for new tokens added and update every token holders
 	for {
 		select {
 		case <-ctx.Done():
 			log.Info("scanner loop halted")
 			return
 		default:
-			tokens, err := s.ListTokens()
+			// get updated list of tokens
+			tokens, err := s.GetTokenAddresses()
 			if err != nil {
 				log.Error(err)
 				continue
 			}
+			// scan for new holders of every token
 			for _, addr := range tokens {
 				if err := s.scanHolders(ctx, addr); err != nil {
 					log.Error(err)
@@ -107,6 +117,11 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 	}
 }
 
+// AddToken function creates a new token in the current database instance. It
+// first gets the token information from the network and then stores it in the
+// database. The new token created will be scanned from the block number
+// provided as argument.
+// TODO: Move to other service
 func (s *HoldersScanner) AddToken(addr common.Address, tType contractstate.ContractType, startBlock uint64) error {
 	w3 := contractstate.Web3{}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -149,21 +164,27 @@ func (s *HoldersScanner) AddToken(addr common.Address, tType contractstate.Contr
 	return nil
 }
 
-func (s *HoldersScanner) ListTokens() ([]common.Address, error) {
+// GetTokenAddresses function gets the current token addresses from the database
+// and returns it as a list of common.Address structs. If the current database
+// instance does not contain any token, it returns nil addresses without error.
+// This behaviour helps to deal with this particular case.
+func (s *HoldersScanner) GetTokenAddresses() ([]common.Address, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	// get tokens from the database
 	tokens, err := s.sqlc.PaginatedTokens(ctx, queries.PaginatedTokensParams{
 		Limit:  -1,
 		Offset: 0,
 	})
-
+	// if error raises and is no rows error return nil results, if it is not
+	// return the error.
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			return nil, nil
 		}
 		return nil, err
 	}
-
+	// parse and return token addresses
 	results := make([]common.Address, len(tokens))
 	for idx, token := range tokens {
 		results[idx] = common.BytesToAddress(token.ID)
@@ -171,9 +192,14 @@ func (s *HoldersScanner) ListTokens() ([]common.Address, error) {
 	return results, nil
 }
 
-func (s *HoldersScanner) GetHolders(addr common.Address) (*contractstate.TokenHolders, error) {
+// GetTokenHolders function gets the token holders states from the database, of
+// the token identified by the contract address provided. If the current database
+// instance does not contain any token holder for this token or the token does not , it returns nil addresses without error.
+// This behaviour helps to deal with this particular case.
+func (s *HoldersScanner) GetTokenHolders(addr common.Address) (*contractstate.TokenHolders, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	// get token information from the database
 	token, err := s.sqlc.TokenByID(ctx, addr.Bytes())
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
@@ -181,7 +207,22 @@ func (s *HoldersScanner) GetHolders(addr common.Address) (*contractstate.TokenHo
 		}
 		return nil, err
 	}
-
+	// get latest analyzed block for current token
+	blockNumber, err := s.sqlc.LastBlockByTokenID(ctx, addr.Bytes())
+	if err != nil {
+		// if no block had been scanned for this token, use the token creation
+		// block as state start block, else return the error.
+		if !errors.Is(sql.ErrNoRows, err) {
+			return nil, err
+		}
+		blockNumber = token.CreationBlock
+	}
+	// init the TokenHolders struct with the information generated:
+	//   - contract address
+	//   - contract type
+	//   - last analyzed block number
+	th := new(contractstate.TokenHolders).Init(addr, contractstate.ContractType(token.TypeID), uint64(blockNumber))
+	// get token holders from the database
 	dbHolders, err := s.sqlc.TokenHoldersByTokenID(ctx,
 		queries.TokenHoldersByTokenIDParams{
 			TokenID: addr.Bytes(),
@@ -189,47 +230,45 @@ func (s *HoldersScanner) GetHolders(addr common.Address) (*contractstate.TokenHo
 			Offset:  0,
 		})
 	if err != nil {
+		// if database does not contain any token holder for this token, return
+		// the initialised TokenHolders state, else return the error.
+		if errors.Is(sql.ErrNoRows, err) {
+			return th, nil
+		}
 		return nil, err
 	}
-
+	// parse current holders from the database and append the them to the
+	// TokenHolders state
 	currentHolders := make([]common.Address, len(dbHolders))
 	for idx, holder := range dbHolders {
 		currentHolders[idx] = common.BytesToAddress(holder)
 	}
-
-	blockNumber, err := s.sqlc.LastBlockByTokenIDAndHolderID(ctx, addr.Bytes())
-	if err != nil {
-		if !errors.Is(sql.ErrNoRows, err) {
-			return nil, err
-		}
-		blockNumber = 0
-	}
-
-	th := new(contractstate.TokenHolders).Init(addr, contractstate.ContractType(token.TypeID), uint64(blockNumber))
 	th.Append(currentHolders...)
 	return th, nil
 }
 
-func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, rootHash []byte, timestamp string) error {
+// SetTokenHolders function updates the current HoldersScanner database with the
+// TokenHolders state provided. Updates the holders for associated token and
+// the blocks scanned. To do this, it requires the root hash and the timestampt
+// of the given TokenHolders state block.
+func (s *HoldersScanner) SetTokenHolders(th *contractstate.TokenHolders, rootHash []byte, timestamp string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	// if the last block not exists, create it
-	if _, err := s.sqlc.BlockByID(ctx, int64(s.LastBlock)); err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
-			_, err = s.sqlc.CreateBlock(ctx, queries.CreateBlockParams{
-				ID:        int64(s.LastBlock),
-				Timestamp: timestamp,
-				RootHash:  rootHash,
-			})
-			if err != nil {
-				return err
-			}
-		} else {
+	// if the current HoldersScanner last block not exists in the database,
+	// create it
+	if _, err := s.sqlc.BlockByID(ctx, int64(s.lastBlock)); err != nil {
+		if !errors.Is(sql.ErrNoRows, err) {
+			return err
+		}
+		_, err = s.sqlc.CreateBlock(ctx, queries.CreateBlockParams{
+			ID:        int64(s.lastBlock),
+			Timestamp: timestamp,
+			RootHash:  rootHash,
+		})
+		if err != nil {
 			return err
 		}
 	}
-
 	// iterate over given holders
 	for _, holder := range th.Holders() {
 		_, err := s.sqlc.TokenHolderByTokenIDAndHolderID(ctx,
@@ -250,7 +289,7 @@ func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, rootHash []b
 			_, err = s.sqlc.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
 				TokenID:  th.Address().Bytes(),
 				HolderID: holder.Bytes(),
-				BlockID:  int64(s.LastBlock),
+				BlockID:  int64(s.lastBlock),
 				Balance:  big.NewInt(-1).Bytes(),
 			})
 			if err != nil {
@@ -262,92 +301,107 @@ func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, rootHash []b
 		_, err = s.sqlc.UpdateTokenHolder(ctx, queries.UpdateTokenHolderParams{
 			TokenID:  th.Address().Bytes(),
 			HolderID: holder.Bytes(),
-			BlockID:  int64(s.LastBlock),
+			BlockID:  int64(s.lastBlock),
 			Balance:  big.NewInt(-1).Bytes(),
 		})
 		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
+// scanHolders function updates the holders of the token identified by the
+// address provided. It checks if the address provided already has a
+// TokenHolders state cached, if not, it gets the token information from the
+// HoldersScanner database and caches it. If something expected fails or the
+// scan process ends succesfully, the cached information is stored in the
+// database. If it has no updates, it does not change anything and returns nil.
 func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) error {
 	log.Debugf("scanning contract %s", addr)
-
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-
-	tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
-	if err != nil {
-		return err
-	}
-	ttype := contractstate.ContractType(tokenInfo.TypeID)
-
-	if s.LastBlock < uint64(tokenInfo.CreationBlock) {
-		s.LastBlock = uint64(tokenInfo.CreationBlock)
-	}
-
-	w3 := contractstate.Web3{}
-	if err := w3.Init(ctx, s.web3, addr, ttype); err != nil {
-		return err
-	}
-
+	// get the token TokenHolders struct from cache, if it not exists it will
+	// be initialized
 	s.mutex.RLock()
 	th, ok := s.tokens[addr]
 	if !ok {
 		log.Infof("initializing contract %s", addr.Hex())
+		// get token information from the database
+		tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
+		if err != nil {
+			return err
+		}
+		ttype := contractstate.ContractType(tokenInfo.TypeID)
+
 		th = new(contractstate.TokenHolders).Init(addr, ttype, uint64(tokenInfo.CreationBlock))
 		s.tokens[addr] = th
 	}
 	s.mutex.RUnlock()
-
-	if s.LastBlock, err = w3.UpdateTokenHolders(ctx, th, s.LastBlock+1); err != nil {
+	// If the last block of the current scanner is lower than the TokenHolders
+	// state block, it seems that the current scanner is out of date and can
+	// move on to this block
+	if s.lastBlock < th.LastBlock() {
+		s.lastBlock = th.LastBlock()
+	}
+	// init web3 contract state
+	w3 := contractstate.Web3{}
+	if err := w3.Init(ctx, s.web3, addr, th.Type()); err != nil {
+		return err
+	}
+	// try to update the TokenHolders struct and the current scanner last block
+	var err error
+	if s.lastBlock, err = w3.UpdateTokenHolders(ctx, th, s.lastBlock+1); err != nil {
 		if strings.Contains(err.Error(), "no new blocks") {
-			log.Info(err)
+			// if no new blocks error raises, log it as debug and return nil
+			log.Debugw(err.Error(), "token", th.Address())
 			return nil
 		}
 		if strings.Contains(err.Error(), "connection reset") ||
 			strings.Contains(err.Error(), "context deadline") ||
 			strings.Contains(err.Error(), "read limit exceeded") {
+			// if connection error raises, log it as warning and try to save
+			// current TokenHolders state and return nil
 			log.Warnw("warning scanning contract", "token", th.Address().Hex(),
-				"block", s.LastBlock+1, "error", err)
-
-			timestamp, err := w3.BlockTimestamp(ctx, uint(s.LastBlock))
+				"block", s.lastBlock+1, "error", err)
+			// get current block number timestamp and root hash, required
+			// parameters to create a new block in the database
+			timestamp, err := w3.BlockTimestamp(ctx, uint(s.lastBlock))
 			if err != nil {
 				log.Error(err)
 				return err
 			}
-			rootHash, err := w3.BlockRootHash(ctx, uint(s.LastBlock))
+			rootHash, err := w3.BlockRootHash(ctx, uint(s.lastBlock))
 			if err != nil {
 				log.Error(err)
 				return err
 			}
-
-			if err := s.SetHolders(th, rootHash, timestamp); err != nil {
+			// save TokesHolders state into the database
+			if err := s.SetTokenHolders(th, rootHash, timestamp); err != nil {
 				log.Error(err)
 				return err
 			}
 			return nil
 		}
+		// if unexpected error raises, log it as error and return it.
 		log.Error("warning scanning contract", "token", th.Address().Hex(),
-			"block", s.LastBlock+1, "error", err)
+			"block", s.lastBlock+1, "error", err)
 		return err
 	}
-
-	timestamp, err := w3.BlockTimestamp(ctx, uint(s.LastBlock))
+	// get current block number timestamp and root hash, required parameters to
+	// create a new block in the database
+	timestamp, err := w3.BlockTimestamp(ctx, uint(s.lastBlock))
 	if err != nil {
 		log.Error(err)
 		return nil
 	}
-	rootHash, err := w3.BlockRootHash(ctx, uint(s.LastBlock))
+	rootHash, err := w3.BlockRootHash(ctx, uint(s.lastBlock))
 	if err != nil {
 		log.Error(err)
 		return err
 	}
-
-	if err := s.SetHolders(th, rootHash, timestamp); err != nil {
+	// save TokesHolders state into the database
+	if err := s.SetTokenHolders(th, rootHash, timestamp); err != nil {
 		log.Error(err)
 	}
 	return nil

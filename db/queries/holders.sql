@@ -75,7 +75,7 @@ FROM Holders
 JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
 WHERE TokenHolders.token_id = ? AND TokenHolders.holder_id = ? AND TokenHolders.block_id = ?;
 
--- name: LastBlockByTokenIDAndHolderID :one
+-- name: LastBlockByTokenID :one
 SELECT block_id 
 FROM TokenHolders
 WHERE token_id = ?

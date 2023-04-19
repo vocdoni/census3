@@ -11,20 +11,27 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-type holdersHandler struct {
+// holdersHandlers struct envolves an initializated HolderScanner.
+// TODO: replace ot with an struct to envolves all scanners or other services,
+// this will help to call other scanners and services functions.
+type holdersHandlers struct {
 	scanner *service.HoldersScanner
 }
 
-func initHoldersHandler(currentApi *api.API, scanner *service.HoldersScanner) {
-	handler := holdersHandler{scanner}
-
+// initHoldersHandlers function registers the endpoints related with the token
+// holders such us get a token holders lists of a token. It uses the given
+// initialized API and HoldersScanner service.
+func initHoldersHandlers(currentApi *api.API, scanner *service.HoldersScanner) {
+	handler := holdersHandlers{scanner}
+	// TODO: Move the createToken endpoint to other api package file.
 	currentApi.RegisterMethod("/tokens", "POST",
 		api.MethodAccessTypePublic, handler.createToken)
 	currentApi.RegisterMethod("/tokens/{address}/holders", "GET",
 		api.MethodAccessTypePublic, handler.getHolders)
 }
 
-func (h *holdersHandler) createToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+// TODO: Move this handler to other api package file.
+func (h *holdersHandlers) createToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	req := CreateTokenRequest{}
 	if err := json.Unmarshal(msg.Data, &req); err != nil {
 		log.Errorf("error unmarshalling token information: %s", err)
@@ -40,16 +47,20 @@ func (h *holdersHandler) createToken(msg *api.APIdata, ctx *httprouter.HTTPConte
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 
-func (h *holdersHandler) getHolders(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+// getHolders handler function receives the token contract address from the
+// request and tries to get its token holders. If something fails, the given
+// token not exists or has not registered token holders, it will returns and api
+// error.
+func (h *holdersHandlers) getHolders(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	addr := common.HexToAddress(ctx.URLParam("address"))
-	th, err := h.scanner.GetHolders(addr)
+	th, err := h.scanner.GetTokenHolders(addr)
 	if err != nil {
 		log.Errorf("error getting token with address %s: %s", addr, err)
 		return ErrCantGetTokenHolders.Withf("error getting token with address %s", addr)
 	}
 	if th == nil {
 		log.Errorf("token with address %s", addr)
-		return ErrCantGetTokenHolders.Withf("token with address %s", addr)
+		return ErrUnknownToken.Withf("token with address %s", addr)
 	}
 
 	holders := TokenHoldersResponse{Holders: []string{}}

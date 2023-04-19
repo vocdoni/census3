@@ -85,7 +85,7 @@ func (q *Queries) HolderByID(ctx context.Context, id db.Address) (db.Address, er
 	return id, err
 }
 
-const lastBlockByTokenIDAndHolderID = `-- name: LastBlockByTokenIDAndHolderID :one
+const lastBlockByTokenID = `-- name: LastBlockByTokenID :one
 SELECT block_id 
 FROM TokenHolders
 WHERE token_id = ?
@@ -93,8 +93,8 @@ ORDER BY block_id DESC
 LIMIT 1
 `
 
-func (q *Queries) LastBlockByTokenIDAndHolderID(ctx context.Context, tokenID db.Address) (int64, error) {
-	row := q.db.QueryRowContext(ctx, lastBlockByTokenIDAndHolderID, tokenID)
+func (q *Queries) LastBlockByTokenID(ctx context.Context, tokenID db.Address) (int64, error) {
+	row := q.db.QueryRowContext(ctx, lastBlockByTokenID, tokenID)
 	var block_id int64
 	err := row.Scan(&block_id)
 	return block_id, err

@@ -59,7 +59,7 @@ func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.S
 		api.MethodAccessTypePublic, ch.fetchTree)
 
 	// init token holders new methods
-	initHoldersHandler(endpoint, holderScanner)
+	initHoldersHandlers(endpoint, holderScanner)
 	return nil
 }
 

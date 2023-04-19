@@ -31,7 +31,10 @@ func (h *holdersHandler) createToken(msg *api.APIdata, ctx *httprouter.HTTPConte
 
 	tType := contractstate.ContractTypeFromString(req.Type)
 	tAddr := common.HexToAddress(req.Address)
-	return h.scanner.AddToken(tAddr, tType, req.StartBlock)
+	if err := h.scanner.AddToken(tAddr, tType, req.StartBlock); err != nil {
+		return new(api.APIerror).WithErr(err)
+	}
+	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 
 func (h *holdersHandler) getHolders(msg *api.APIdata, ctx *httprouter.HTTPContext) error {

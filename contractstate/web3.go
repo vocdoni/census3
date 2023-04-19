@@ -467,8 +467,17 @@ func (w *Web3) BlockTimestamp(ctx context.Context, blockNumber uint) (string, er
 		return "", err
 	}
 
-	timeLayout := "2000-01-01 10:00:00"
+	timeLayout := "2006-01-02T15:04:05Z07:00"
 	return time.Unix(int64(blockHeader.Time), 0).Format(timeLayout), nil
+}
+
+func (w *Web3) BlockRootHash(ctx context.Context, blockNumber uint) ([]byte, error) {
+	blockHeader, err := w.client.HeaderByNumber(ctx, new(big.Int).SetInt64(int64(blockNumber)))
+	if err != nil {
+		return nil, err
+	}
+
+	return blockHeader.Root.Bytes(), nil
 }
 
 // UpdateTokenHolders function checks the transfer logs of the given contract

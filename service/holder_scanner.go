@@ -207,24 +207,22 @@ func (s *HoldersScanner) GetHolders(addr common.Address) (*contractstate.TokenHo
 	return th, nil
 }
 
-func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, timestamp string) error {
+func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, rootHash []byte, timestamp string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// if the last block not exists, create it
 	if _, err := s.sqlc.BlockByID(ctx, int64(s.LastBlock)); err != nil {
-		if !errors.Is(sql.ErrNoRows, err) {
-			return err
-		}
-
-		_, err = s.sqlc.CreateBlock(ctx, queries.CreateBlockParams{
-			ID: int64(s.LastBlock),
-			// TODO: convert to date
-			Timestamp: timestamp,
-			// TODO: get block root hash
-			RootHash: []byte{0},
-		})
-		if err != nil {
+		if errors.Is(sql.ErrNoRows, err) {
+			_, err = s.sqlc.CreateBlock(ctx, queries.CreateBlockParams{
+				ID:        int64(s.LastBlock),
+				Timestamp: timestamp,
+				RootHash:  rootHash,
+			})
+			if err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
 	}
@@ -241,6 +239,10 @@ func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, timestamp st
 			if !errors.Is(sql.ErrNoRows, err) {
 				return err
 			}
+			_, err = s.sqlc.CreateHolder(ctx, holder.Bytes())
+			if err != nil {
+				return err
+			}
 			// if the token holder not exists, create it
 			_, err = s.sqlc.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
 				TokenID:  th.Address().Bytes(),
@@ -251,12 +253,14 @@ func (s *HoldersScanner) SetHolders(th *contractstate.TokenHolders, timestamp st
 			if err != nil {
 				return err
 			}
+			continue
 		}
 		// if exist, update the the block and the holder
 		_, err = s.sqlc.UpdateTokenHolder(ctx, queries.UpdateTokenHolderParams{
 			TokenID:  th.Address().Bytes(),
 			HolderID: holder.Bytes(),
 			BlockID:  int64(s.LastBlock),
+			Balance:  big.NewInt(-1).Bytes(),
 		})
 		if err != nil {
 			return err
@@ -307,8 +311,13 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 				log.Error(err)
 				return nil
 			}
+			rootHash, err := w3.BlockRootHash(ctx, uint(s.LastBlock))
+			if err != nil {
+				log.Error(err)
+				return err
+			}
 
-			if err := s.SetHolders(th, timestamp); err != nil {
+			if err := s.SetHolders(th, rootHash, timestamp); err != nil {
 				log.Error(err)
 			}
 			return nil
@@ -319,9 +328,15 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 	timestamp, err := w3.BlockTimestamp(ctx, uint(s.LastBlock))
 	if err != nil {
 		log.Error(err)
-		return nil
+		return err
 	}
-	if err := s.SetHolders(th, timestamp); err != nil {
+
+	rootHash, err := w3.BlockRootHash(ctx, uint(s.LastBlock))
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	if err := s.SetHolders(th, rootHash, timestamp); err != nil {
 		log.Error(err)
 		return err
 	}

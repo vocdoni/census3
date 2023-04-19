@@ -176,6 +176,9 @@ func (s *HoldersScanner) GetHolders(addr common.Address) (*contractstate.TokenHo
 	defer cancel()
 	token, err := s.sqlc.TokenByID(ctx, addr.Bytes())
 	if err != nil {
+		if errors.Is(sql.ErrNoRows, err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 

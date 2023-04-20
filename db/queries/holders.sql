@@ -75,6 +75,13 @@ FROM Holders
 JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
 WHERE TokenHolders.token_id = ? AND TokenHolders.holder_id = ? AND TokenHolders.block_id = ?;
 
+-- name: LastBlockByTokenID :one
+SELECT block_id 
+FROM TokenHolders
+WHERE token_id = ?
+ORDER BY block_id DESC
+LIMIT 1;
+
 -- name: CreateTokenHolder :execresult
 INSERT INTO TokenHolders (
     token_id,

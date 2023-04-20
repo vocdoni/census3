@@ -33,6 +33,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Start the holder scanner
+	hc, err := service.NewHoldersScanner(*dataDir, *url)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Create the API signer
 	signer := ethereum.SignKeys{}
 	if err := signer.Generate(); err != nil {
@@ -40,9 +46,10 @@ func main() {
 	}
 
 	// Start the API
-	api.Init("0.0.0.0", *port, &signer, sc)
+	api.Init("0.0.0.0", *port, &signer, sc, hc)
 	ctx, cancel := context.WithCancel(context.Background())
-	go sc.Start(ctx)
+	// go sc.Start(ctx)
+	go hc.Start(ctx)
 
 	// Wait for SIGTERM
 	c := make(chan os.Signal, 1)

@@ -13,9 +13,9 @@ sql:
           go_type: "int64"
         # Force these blobs to be our "bytes" types.
         - column: "tokens.id"
-          go_type: "github.com/vocdoni/census3/db.BigInt"
-        - column: "tokens.total_supply"
           go_type: "github.com/vocdoni/census3/db.Address"
+        - column: "tokens.total_supply"
+          go_type: "github.com/vocdoni/census3/db.BigInt"
         - column: "censuses.merkle_root"
           go_type: "github.com/vocdoni/census3/db.Hash"
         - column: "blocks.root_hash"

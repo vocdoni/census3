@@ -5,7 +5,10 @@ go 1.20
 require (
 	git.sr.ht/~sircmpwn/go-bare v0.0.0-20210406120253-ab86bc2846d9
 	github.com/ethereum/go-ethereum v1.11.5
+	github.com/frankban/quicktest v1.14.4
 	github.com/google/uuid v1.3.0
+	github.com/mattn/go-sqlite3 v1.14.16
+	github.com/pressly/goose/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
 	go.vocdoni.io/dvote v1.7.0
 	go.vocdoni.io/proto v1.14.4
@@ -52,7 +55,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
-	github.com/frankban/quicktest v1.14.4 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.1 // indirect
 	github.com/getsentry/sentry-go v0.18.0 // indirect

@@ -22,7 +22,7 @@ type Reply struct {
 	Ok        bool               `json:"ok"`
 }
 
-func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.Scanner) error {
+func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.Scanner, holderScanner *service.HoldersScanner) error {
 	r := httprouter.HTTProuter{}
 	err := r.Init(host, int(port))
 	if err != nil {
@@ -57,6 +57,9 @@ func Init(host string, port int32, signer *ethereum.SignKeys, scanner *service.S
 		api.MethodAccessTypePublic, ch.exportTree)
 	endpoint.RegisterMethod("/fetchExport/{contract}/{blockNum}", "GET",
 		api.MethodAccessTypePublic, ch.fetchTree)
+
+	// init token holders new methods
+	initHoldersHandlers(endpoint, holderScanner)
 	return nil
 }
 

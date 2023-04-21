@@ -1,4 +1,4 @@
-package db
+package annotations
 
 type Address []byte
 type Hash []byte

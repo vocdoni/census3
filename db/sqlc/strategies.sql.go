@@ -9,7 +9,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/db/annotations"
 )
 
 const createStategy = `-- name: CreateStategy :execresult
@@ -35,9 +35,9 @@ VALUES (
 
 type CreateStrategyTokenParams struct {
 	StrategyID int64
-	TokenID    db.Address
-	MinBalance db.BigInt
-	MethodHash db.MethodHash
+	TokenID    annotations.Address
+	MinBalance annotations.BigInt
+	MethodHash annotations.MethodHash
 }
 
 func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTokenParams) (sql.Result, error) {
@@ -65,7 +65,7 @@ WHERE strategy_id = ? AND token_id = ?
 
 type DeleteStrategyTokenParams struct {
 	StrategyID int64
-	TokenID    db.Address
+	TokenID    annotations.Address
 }
 
 func (q *Queries) DeleteStrategyToken(ctx context.Context, arg DeleteStrategyTokenParams) (sql.Result, error) {
@@ -115,7 +115,7 @@ LIMIT ? OFFSET ?
 `
 
 type PaginatedStrategiesByTokenIDParams struct {
-	TokenID db.Address
+	TokenID annotations.Address
 	Limit   int32
 	Offset  int32
 }
@@ -218,7 +218,7 @@ LIMIT 1
 
 type StrategyTokenByStrategyIDAndTokenIDParams struct {
 	StrategyID int64
-	TokenID    db.Address
+	TokenID    annotations.Address
 }
 
 func (q *Queries) StrategyTokenByStrategyIDAndTokenID(ctx context.Context, arg StrategyTokenByStrategyIDAndTokenIDParams) (Strategytoken, error) {
@@ -241,8 +241,8 @@ WHERE strategy_id = ? AND token_id = ? AND method_hash = ?
 
 type StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams struct {
 	StrategyID int64
-	TokenID    db.Address
-	MethodHash db.MethodHash
+	TokenID    annotations.Address
+	MethodHash annotations.MethodHash
 }
 
 func (q *Queries) StrategyTokenByStrategyIDAndTokenIDAndMethodHash(ctx context.Context, arg StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams) (Strategytoken, error) {
@@ -280,10 +280,10 @@ WHERE strategy_id = ? AND token_id = ?
 `
 
 type UpdateStrategyTokenParams struct {
-	MinBalance db.BigInt
-	MethodHash db.MethodHash
+	MinBalance annotations.BigInt
+	MethodHash annotations.MethodHash
 	StrategyID int64
-	TokenID    db.Address
+	TokenID    annotations.Address
 }
 
 func (q *Queries) UpdateStrategyToken(ctx context.Context, arg UpdateStrategyTokenParams) (sql.Result, error) {

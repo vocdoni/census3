@@ -9,7 +9,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/db/annotations"
 )
 
 const blockByID = `-- name: BlockByID :one
@@ -31,7 +31,7 @@ WHERE root_hash = ?
 LIMIT 1
 `
 
-func (q *Queries) BlockByRootHash(ctx context.Context, rootHash db.Hash) (Block, error) {
+func (q *Queries) BlockByRootHash(ctx context.Context, rootHash annotations.Hash) (Block, error) {
 	row := q.db.QueryRowContext(ctx, blockByRootHash, rootHash)
 	var i Block
 	err := row.Scan(&i.ID, &i.Timestamp, &i.RootHash)
@@ -65,7 +65,7 @@ VALUES (
 type CreateBlockParams struct {
 	ID        int64
 	Timestamp string
-	RootHash  db.Hash
+	RootHash  annotations.Hash
 }
 
 func (q *Queries) CreateBlock(ctx context.Context, arg CreateBlockParams) (sql.Result, error) {
@@ -137,7 +137,7 @@ WHERE id = ?
 
 type UpdateBlockParams struct {
 	Timestamp string
-	RootHash  db.Hash
+	RootHash  annotations.Hash
 	ID        int64
 }
 

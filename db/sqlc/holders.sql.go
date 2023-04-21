@@ -9,7 +9,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/db/annotations"
 )
 
 const countTokenHoldersByTokenID = `-- name: CountTokenHoldersByTokenID :one
@@ -18,7 +18,7 @@ FROM TokenHolders
 WHERE token_id = ?
 `
 
-func (q *Queries) CountTokenHoldersByTokenID(ctx context.Context, tokenID db.Address) (int64, error) {
+func (q *Queries) CountTokenHoldersByTokenID(ctx context.Context, tokenID annotations.Address) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countTokenHoldersByTokenID, tokenID)
 	var count int64
 	err := row.Scan(&count)
@@ -30,7 +30,7 @@ INSERT INTO Holders (id)
 VALUES (?)
 `
 
-func (q *Queries) CreateHolder(ctx context.Context, id db.Address) (sql.Result, error) {
+func (q *Queries) CreateHolder(ctx context.Context, id annotations.Address) (sql.Result, error) {
 	return q.db.ExecContext(ctx, createHolder, id)
 }
 
@@ -47,9 +47,9 @@ VALUES (
 `
 
 type CreateTokenHolderParams struct {
-	TokenID  db.Address
-	HolderID db.Address
-	Balance  db.BigInt
+	TokenID  annotations.Address
+	HolderID annotations.Address
+	Balance  annotations.BigInt
 	BlockID  int64
 }
 
@@ -67,7 +67,7 @@ DELETE FROM Holders
 WHERE id = ?
 `
 
-func (q *Queries) DeleteHolder(ctx context.Context, id db.Address) (sql.Result, error) {
+func (q *Queries) DeleteHolder(ctx context.Context, id annotations.Address) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteHolder, id)
 }
 
@@ -77,8 +77,8 @@ WHERE token_id = ? AND holder_id = ?
 `
 
 type DeleteTokenHolderParams struct {
-	TokenID  db.Address
-	HolderID db.Address
+	TokenID  annotations.Address
+	HolderID annotations.Address
 }
 
 func (q *Queries) DeleteTokenHolder(ctx context.Context, arg DeleteTokenHolderParams) (sql.Result, error) {
@@ -91,7 +91,7 @@ WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) HolderByID(ctx context.Context, id db.Address) (db.Address, error) {
+func (q *Queries) HolderByID(ctx context.Context, id annotations.Address) (annotations.Address, error) {
 	row := q.db.QueryRowContext(ctx, holderByID, id)
 	err := row.Scan(&id)
 	return id, err
@@ -105,7 +105,7 @@ ORDER BY block_id DESC
 LIMIT 1
 `
 
-func (q *Queries) LastBlockByTokenID(ctx context.Context, tokenID db.Address) (int64, error) {
+func (q *Queries) LastBlockByTokenID(ctx context.Context, tokenID annotations.Address) (int64, error) {
 	row := q.db.QueryRowContext(ctx, lastBlockByTokenID, tokenID)
 	var block_id int64
 	err := row.Scan(&block_id)
@@ -123,15 +123,15 @@ type PaginatedHoldersParams struct {
 	Offset int32
 }
 
-func (q *Queries) PaginatedHolders(ctx context.Context, arg PaginatedHoldersParams) ([]db.Address, error) {
+func (q *Queries) PaginatedHolders(ctx context.Context, arg PaginatedHoldersParams) ([]annotations.Address, error) {
 	rows, err := q.db.QueryContext(ctx, paginatedHolders, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []db.Address
+	var items []annotations.Address
 	for rows.Next() {
-		var id db.Address
+		var id annotations.Address
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -154,14 +154,14 @@ WHERE TokenHolders.token_id = ? AND TokenHolders.holder_id = ? AND TokenHolders.
 `
 
 type TokenHolderByTokenIDAndBlockIDAndHolderIDParams struct {
-	TokenID  db.Address
-	HolderID db.Address
+	TokenID  annotations.Address
+	HolderID annotations.Address
 	BlockID  int64
 }
 
 type TokenHolderByTokenIDAndBlockIDAndHolderIDRow struct {
-	ID      db.Address
-	Balance db.BigInt
+	ID      annotations.Address
+	Balance annotations.BigInt
 }
 
 func (q *Queries) TokenHolderByTokenIDAndBlockIDAndHolderID(ctx context.Context, arg TokenHolderByTokenIDAndBlockIDAndHolderIDParams) (TokenHolderByTokenIDAndBlockIDAndHolderIDRow, error) {
@@ -179,13 +179,13 @@ WHERE TokenHolders.token_id = ? AND TokenHolders.holder_id = ?
 `
 
 type TokenHolderByTokenIDAndHolderIDParams struct {
-	TokenID  db.Address
-	HolderID db.Address
+	TokenID  annotations.Address
+	HolderID annotations.Address
 }
 
 type TokenHolderByTokenIDAndHolderIDRow struct {
-	ID      db.Address
-	Balance db.BigInt
+	ID      annotations.Address
+	Balance annotations.BigInt
 }
 
 func (q *Queries) TokenHolderByTokenIDAndHolderID(ctx context.Context, arg TokenHolderByTokenIDAndHolderIDParams) (TokenHolderByTokenIDAndHolderIDRow, error) {
@@ -204,20 +204,20 @@ LIMIT ? OFFSET ?
 `
 
 type TokenHoldersByTokenIDParams struct {
-	TokenID db.Address
+	TokenID annotations.Address
 	Limit   int32
 	Offset  int32
 }
 
-func (q *Queries) TokenHoldersByTokenID(ctx context.Context, arg TokenHoldersByTokenIDParams) ([]db.Address, error) {
+func (q *Queries) TokenHoldersByTokenID(ctx context.Context, arg TokenHoldersByTokenIDParams) ([]annotations.Address, error) {
 	rows, err := q.db.QueryContext(ctx, tokenHoldersByTokenID, arg.TokenID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []db.Address
+	var items []annotations.Address
 	for rows.Next() {
-		var id db.Address
+		var id annotations.Address
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -241,13 +241,13 @@ LIMIT ? OFFSET ?
 `
 
 type TokenHoldersByTokenIDAndBlockIDParams struct {
-	TokenID db.Address
+	TokenID annotations.Address
 	BlockID int64
 	Limit   int32
 	Offset  int32
 }
 
-func (q *Queries) TokenHoldersByTokenIDAndBlockID(ctx context.Context, arg TokenHoldersByTokenIDAndBlockIDParams) ([]db.Address, error) {
+func (q *Queries) TokenHoldersByTokenIDAndBlockID(ctx context.Context, arg TokenHoldersByTokenIDAndBlockIDParams) ([]annotations.Address, error) {
 	rows, err := q.db.QueryContext(ctx, tokenHoldersByTokenIDAndBlockID,
 		arg.TokenID,
 		arg.BlockID,
@@ -258,9 +258,9 @@ func (q *Queries) TokenHoldersByTokenIDAndBlockID(ctx context.Context, arg Token
 		return nil, err
 	}
 	defer rows.Close()
-	var items []db.Address
+	var items []annotations.Address
 	for rows.Next() {
-		var id db.Address
+		var id annotations.Address
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -284,14 +284,14 @@ LIMIT ? OFFSET ?
 `
 
 type TokenHoldersByTokenIDAndBlockIDAndMinBalanceParams struct {
-	TokenID db.Address
-	Balance db.BigInt
+	TokenID annotations.Address
+	Balance annotations.BigInt
 	BlockID int64
 	Limit   int32
 	Offset  int32
 }
 
-func (q *Queries) TokenHoldersByTokenIDAndBlockIDAndMinBalance(ctx context.Context, arg TokenHoldersByTokenIDAndBlockIDAndMinBalanceParams) ([]db.Address, error) {
+func (q *Queries) TokenHoldersByTokenIDAndBlockIDAndMinBalance(ctx context.Context, arg TokenHoldersByTokenIDAndBlockIDAndMinBalanceParams) ([]annotations.Address, error) {
 	rows, err := q.db.QueryContext(ctx, tokenHoldersByTokenIDAndBlockIDAndMinBalance,
 		arg.TokenID,
 		arg.Balance,
@@ -303,9 +303,9 @@ func (q *Queries) TokenHoldersByTokenIDAndBlockIDAndMinBalance(ctx context.Conte
 		return nil, err
 	}
 	defer rows.Close()
-	var items []db.Address
+	var items []annotations.Address
 	for rows.Next() {
-		var id db.Address
+		var id annotations.Address
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -329,13 +329,13 @@ LIMIT ? OFFSET ?
 `
 
 type TokenHoldersByTokenIDAndMinBalanceParams struct {
-	TokenID db.Address
-	Balance db.BigInt
+	TokenID annotations.Address
+	Balance annotations.BigInt
 	Limit   int32
 	Offset  int32
 }
 
-func (q *Queries) TokenHoldersByTokenIDAndMinBalance(ctx context.Context, arg TokenHoldersByTokenIDAndMinBalanceParams) ([]db.Address, error) {
+func (q *Queries) TokenHoldersByTokenIDAndMinBalance(ctx context.Context, arg TokenHoldersByTokenIDAndMinBalanceParams) ([]annotations.Address, error) {
 	rows, err := q.db.QueryContext(ctx, tokenHoldersByTokenIDAndMinBalance,
 		arg.TokenID,
 		arg.Balance,
@@ -346,9 +346,9 @@ func (q *Queries) TokenHoldersByTokenIDAndMinBalance(ctx context.Context, arg To
 		return nil, err
 	}
 	defer rows.Close()
-	var items []db.Address
+	var items []annotations.Address
 	for rows.Next() {
-		var id db.Address
+		var id annotations.Address
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -411,7 +411,7 @@ LIMIT ? OFFSET ?
 `
 
 type TokensByHolderIDParams struct {
-	HolderID db.Address
+	HolderID annotations.Address
 	Limit    int32
 	Offset   int32
 }
@@ -456,7 +456,7 @@ LIMIT ? OFFSET ?
 `
 
 type TokensByHolderIDAndBlockIDParams struct {
-	HolderID db.Address
+	HolderID annotations.Address
 	BlockID  int64
 	Limit    int32
 	Offset   int32
@@ -506,10 +506,10 @@ WHERE token_id = ? AND holder_id = ? AND block_id = ?
 `
 
 type UpdateTokenHolderParams struct {
-	Balance  db.BigInt
+	Balance  annotations.BigInt
 	BlockID  int64
-	TokenID  db.Address
-	HolderID db.Address
+	TokenID  annotations.Address
+	HolderID annotations.Address
 }
 
 func (q *Queries) UpdateTokenHolder(ctx context.Context, arg UpdateTokenHolderParams) (sql.Result, error) {

@@ -1,11 +1,14 @@
 package state
 
 import (
+	"math/big"
 	"sync"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 )
+
+type HoldersCandidates map[common.Address]*big.Int
 
 // TokenHolders struct abstracts the current state of a TokenHolders into the
 // Census3 HoldersScanner for a specific token. It contains some information

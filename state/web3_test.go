@@ -30,9 +30,7 @@ func TestUpdateTokenHolders(t *testing.T) {
 	err := w3.Init(ctx, *url, th.Address(), th.Type())
 	c.Assert(err, qt.IsNil)
 
-	td, err := w3.GetTokenData()
-	c.Assert(err, qt.IsNil)
-	log.Infof("getting new holders from block %d of the token %s (%s)\n", *fromblock, td.Name, th.Address().String())
+	log.Infof("getting new holders from block %d of the token %s \n", *fromblock, th.Address())
 
 	currentBlock, err := w3.client.BlockNumber(ctx)
 	lastCheckedBlock := *fromblock

@@ -8,8 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/state/token"
-	"github.com/vocdoni/census3/state/web3"
+	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -31,10 +30,10 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrTokenMalformed.With("error unmarshalling token information")
 	}
 
-	tokenType := token.TokenTypeFromString(req.Type)
+	tokenType := state.TokenTypeFromString(req.Type)
 	addr := common.HexToAddress(req.Address)
 
-	w3 := web3.Web3{}
+	w3 := state.Web3{}
 	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := w3.Init(ctx2, capi.web3, addr, tokenType); err != nil {

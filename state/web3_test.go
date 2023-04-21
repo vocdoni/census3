@@ -1,4 +1,4 @@
-package web3
+package state
 
 import (
 	"context"
@@ -8,8 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
-	"github.com/vocdoni/census3/state/holders"
-	"github.com/vocdoni/census3/state/token"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -22,8 +20,8 @@ func TestUpdateTokenHolders(t *testing.T) {
 
 	c := qt.New(t)
 
-	th := new(holders.TokenHolders)
-	th.Init(common.HexToAddress("0x2868dD9aBF1A88D5be7025858A55180D59bb1689"), token.CONTRACT_TYPE_ERC721, *fromblock)
+	th := new(TokenHolders)
+	th.Init(common.HexToAddress("0x2868dD9aBF1A88D5be7025858A55180D59bb1689"), CONTRACT_TYPE_ERC721, *fromblock)
 
 	w3 := Web3{}
 	ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Second)

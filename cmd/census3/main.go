@@ -9,8 +9,8 @@ import (
 
 	flag "github.com/spf13/pflag"
 	"github.com/vocdoni/census3/api"
+	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/service"
-	"go.vocdoni.io/dvote/crypto/ethereum"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -23,32 +23,32 @@ func main() {
 	url := flag.String("url", "", "ethereum web3 url")
 	dataDir := flag.String("dataDir", home, "data directory for persistent storage")
 	logLevel := flag.String("logLevel", "info", "log level (debug, info, warn, error)")
-	port := flag.Int32("port", 7788, "HTTP port for the API")
+	port := flag.Int("port", 7788, "HTTP port for the API")
 	flag.Parse()
 	log.Init(*logLevel, "stdout")
 
-	// Start the EVM logs scanner
-	sc, err := service.NewScanner(*dataDir, *url)
+	db, err := db.Init(*dataDir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the holder scanner
-	hc, err := service.NewHoldersScanner(*dataDir, *url)
+	hc, err := service.NewHoldersScanner(db, *url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Create the API signer
-	signer := ethereum.SignKeys{}
-	if err := signer.Generate(); err != nil {
+	// Start the API
+	err = api.Init(db, api.Census3APIConf{
+		Hostname: "0.0.0.0",
+		Port:     *port,
+		DataDir:  *dataDir,
+		Web3URI:  *url,
+	})
+	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Start the API
-	api.Init("0.0.0.0", *port, &signer, sc, hc)
 	ctx, cancel := context.WithCancel(context.Background())
-	// go sc.Start(ctx)
 	go hc.Start(ctx)
 
 	// Wait for SIGTERM

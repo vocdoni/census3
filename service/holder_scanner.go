@@ -5,16 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"math/big"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pressly/goose/v3"
 	"github.com/vocdoni/census3/contractstate"
-	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"go.vocdoni.io/dvote/log"
 )
@@ -23,7 +20,6 @@ import (
 // the tokens stored on the database (located on 'dataDir/dbFilename'). It
 // keeps the database updated scanning the network using the web3 endpoint.
 type HoldersScanner struct {
-	dataDir   string
 	web3      string
 	tokens    map[common.Address]*contractstate.TokenHolders
 	mutex     sync.RWMutex
@@ -34,32 +30,13 @@ type HoldersScanner struct {
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
-func NewHoldersScanner(dataDir string, w3uri string) (*HoldersScanner, error) {
+func NewHoldersScanner(db *queries.Queries, w3uri string) (*HoldersScanner, error) {
 	// create an empty scanner
 	s := HoldersScanner{
-		dataDir: dataDir,
-		tokens:  make(map[common.Address]*contractstate.TokenHolders),
-		web3:    w3uri,
+		tokens: make(map[common.Address]*contractstate.TokenHolders),
+		web3:   w3uri,
+		sqlc:   db,
 	}
-	// get census3 goose migrations and setup for sqlite3
-	goose.SetBaseFS(db.Census3Migrations)
-	if err := goose.SetDialect("sqlite3"); err != nil {
-		log.Errorw(err, "error during setup goose")
-		return nil, err
-	}
-	// open database file
-	database, err := sql.Open("sqlite3", filepath.Join(dataDir, dbFilename))
-	if err != nil {
-		log.Errorw(err, "error opening database")
-		return nil, err
-	}
-	// perform goose up
-	if err := goose.Up(database, "migrations"); err != nil {
-		log.Errorw(err, "error during goose up")
-		return nil, err
-	}
-	// init sqlc
-	s.sqlc = queries.New(database)
 	// get latest analyzed block
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -299,130 +276,4 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 		log.Error(err)
 	}
 	return nil
-}
-
-/**
-MOVE THE FOLLOWING METHODS TO OTHER PACKAGES
-*/
-
-// AddToken function creates a new token in the current database instance. It
-// first gets the token information from the network and then stores it in the
-// database. The new token created will be scanned from the block number
-// provided as argument.
-// TODO: Move to API handlers
-func (s *HoldersScanner) AddToken(addr common.Address, tType contractstate.ContractType, startBlock uint64) error {
-	w3 := contractstate.Web3{}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := w3.Init(ctx, s.web3, addr, tType); err != nil {
-		return err
-	}
-	info, err := w3.GetTokenData()
-	if err != nil {
-		log.Errorw(err, "error getting token contract data")
-		return err
-	}
-	var (
-		name     = new(sql.NullString)
-		symbol   = new(sql.NullString)
-		decimals = new(sql.NullInt32)
-	)
-	if err := name.Scan(info.Name); err != nil {
-		return err
-	}
-	if err := symbol.Scan(info.Symbol); err != nil {
-		return err
-	}
-	if err := decimals.Scan(info.Decimals); err != nil {
-		return err
-	}
-	_, err = s.sqlc.CreateToken(ctx, queries.CreateTokenParams{
-		ID:            info.Address.Bytes(),
-		Name:          *name,
-		Symbol:        *symbol,
-		Decimals:      *decimals,
-		TotalSupply:   info.TotalSupply.Bytes(),
-		CreationBlock: int64(startBlock),
-		TypeID:        int64(tType),
-	})
-	if err != nil {
-		log.Errorw(err, "error creating token on the database")
-		return err
-	}
-	return nil
-}
-
-// GetTokenHolders function gets the token holders states from the database, of
-// the token identified by the contract address provided. If the current database
-// instance does not contain any token holder for this token or the token does not , it returns nil addresses without error.
-// This behaviour helps to deal with this particular case.
-// TODO: Move to API handlers
-func (s *HoldersScanner) GetTokenHolders(addr common.Address) (*contractstate.TokenHolders, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	// get token information from the database
-	token, err := s.sqlc.TokenByID(ctx, addr.Bytes())
-	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	// get latest analyzed block for current token
-	blockNumber, err := s.sqlc.LastBlockByTokenID(ctx, addr.Bytes())
-	if err != nil {
-		// if no block had been scanned for this token, use the token creation
-		// block as state start block, else return the error.
-		if !errors.Is(sql.ErrNoRows, err) {
-			return nil, err
-		}
-		blockNumber = token.CreationBlock
-	}
-	// init the TokenHolders struct with the information generated:
-	//   - contract address
-	//   - contract type
-	//   - last analyzed block number
-	th := new(contractstate.TokenHolders).Init(addr, contractstate.ContractType(token.TypeID), uint64(blockNumber))
-	// get token holders from the database
-	dbHolders, err := s.sqlc.TokenHoldersByTokenID(ctx,
-		queries.TokenHoldersByTokenIDParams{
-			TokenID: addr.Bytes(),
-			Limit:   -1,
-			Offset:  0,
-		})
-	if err != nil {
-		// if database does not contain any token holder for this token, return
-		// the initialised TokenHolders state, else return the error.
-		if errors.Is(sql.ErrNoRows, err) {
-			return th, nil
-		}
-		return nil, err
-	}
-	// parse current holders from the database and append the them to the
-	// TokenHolders state
-	currentHolders := make([]common.Address, len(dbHolders))
-	for idx, holder := range dbHolders {
-		currentHolders[idx] = common.BytesToAddress(holder)
-	}
-	th.Append(currentHolders...)
-	return th, nil
-}
-
-// GetNumberOfTokenHolders function returns the current number of token holders
-// for the provided token address in the current database. It returns 0 and nil
-// error if no token holders is registered for the given token address.
-// TODO: Only for debug, consider to delete
-func (s *HoldersScanner) GetNumberOfTokenHolders(addr common.Address) (int64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	numberOfHolders, err := s.sqlc.CountTokenHoldersByTokenID(ctx, addr.Bytes())
-	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
-			return 0, nil
-		}
-		return 0, nil
-	}
-
-	return numberOfHolders, nil
 }

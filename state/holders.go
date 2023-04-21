@@ -47,11 +47,17 @@ func (h *TokenHolders) Type() TokenType {
 }
 
 // Holders function returns the given TokenHolders current token holders
-// addresses.
-func (h *TokenHolders) Holders() []common.Address {
-	holders := make([]common.Address, 0)
-	h.holders.Range(func(address, _ any) bool {
-		holders = append(holders, address.(common.Address))
+// addresses adn its balances.
+func (h *TokenHolders) Holders() HoldersCandidates {
+	holders := HoldersCandidates{}
+	h.holders.Range(func(rawAddr, rawBalance any) bool {
+		address, okAddr := rawAddr.(common.Address)
+		balance, okBalance := rawBalance.(*big.Int)
+		if !okAddr || !okBalance {
+			return true
+		}
+
+		holders[address] = balance
 		return true
 	})
 	return holders
@@ -64,45 +70,21 @@ func (h *TokenHolders) Exists(address common.Address) bool {
 	return exists
 }
 
-// Append function appends the holder address provided into the given
-// TokenHolders list of holders addresss. It register the address to a boolean
-// setted to true which means that is a new token holder.
-func (h *TokenHolders) Append(candidates ...common.Address) {
-	for _, address := range candidates {
-		h.holders.Store(address, true)
+// Append function appends the holder address and the balance provided into the 
+// given TokenHolders list of holders. If the holder already exists, it will 
+// update its balance.
+func (h *TokenHolders) Append(addr common.Address, balance *big.Int) {
+	if currentBalance, exists := h.holders.Load(addr); exists {
+		h.holders.Store(addr, new(big.Int).Add(currentBalance.(*big.Int), balance))
+		return
 	}
+	h.holders.Store(addr, balance)
 }
 
 // Del function marks the holder address provided in the list of current
 // TokenHolders as false, which means that it will be removed.
 func (h *TokenHolders) Del(address common.Address) {
 	h.holders.Store(address, false)
-}
-
-// HoldersToCreate returns the address of the new token holders. These addresses
-// is marked with true in the current TokenHolders state list.
-func (h *TokenHolders) HoldersToCreate() []common.Address {
-	holdersToCreate := make([]common.Address, 0)
-	h.holders.Range(func(address, value any) bool {
-		if isNew := value.(bool); isNew {
-			holdersToCreate = append(holdersToCreate, address.(common.Address))
-		}
-		return true
-	})
-	return holdersToCreate
-}
-
-// HoldersToCreate returns the address of token holders to delete. These
-// addresses is marked with false in the current TokenHolders state list.
-func (h *TokenHolders) HoldersToDelete() []common.Address {
-	holdersToDelete := make([]common.Address, 0)
-	h.holders.Range(func(address, value any) bool {
-		if toDelete := !value.(bool); toDelete {
-			holdersToDelete = append(holdersToDelete, address.(common.Address))
-		}
-		return true
-	})
-	return holdersToDelete
 }
 
 // FlushHolders function cleans the current list of token holders from the

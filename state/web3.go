@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -267,7 +266,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 	log.Debugf("last block number: %d", lastBlockHeader.Number.Uint64())
 	// check if there are new blocks to scan
 	lastBlockNumber := lastBlockHeader.Number.Uint64()
-	fromBlockNumber := th.LastBlock()
+	fromBlockNumber := th.LastBlock() + 1
 	if fromBlockNumber >= lastBlockNumber {
 		return fromBlockNumber, fmt.Errorf("no new blocks to scan for %s", th.Address().String())
 	}
@@ -290,6 +289,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 		// check if we need to close due context signal
 		case <-ctx.Done():
 			log.Warnf("scan graceful canceled by context")
+			th.BlockDone(fromBlockNumber)
 			return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, th.LastBlock())
 		default:
 			startTime := time.Now()
@@ -338,12 +338,12 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 			if len(holdersCandidates) > MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION {
 				log.Debug("MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION limit reached... stop scanning")
 				th.BlockDone(fromBlockNumber)
-				return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, th.LastBlock())
+				return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, fromBlockNumber)
 			}
 			if logCount > MAX_SCAN_LOGS_PER_ITERATION {
 				log.Debug("MAX_SCAN_LOGS_PER_ITERATION limit reached... stop scanning")
 				th.BlockDone(fromBlockNumber)
-				return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, th.LastBlock())
+				return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, fromBlockNumber)
 			}
 		}
 	}
@@ -411,13 +411,11 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 		if toBalance, exists := hc[logData.To]; exists {
 			hc[logData.To] = new(big.Int).Add(toBalance, logData.Value)
 		} else {
-			// TODO: calculate real balance getting current with balanceOf
 			hc[logData.To] = logData.Value
 		}
 		if fromBalance, exists := hc[logData.From]; exists {
 			hc[logData.From] = new(big.Int).Sub(fromBalance, logData.Value)
 		} else {
-			// TODO: calculate real balance getting current with balanceOf
 			hc[logData.From] = new(big.Int).Neg(logData.Value)
 		}
 	case CONTRACT_TYPE_ERC777: // stores the total count per address, not all identifiers
@@ -430,13 +428,11 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 		if toBalance, exists := hc[logData.To]; exists {
 			hc[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
 		} else {
-			// TODO: calculate real balance getting current with balanceOf
 			hc[logData.To] = big.NewInt(1)
 		}
 		if fromBalance, exists := hc[logData.From]; exists {
 			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
-			// TODO: calculate real balance getting current with balanceOf
 			hc[logData.From] = new(big.Int).Neg(big.NewInt(1))
 		}
 	case CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
@@ -449,13 +445,11 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 		if toBalance, exists := hc[logData.To]; exists {
 			hc[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
 		} else {
-			// TODO: calculate real balance getting current with balanceOf
 			hc[logData.To] = big.NewInt(1)
 		}
 		if fromBalance, exists := hc[logData.From]; exists {
 			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
-			// TODO: calculate real balance getting current with balanceOf
 			hc[logData.From] = new(big.Int).Neg(big.NewInt(1))
 		}
 	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
@@ -468,7 +462,6 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 			if toBalance, exists := hc[provider]; exists {
 				hc[provider] = new(big.Int).Add(toBalance, value)
 			} else {
-				// TODO: calculate real balance getting current with balanceOf
 				hc[provider] = value
 			}
 		case common.HexToHash(LOG_TOPIC_VENATION_WITHDRAW):
@@ -477,7 +470,6 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 			if fromBalance, exists := hc[provider]; exists {
 				hc[provider] = new(big.Int).Sub(fromBalance, value)
 			} else {
-				// TODO: calculate real balance getting current with balanceOf
 				hc[provider] = new(big.Int).Neg(value)
 			}
 		}
@@ -493,7 +485,6 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 			if toBalance, exists := hc[logData.Entity]; exists {
 				hc[logData.Entity] = new(big.Int).Add(toBalance, logData.Amount)
 			} else {
-				// TODO: calculate real balance getting current with balanceOf
 				hc[logData.Entity] = logData.Amount
 			}
 		case common.HexToHash(LOG_TOPIC_WANT_WITHDRAWAL):
@@ -505,7 +496,6 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 			if fromBalance, exists := hc[logData.Entity]; exists {
 				hc[logData.Entity] = new(big.Int).Sub(fromBalance, logData.Amount)
 			} else {
-				// TODO: calculate real balance getting current with balanceOf
 				hc[logData.Entity] = new(big.Int).Neg(logData.Amount)
 			}
 		}
@@ -516,50 +506,15 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 // submitTokenHolders function checks each candidate to token holder provided,
 // and removes any with a zero balance before store them. It also checks the
 // balances of the current holders, deleting those with no funds.
-func (w *Web3) submitTokenHolders(th *TokenHolders, candidates map[common.Address]*big.Int, blockNumber uint64) error {
+func (w *Web3) submitTokenHolders(th *TokenHolders, candidates HoldersCandidates, blockNumber uint64) error {
 	// remove null address from candidates
 	delete(candidates, common.HexToAddress(NULL_ADDRESS))
 	// delete holder candidates without funds
-	newHolders := make([]common.Address, 0)
-	for addr, amount := range candidates {
-		if amount.Cmp(big.NewInt(0)) != 0 {
-			newHolders = append(newHolders, addr)
+	for addr, balance := range candidates {
+		if balance.Cmp(big.NewInt(0)) != 0 {
+			th.Append(addr, balance)
 		}
 	}
-	// get current holders who are not candidates
-	holdersToCheck := make([]common.Address, 0)
-	for _, currentHolder := range th.Holders() {
-		if _, exists := candidates[currentHolder]; !exists {
-			holdersToCheck = append(holdersToCheck, currentHolder)
-		}
-	}
-	// check the balances of the current holders that are not in the candidates,
-	// and remove these that have not founds
-	var balanceOf func(*bind.CallOpts, common.Address) (*big.Int, error)
-	switch th.Type() {
-	case CONTRACT_TYPE_ERC20:
-		balanceOf = w.contract.(*erc20.ERC20Contract).BalanceOf
-	case CONTRACT_TYPE_ERC777:
-		balanceOf = w.contract.(*erc777.ERC777Contract).BalanceOf
-	case CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
-		balanceOf = w.contract.(*erc721.ERC721Contract).BalanceOf
-	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
-		balanceOf = w.contract.(*venation.Nation3VestedTokenContract).BalanceOf
-	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
-		balanceOf = w.contract.(*want.AragonWrappedANTTokenContract).BalanceOf
-	}
-
-	for _, holder := range holdersToCheck {
-		amount, err := balanceOf(&bind.CallOpts{BlockNumber: new(big.Int).SetUint64(blockNumber)}, holder)
-		if err != nil {
-			return err
-		}
-		if amount.Cmp(big.NewInt(0)) == 0 {
-			th.Del(holder)
-		}
-	}
-	// add the candidate holders to the current holders
-	th.Append(newHolders...)
 	return nil
 }
 

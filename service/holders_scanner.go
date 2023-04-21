@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"sync"
@@ -151,12 +152,16 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 			return err
 		}
 	}
-	created, deleted := 0, 0
-	log.Debugf("token holders to create: %d, to delete: %d",
-		len(th.HoldersToCreate()), len(th.HoldersToDelete()))
+	created, updated, deleted := 0, 0, 0
+	log.Debugf("new token holders: %d", len(th.Holders()))
 	// iterate over given holders
-	for _, holder := range th.HoldersToCreate() {
-		_, err := s.sqlc.TokenHolderByTokenIDAndHolderID(ctx,
+	//  - if the holder not exists, create it
+	//  - if the holder already exists, calculate the new balance with the
+	//    current balance
+	//		- if the calculated balance is 0 delete it
+	//		- if the calculated balance is not 0, update it
+	for holder, balance := range th.Holders() {
+		currentTokenHolder, err := s.sqlc.TokenHolderByTokenIDAndHolderID(ctx,
 			queries.TokenHolderByTokenIDAndHolderIDParams{
 				TokenID:  th.Address().Bytes(),
 				HolderID: holder.Bytes(),
@@ -168,14 +173,17 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 			}
 			_, err = s.sqlc.CreateHolder(ctx, holder.Bytes())
 			if err != nil {
-				log.Warn(err)
+				if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+					continue
+				}
+				return err
 			}
 			// if the token holder not exists, create it
 			_, err = s.sqlc.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
 				TokenID:  th.Address().Bytes(),
 				HolderID: holder.Bytes(),
 				BlockID:  int64(th.LastBlock()),
-				Balance:  big.NewInt(-1).Bytes(),
+				Balance:  balance.Bytes(),
 			})
 			if err != nil {
 				return err
@@ -183,21 +191,42 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 			created++
 			continue
 		}
-	}
 
-	for _, holder := range th.HoldersToDelete() {
-		_, err = s.sqlc.DeleteTokenHolder(ctx, queries.DeleteTokenHolderParams{
-			TokenID:  th.Address().Bytes(),
-			HolderID: holder.Bytes(),
-		})
-		if err != nil {
-			log.Warn(err)
+		// if the holder already exists, calculate the holder balance with the
+		// current balance and the new one
+		newBalance := new(big.Int).Add(
+			new(big.Int).SetBytes(currentTokenHolder.Balance), balance)
+		// if the calculated balance is 0 delete it
+		if newBalance.Cmp(big.NewInt(0)) <= 0 {
+			_, err := s.sqlc.DeleteTokenHolder(ctx,
+				queries.DeleteTokenHolderParams{
+					TokenID:  th.Address().Bytes(),
+					HolderID: holder.Bytes(),
+				})
+			if err != nil {
+				return fmt.Errorf("error deleting token holder: %w", err)
+			}
+			deleted++
 			continue
 		}
-		deleted++
+
+		// if the calculated balance is not 0, update it
+		_, err = s.sqlc.UpdateTokenHolder(ctx, queries.UpdateTokenHolderParams{
+			TokenID:  th.Address().Bytes(),
+			HolderID: holder.Bytes(),
+			BlockID:  int64(th.LastBlock()),
+			Balance:  newBalance.Bytes(),
+		})
+		if err != nil {
+			return fmt.Errorf("error updating token holder: %w", err)
+		}
+		updated++
 	}
 
-	log.Debugf("token holders state saved. created: %d, deleted: %d", created, deleted)
+	log.Debugw("token holders state updated",
+		"created", created,
+		"updated", updated,
+		"deleted", deleted)
 	th.FlushHolders()
 	log.Debug("token holders state reset")
 	return nil
@@ -250,7 +279,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 	if _, err = w3.UpdateTokenHolders(ctx, th); err != nil {
 		if strings.Contains(err.Error(), "no new blocks") {
 			// if no new blocks error raises, log it as debug and return nil
-			log.Debugw(err.Error(), "token", th.Address())
+			log.Debugw("no new blocks to scan", "token", th.Address())
 			return nil
 		}
 		if strings.Contains(err.Error(), "connection reset") ||
@@ -260,7 +289,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 			// if connection error raises, log it as warning and try to save
 			// current TokenHolders state and return nil
 			log.Warnw("warning scanning contract", "token", th.Address().Hex(),
-				"block", s.lastBlock+1, "error", err)
+				"block", th.LastBlock(), "error", err)
 			// save TokesHolders state into the database before exit of the function
 			if err := s.saveTokenHolders(th); err != nil {
 				log.Error(err)
@@ -269,7 +298,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 		}
 		// if unexpected error raises, log it as error and return it.
 		log.Error("warning scanning contract", "token", th.Address().Hex(),
-			"block", s.lastBlock+1, "error", err)
+			"block", th.LastBlock(), "error", err)
 		return err
 	}
 	// save TokesHolders state into the database before exit of the function

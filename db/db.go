@@ -4,9 +4,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"io/fs"
-	"log"
-	"path"
+	"os"
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -18,27 +16,25 @@ import (
 var migrationsFS embed.FS
 
 func Init(dataDir string) (*queries.Queries, error) {
-	log.SetFlags(0)
+	dbFile := filepath.Join(dataDir, "census3.sql")
+	if _, err := os.Stat(dbFile); err != nil {
+		fd, err := os.Create(dbFile)
+		if err != nil {
+			return nil, fmt.Errorf("error creating a new database file: %w", err)
+		}
+		fd.Close()
+	}
+
 	// open database file
-	database, err := sql.Open("sqlite3", filepath.Join(dataDir, "census3.sql"))
+	database, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %w", err)
 	}
+	fmt.Println(filepath.Join(dataDir, "census3.sql"))
 	// get census3 goose migrations and setup for sqlite3
-	if err := goose.SetDialect("sqlite3"); err != nil {
-		return nil, fmt.Errorf("error during setup goose: %w", err)
-	}
-	// perform goose up
+	goose.SetDialect("sqlite3")
 	goose.SetBaseFS(migrationsFS)
-
-	sqlMigrationFiles, err := fs.Glob(migrationsFS, path.Join("migrations", "*.sql"))
-	if err != nil {
-		return nil, err
-	}
-	for _, i := range sqlMigrationFiles {
-		fmt.Println(i)
-	}
-
+	// perform goose up
 	if err := goose.Up(database, "migrations"); err != nil {
 		return nil, fmt.Errorf("error during goose up: %w", err)
 	}

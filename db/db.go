@@ -17,13 +17,19 @@ var migrationsFS embed.FS
 
 func Init(dataDir string) (*queries.Queries, error) {
 	dbFile := filepath.Join(dataDir, "census3.sql")
-	if _, err := os.Stat(dbFile); err != nil {
-		fd, err := os.Create(dbFile)
-		if err != nil {
+	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
+		if err := os.MkdirAll(dataDir, os.ModePerm); err != nil {
 			return nil, fmt.Errorf("error creating a new database file: %w", err)
 		}
-		fd.Close()
 	}
+
+	// if _, err := os.Stat(dbFile); err != nil {
+	// 	fd, err := os.Create(dbFile)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("error creating a new database file: %w", err)
+	// 	}
+	// 	fd.Close()
+	// }
 
 	// open database file
 	database, err := sql.Open("sqlite3", dbFile)

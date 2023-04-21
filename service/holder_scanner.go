@@ -11,8 +11,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/vocdoni/census3/contractstate"
+
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/state/holders"
+	"github.com/vocdoni/census3/state/token"
+	"github.com/vocdoni/census3/state/web3"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -21,7 +24,7 @@ import (
 // keeps the database updated scanning the network using the web3 endpoint.
 type HoldersScanner struct {
 	web3      string
-	tokens    map[common.Address]*contractstate.TokenHolders
+	tokens    map[common.Address]*holders.TokenHolders
 	mutex     sync.RWMutex
 	sqlc      *queries.Queries
 	lastBlock uint64
@@ -33,7 +36,7 @@ type HoldersScanner struct {
 func NewHoldersScanner(db *queries.Queries, w3uri string) (*HoldersScanner, error) {
 	// create an empty scanner
 	s := HoldersScanner{
-		tokens: make(map[common.Address]*contractstate.TokenHolders),
+		tokens: make(map[common.Address]*holders.TokenHolders),
 		web3:   w3uri,
 		sqlc:   db,
 	}
@@ -109,7 +112,7 @@ func (s *HoldersScanner) getTokenAddresses() ([]common.Address, error) {
 // TokenHolders state provided. Updates the holders for associated token and
 // the blocks scanned. To do this, it requires the root hash and the timestampt
 // of the given TokenHolders state block.
-func (s *HoldersScanner) saveTokenHolders(th *contractstate.TokenHolders) error {
+func (s *HoldersScanner) saveTokenHolders(th *holders.TokenHolders) error {
 	log.Debugf("saving token holders state for token %s at block %d", th.Address(), th.LastBlock())
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -119,7 +122,7 @@ func (s *HoldersScanner) saveTokenHolders(th *contractstate.TokenHolders) error 
 	}
 
 	// init web3 contract state
-	w3 := contractstate.Web3{}
+	w3 := web3.Web3{}
 	if err := w3.Init(ctx, s.web3, th.Address(), th.Type()); err != nil {
 		return err
 	}
@@ -223,13 +226,13 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 		if err != nil {
 			return err
 		}
-		ttype := contractstate.ContractType(tokenInfo.TypeID)
+		ttype := token.TokenType(tokenInfo.TypeID)
 		tokenLastBlock := uint64(tokenInfo.CreationBlock)
 		if blockNumber, err := s.sqlc.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
 			tokenLastBlock = uint64(blockNumber)
 		}
 
-		th = new(contractstate.TokenHolders).Init(addr, ttype, tokenLastBlock)
+		th = new(holders.TokenHolders).Init(addr, ttype, tokenLastBlock)
 		s.tokens[addr] = th
 	}
 	s.mutex.RUnlock()
@@ -240,7 +243,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 		s.lastBlock = th.LastBlock()
 	}
 	// init web3 contract state
-	w3 := contractstate.Web3{}
+	w3 := web3.Web3{}
 	if err := w3.Init(ctx, s.web3, addr, th.Type()); err != nil {
 		return err
 	}

@@ -1,4 +1,4 @@
-package contractstate
+package web3
 
 import (
 	"context"
@@ -16,6 +16,8 @@ import (
 	erc721 "github.com/vocdoni/census3/contracts/erc/erc721"
 	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
 	venation "github.com/vocdoni/census3/contracts/nation3/vestedToken"
+	"github.com/vocdoni/census3/state/holders"
+	"github.com/vocdoni/census3/state/token"
 
 	eth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -29,23 +31,23 @@ type Web3 struct {
 	client *ethclient.Client
 
 	contract        interface{}
-	contractType    ContractType
+	contractType    token.TokenType
 	contractAddress common.Address
 }
 
 func (w *Web3) NewContract() (interface{}, error) {
 	switch w.contractType {
-	case CONTRACT_TYPE_ERC20:
+	case token.CONTRACT_TYPE_ERC20:
 		return erc20.NewERC20Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_ERC721:
+	case token.CONTRACT_TYPE_ERC721:
 		return erc721.NewERC721Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_ERC1155:
+	case token.CONTRACT_TYPE_ERC1155:
 		return erc1155.NewERC1155Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_ERC777:
+	case token.CONTRACT_TYPE_ERC777:
 		return erc777.NewERC777Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+	case token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		return venation.NewNation3VestedTokenContract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+	case token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		return want.NewAragonWrappedANTTokenContract(w.contractAddress, w.client)
 	default:
 		return nil, fmt.Errorf("unknown contract type %d", w.contractType)
@@ -53,7 +55,7 @@ func (w *Web3) NewContract() (interface{}, error) {
 }
 
 // Init creates and client connection and connects to contract given its address
-func (w *Web3) Init(ctx context.Context, web3Endpoint string, contractAddress common.Address, contractType ContractType) error {
+func (w *Web3) Init(ctx context.Context, web3Endpoint string, contractAddress common.Address, contractType token.TokenType) error {
 	var err error
 	// connect to ethereum endpoint
 	w.client, err = ethclient.Dial(web3Endpoint)
@@ -61,12 +63,12 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string, contractAddress co
 		log.Fatal(err)
 	}
 	switch contractType {
-	case CONTRACT_TYPE_ERC20,
-		CONTRACT_TYPE_ERC721,
-		CONTRACT_TYPE_ERC1155,
-		CONTRACT_TYPE_ERC777,
-		CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
-		CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+	case token.CONTRACT_TYPE_ERC20,
+		token.CONTRACT_TYPE_ERC721,
+		token.CONTRACT_TYPE_ERC1155,
+		token.CONTRACT_TYPE_ERC777,
+		token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
+		token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		w.contractType = contractType
 	default:
 		return fmt.Errorf("unknown contract type %d", contractType)
@@ -86,21 +88,21 @@ func (w *Web3) Close() {
 // TokenName wraps the name() function contract call
 func (w *Web3) TokenName() (string, error) {
 	switch w.contractType {
-	case CONTRACT_TYPE_ERC20:
+	case token.CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Name(nil)
-	case CONTRACT_TYPE_ERC721:
+	case token.CONTRACT_TYPE_ERC721:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.Name(nil)
-	case CONTRACT_TYPE_ERC777:
+	case token.CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.Name(nil)
-	case CONTRACT_TYPE_ERC1155:
+	case token.CONTRACT_TYPE_ERC1155:
 		return "", nil
-	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+	case token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		caller := w.contract.(*venation.Nation3VestedTokenContract).Nation3VestedTokenContractCaller
 		return caller.Name(nil)
-	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+	case token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
 		return caller.Name(nil)
 
@@ -111,21 +113,21 @@ func (w *Web3) TokenName() (string, error) {
 // TokenSymbol wraps the symbol() function contract call
 func (w *Web3) TokenSymbol() (string, error) {
 	switch w.contractType {
-	case CONTRACT_TYPE_ERC20:
+	case token.CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Symbol(nil)
-	case CONTRACT_TYPE_ERC721:
+	case token.CONTRACT_TYPE_ERC721:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.Symbol(nil)
-	case CONTRACT_TYPE_ERC777:
+	case token.CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.Symbol(nil)
-	case CONTRACT_TYPE_ERC1155:
+	case token.CONTRACT_TYPE_ERC1155:
 		return "", nil
-	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+	case token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		caller := w.contract.(*venation.Nation3VestedTokenContract).Nation3VestedTokenContractCaller
 		return caller.Symbol(nil)
-	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+	case token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
 		return caller.Symbol(nil)
 	}
@@ -135,24 +137,24 @@ func (w *Web3) TokenSymbol() (string, error) {
 // TokenDecimals wraps the decimals() function contract call
 func (w *Web3) TokenDecimals() (uint8, error) {
 	switch w.contractType {
-	case CONTRACT_TYPE_ERC20:
+	case token.CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Decimals(nil)
-	case CONTRACT_TYPE_ERC721:
+	case token.CONTRACT_TYPE_ERC721:
 		return 0, nil
-	case CONTRACT_TYPE_ERC777:
+	case token.CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.Decimals(nil)
-	case CONTRACT_TYPE_ERC1155:
+	case token.CONTRACT_TYPE_ERC1155:
 		return 0, nil
-	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+	case token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		caller := w.contract.(*venation.Nation3VestedTokenContract).Nation3VestedTokenContractCaller
 		decimals, err := caller.Decimals(nil)
 		if err != nil {
 			return 0, err
 		}
 		return uint8(decimals.Uint64()), nil
-	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+	case token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
 		return caller.Decimals(nil)
 	}
@@ -162,20 +164,20 @@ func (w *Web3) TokenDecimals() (uint8, error) {
 // TokenTotalSupply wraps the totalSupply function contract call
 func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 	switch w.contractType {
-	case CONTRACT_TYPE_ERC20:
+	case token.CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.TotalSupply(nil)
-	case CONTRACT_TYPE_ERC721:
+	case token.CONTRACT_TYPE_ERC721:
 		return nil, nil
-	case CONTRACT_TYPE_ERC777:
+	case token.CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.TotalSupply(nil)
-	case CONTRACT_TYPE_ERC1155:
+	case token.CONTRACT_TYPE_ERC1155:
 		return nil, nil
-	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+	case token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		caller := w.contract.(*venation.Nation3VestedTokenContract).Nation3VestedTokenContractCaller
 		return caller.TotalSupply(nil)
-	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+	case token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
 		return caller.TotalSupply(nil)
 	}
@@ -190,22 +192,22 @@ func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 // CASE WANT: args[1] is the block number when calling BalanceOfAt, otherwise it is ignored
 func (w *Web3) TokenBalanceOf(tokenHolderAddress common.Address, args ...interface{}) (*big.Int, error) {
 	switch w.contractType {
-	case CONTRACT_TYPE_ERC20:
+	case token.CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.BalanceOf(nil, tokenHolderAddress)
-	case CONTRACT_TYPE_ERC721:
+	case token.CONTRACT_TYPE_ERC721:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.BalanceOf(nil, tokenHolderAddress)
-	case CONTRACT_TYPE_ERC777:
+	case token.CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.BalanceOf(nil, tokenHolderAddress)
-	case CONTRACT_TYPE_ERC1155:
+	case token.CONTRACT_TYPE_ERC1155:
 		if len(args) != 1 {
 			return nil, fmt.Errorf("wrong number of arguments for ERC1155 balanceOf function")
 		}
 		caller := w.contract.(*erc1155.ERC1155Contract).ERC1155ContractCaller
 		return caller.BalanceOf(nil, tokenHolderAddress, big.NewInt(int64(args[0].(uint64))))
-	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+	case token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		if len(args) != 2 {
 			return nil, fmt.Errorf("wrong number of arguments for Nation3VestedToken balanceOf function")
 		}
@@ -216,7 +218,7 @@ func (w *Web3) TokenBalanceOf(tokenHolderAddress common.Address, args ...interfa
 		case 1:
 			return caller.BalanceOfAt(nil, tokenHolderAddress, big.NewInt(int64(args[1].(uint64))))
 		}
-	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+	case token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		if len(args) != 2 {
 			return nil, fmt.Errorf("wrong number of arguments for AragonWrappedANT balanceOf function")
 		}
@@ -229,236 +231,6 @@ func (w *Web3) TokenBalanceOf(tokenHolderAddress common.Address, args ...interfa
 		}
 	}
 	return nil, fmt.Errorf("unknown contract type %d", w.contractType)
-}
-
-// ScantokenHolders scans the Ethereum network and updates the token holders state
-// Returns the last block number scanned
-func (w *Web3) ScanTokenHolders(ctx context.Context, ts *ContractState, fromBlockNumber uint64) (uint64, error) {
-	// fetch the last block header
-	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	log.Debugf("last block number: %d", lastBlockHeader.Number.Uint64())
-	// check if there are new blocks to scan
-	lastBlockNumber := lastBlockHeader.Number.Uint64()
-	if fromBlockNumber >= lastBlockNumber {
-		log.Infof("no new blocks to scan for %s", ts.Address().String())
-		return fromBlockNumber, nil
-	}
-	// check if we need to scan more than MAX_SCAN_BLOCKS_PER_ITERATION
-	// if so, scan only MAX_SCAN_BLOCKS_PER_ITERATION blocks
-	if lastBlockNumber-fromBlockNumber > MAX_SCAN_BLOCKS_PER_ITERATION {
-		lastBlockNumber = fromBlockNumber + MAX_SCAN_BLOCKS_PER_ITERATION
-	}
-
-	log.Infof("start scan iteration for %s from block %d to %d", ts.Address().Hex(), fromBlockNumber, lastBlockNumber)
-	blocks := BLOCKS_TO_SCAN_AT_ONCE
-	logCount := 0
-	newBlocksMap := make(map[uint64]bool)
-
-	for fromBlockNumber < lastBlockNumber {
-		select {
-		// check if we need to close due context signal
-		case <-ctx.Done():
-			log.Warnf("scan graceful canceled by context")
-			return fromBlockNumber, nil
-
-		default:
-			startTime := time.Now()
-			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlockNumber,
-				fromBlockNumber+blocks, (fromBlockNumber*100)/lastBlockNumber)
-
-			// create the filter query
-			query := eth.FilterQuery{
-				Addresses: []common.Address{ts.Address()},
-				FromBlock: big.NewInt(int64(fromBlockNumber)),
-				ToBlock:   big.NewInt(int64(fromBlockNumber + blocks)),
-			}
-			// set the topics to filter depending on the contract type
-			switch ts.Type() {
-			case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721:
-				query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20_TRANSFER)}}
-			case CONTRACT_TYPE_ERC1155:
-				query.Topics = [][]common.Hash{
-					{
-						common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_SINGLE),
-						common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_BATCH),
-					},
-				}
-			case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
-				query.Topics = [][]common.Hash{
-					{
-						common.HexToHash(LOG_TOPIC_VENATION_DEPOSIT),
-						common.HexToHash(LOG_TOPIC_VENATION_WITHDRAW),
-					},
-				}
-			case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
-				query.Topics = [][]common.Hash{
-					{
-						common.HexToHash(LOG_TOPIC_WANT_DEPOSIT),
-						common.HexToHash(LOG_TOPIC_WANT_WITHDRAWAL),
-					},
-				}
-			default:
-				return 0, fmt.Errorf("unknown contract type %d", ts.Type())
-			}
-			// execute the filter query
-			ctx2, cancel := context.WithTimeout(context.Background(), time.Second*10)
-			defer cancel()
-			logs, err := w.client.FilterLogs(ctx2, query)
-			if err != nil {
-				// if we have too much results, decrease the blocks to scan
-				if strings.Contains(err.Error(), "query returned more than") {
-					blocks = blocks / 2
-					log.Warnf("too much results on query, decreasing blocks to %d", blocks)
-					continue
-				} else {
-					return fromBlockNumber, err
-				}
-			}
-			fromBlockNumber += blocks
-			if len(logs) == 0 {
-				continue
-			}
-			logCount += len(logs)
-			log.Infof("found %d logs, iteration count %d", len(logs), logCount)
-			blocksToSave := make(map[uint64]bool)
-			// iterate over the logs and update the token holders state
-			for _, l := range logs {
-				if _, ok := newBlocksMap[l.BlockNumber]; !ok {
-					if ts.HasBlock(l.BlockNumber) {
-						log.Debugf("found already processed block %d", fromBlockNumber)
-						continue
-					}
-				}
-				blocksToSave[l.BlockNumber] = true
-				newBlocksMap[l.BlockNumber] = true
-				// update the token holders state with the log data
-				switch ts.Type() {
-				case CONTRACT_TYPE_ERC20:
-					filter := w.contract.(*erc20.ERC20Contract).ERC20ContractFilterer
-					logData, err := filter.ParseTransfer(l)
-					if err != nil {
-						log.Errorf("error parsing log data %s", err)
-						continue
-					}
-					if err := ts.Add(logData.To, logData.Value); err != nil {
-						log.Errorf("error adding to token holder %s", err)
-						continue
-					}
-					if err := ts.Sub(logData.From, logData.Value); err != nil {
-						log.Errorf("error subtracting to token holder %s", err)
-						continue
-					}
-				case CONTRACT_TYPE_ERC777: // stores the total count per address, not all identifiers
-					filter := w.contract.(*erc777.ERC777Contract).ERC777ContractFilterer
-					logData, err := filter.ParseTransfer(l)
-					if err != nil {
-						log.Errorf("error parsing log data %s", err)
-						continue
-					}
-					if err := ts.Add(logData.To, big.NewInt(1)); err != nil {
-						log.Errorf("error adding to token holder %s", err)
-						continue
-					}
-					if err := ts.Sub(logData.From, big.NewInt(1)); err != nil {
-						log.Errorf("error subtracting to token holder %s", err)
-						continue
-					}
-				case CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
-					filter := w.contract.(*erc721.ERC721Contract).ERC721ContractFilterer
-					logData, err := filter.ParseTransfer(l)
-					if err != nil {
-						log.Errorf("error parsing log data %s", err)
-						continue
-					}
-					if err := ts.Add(logData.To, big.NewInt(1)); err != nil {
-						log.Errorf("error adding to token holder %s", err)
-						continue
-					}
-					if err := ts.Sub(logData.From, big.NewInt(1)); err != nil {
-						log.Errorf("error subtracting to token holder %s", err)
-						continue
-					}
-					// case CONTRACT_TYPE_ERC1155:
-					// TODO
-					/*
-						filter := w.contract.(*erc1155.ERC1155Contract).ERC1155ContractFilterer
-						if l.Topics[0] == common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_SINGLE) {
-							logData, err := filter.ParseTransferSingle(l)
-							if err != nil {
-								log.Error("error parsing log data", err)
-								continue
-							}
-							// TODO
-						} else if l.Topics[0] == common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_BATCH) {
-							logData, err := filter.ParseTransferBatch(l)
-							if err != nil {
-								log.Error("error parsing log data", err)
-								continue
-							}
-							// TODO
-						}
-					*/
-				case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
-					// This token contract is a bit special, token balances
-					// are updated every block based on the contract state.
-					switch l.Topics[0] {
-					case common.HexToHash(LOG_TOPIC_VENATION_DEPOSIT):
-						provider := common.HexToAddress(l.Topics[1].Hex())
-						value := big.NewInt(0).SetBytes(l.Data[:32])
-						if err := ts.Add(provider, value); err != nil {
-							log.Errorf("error adding to token holder %s", err)
-						}
-					case common.HexToHash(LOG_TOPIC_VENATION_WITHDRAW):
-						provider := common.HexToAddress(l.Topics[1].Hex())
-						value := big.NewInt(0).SetBytes(l.Data[:32])
-						if err := ts.Sub(provider, value); err != nil {
-							log.Errorf("error subtracting to token holder %s", err)
-						}
-					}
-				case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
-					filter := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractFilterer
-					switch l.Topics[0] {
-					case common.HexToHash(LOG_TOPIC_WANT_DEPOSIT):
-						logData, err := filter.ParseDeposit(l)
-						if err != nil {
-							log.Errorf("error parsing log data %s", err)
-							continue
-						}
-						if err := ts.Add(logData.Entity, logData.Amount); err != nil {
-							log.Errorf("error adding to token holder %s", err)
-							continue
-						}
-					case common.HexToHash(LOG_TOPIC_WANT_WITHDRAWAL):
-						logData, err := filter.ParseWithdrawal(l)
-						if err != nil {
-							log.Errorf("error parsing log data %s", err)
-							continue
-						}
-						if err := ts.Sub(logData.Entity, logData.Amount); err != nil {
-							log.Errorf("error subtracting to token holder %s", err)
-							continue
-						}
-					}
-				}
-			}
-			for k := range blocksToSave {
-				if err := ts.SaveBlock(k); err != nil {
-					log.Errorf("error saving block %d %s", k, err)
-					continue
-				}
-			}
-			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
-				1000*float32(len(blocksToSave))/float32(time.Since(startTime).Milliseconds()))
-			// check if we need to exit because max logs reached for iteration
-			if logCount > MAX_SCAN_LOGS_PER_ITERATION {
-				return fromBlockNumber, nil
-			}
-		}
-	}
-	return lastBlockNumber, nil
 }
 
 // BlockTimestamp function returns the string timestampt of the provided block
@@ -487,7 +259,7 @@ func (w *Web3) BlockRootHash(ctx context.Context, blockNumber uint) ([]byte, err
 // addresses (candidates to holders) and their balances from the given block
 // number to the latest block number and submit the results using
 // Web3.submitTokenHolders function.
-func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64, error) {
+func (w *Web3) UpdateTokenHolders(ctx context.Context, th *holders.TokenHolders) (uint64, error) {
 	// fetch the last block header
 	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -532,27 +304,27 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 			}
 			// set the topics to filter depending on the contract type
 			switch th.Type() {
-			case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721:
-				query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20_TRANSFER)}}
-			case CONTRACT_TYPE_ERC1155:
+			case token.CONTRACT_TYPE_ERC20, token.CONTRACT_TYPE_ERC777, token.CONTRACT_TYPE_ERC721:
+				query.Topics = [][]common.Hash{{common.HexToHash(token.LOG_TOPIC_ERC20_TRANSFER)}}
+			case token.CONTRACT_TYPE_ERC1155:
 				query.Topics = [][]common.Hash{
 					{
-						common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_SINGLE),
-						common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_BATCH),
+						common.HexToHash(token.LOG_TOPIC_ERC1155_TRANSFER_SINGLE),
+						common.HexToHash(token.LOG_TOPIC_ERC1155_TRANSFER_BATCH),
 					},
 				}
-			case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+			case token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 				query.Topics = [][]common.Hash{
 					{
-						common.HexToHash(LOG_TOPIC_VENATION_DEPOSIT),
-						common.HexToHash(LOG_TOPIC_VENATION_WITHDRAW),
+						common.HexToHash(token.LOG_TOPIC_VENATION_DEPOSIT),
+						common.HexToHash(token.LOG_TOPIC_VENATION_WITHDRAW),
 					},
 				}
-			case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+			case token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 				query.Topics = [][]common.Hash{
 					{
-						common.HexToHash(LOG_TOPIC_WANT_DEPOSIT),
-						common.HexToHash(LOG_TOPIC_WANT_WITHDRAWAL),
+						common.HexToHash(token.LOG_TOPIC_WANT_DEPOSIT),
+						common.HexToHash(token.LOG_TOPIC_WANT_WITHDRAWAL),
 					},
 				}
 			default:
@@ -590,7 +362,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				}
 				// update the token holders state with the log data
 				switch th.Type() {
-				case CONTRACT_TYPE_ERC20:
+				case token.CONTRACT_TYPE_ERC20:
 					filter := w.contract.(*erc20.ERC20Contract).ERC20ContractFilterer
 					logData, err := filter.ParseTransfer(l)
 					if err != nil {
@@ -609,7 +381,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 						// TODO: calculate real balance getting current with balanceOf
 						holdersCandidates[logData.From] = new(big.Int).Neg(logData.Value)
 					}
-				case CONTRACT_TYPE_ERC777: // stores the total count per address, not all identifiers
+				case token.CONTRACT_TYPE_ERC777: // stores the total count per address, not all identifiers
 					filter := w.contract.(*erc777.ERC777Contract).ERC777ContractFilterer
 					logData, err := filter.ParseTransfer(l)
 					if err != nil {
@@ -628,7 +400,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 						// TODO: calculate real balance getting current with balanceOf
 						holdersCandidates[logData.From] = new(big.Int).Neg(big.NewInt(1))
 					}
-				case CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
+				case token.CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
 					filter := w.contract.(*erc721.ERC721Contract).ERC721ContractFilterer
 					logData, err := filter.ParseTransfer(l)
 					if err != nil {
@@ -647,11 +419,11 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 						// TODO: calculate real balance getting current with balanceOf
 						holdersCandidates[logData.From] = new(big.Int).Neg(big.NewInt(1))
 					}
-				case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+				case token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 					// This token contract is a bit special, token balances
 					// are updated every block based on the contract state.
 					switch l.Topics[0] {
-					case common.HexToHash(LOG_TOPIC_VENATION_DEPOSIT):
+					case common.HexToHash(token.LOG_TOPIC_VENATION_DEPOSIT):
 						provider := common.HexToAddress(l.Topics[1].Hex())
 						value := big.NewInt(0).SetBytes(l.Data[:32])
 						if toBalance, exists := holdersCandidates[provider]; exists {
@@ -660,7 +432,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 							// TODO: calculate real balance getting current with balanceOf
 							holdersCandidates[provider] = value
 						}
-					case common.HexToHash(LOG_TOPIC_VENATION_WITHDRAW):
+					case common.HexToHash(token.LOG_TOPIC_VENATION_WITHDRAW):
 						provider := common.HexToAddress(l.Topics[1].Hex())
 						value := big.NewInt(0).SetBytes(l.Data[:32])
 						if fromBalance, exists := holdersCandidates[provider]; exists {
@@ -670,10 +442,10 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 							holdersCandidates[provider] = new(big.Int).Neg(value)
 						}
 					}
-				case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+				case token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 					filter := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractFilterer
 					switch l.Topics[0] {
-					case common.HexToHash(LOG_TOPIC_WANT_DEPOSIT):
+					case common.HexToHash(token.LOG_TOPIC_WANT_DEPOSIT):
 						logData, err := filter.ParseDeposit(l)
 						if err != nil {
 							log.Errorf("error parsing log data %s", err)
@@ -685,7 +457,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 							// TODO: calculate real balance getting current with balanceOf
 							holdersCandidates[logData.Entity] = logData.Amount
 						}
-					case common.HexToHash(LOG_TOPIC_WANT_WITHDRAWAL):
+					case common.HexToHash(token.LOG_TOPIC_WANT_WITHDRAWAL):
 						logData, err := filter.ParseWithdrawal(l)
 						if err != nil {
 							log.Errorf("error parsing log data %s", err)
@@ -724,7 +496,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 // submitTokenHolders function checks each candidate to token holder provided,
 // and removes any with a zero balance before store them. It also checks the
 // balances of the current holders, deleting those with no funds.
-func (w *Web3) submitTokenHolders(th *TokenHolders, candidates map[common.Address]*big.Int, blockNumber uint64) error {
+func (w *Web3) submitTokenHolders(th *holders.TokenHolders, candidates map[common.Address]*big.Int, blockNumber uint64) error {
 	// remove null address from candidates
 	delete(candidates, common.HexToAddress(NULL_ADDRESS))
 	// delete holder candidates without funds
@@ -745,15 +517,15 @@ func (w *Web3) submitTokenHolders(th *TokenHolders, candidates map[common.Addres
 	// and remove these that have not founds
 	var balanceOf func(*bind.CallOpts, common.Address) (*big.Int, error)
 	switch th.Type() {
-	case CONTRACT_TYPE_ERC20:
+	case token.CONTRACT_TYPE_ERC20:
 		balanceOf = w.contract.(*erc20.ERC20Contract).BalanceOf
-	case CONTRACT_TYPE_ERC777:
+	case token.CONTRACT_TYPE_ERC777:
 		balanceOf = w.contract.(*erc777.ERC777Contract).BalanceOf
-	case CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
+	case token.CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
 		balanceOf = w.contract.(*erc721.ERC721Contract).BalanceOf
-	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+	case token.CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		balanceOf = w.contract.(*venation.Nation3VestedTokenContract).BalanceOf
-	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+	case token.CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		balanceOf = w.contract.(*want.AragonWrappedANTTokenContract).BalanceOf
 	}
 
@@ -771,17 +543,8 @@ func (w *Web3) submitTokenHolders(th *TokenHolders, candidates map[common.Addres
 	return nil
 }
 
-type TokenData struct {
-	Address     common.Address
-	Type        ContractType
-	Name        string
-	Symbol      string
-	Decimals    uint8
-	TotalSupply *big.Int
-}
-
-func (w *Web3) GetTokenData() (*TokenData, error) {
-	td := &TokenData{
+func (w *Web3) GetTokenData() (*token.TokenData, error) {
+	td := &token.TokenData{
 		Address: w.contractAddress,
 		Type:    w.contractType,
 	}
@@ -803,9 +566,4 @@ func (w *Web3) GetTokenData() (*TokenData, error) {
 		return nil, fmt.Errorf("unable to get token data: %s", err)
 	}
 	return td, nil
-}
-
-func (t *TokenData) String() string {
-	return fmt.Sprintf(`{"address":%s, "type":%s "name":%s,"symbol":%s,"decimals":%s,"totalSupply":%s}`,
-		t.Address, t.Type.String(), t.Name, t.Symbol, string(t.Decimals), t.TotalSupply.String())
 }

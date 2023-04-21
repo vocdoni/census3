@@ -1,10 +1,11 @@
-package contractstate
+package holders
 
 import (
 	"sync"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vocdoni/census3/state/token"
 )
 
 // TokenHolders struct abstracts the current state of a TokenHolders into the
@@ -15,7 +16,7 @@ import (
 // block analyzed.
 type TokenHolders struct {
 	address   common.Address
-	ctype     ContractType
+	ctype     token.TokenType
 	holders   sync.Map
 	blocks    sync.Map
 	lastBlock atomic.Uint64
@@ -24,7 +25,7 @@ type TokenHolders struct {
 // Init function fills the given TokenHolders struct with the address and type
 // given, also checks the block number provided as done. It returns the
 // TokenHolders struct updated.
-func (h *TokenHolders) Init(addr common.Address, ctype ContractType, block uint64) *TokenHolders {
+func (h *TokenHolders) Init(addr common.Address, ctype token.TokenType, block uint64) *TokenHolders {
 	h.address = addr
 	h.ctype = ctype
 	h.holders = sync.Map{}
@@ -39,7 +40,7 @@ func (h *TokenHolders) Address() common.Address {
 }
 
 // Type function returns the given TokenHolders token type.
-func (h *TokenHolders) Type() ContractType {
+func (h *TokenHolders) Type() token.TokenType {
 	return h.ctype
 }
 

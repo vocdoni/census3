@@ -12,6 +12,19 @@ import (
 	"github.com/vocdoni/census3/db"
 )
 
+const countTokenHoldersByTokenID = `-- name: CountTokenHoldersByTokenID :one
+SELECT COUNT(holder_id) 
+FROM TokenHolders
+WHERE token_id = ?
+`
+
+func (q *Queries) CountTokenHoldersByTokenID(ctx context.Context, tokenID db.Address) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTokenHoldersByTokenID, tokenID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createHolder = `-- name: CreateHolder :execresult
 INSERT INTO Holders (id)
 VALUES (?)
@@ -60,17 +73,16 @@ func (q *Queries) DeleteHolder(ctx context.Context, id db.Address) (sql.Result, 
 
 const deleteTokenHolder = `-- name: DeleteTokenHolder :execresult
 DELETE FROM TokenHolders
-WHERE token_id = ? AND holder_id = ? AND block_id = ?
+WHERE token_id = ? AND holder_id = ?
 `
 
 type DeleteTokenHolderParams struct {
 	TokenID  db.Address
 	HolderID db.Address
-	BlockID  int64
 }
 
 func (q *Queries) DeleteTokenHolder(ctx context.Context, arg DeleteTokenHolderParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteTokenHolder, arg.TokenID, arg.HolderID, arg.BlockID)
+	return q.db.ExecContext(ctx, deleteTokenHolder, arg.TokenID, arg.HolderID)
 }
 
 const holderByID = `-- name: HolderByID :one

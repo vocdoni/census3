@@ -75,23 +75,6 @@ func NewHoldersScanner(dataDir string, w3uri string) (*HoldersScanner, error) {
 // token holders. It then starts scanning, keeping these lists updated and
 // synchronised with the database instance.
 func (s *HoldersScanner) Start(ctx context.Context) {
-	// load existing tokes
-	log.Infof("loading stored tokens...")
-	tokens, err := s.GetTokenAddresses()
-	if err != nil {
-		if !errors.Is(sql.ErrNoRows, err) {
-			log.Error(err)
-		}
-		return
-	}
-	// get every token current holders
-	for _, addr := range tokens {
-		var err error
-		if s.tokens[addr], err = s.GetTokenHolders(addr); err != nil {
-			log.Errorf("cannot get contract details for %s: %v", addr, err)
-			continue
-		}
-	}
 	// monitor for new tokens added and update every token holders
 	for {
 		select {
@@ -100,7 +83,7 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 			return
 		default:
 			// get updated list of tokens
-			tokens, err := s.GetTokenAddresses()
+			tokens, err := s.getTokenAddresses()
 			if err != nil {
 				log.Error(err)
 				continue
@@ -117,11 +100,216 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 	}
 }
 
+// getTokenAddresses function gets the current token addresses from the database
+// and returns it as a list of common.Address structs. If the current database
+// instance does not contain any token, it returns nil addresses without error.
+// This behaviour helps to deal with this particular case.
+func (s *HoldersScanner) getTokenAddresses() ([]common.Address, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	// get tokens from the database
+	tokens, err := s.sqlc.PaginatedTokens(ctx, queries.PaginatedTokensParams{
+		Limit:  -1,
+		Offset: 0,
+	})
+	// if error raises and is no rows error return nil results, if it is not
+	// return the error.
+	if err != nil {
+		if errors.Is(sql.ErrNoRows, err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	// parse and return token addresses
+	results := make([]common.Address, len(tokens))
+	for idx, token := range tokens {
+		results[idx] = common.BytesToAddress(token.ID)
+	}
+	return results, nil
+}
+
+// saveTokenHolders function updates the current HoldersScanner database with the
+// TokenHolders state provided. Updates the holders for associated token and
+// the blocks scanned. To do this, it requires the root hash and the timestampt
+// of the given TokenHolders state block.
+func (s *HoldersScanner) saveTokenHolders(th *contractstate.TokenHolders) error {
+	log.Debugf("saving token holders state for token %s at block %d", th.Address(), th.LastBlock())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if len(th.Holders()) == 0 {
+		log.Debug("nothing to save. skipping...")
+		return nil
+	}
+
+	// init web3 contract state
+	w3 := contractstate.Web3{}
+	if err := w3.Init(ctx, s.web3, th.Address(), th.Type()); err != nil {
+		return err
+	}
+	// get current block number timestamp and root hash, required parameters to
+	// create a new block in the database
+	timestamp, err := w3.BlockTimestamp(ctx, uint(th.LastBlock()))
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+	rootHash, err := w3.BlockRootHash(ctx, uint(th.LastBlock()))
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	// if the current HoldersScanner last block not exists in the database,
+	// create it
+	if _, err := s.sqlc.BlockByID(ctx, int64(th.LastBlock())); err != nil {
+		if !errors.Is(sql.ErrNoRows, err) {
+			return err
+		}
+		_, err = s.sqlc.CreateBlock(ctx, queries.CreateBlockParams{
+			ID:        int64(th.LastBlock()),
+			Timestamp: timestamp,
+			RootHash:  rootHash,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	created, deleted := 0, 0
+	log.Debugf("token holders to create: %d, to delete: %d",
+		len(th.HoldersToCreate()), len(th.HoldersToDelete()))
+	// iterate over given holders
+	for _, holder := range th.HoldersToCreate() {
+		_, err := s.sqlc.TokenHolderByTokenIDAndHolderID(ctx,
+			queries.TokenHolderByTokenIDAndHolderIDParams{
+				TokenID:  th.Address().Bytes(),
+				HolderID: holder.Bytes(),
+			})
+		if err != nil {
+			// return the error if fails and the error is not 'no rows' err
+			if !errors.Is(sql.ErrNoRows, err) {
+				return err
+			}
+			_, err = s.sqlc.CreateHolder(ctx, holder.Bytes())
+			if err != nil {
+				log.Warn(err)
+			}
+			// if the token holder not exists, create it
+			_, err = s.sqlc.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
+				TokenID:  th.Address().Bytes(),
+				HolderID: holder.Bytes(),
+				BlockID:  int64(th.LastBlock()),
+				Balance:  big.NewInt(-1).Bytes(),
+			})
+			if err != nil {
+				return err
+			}
+			created++
+			continue
+		}
+	}
+
+	for _, holder := range th.HoldersToDelete() {
+		_, err = s.sqlc.DeleteTokenHolder(ctx, queries.DeleteTokenHolderParams{
+			TokenID:  th.Address().Bytes(),
+			HolderID: holder.Bytes(),
+		})
+		if err != nil {
+			log.Warn(err)
+			continue
+		}
+		deleted++
+	}
+
+	log.Debugf("token holders state saved. created: %d, deleted: %d", created, deleted)
+	th.FlushHolders()
+	log.Debug("token holders state reset")
+	return nil
+}
+
+// scanHolders function updates the holders of the token identified by the
+// address provided. It checks if the address provided already has a
+// TokenHolders state cached, if not, it gets the token information from the
+// HoldersScanner database and caches it. If something expected fails or the
+// scan process ends succesfully, the cached information is stored in the
+// database. If it has no updates, it does not change anything and returns nil.
+func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) error {
+	log.Debugf("scanning contract %s", addr)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	// get the token TokenHolders struct from cache, if it not exists it will
+	// be initialized
+	s.mutex.RLock()
+	th, ok := s.tokens[addr]
+	if !ok {
+		log.Infof("initializing contract %s", addr.Hex())
+		// get token information from the database
+		tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
+		if err != nil {
+			return err
+		}
+		ttype := contractstate.ContractType(tokenInfo.TypeID)
+		tokenLastBlock := uint64(tokenInfo.CreationBlock)
+		if blockNumber, err := s.sqlc.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
+			tokenLastBlock = uint64(blockNumber)
+		}
+
+		th = new(contractstate.TokenHolders).Init(addr, ttype, tokenLastBlock)
+		s.tokens[addr] = th
+	}
+	s.mutex.RUnlock()
+	// If the last block of the current scanner is lower than the TokenHolders
+	// state block, it seems that the current scanner is out of date and can
+	// move on to this block
+	if s.lastBlock < th.LastBlock() {
+		s.lastBlock = th.LastBlock()
+	}
+	// init web3 contract state
+	w3 := contractstate.Web3{}
+	if err := w3.Init(ctx, s.web3, addr, th.Type()); err != nil {
+		return err
+	}
+	// try to update the TokenHolders struct and the current scanner last block
+	var err error
+	if _, err = w3.UpdateTokenHolders(ctx, th); err != nil {
+		if strings.Contains(err.Error(), "no new blocks") {
+			// if no new blocks error raises, log it as debug and return nil
+			log.Debugw(err.Error(), "token", th.Address())
+			return nil
+		}
+		if strings.Contains(err.Error(), "connection reset") ||
+			strings.Contains(err.Error(), "context deadline") ||
+			strings.Contains(err.Error(), "read limit exceeded") ||
+			strings.Contains(err.Error(), "limit reached") {
+			// if connection error raises, log it as warning and try to save
+			// current TokenHolders state and return nil
+			log.Warnw("warning scanning contract", "token", th.Address().Hex(),
+				"block", s.lastBlock+1, "error", err)
+			// save TokesHolders state into the database before exit of the function
+			if err := s.saveTokenHolders(th); err != nil {
+				log.Error(err)
+			}
+			return nil
+		}
+		// if unexpected error raises, log it as error and return it.
+		log.Error("warning scanning contract", "token", th.Address().Hex(),
+			"block", s.lastBlock+1, "error", err)
+		return err
+	}
+	// save TokesHolders state into the database before exit of the function
+	if err := s.saveTokenHolders(th); err != nil {
+		log.Error(err)
+	}
+	return nil
+}
+
+/**
+MOVE THE FOLLOWING METHODS TO OTHER PACKAGES
+*/
+
 // AddToken function creates a new token in the current database instance. It
 // first gets the token information from the network and then stores it in the
 // database. The new token created will be scanned from the block number
 // provided as argument.
-// TODO: Move to other service
+// TODO: Move to API handlers
 func (s *HoldersScanner) AddToken(addr common.Address, tType contractstate.ContractType, startBlock uint64) error {
 	w3 := contractstate.Web3{}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -164,38 +352,11 @@ func (s *HoldersScanner) AddToken(addr common.Address, tType contractstate.Contr
 	return nil
 }
 
-// GetTokenAddresses function gets the current token addresses from the database
-// and returns it as a list of common.Address structs. If the current database
-// instance does not contain any token, it returns nil addresses without error.
-// This behaviour helps to deal with this particular case.
-func (s *HoldersScanner) GetTokenAddresses() ([]common.Address, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	// get tokens from the database
-	tokens, err := s.sqlc.PaginatedTokens(ctx, queries.PaginatedTokensParams{
-		Limit:  -1,
-		Offset: 0,
-	})
-	// if error raises and is no rows error return nil results, if it is not
-	// return the error.
-	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	// parse and return token addresses
-	results := make([]common.Address, len(tokens))
-	for idx, token := range tokens {
-		results[idx] = common.BytesToAddress(token.ID)
-	}
-	return results, nil
-}
-
 // GetTokenHolders function gets the token holders states from the database, of
 // the token identified by the contract address provided. If the current database
 // instance does not contain any token holder for this token or the token does not , it returns nil addresses without error.
 // This behaviour helps to deal with this particular case.
+// TODO: Move to API handlers
 func (s *HoldersScanner) GetTokenHolders(addr common.Address) (*contractstate.TokenHolders, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -247,162 +408,21 @@ func (s *HoldersScanner) GetTokenHolders(addr common.Address) (*contractstate.To
 	return th, nil
 }
 
-// SetTokenHolders function updates the current HoldersScanner database with the
-// TokenHolders state provided. Updates the holders for associated token and
-// the blocks scanned. To do this, it requires the root hash and the timestampt
-// of the given TokenHolders state block.
-func (s *HoldersScanner) SetTokenHolders(th *contractstate.TokenHolders, rootHash []byte, timestamp string) error {
+// GetNumberOfTokenHolders function returns the current number of token holders
+// for the provided token address in the current database. It returns 0 and nil
+// error if no token holders is registered for the given token address.
+// TODO: Only for debug, consider to delete
+func (s *HoldersScanner) GetNumberOfTokenHolders(addr common.Address) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// if the current HoldersScanner last block not exists in the database,
-	// create it
-	if _, err := s.sqlc.BlockByID(ctx, int64(s.lastBlock)); err != nil {
-		if !errors.Is(sql.ErrNoRows, err) {
-			return err
-		}
-		_, err = s.sqlc.CreateBlock(ctx, queries.CreateBlockParams{
-			ID:        int64(s.lastBlock),
-			Timestamp: timestamp,
-			RootHash:  rootHash,
-		})
-		if err != nil {
-			return err
-		}
-	}
-	// iterate over given holders
-	for _, holder := range th.Holders() {
-		_, err := s.sqlc.TokenHolderByTokenIDAndHolderID(ctx,
-			queries.TokenHolderByTokenIDAndHolderIDParams{
-				TokenID:  th.Address().Bytes(),
-				HolderID: holder.Bytes(),
-			})
-		if err != nil {
-			// return the error if fails and the error is not 'no rows' err
-			if !errors.Is(sql.ErrNoRows, err) {
-				return err
-			}
-			_, err = s.sqlc.CreateHolder(ctx, holder.Bytes())
-			if err != nil {
-				return err
-			}
-			// if the token holder not exists, create it
-			_, err = s.sqlc.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
-				TokenID:  th.Address().Bytes(),
-				HolderID: holder.Bytes(),
-				BlockID:  int64(s.lastBlock),
-				Balance:  big.NewInt(-1).Bytes(),
-			})
-			if err != nil {
-				return err
-			}
-			continue
-		}
-		// if exist, update the the block and the holder
-		_, err = s.sqlc.UpdateTokenHolder(ctx, queries.UpdateTokenHolderParams{
-			TokenID:  th.Address().Bytes(),
-			HolderID: holder.Bytes(),
-			BlockID:  int64(s.lastBlock),
-			Balance:  big.NewInt(-1).Bytes(),
-		})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
-// scanHolders function updates the holders of the token identified by the
-// address provided. It checks if the address provided already has a
-// TokenHolders state cached, if not, it gets the token information from the
-// HoldersScanner database and caches it. If something expected fails or the
-// scan process ends succesfully, the cached information is stored in the
-// database. If it has no updates, it does not change anything and returns nil.
-func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) error {
-	log.Debugf("scanning contract %s", addr)
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	// get the token TokenHolders struct from cache, if it not exists it will
-	// be initialized
-	s.mutex.RLock()
-	th, ok := s.tokens[addr]
-	if !ok {
-		log.Infof("initializing contract %s", addr.Hex())
-		// get token information from the database
-		tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
-		if err != nil {
-			return err
+	numberOfHolders, err := s.sqlc.CountTokenHoldersByTokenID(ctx, addr.Bytes())
+	if err != nil {
+		if errors.Is(sql.ErrNoRows, err) {
+			return 0, nil
 		}
-		ttype := contractstate.ContractType(tokenInfo.TypeID)
+		return 0, nil
+	}
 
-		th = new(contractstate.TokenHolders).Init(addr, ttype, uint64(tokenInfo.CreationBlock))
-		s.tokens[addr] = th
-	}
-	s.mutex.RUnlock()
-	// If the last block of the current scanner is lower than the TokenHolders
-	// state block, it seems that the current scanner is out of date and can
-	// move on to this block
-	if s.lastBlock < th.LastBlock() {
-		s.lastBlock = th.LastBlock()
-	}
-	// init web3 contract state
-	w3 := contractstate.Web3{}
-	if err := w3.Init(ctx, s.web3, addr, th.Type()); err != nil {
-		return err
-	}
-	// try to update the TokenHolders struct and the current scanner last block
-	var err error
-	if s.lastBlock, err = w3.UpdateTokenHolders(ctx, th, s.lastBlock+1); err != nil {
-		if strings.Contains(err.Error(), "no new blocks") {
-			// if no new blocks error raises, log it as debug and return nil
-			log.Debugw(err.Error(), "token", th.Address())
-			return nil
-		}
-		if strings.Contains(err.Error(), "connection reset") ||
-			strings.Contains(err.Error(), "context deadline") ||
-			strings.Contains(err.Error(), "read limit exceeded") {
-			// if connection error raises, log it as warning and try to save
-			// current TokenHolders state and return nil
-			log.Warnw("warning scanning contract", "token", th.Address().Hex(),
-				"block", s.lastBlock+1, "error", err)
-			// get current block number timestamp and root hash, required
-			// parameters to create a new block in the database
-			timestamp, err := w3.BlockTimestamp(ctx, uint(s.lastBlock))
-			if err != nil {
-				log.Error(err)
-				return err
-			}
-			rootHash, err := w3.BlockRootHash(ctx, uint(s.lastBlock))
-			if err != nil {
-				log.Error(err)
-				return err
-			}
-			// save TokesHolders state into the database
-			if err := s.SetTokenHolders(th, rootHash, timestamp); err != nil {
-				log.Error(err)
-				return err
-			}
-			return nil
-		}
-		// if unexpected error raises, log it as error and return it.
-		log.Error("warning scanning contract", "token", th.Address().Hex(),
-			"block", s.lastBlock+1, "error", err)
-		return err
-	}
-	// get current block number timestamp and root hash, required parameters to
-	// create a new block in the database
-	timestamp, err := w3.BlockTimestamp(ctx, uint(s.lastBlock))
-	if err != nil {
-		log.Error(err)
-		return nil
-	}
-	rootHash, err := w3.BlockRootHash(ctx, uint(s.lastBlock))
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	// save TokesHolders state into the database
-	if err := s.SetTokenHolders(th, rootHash, timestamp); err != nil {
-		log.Error(err)
-	}
-	return nil
+	return numberOfHolders, nil
 }

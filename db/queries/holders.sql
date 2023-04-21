@@ -82,6 +82,11 @@ WHERE token_id = ?
 ORDER BY block_id DESC
 LIMIT 1;
 
+-- name: CountTokenHoldersByTokenID :one
+SELECT COUNT(holder_id) 
+FROM TokenHolders
+WHERE token_id = ?;
+
 -- name: CreateTokenHolder :execresult
 INSERT INTO TokenHolders (
     token_id,
@@ -101,4 +106,4 @@ WHERE token_id = sqlc.arg(token_id) AND holder_id = sqlc.arg(holder_id) AND bloc
 
 -- name: DeleteTokenHolder :execresult
 DELETE FROM TokenHolders
-WHERE token_id = ? AND holder_id = ? AND block_id = ?;
+WHERE token_id = ? AND holder_id = ?;

@@ -487,7 +487,7 @@ func (w *Web3) BlockRootHash(ctx context.Context, blockNumber uint) ([]byte, err
 // addresses (candidates to holders) and their balances from the given block
 // number to the latest block number and submit the results using
 // Web3.submitTokenHolders function.
-func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlockNumber uint64) (uint64, error) {
+func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64, error) {
 	// fetch the last block header
 	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -496,6 +496,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 	log.Debugf("last block number: %d", lastBlockHeader.Number.Uint64())
 	// check if there are new blocks to scan
 	lastBlockNumber := lastBlockHeader.Number.Uint64()
+	fromBlockNumber := th.LastBlock()
 	if fromBlockNumber >= lastBlockNumber {
 		return fromBlockNumber, fmt.Errorf("no new blocks to scan for %s", th.Address().String())
 	}
@@ -518,7 +519,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 		// check if we need to close due context signal
 		case <-ctx.Done():
 			log.Warnf("scan graceful canceled by context")
-			return fromBlockNumber, nil
+			return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, th.LastBlock())
 		default:
 			startTime := time.Now()
 			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlockNumber,
@@ -573,6 +574,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 			}
 			fromBlockNumber += blocks
 			if len(logs) == 0 {
+				th.BlockDone(fromBlockNumber)
 				continue
 			}
 			logCount += len(logs)
@@ -586,8 +588,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 						continue
 					}
 				}
-				blocksToSave[l.BlockNumber] = true
-				newBlocksMap[l.BlockNumber] = true
 				// update the token holders state with the log data
 				switch th.Type() {
 				case CONTRACT_TYPE_ERC20:
@@ -597,7 +597,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 						log.Errorf("error parsing log data %s", err)
 						continue
 					}
-					log.Debugf("erc20 transfer: %s -> %s (%d)", logData.From.String(), logData.To.String(), logData.Value)
 					if toBalance, exists := holdersCandidates[logData.To]; exists {
 						holdersCandidates[logData.To] = new(big.Int).Add(toBalance, logData.Value)
 					} else {
@@ -699,20 +698,26 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders, fromBlo
 							holdersCandidates[logData.Entity] = new(big.Int).Neg(logData.Amount)
 						}
 					}
+					blocksToSave[l.BlockNumber] = true
+					newBlocksMap[l.BlockNumber] = true
 				}
-			}
-			for k := range blocksToSave {
-				th.BlockDone(k)
 			}
 			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
 				1000*float32(len(blocksToSave))/float32(time.Since(startTime).Milliseconds()))
 			// check if we need to exit because max logs reached for iteration
+			if len(holdersCandidates) > MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION {
+				log.Debug("MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION limit reached... stop scanning")
+				th.BlockDone(fromBlockNumber)
+				return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, th.LastBlock())
+			}
 			if logCount > MAX_SCAN_LOGS_PER_ITERATION {
-				// delete holder candidates without funds
-				return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, fromBlockNumber)
+				log.Debug("MAX_SCAN_LOGS_PER_ITERATION limit reached... stop scanning")
+				th.BlockDone(fromBlockNumber)
+				return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, th.LastBlock())
 			}
 		}
 	}
+	th.BlockDone(lastBlockNumber)
 	return lastBlockNumber, w.submitTokenHolders(th, holdersCandidates, lastBlockNumber)
 }
 

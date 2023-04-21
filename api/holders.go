@@ -28,6 +28,8 @@ func initHoldersHandlers(currentApi *api.API, scanner *service.HoldersScanner) {
 		api.MethodAccessTypePublic, handler.createToken)
 	currentApi.RegisterMethod("/tokens/{address}/holders", "GET",
 		api.MethodAccessTypePublic, handler.getHolders)
+	currentApi.RegisterMethod("/tokens/{address}/holders/count", "GET",
+		api.MethodAccessTypePublic, handler.countHolders)
 }
 
 // TODO: Move this handler to other api package file.
@@ -75,6 +77,30 @@ func (h *holdersHandlers) getHolders(msg *api.APIdata, ctx *httprouter.HTTPConte
 	if err != nil {
 		log.Errorf("error marshalling holder of %s: %s", addr, err)
 		return ErrEncodeTokenHolders.Withf("error marshalling holder of %s", addr)
+	}
+	return ctx.Send(response, api.HTTPstatusOK)
+}
+
+func (h *holdersHandlers) countHolders(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	addr := common.HexToAddress(ctx.URLParam("address"))
+	count, err := h.scanner.GetNumberOfTokenHolders(addr)
+	if err != nil {
+		log.Errorf("error getting token with address %s: %s", addr, err)
+		return ErrCantGetTokenHolders.Withf("token address: %s", addr)
+	}
+	if count == 0 {
+		log.Errorf("token with address %s", addr)
+		return ErrNoFoundTokenHolders.Withf("token address: %s", addr)
+	}
+
+	response, err := json.Marshal(struct {
+		Count int64 `json:"count"`
+	}{
+		Count: count,
+	})
+	if err != nil {
+		log.Errorf("error marshalling holder of %s: %s", addr, err)
+		return ErrEncodeTokenHolders.Withf("token address: %s", addr)
 	}
 	return ctx.Send(response, api.HTTPstatusOK)
 }

@@ -62,17 +62,50 @@ func (h *TokenHolders) Exists(address common.Address) bool {
 }
 
 // Append function appends the holder address provided into the given
-// TokenHolders list of holders addresss.
+// TokenHolders list of holders addresss. It register the address to a boolean
+// setted to true which means that is a new token holder.
 func (h *TokenHolders) Append(candidates ...common.Address) {
 	for _, address := range candidates {
-		h.holders.Store(address, nil)
+		h.holders.Store(address, true)
 	}
 }
 
-// Del function removes the holder address provided from the given TokenHolders
-// list of holders addresss.
+// Del function marks the holder address provided in the list of current
+// TokenHolders as false, which means that it will be removed.
 func (h *TokenHolders) Del(address common.Address) {
-	h.holders.Delete(address)
+	h.holders.Store(address, false)
+}
+
+// HoldersToCreate returns the address of the new token holders. These addresses
+// is marked with true in the current TokenHolders state list.
+func (h *TokenHolders) HoldersToCreate() []common.Address {
+	holdersToCreate := make([]common.Address, 0)
+	h.holders.Range(func(address, value any) bool {
+		if isNew := value.(bool); isNew {
+			holdersToCreate = append(holdersToCreate, address.(common.Address))
+		}
+		return true
+	})
+	return holdersToCreate
+}
+
+// HoldersToCreate returns the address of token holders to delete. These
+// addresses is marked with false in the current TokenHolders state list.
+func (h *TokenHolders) HoldersToDelete() []common.Address {
+	holdersToDelete := make([]common.Address, 0)
+	h.holders.Range(func(address, value any) bool {
+		if toDelete := !value.(bool); toDelete {
+			holdersToDelete = append(holdersToDelete, address.(common.Address))
+		}
+		return true
+	})
+	return holdersToDelete
+}
+
+// FlushHolders function cleans the current list of token holders from the
+// current TokenHolders state.
+func (h *TokenHolders) FlushHolders() {
+	h.holders = sync.Map{}
 }
 
 // BlockDone function checks the block number provided as checked appending it
@@ -80,6 +113,7 @@ func (h *TokenHolders) Del(address common.Address) {
 // TokenHolders block number, it will be updated.
 func (h *TokenHolders) BlockDone(blockNumber uint64) {
 	h.blocks.Store(blockNumber, true)
+	h.lastBlock.CompareAndSwap(h.lastBlock.Load(), blockNumber)
 }
 
 // HasBlock function returns if the provided block number has already checked by

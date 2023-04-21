@@ -39,7 +39,7 @@ func TestUpdateTokenHolders(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 	for lastCheckedBlock < currentBlock {
 		log.Infof("upgrading holders from block %d", lastCheckedBlock)
-		lastCheckedBlock, err = w3.UpdateTokenHolders(ctx, th, lastCheckedBlock)
+		_, err = w3.UpdateTokenHolders(ctx, th)
 		c.Assert(err, qt.IsNil)
 		time.Sleep(time.Second)
 	}

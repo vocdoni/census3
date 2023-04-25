@@ -41,13 +41,18 @@ func (capi *census3API) getTokenHolders(msg *api.APIdata, ctx *httprouter.HTTPCo
 		})
 	if err != nil {
 		// if database does not contain any token holder for this token, return
-		// not found, else return generic error.
+		// no content, else return generic error.
 		if errors.Is(sql.ErrNoRows, err) {
 			log.Errorf("no holders found for address %s: %w", addr, err)
-			return ErrNoFoundTokenHolders.Withf("no holders found for address %s", addr)
+			return ctx.Send(nil, api.HTTPstatusNoContent)
 		}
 		log.Errorf("error getting token with address %s: %w", addr, err)
 		return ErrCantGetTokenHolders.Withf("error getting token with address %s", addr)
+	}
+	// if no error but the results are empty, return no content
+	if len(dbHolders) == 0 {
+		log.Errorf("no holders found for address %s: %w", addr, err)
+		return ctx.Send(nil, api.HTTPstatusNoContent)
 	}
 	// encode the response with the token holders addresses
 	holders := TokenHoldersResponse{Holders: []string{}}
@@ -74,12 +79,16 @@ func (capi *census3API) countHolders(msg *api.APIdata, ctx *httprouter.HTTPConte
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			log.Errorf("no holders found for address %s: %w", addr, err)
-			return ErrNoFoundTokenHolders.Withf("token address: %s", addr)
+			return ctx.Send(nil, api.HTTPstatusNoContent)
 		}
 		log.Errorf("error getting holders of %s: %w", addr, err)
 		return ErrCantGetTokenHolders.Withf("token address: %s", addr)
 	}
-
+	// if no error but the results are empty, return no content
+	if numberOfHolders == 0 {
+		log.Errorf("no holders found for address %s: %w", addr, err)
+		return ctx.Send(nil, api.HTTPstatusNoContent)
+	}
 	response, err := json.Marshal(struct {
 		Count int64 `json:"count"`
 	}{

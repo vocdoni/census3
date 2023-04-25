@@ -11,3 +11,7 @@ type CreateTokenRequest struct {
 type TokenHoldersResponse struct {
 	Holders []string `json:"holders"`
 }
+
+type CreateCensusResponse struct {
+	CensusID string `json:"censusId"`
+}

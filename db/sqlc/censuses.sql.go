@@ -189,23 +189,30 @@ func (q *Queries) CensusesByTokenID(ctx context.Context, arg CensusesByTokenIDPa
 
 const createCensus = `-- name: CreateCensus :execresult
 INSERT INTO Censuses (
+    id,
     strategy_id,
     merkle_root,
     uri
 )
 VALUES (
-    ?, ?, ?
+    ?, ?, ?, ?
 )
 `
 
 type CreateCensusParams struct {
+	ID         int64
 	StrategyID int64
 	MerkleRoot annotations.Hash
 	Uri        sql.NullString
 }
 
 func (q *Queries) CreateCensus(ctx context.Context, arg CreateCensusParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createCensus, arg.StrategyID, arg.MerkleRoot, arg.Uri)
+	return q.db.ExecContext(ctx, createCensus,
+		arg.ID,
+		arg.StrategyID,
+		arg.MerkleRoot,
+		arg.Uri,
+	)
 }
 
 const createCensusBlock = `-- name: CreateCensusBlock :execresult
@@ -248,6 +255,20 @@ type DeleteCensusBlockParams struct {
 
 func (q *Queries) DeleteCensusBlock(ctx context.Context, arg DeleteCensusBlockParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteCensusBlock, arg.CensusID, arg.BlockID)
+}
+
+const lastCensusID = `-- name: LastCensusID :one
+SELECT strategy_id 
+FROM Censuses 
+ORDER BY strategy_id DESC
+LIMIT 1
+`
+
+func (q *Queries) LastCensusID(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, lastCensusID)
+	var strategy_id int64
+	err := row.Scan(&strategy_id)
+	return strategy_id, err
 }
 
 const paginatedCensuses = `-- name: PaginatedCensuses :many

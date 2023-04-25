@@ -27,7 +27,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	req := CreateTokenRequest{}
 	if err := json.Unmarshal(msg.Data, &req); err != nil {
 		log.Errorf("error unmarshalling token information: %s", err)
-		return ErrTokenMalformed.With("error unmarshalling token information")
+		return ErrMalformedToken.With("error unmarshalling token information")
 	}
 
 	tokenType := state.TokenTypeFromString(req.Type)

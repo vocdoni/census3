@@ -7,13 +7,13 @@ package queries
 import (
 	"database/sql"
 
-	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/db/annotations"
 )
 
 type Block struct {
 	ID        int64
 	Timestamp string
-	RootHash  db.Hash
+	RootHash  annotations.Hash
 }
 
 type Censusblock struct {
@@ -24,12 +24,12 @@ type Censusblock struct {
 type Censuse struct {
 	ID         int64
 	StrategyID int64
-	MerkleRoot db.Hash
+	MerkleRoot annotations.Hash
 	Uri        sql.NullString
 }
 
 type Holder struct {
-	ID db.Address
+	ID annotations.Address
 }
 
 type Strategy struct {
@@ -39,25 +39,25 @@ type Strategy struct {
 
 type Strategytoken struct {
 	StrategyID int64
-	TokenID    db.Address
-	MinBalance db.BigInt
-	MethodHash db.MethodHash
+	TokenID    annotations.Address
+	MinBalance annotations.BigInt
+	MethodHash annotations.MethodHash
 }
 
 type Token struct {
-	ID            db.Address
+	ID            annotations.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
 	Decimals      sql.NullInt32
-	TotalSupply   db.BigInt
+	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64
 }
 
 type Tokenholder struct {
-	TokenID  db.Address
-	HolderID db.Address
-	Balance  db.BigInt
+	TokenID  annotations.Address
+	HolderID annotations.Address
+	Balance  annotations.BigInt
 	BlockID  int64
 }
 

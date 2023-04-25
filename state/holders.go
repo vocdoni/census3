@@ -1,11 +1,14 @@
-package contractstate
+package state
 
 import (
+	"math/big"
 	"sync"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 )
+
+type HoldersCandidates map[common.Address]*big.Int
 
 // TokenHolders struct abstracts the current state of a TokenHolders into the
 // Census3 HoldersScanner for a specific token. It contains some information
@@ -15,7 +18,7 @@ import (
 // block analyzed.
 type TokenHolders struct {
 	address   common.Address
-	ctype     ContractType
+	ctype     TokenType
 	holders   sync.Map
 	blocks    sync.Map
 	lastBlock atomic.Uint64
@@ -24,7 +27,7 @@ type TokenHolders struct {
 // Init function fills the given TokenHolders struct with the address and type
 // given, also checks the block number provided as done. It returns the
 // TokenHolders struct updated.
-func (h *TokenHolders) Init(addr common.Address, ctype ContractType, block uint64) *TokenHolders {
+func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block uint64) *TokenHolders {
 	h.address = addr
 	h.ctype = ctype
 	h.holders = sync.Map{}
@@ -39,16 +42,22 @@ func (h *TokenHolders) Address() common.Address {
 }
 
 // Type function returns the given TokenHolders token type.
-func (h *TokenHolders) Type() ContractType {
+func (h *TokenHolders) Type() TokenType {
 	return h.ctype
 }
 
 // Holders function returns the given TokenHolders current token holders
-// addresses.
-func (h *TokenHolders) Holders() []common.Address {
-	holders := make([]common.Address, 0)
-	h.holders.Range(func(address, _ any) bool {
-		holders = append(holders, address.(common.Address))
+// addresses adn its balances.
+func (h *TokenHolders) Holders() HoldersCandidates {
+	holders := HoldersCandidates{}
+	h.holders.Range(func(rawAddr, rawBalance any) bool {
+		address, okAddr := rawAddr.(common.Address)
+		balance, okBalance := rawBalance.(*big.Int)
+		if !okAddr || !okBalance {
+			return true
+		}
+
+		holders[address] = balance
 		return true
 	})
 	return holders
@@ -61,18 +70,27 @@ func (h *TokenHolders) Exists(address common.Address) bool {
 	return exists
 }
 
-// Append function appends the holder address provided into the given
-// TokenHolders list of holders addresss.
-func (h *TokenHolders) Append(candidates ...common.Address) {
-	for _, address := range candidates {
-		h.holders.Store(address, nil)
+// Append function appends the holder address and the balance provided into the 
+// given TokenHolders list of holders. If the holder already exists, it will 
+// update its balance.
+func (h *TokenHolders) Append(addr common.Address, balance *big.Int) {
+	if currentBalance, exists := h.holders.Load(addr); exists {
+		h.holders.Store(addr, new(big.Int).Add(currentBalance.(*big.Int), balance))
+		return
 	}
+	h.holders.Store(addr, balance)
 }
 
-// Del function removes the holder address provided from the given TokenHolders
-// list of holders addresss.
+// Del function marks the holder address provided in the list of current
+// TokenHolders as false, which means that it will be removed.
 func (h *TokenHolders) Del(address common.Address) {
-	h.holders.Delete(address)
+	h.holders.Store(address, false)
+}
+
+// FlushHolders function cleans the current list of token holders from the
+// current TokenHolders state.
+func (h *TokenHolders) FlushHolders() {
+	h.holders = sync.Map{}
 }
 
 // BlockDone function checks the block number provided as checked appending it
@@ -80,6 +98,7 @@ func (h *TokenHolders) Del(address common.Address) {
 // TokenHolders block number, it will be updated.
 func (h *TokenHolders) BlockDone(blockNumber uint64) {
 	h.blocks.Store(blockNumber, true)
+	h.lastBlock.CompareAndSwap(h.lastBlock.Load(), blockNumber)
 }
 
 // HasBlock function returns if the provided block number has already checked by

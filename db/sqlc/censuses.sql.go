@@ -9,7 +9,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/db/annotations"
 )
 
 const censusByID = `-- name: CensusByID :one
@@ -36,7 +36,7 @@ WHERE merkle_root = ?
 LIMIT 1
 `
 
-func (q *Queries) CensusByMerkleRoot(ctx context.Context, merkleRoot db.Hash) (Censuse, error) {
+func (q *Queries) CensusByMerkleRoot(ctx context.Context, merkleRoot annotations.Hash) (Censuse, error) {
 	row := q.db.QueryRowContext(ctx, censusByMerkleRoot, merkleRoot)
 	var i Censuse
 	err := row.Scan(
@@ -154,7 +154,7 @@ LIMIT ? OFFSET ?
 `
 
 type CensusesByTokenIDParams struct {
-	TokenID db.Address
+	TokenID annotations.Address
 	Limit   int32
 	Offset  int32
 }
@@ -200,7 +200,7 @@ VALUES (
 
 type CreateCensusParams struct {
 	StrategyID int64
-	MerkleRoot db.Hash
+	MerkleRoot annotations.Hash
 	Uri        sql.NullString
 }
 
@@ -299,7 +299,7 @@ WHERE id = ?
 
 type UpdateCensusParams struct {
 	StrategyID int64
-	MerkleRoot db.Hash
+	MerkleRoot annotations.Hash
 	Uri        sql.NullString
 	ID         int64
 }

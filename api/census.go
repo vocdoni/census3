@@ -89,7 +89,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	_, err = capi.sqlc.CreateCensus(ctx2, queries.CreateCensusParams{
 		ID:         int64(newCensus.ID),
 		StrategyID: int64(strategyID),
-		MerkleRoot: newCensus.Root,
+		MerkleRoot: newCensus.RootHash,
 		Uri:        *sqlURI,
 	})
 	if err != nil {

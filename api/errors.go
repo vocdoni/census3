@@ -19,9 +19,12 @@ var (
 	ErrEncodeTokenHolders     = apirest.APIerror{Code: 5002, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding token holders")}
 	ErrCantGetStrategy        = apirest.APIerror{Code: 5003, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error getting strategy information")}
 	ErrCantGetCensus          = apirest.APIerror{Code: 5004, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error getting census information")}
-	ErrCantCreateCensus       = apirest.APIerror{Code: 5005, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error creating the census tree on the census database")}
-	ErrCantAddHoldersToCensus = apirest.APIerror{Code: 5006, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error adding the holders to the created census")}
-	ErrPruningCensus          = apirest.APIerror{Code: 5007, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error pruning the current census tree")}
-	ErrEncodeStrategyHolders  = apirest.APIerror{Code: 5008, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding strategy holders")}
-	ErrEncodeCensus           = apirest.APIerror{Code: 5009, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding census")}
+	ErrCantGetToken           = apirest.APIerror{Code: 5005, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error getting token information")}
+	ErrCantCreateCensus       = apirest.APIerror{Code: 5006, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error creating the census tree on the census database")}
+	ErrCantAddHoldersToCensus = apirest.APIerror{Code: 5007, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error adding the holders to the created census")}
+	ErrPruningCensus          = apirest.APIerror{Code: 5008, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error pruning the current census tree")}
+	ErrEncodeStrategyHolders  = apirest.APIerror{Code: 5009, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding strategy holders")}
+	ErrEncodeCensus           = apirest.APIerror{Code: 5010, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding census")}
+	ErrEncodeTokenTypes       = apirest.APIerror{Code: 5011, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding supported tokens types")}
+	ErrEncodeToken            = apirest.APIerror{Code: 5011, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding token")}
 )

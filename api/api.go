@@ -46,7 +46,8 @@ func Init(db *queries.Queries, conf Census3APIConf) error {
 		log.Errorw(err, "error starting census database")
 	}
 	newAPI.initTokenHandlers()
-	newAPI.initHoldersHandlers()
 	newAPI.initCensusHandlers()
+	// TODO: Only for the MVP, remove it.
+	newAPI.initDebugHandlers()
 	return nil
 }

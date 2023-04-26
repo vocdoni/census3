@@ -22,10 +22,6 @@ func (capi *census3API) initCensusHandlers() {
 		api.MethodAccessTypePublic, capi.getCensus)
 	capi.endpoint.RegisterMethod("/census", "POST",
 		api.MethodAccessTypePublic, capi.createAndPublishCensus)
-
-	// TODO: Only for debug, remove it
-	capi.endpoint.RegisterMethod("/census/{censusID}/check/{root}", "POST",
-		api.MethodAccessTypePublic, capi.checkIPFSCensus)
 }
 
 // getCensus handler responses with the information regarding of the census
@@ -143,30 +139,4 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		return ErrEncodeStrategyHolders
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
-}
-
-// TODO: Only for debug, remove it
-func (capi *census3API) checkIPFSCensus(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// get strategy and query about the tokens that it includes
-	censusID, err := strconv.Atoi(ctx.URLParam("censusID"))
-	root := ctx.URLParam("root")
-	if err != nil {
-		return ErrMalformedStrategyID
-	}
-
-	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	currentCensus, err := capi.sqlc.CensusByID(internalCtx, int64(censusID))
-	if err != nil {
-		return ErrCantGetStrategy
-	}
-
-	censusDef := census.DefaultCensusDefinition(censusID, 0, nil)
-	censusDef.URI = currentCensus.Uri.String
-	if err := capi.censusDB.Check(censusDef, []byte(root)); err != nil {
-		log.Error(err)
-		return api.APIerror{Code: 5100, HTTPstatus: 500, Err: err}
-	}
-
-	return ctx.Send([]byte("ok"), api.HTTPstatusOK)
 }

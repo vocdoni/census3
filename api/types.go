@@ -7,6 +7,18 @@ type CreateTokenRequest struct {
 	StartBlock uint64 `type:"startBlock"`
 }
 
+type TokenResponse struct {
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	Decimals   int    `json:"decimals"`
+	StartBlock uint64 `json:"startBlock"`
+	Name       string `json:"name"`
+}
+
+type TokenTypesResponse struct {
+	SupportedTypes []string `json:"supportedTypes"`
+}
+
 // TokenHoldersResponse struct defines the response of token holders handler
 type TokenHoldersResponse struct {
 	Holders []string `json:"holders"`

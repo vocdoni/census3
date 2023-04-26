@@ -13,6 +13,7 @@ var (
 	ErrMalformedCensusID      = apirest.APIerror{Code: 4003, HTTPstatus: apirest.HTTPstatusBadRequest, Err: fmt.Errorf("malformed census ID, it must be a integer")}
 	ErrMalformedStrategyID    = apirest.APIerror{Code: 4004, HTTPstatus: apirest.HTTPstatusBadRequest, Err: fmt.Errorf("malformed strategy ID, it must be a integer")}
 	ErrNotFoundStrategy       = apirest.APIerror{Code: 4005, HTTPstatus: apirest.HTTPstatusNotFound, Err: fmt.Errorf("no strategy found with the ID provided")}
+	ErrNotFoundCensus         = apirest.APIerror{Code: 4006, HTTPstatus: apirest.HTTPstatusNotFound, Err: fmt.Errorf("census not found")}
 	ErrCantCreateToken        = apirest.APIerror{Code: 5000, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("the token cannot be created")}
 	ErrCantGetTokenHolders    = apirest.APIerror{Code: 5001, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error getting token holders")}
 	ErrEncodeTokenHolders     = apirest.APIerror{Code: 5002, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding token holders")}

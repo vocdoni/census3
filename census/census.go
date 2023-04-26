@@ -22,10 +22,9 @@ import (
 )
 
 const (
-	censusDBprefix          = "cs_"
-	censusDBreferencePrefix = "cr_"
-	defaultMaxLevels        = 160
-	defaultCensusType       = models.Census_ARBO_BLAKE2B
+	censusDBprefix    = "cs_"
+	defaultMaxLevels  = 160
+	defaultCensusType = models.Census_ARBO_BLAKE2B
 )
 
 var (
@@ -38,6 +37,8 @@ var (
 	ErrPruningCensusTree         = fmt.Errorf("error pruning the census tree")
 )
 
+// CensusDefinintion envolves the required parameters to create and use a
+// census merkle tree
 type CensusDefinition struct {
 	ID         int
 	StrategyID int
@@ -45,10 +46,12 @@ type CensusDefinition struct {
 	URI        string
 	AuthToken  *uuid.UUID
 	MaxLevels  int
-	holders    map[common.Address]int
+	Holders    map[common.Address]int
 	tree       *censustree.Tree
 }
 
+// DefaultCensusDefinition function returns a populated census definition with
+// the default values for some parameters and the supplied values for the rest.
 func DefaultCensusDefinition(id, strategyID int, holders map[common.Address]int) *CensusDefinition {
 	return &CensusDefinition{
 		ID:         id,
@@ -57,7 +60,7 @@ func DefaultCensusDefinition(id, strategyID int, holders map[common.Address]int)
 		URI:        "",
 		AuthToken:  nil,
 		MaxLevels:  defaultMaxLevels,
-		holders:    holders,
+		Holders:    holders,
 	}
 }
 
@@ -78,11 +81,15 @@ type CensusDump struct {
 	MaxLevels int `json:"maxLevels"`
 }
 
+// CensusDB struct envolves the internal trees database and the IPFS handler,
+// required to create and publish censuses.
 type CensusDB struct {
 	treeDB  db.Database
 	storage storagelayer.Storage
 }
 
+// NewCensusDB function instansiates an new internal tree database that will be
+// located into the directory path provided.
 func NewCensusDB(dataDir string) (*CensusDB, error) {
 	db, err := metadb.New(db.TypePebble, filepath.Join(dataDir, "censusdb"))
 	if err != nil {
@@ -98,7 +105,9 @@ func NewCensusDB(dataDir string) (*CensusDB, error) {
 	return &CensusDB{treeDB: db, storage: storage}, nil
 }
 
-// create new census and add the holders
+// CreateAndPublish function creates a new census tree based on the definition
+// provided and publishes it to IPFS. It needs to persist it temporaly into a
+// internal trees database.
 func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error) {
 	var err error
 	if def, err = cdb.newTree(def); err != nil {
@@ -112,7 +121,7 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error
 	}
 	// encode the holders
 	holdersAddresses, holdersValues := [][]byte{}, [][]byte{}
-	for addr, value := range def.holders {
+	for addr, value := range def.Holders {
 		holdersAddresses = append(holdersAddresses, addr.Bytes())
 		holdersValues = append(holdersValues, []byte(strconv.Itoa(value)))
 	}
@@ -135,6 +144,7 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error
 	return dump, nil
 }
 
+// newTree function creates a new census tree based on the provided definition
 func (cdb *CensusDB) newTree(def *CensusDefinition) (*CensusDefinition, error) {
 	tree, err := censustree.New(censustree.Options{
 		Name:       censusDBKey(def.ID),
@@ -149,6 +159,9 @@ func (cdb *CensusDB) newTree(def *CensusDefinition) (*CensusDefinition, error) {
 	return def, nil
 }
 
+// save function persists the provided census definition into the internal trees
+// database. It encodes the census definition using Gob and the creates a new
+// entry on the database using the census ID as its identifier.
 func (cdb *CensusDB) save(def *CensusDefinition) error {
 	wtx := cdb.treeDB.WriteTx()
 	defer wtx.Discard()
@@ -163,17 +176,20 @@ func (cdb *CensusDB) save(def *CensusDefinition) error {
 	return wtx.Commit()
 }
 
+// publish function takes a dump of the given census, serialises and publishes
+// it to IPFS. If all goes well, it returns the census dump struct.
 func (cdb *CensusDB) publish(def *CensusDefinition) (*CensusDump, error) {
+	// get census tree root
 	root, err := def.tree.Root()
 	if err != nil {
 		return nil, err
 	}
-	log.Infow("publishing census", "root", string(root))
+	// get tree dump
 	data, err := def.tree.Dump()
 	if err != nil {
 		return nil, err
 	}
-
+	// create census dump compressing the tree dump
 	dump := &CensusDump{
 		ID:         def.ID,
 		StrategyID: def.StrategyID,
@@ -182,10 +198,12 @@ func (cdb *CensusDB) publish(def *CensusDefinition) (*CensusDump, error) {
 		Data:       compressor.NewCompressor().CompressBytes(data),
 		MaxLevels:  def.MaxLevels,
 	}
+	// encode it into a JSON
 	exportData, err := json.Marshal(dump)
 	if err != nil {
 		return nil, err
 	}
+	// publish it on IPFS
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	if dump.URI, err = cdb.storage.Publish(ctx, exportData); err != nil {
@@ -194,6 +212,7 @@ func (cdb *CensusDB) publish(def *CensusDefinition) (*CensusDump, error) {
 	return dump, nil
 }
 
+// delete function removes the census provided from the internal tree database
 func (cdb *CensusDB) delete(def *CensusDefinition) error {
 	wtx := cdb.treeDB.WriteTx()
 	defer wtx.Discard()
@@ -201,8 +220,9 @@ func (cdb *CensusDB) delete(def *CensusDefinition) error {
 		return err
 	}
 	// the removal of the tree from the disk is done in a separate goroutine.
-	// This is because the tree is locked and we don't want to block the operations,
-	// and depending on the size of the tree, it can take a while to delete it.
+	// This is because the tree is locked and we don't want to block the
+	// operations, and depending on the size of the tree, it can take a while
+	// to delete it.
 	go func() {
 		_, err := censustree.DeleteCensusTreeFromDatabase(cdb.treeDB, censusDBKey(def.ID))
 		if err != nil {
@@ -217,6 +237,7 @@ func censusDBKey(censusID int) string {
 	return fmt.Sprintf("%s%x", censusDBprefix, []byte(strconv.Itoa(censusID)))
 }
 
+// TODO: Only used to debug on MVP stage, remove it
 func (cdb *CensusDB) Check(def *CensusDefinition, root []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()

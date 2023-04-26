@@ -7,16 +7,16 @@ List of already added tokens.
     {
         tokens: [
             {
-                "id": "wANT"
-                "address": "0x1234",
+                "id": "0x1234",
+                "name": "wANT",
                 "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
-                "creationBlock": 123456
+                "startBlock": 123456
             }
         ]
     }
     ```
 
-+ **GET** `/tokens/types`
++ **GET** `/tokens/types` 
 List the supported token types.
     - 📥 response:
     ```json
@@ -28,30 +28,27 @@ List the supported token types.
     }
     ```
 
-+ **POST** `/tokens` 
-Adds a new token and triggers a new scan for it, starting from the creation block.
++ **POST** `/tokens`
+Triggers a new scan for the provided token, starting from the defined block.
     - 📤 request:
     ```json
     {
-        "id": "wANT"
         "address": "0x1234",
         "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
-        "creationBlock": 123456
+        "startBlock": 123456
     }
     ```
 
-+ **GET** `/tokens/:id`
-Returns the information about the token referenced by the provided id.
++ **GET** `/tokens/:id` 
+Returns the information about the token referenced by the provided ID.
     - 📥 response:
     ```json
     {
         "address": "0x1324",
         "type": "erc20",
         "decimals": 18,
-        "creationBlock": 123456,
-        "name": "Amazing token",
-        "totalSupply": 1233456,
-        "symbol": "AT",
+        "startBlock": 123456,
+        "name": "Amazing token"
         "status": {
             "atBlock": 12345,
             "synced": true|false,
@@ -67,28 +64,31 @@ Stores a new strategy based on the defined combination of tokens provided, these
      {
         "tokens": [
           {
-              "id": "wANT",
+              "id": "0x1324",
+              "name": "wANT"
               "minBalance": "10000",
-              "method": "balanceOfAt" 
+              "method": "0x8230" 
           },
           {
-              "id": "USDC",
+              "id": "0x5678"
+              "name": "USDC",
               "minBalance": "20000",
-              "method": "balanceOf" 
+              "method": "0x3241" 
           },
           {
-              "id": "ANT",
+              "id": "0x9da2",
+              "name": "ANT",
               "minBalance": "1",
-              "method": "balanceOf" 
+              "method": "0x9db1" 
           }
        ],
-       "predicate": "(wANT OR ANT) AND USDC"
+       "strategy": "(wANT OR ANT) AND USDC"
      }
     ```
     - 📥 response:
     ```json
     {
-        "strategyId": "0x12345"
+        "strategyId": 1
     }
     ```
 
@@ -97,7 +97,7 @@ Returns the ID's list of the strategies registered.
     - 📥 response:
     ```json
     {
-        "strategies": [ "0x12345", "0x67890" ]
+        "strategies": [ 1, 3 ]
     }
     ```
 
@@ -108,19 +108,22 @@ Returns the information of the strategy related to the provided ID.
     {
         "tokens": [
           {
-              "id": "wANT",
+              "id": "0x1324",
+              "name": "wANT"
               "minBalance": "10000",
-              "method": "balanceOfAt" 
+              "method": "0x8230" 
           },
           {
-              "id": "USDC",
+              "id": "0x5678"
+              "name": "USDC",
               "minBalance": "20000",
-              "method": "balanceOf" 
+              "method": "0x3241" 
           },
           {
-              "id": "ANT",
+              "id": "0x9da2",
+              "name": "ANT",
               "minBalance": "1",
-              "method": "balanceOf" 
+              "method": "0x9db1" 
           }
        ],
        "strategy": "(wANT OR ANT) AND USDC"
@@ -132,7 +135,7 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
     - 📥 response:
     ```json
      {
-         "strategies": [ "0x12345", "0x67890" ]
+         "strategies": [ 2, 8 ]
      }
     ```
 
@@ -141,14 +144,14 @@ Request the creation of a new census with the strategy provided for the `blockNu
      - 📤 request:
     ```json
     {
-        "strategyId": "0x123",
-        "blockNumber": "123445"
+        "strategyId": 1,
+        "blockNumber": 123456
     }
     ```
     - 📥 response:
     ```json
       {
-        "censusId": "0x123"
+        "censusId": 12
       }
     ```
 
@@ -157,7 +160,7 @@ Returns a list of censusID for the strategy provided.
     - 📥 response:
     ```json
         {
-            "censuses": [ "0x12345", "0x67890" ]
+            "censuses": [ 3, 5 ]
         }
     ```
 
@@ -166,8 +169,9 @@ Returns the information of the snapshots related to the provided ID.
     - 📥 response: Returns 200 or 204
     ```json
     { 
-      "root": "0x12345",
-      "blockNumber": "12345",
+      "id": 2,
+      "strategyId": 1,
+      "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac"
       "uri": "ipfs://Qma...."
     }
     ```

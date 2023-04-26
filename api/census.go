@@ -17,8 +17,10 @@ import (
 )
 
 func (capi *census3API) initCensusHandlers() {
-	capi.endpoint.RegisterMethod("/census", "POST",
+	capi.endpoint.RegisterMethod("/census/{strategyID}", "POST",
 		api.MethodAccessTypePublic, capi.createAndPublishCensus)
+	capi.endpoint.RegisterMethod("/census/{censusID}/check/{root}", "POST",
+		api.MethodAccessTypePublic, capi.checkIPFSCensus)
 }
 
 func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -75,7 +77,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	def := census.DefaultCensusDefinition(int(lastCensusID+1), strategyHolders)
 	newCensus, err := capi.censusDB.CreateAndPublish(def)
 	if err != nil {
-		log.Errorf("error creating or publishing the census: %w", err)
+		log.Errorw(err, "error creating or publishing the census")
 		return ErrCantCreateCensus
 	}
 	// save the new census in the SQL database
@@ -103,4 +105,30 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		return ErrEncodeStrategyHolders
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// TODO: Only for debug, remove it
+func (capi *census3API) checkIPFSCensus(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get strategy and query about the tokens that it includes
+	censusID, err := strconv.Atoi(ctx.URLParam("censusID"))
+	root := ctx.URLParam("root")
+	if err != nil {
+		return ErrMalformedStrategyID
+	}
+
+	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	currentCensus, err := capi.sqlc.CensusByID(ctx2, int64(censusID))
+	if err != nil {
+		return ErrCantGetStrategy
+	}
+
+	censusDef := census.DefaultCensusDefinition(censusID, nil)
+	censusDef.URI = currentCensus.Uri.String
+	if err := capi.censusDB.Check(censusDef, []byte(root)); err != nil {
+		log.Error(err)
+		return api.APIerror{Code: 5100, HTTPstatus: 500, Err: err}
+	}
+
+	return ctx.Send([]byte("ok"), api.HTTPstatusOK)
 }

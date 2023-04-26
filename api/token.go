@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -72,5 +73,31 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrCantCreateToken.Withf("error creating token with address %s", addr)
 	}
 
+	if err := capi.createDummyStrategy(info.Address.Bytes()); err != nil {
+		log.Warn(err, "error creating dummy strategy for this token")
+	}
+
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
+}
+
+func (capi *census3API) createDummyStrategy(tokenID []byte) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	res, err := capi.sqlc.CreateStategy(ctx, "test")
+	if err != nil {
+		return err
+	}
+	strategyID, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	_, err = capi.sqlc.CreateStrategyToken(ctx, queries.CreateStrategyTokenParams{
+		StrategyID: strategyID,
+		TokenID:    tokenID,
+		MinBalance: big.NewInt(0).Bytes(),
+		MethodHash: []byte("test"),
+	})
+	return err
 }

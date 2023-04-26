@@ -12,6 +12,18 @@ type TokenHoldersResponse struct {
 	Holders []string `json:"holders"`
 }
 
+type CreateCensusResquest struct {
+	StrategyID  uint64 `json:"strategyId"`
+	BlockNumber uint64 `json:"blockNumber"`
+}
+
 type CreateCensusResponse struct {
 	CensusID string `json:"censusId"`
+}
+
+type GetCensusResponse struct {
+	CensusID   string `json:"censusId"`
+	StrategyID string `json:"strategyId"`
+	MerkleRoot string `json:"merkleRoot"`
+	URI        string `json:"uri"`
 }

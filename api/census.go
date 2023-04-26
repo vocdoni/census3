@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -17,32 +18,62 @@ import (
 )
 
 func (capi *census3API) initCensusHandlers() {
-	capi.endpoint.RegisterMethod("/census/{strategyID}", "POST",
+	capi.endpoint.RegisterMethod("/census/{censusID}", "GET",
+		api.MethodAccessTypePublic, capi.getCensus)
+	capi.endpoint.RegisterMethod("/census", "POST",
 		api.MethodAccessTypePublic, capi.createAndPublishCensus)
+
+	// TODO: Only for debug, remove it
 	capi.endpoint.RegisterMethod("/census/{censusID}/check/{root}", "POST",
 		api.MethodAccessTypePublic, capi.checkIPFSCensus)
 }
 
-func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// get strategy and query about the tokens that it includes
-	strategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
+func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	censusID, err := strconv.Atoi(ctx.URLParam("censusID"))
 	if err != nil {
+		return ErrMalformedCensusID
+	}
+
+	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	currentCensus, err := capi.sqlc.CensusByID(ctx2, int64(censusID))
+	if err != nil {
+		return ErrCantGetCensus
+	}
+
+	res, err := json.Marshal(GetCensusResponse{
+		CensusID:   fmt.Sprint(censusID),
+		StrategyID: fmt.Sprint(currentCensus.StrategyID),
+		MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
+		URI:        "ipfs://" + currentCensus.Uri.String,
+	})
+	if err != nil {
+		return ErrEncodeCensus
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// decode request
+	req := &CreateCensusResquest{}
+	if err := json.Unmarshal(msg.Data, req); err != nil {
 		return ErrMalformedStrategyID
 	}
+
 	// get tokens associated to the strategy
 	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	strategyTokens, err := capi.sqlc.TokensByStrategyID(ctx2, queries.TokensByStrategyIDParams{
-		StrategyID: int64(strategyID),
+		StrategyID: int64(req.StrategyID),
 		Limit:      -1,
 		Offset:     0,
 	})
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
-			log.Errorf("no strategy found for id %d: %w", strategyID, err)
+			log.Errorf("no strategy found for id %d: %w", req.StrategyID, err)
 			return ErrNotFoundStrategy
 		}
-		log.Errorf("error getting strategy with id %d: %w", strategyID, err)
+		log.Errorf("error getting strategy with id %d: %w", req.StrategyID, err)
 		return ErrCantGetStrategy
 	}
 	// get holders associated to every strategy token
@@ -74,7 +105,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		log.Errorf("error getting last census ID, continue")
 	}
 	// create a census tree and publish on IPFS
-	def := census.DefaultCensusDefinition(int(lastCensusID+1), strategyHolders)
+	def := census.DefaultCensusDefinition(int(lastCensusID+1), int(req.StrategyID), strategyHolders)
 	newCensus, err := capi.censusDB.CreateAndPublish(def)
 	if err != nil {
 		log.Errorw(err, "error creating or publishing the census")
@@ -88,7 +119,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	}
 	_, err = capi.sqlc.CreateCensus(ctx2, queries.CreateCensusParams{
 		ID:         int64(newCensus.ID),
-		StrategyID: int64(strategyID),
+		StrategyID: int64(req.StrategyID),
 		MerkleRoot: newCensus.RootHash,
 		Uri:        *sqlURI,
 	})
@@ -123,7 +154,7 @@ func (capi *census3API) checkIPFSCensus(msg *api.APIdata, ctx *httprouter.HTTPCo
 		return ErrCantGetStrategy
 	}
 
-	censusDef := census.DefaultCensusDefinition(censusID, nil)
+	censusDef := census.DefaultCensusDefinition(censusID, 0, nil)
 	censusDef.URI = currentCensus.Uri.String
 	if err := capi.censusDB.Check(censusDef, []byte(root)); err != nil {
 		log.Error(err)

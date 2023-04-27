@@ -122,7 +122,11 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error
 	// encode the holders
 	holdersAddresses, holdersValues := [][]byte{}, [][]byte{}
 	for addr, value := range def.Holders {
-		holdersAddresses = append(holdersAddresses, addr.Bytes())
+		key, err := def.tree.Hash(addr.Bytes())
+		if err != nil {
+			return nil, ErrAddingHoldersToCensusTree
+		}
+		holdersAddresses = append(holdersAddresses, key)
 		holdersValues = append(holdersValues, []byte(strconv.Itoa(value)))
 	}
 	// add the holders

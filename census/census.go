@@ -23,7 +23,7 @@ import (
 
 const (
 	censusDBprefix    = "cs_"
-	defaultMaxLevels  = 160
+	defaultMaxLevels  = censustree.DefaultMaxLevels
 	defaultCensusType = models.Census_ARBO_BLAKE2B
 )
 
@@ -126,7 +126,8 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error
 		if err != nil {
 			return nil, ErrAddingHoldersToCensusTree
 		}
-		holdersAddresses = append(holdersAddresses, key)
+		log.Infow("new key to add", "key", string(key[:censustree.DefaultMaxKeyLen]))
+		holdersAddresses = append(holdersAddresses, key[:censustree.DefaultMaxKeyLen])
 		holdersValues = append(holdersValues, []byte(strconv.Itoa(value)))
 	}
 	// add the holders
@@ -134,6 +135,7 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error
 		log.Errorw(ErrAddingHoldersToCensusTree, err.Error())
 		return nil, ErrAddingHoldersToCensusTree
 	}
+	log.Infow("keys added", "nkeys", len(holdersAddresses))
 	// publish on IPFS
 	dump, err := cdb.publish(def)
 	if err != nil {

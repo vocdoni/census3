@@ -17,11 +17,11 @@ import (
 )
 
 func (capi *census3API) initStrategiesHandlers() {
-	capi.endpoint.RegisterMethod("/strategies", "GET",
+	capi.endpoint.RegisterMethod("/strategy/", "GET",
 		api.MethodAccessTypePublic, capi.getStrategies)
-	capi.endpoint.RegisterMethod("/strategies/{strategyID}", "GET",
+	capi.endpoint.RegisterMethod("/strategy/{strategyID}", "GET",
 		api.MethodAccessTypePublic, capi.getStrategy)
-	capi.endpoint.RegisterMethod("/strategies/token/{tokenID}", "GET",
+	capi.endpoint.RegisterMethod("/strategy/token/{tokenID}", "GET",
 		api.MethodAccessTypePublic, capi.getTokenStrategies)
 }
 

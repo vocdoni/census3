@@ -1,6 +1,6 @@
 # API endpoints
 
-+ **GET** `/tokens` (SDK OK, API OK*)
++ **GET** `/token` (SDK OK, API OK*)
 List of already added tokens.
 
     - 📥 response:
@@ -26,14 +26,14 @@ List of already added tokens.
     | 500 | `error getting tokens information` | 5005 | 
     | 500 | `error encoding tokens` | 5011 | 
 
-+ **GET** `/tokens/types` (SDK OK, API OK)
++ **GET** `/token/types` (SDK OK, API OK)
 List the supported token types.
 
     - 📥 response:
     
     ```json
     {
-        supportedTokens: [
+        supportedTypes: [
             "erc20", "erc721", "erc777", 
             "erc1155", "nation3", "wANT"
         ]
@@ -46,7 +46,7 @@ List the supported token types.
     |:---:|:---|:---:|
     | 500 | `error encoding supported tokens types` | 5012 | 
 
-+ **POST** `/tokens` (API OK)
++ **POST** `/token` (API OK)
 Triggers a new scan for the provided token, starting from the defined block.
 
     - 📤 request:
@@ -68,7 +68,7 @@ Triggers a new scan for the provided token, starting from the defined block.
     | 500 | `error getting token information` | 5004 | 
     | 500 | `error initialising web3 client` | 5018 | 
 
-+ **GET** `/tokens/{tokenID}` (SDK OK, API OK*)
++ **GET** `/token/{tokenID}` (SDK OK, API OK*)
 Returns the information about the token referenced by the provided ID.
 
     - 📥 response:
@@ -101,7 +101,7 @@ Returns the information about the token referenced by the provided ID.
     
     **MVP Warn**: If `defaultStrategy` is `0`, no strategy (neither the dummy strategy) is associated to the given token.
 
-+ **POST** `/strategies`
++ **POST** `/strategy`
 Stores a new strategy based on the defined combination of tokens provided, these tokens must be registered previously.
 
     - 📤 request:
@@ -140,7 +140,7 @@ Stores a new strategy based on the defined combination of tokens provided, these
     }
     ```
 
-+ **GET** `/strategies` (SDK OK, API OK)
++ **GET** `/strategy` (SDK OK, API OK)
 Returns the ID's list of the strategies registered.
 
     - 📥 response:
@@ -159,7 +159,7 @@ Returns the ID's list of the strategies registered.
     | 500 | `error getting strategies information` | 5008 | 
     | 500 | `error encoding strategies` | 5016 | 
 
-+ **GET** `/strategies/{strategyId}` (SDK OK, API OK*)
++ **GET** `/strategy/{strategyId}` (SDK OK, API OK*)
 Returns the information of the strategy related to the provided ID.
 
     - 📥 response:
@@ -201,7 +201,7 @@ Returns the information of the strategy related to the provided ID.
     | 500 | `error getting strategy information` | 5007 | 
     | 500 | `error encoding strategy` | 5015 | 
 
-+ **GET** `/strategies/token/{tokenID}` (SDK OK, API OK)
++ **GET** `/strategy/token/{tokenID}` (SDK OK, API OK)
 Returns ID's of the already created strategies including the `tokenAddress` provided.
     
     - 📥 response:

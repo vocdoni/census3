@@ -17,13 +17,13 @@ import (
 )
 
 func (capi *census3API) initTokenHandlers() {
-	capi.endpoint.RegisterMethod("/tokens", "GET",
+	capi.endpoint.RegisterMethod("/token", "GET",
 		api.MethodAccessTypePublic, capi.getTokens)
-	capi.endpoint.RegisterMethod("/tokens", "POST",
+	capi.endpoint.RegisterMethod("/token", "POST",
 		api.MethodAccessTypePublic, capi.createToken)
-	capi.endpoint.RegisterMethod("/tokens/{tokenID}", "GET",
+	capi.endpoint.RegisterMethod("/token/{tokenID}", "GET",
 		api.MethodAccessTypePublic, capi.getToken)
-	capi.endpoint.RegisterMethod("/tokens/types", "GET",
+	capi.endpoint.RegisterMethod("/token/types", "GET",
 		api.MethodAccessTypePublic, capi.getTokenTypes)
 }
 

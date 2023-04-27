@@ -47,6 +47,7 @@ func Init(db *queries.Queries, conf Census3APIConf) error {
 	}
 	newAPI.initTokenHandlers()
 	newAPI.initCensusHandlers()
+	newAPI.initStrategiesHandlers()
 	// TODO: Only for the MVP, remove it.
 	newAPI.initDebugHandlers()
 	return nil

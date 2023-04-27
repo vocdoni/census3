@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -22,6 +21,8 @@ func (capi *census3API) initCensusHandlers() {
 		api.MethodAccessTypePublic, capi.getCensus)
 	capi.endpoint.RegisterMethod("/census", "POST",
 		api.MethodAccessTypePublic, capi.createAndPublishCensus)
+	capi.endpoint.RegisterMethod("/census/strategy/{strategyID}", "GET",
+		api.MethodAccessTypePublic, capi.getStrategyCensuses)
 }
 
 // getCensus handler responses with the information regarding of the census
@@ -41,8 +42,8 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		return ErrCantGetCensus
 	}
 	res, err := json.Marshal(GetCensusResponse{
-		CensusID:   fmt.Sprint(censusID),
-		StrategyID: fmt.Sprint(currentCensus.StrategyID),
+		CensusID:   uint64(censusID),
+		StrategyID: uint64(currentCensus.StrategyID),
 		MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
 		URI:        "ipfs://" + currentCensus.Uri.String,
 	})
@@ -132,11 +133,37 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	}
 	// encoding the result and response it
 	res, err := json.Marshal(CreateCensusResponse{
-		CensusID: strconv.Itoa(newCensus.ID),
+		CensusID: uint64(newCensus.ID),
 	})
 	if err != nil {
 		log.Error("error marshalling holders")
 		return ErrEncodeStrategyHolders
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	strategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
+	if err != nil {
+		return ErrMalformedCensusID
+	}
+	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	rows, err := capi.sqlc.CensusByStrategyID(internalCtx, int64(strategyID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFoundCensus
+		}
+		return ErrCantGetCensus
+	}
+	censuses := GetCensusesResponse{Censuses: []uint64{}}
+	for _, censusInfo := range rows {
+		censuses.Censuses = append(censuses.Censuses, uint64(censusInfo.ID))
+	}
+	res, err := json.Marshal(censuses)
+	if err != nil {
+		log.Errorw(ErrEncodeCensuses, err.Error())
+		return ErrEncodeCensuses
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

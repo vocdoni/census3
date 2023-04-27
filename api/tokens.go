@@ -26,7 +26,38 @@ func (capi *census3API) initTokenHandlers() {
 		api.MethodAccessTypePublic, capi.getTokenTypes)
 }
 
-func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error { return nil }
+func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	// TODO: Support for pagination
+	rows, err := capi.sqlc.PaginatedTokens(internalCtx, queries.PaginatedTokensParams{
+		Limit:  -1,
+		Offset: 0,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNoTokens
+		}
+		log.Errorw(ErrCantGetTokens, err.Error())
+		return ErrCantGetTokens
+	}
+	tokens := GetTokensResponse{Tokens: []GetTokenResponse{}}
+	for _, tokenData := range rows {
+		tokens.Tokens = append(tokens.Tokens, GetTokenResponse{
+			ID:         common.BytesToAddress(tokenData.ID).String(),
+			Type:       state.TokenType(int(tokenData.TypeID)).String(),
+			Decimals:   uint64(tokenData.Decimals.Int32),
+			StartBlock: uint64(tokenData.CreationBlock),
+			Name:       tokenData.Name.String,
+		})
+	}
+	res, err := json.Marshal(tokens)
+	if err != nil {
+		log.Errorw(ErrEncodeTokens, err.Error())
+		return ErrEncodeTokens
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
 
 // createToken function creates a new token in the current database instance. It
 // first gets the token information from the network and then stores it in the
@@ -96,17 +127,17 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	tokenData, err := capi.sqlc.TokenByID(internalCtx, address.Bytes())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			log.Errorw(ErrUnknownToken, err.Error())
-			return ErrUnknownToken
+			log.Errorw(ErrNotFoundToken, err.Error())
+			return ErrNotFoundToken
 		}
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
 	}
 
-	res, err := json.Marshal(TokenResponse{
+	res, err := json.Marshal(GetTokenResponse{
 		ID:         address.String(),
 		Type:       state.TokenType(int(tokenData.TypeID)).String(),
-		Decimals:   int(tokenData.Decimals.Int32),
+		Decimals:   uint64(tokenData.Decimals.Int32),
 		StartBlock: uint64(tokenData.CreationBlock),
 		Name:       tokenData.Name.String,
 	})

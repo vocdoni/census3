@@ -1,5 +1,7 @@
 package api
 
+import "math/big"
+
 // CreateTokenRequest struct defines the expected request by create token handler
 type CreateTokenRequest struct {
 	Address    string `json:"address"`
@@ -7,12 +9,16 @@ type CreateTokenRequest struct {
 	StartBlock uint64 `type:"startBlock"`
 }
 
-type TokenResponse struct {
+type GetTokenResponse struct {
 	ID         string `json:"id"`
 	Type       string `json:"type"`
-	Decimals   int    `json:"decimals"`
+	Decimals   uint64 `json:"decimals"`
 	StartBlock uint64 `json:"startBlock"`
 	Name       string `json:"name"`
+}
+
+type GetTokensResponse struct {
+	Tokens []GetTokenResponse `json:"tokens"`
 }
 
 type TokenTypesResponse struct {
@@ -30,12 +36,33 @@ type CreateCensusResquest struct {
 }
 
 type CreateCensusResponse struct {
-	CensusID string `json:"censusId"`
+	CensusID uint64 `json:"censusId"`
 }
 
 type GetCensusResponse struct {
-	CensusID   string `json:"censusId"`
-	StrategyID string `json:"strategyId"`
+	CensusID   uint64 `json:"censusId"`
+	StrategyID uint64 `json:"strategyId"`
 	MerkleRoot string `json:"merkleRoot"`
 	URI        string `json:"uri"`
+}
+
+type GetCensusesResponse struct {
+	Censuses []uint64 `json:"censuses"`
+}
+
+type GetStrategiesResponse struct {
+	Strategies []uint64 `json:"strategies"`
+}
+
+type GetStrategyToken struct {
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	MinBalance *big.Int `json:"minBalance"`
+	Method     string   `json:"method"`
+}
+
+type GetStrategyResponse struct {
+	ID        uint64             `json:"id"`
+	Tokens    []GetStrategyToken `json:"tokens"`
+	Predicate string             `json:"strategy"`
 }

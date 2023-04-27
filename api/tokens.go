@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -79,7 +80,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrMalformedToken.With("error unmarshalling token information")
 	}
 	tokenType := state.TokenTypeFromString(req.Type)
-	addr := common.HexToAddress(req.Address)
+	addr := common.HexToAddress(req.ID)
 
 	w3 := state.Web3{}
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -149,12 +150,38 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		return ErrCantGetToken
 	}
 
+	// TODO: Only for the MVP, consider to remove it
+	tokenStrategies, err := capi.sqlc.PaginatedStrategiesByTokenID(internalCtx,
+		queries.PaginatedStrategiesByTokenIDParams{
+			TokenID: tokenData.ID,
+			Limit:   -1,
+			Offset:  0,
+		})
+	log.Info(tokenStrategies)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Errorw(ErrCantGetToken, err.Error())
+		return ErrCantGetToken
+	}
+	defaultStrategyID := uint64(0)
+	if len(tokenStrategies) > 0 {
+		defaultStrategyID = uint64(tokenStrategies[0].ID)
+	}
+
 	res, err := json.Marshal(GetTokenResponse{
-		ID:         address.String(),
-		Type:       state.TokenType(int(tokenData.TypeID)).String(),
-		Decimals:   uint64(tokenData.Decimals.Int32),
-		StartBlock: uint64(tokenData.CreationBlock),
-		Name:       tokenData.Name.String,
+		ID:          address.String(),
+		Type:        state.TokenType(int(tokenData.TypeID)).String(),
+		Decimals:    uint64(tokenData.Decimals.Int32),
+		StartBlock:  uint64(tokenData.CreationBlock),
+		Name:        tokenData.Name.String,
+		Symbol:      tokenData.Symbol.String,
+		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply),
+		Status: GetTokenStatusResponse{
+			AtBlock:  20000000,
+			Synced:   true,
+			Progress: 100,
+		},
+		// TODO: Only for the MVP, consider to remove it
+		DefaultStrategy: defaultStrategyID,
 	})
 	if err != nil {
 		return ErrEncodeToken

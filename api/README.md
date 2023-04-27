@@ -63,7 +63,6 @@ Triggers a new scan for the provided token, starting from the defined block.
     
     | HTTP Status  | Message | Internal error |
     |:---:|:---|:---:|
-    | 204 | `-` | 4007 |
     | 400 | `malformed token information` | 4000 | 
     | 500 | `the token cannot be created` | 5000 | 
     | 500 | `error getting token information` | 5004 | 
@@ -80,12 +79,15 @@ Returns the information about the token referenced by the provided ID.
         "type": "erc20",
         "decimals": 18,
         "startBlock": 123456,
+        "symbol": "$",
+        "totalSupply": "21323",
         "name": "Amazing token"
         "status": {
             "atBlock": 12345,
             "synced": true|false,
             "progress": 87
-        }
+        },
+        "defaultStrategy": 1,
     }
     ```
     
@@ -96,6 +98,8 @@ Returns the information about the token referenced by the provided ID.
     | 404 | `no token found` | 4003 |
     | 500 | `error getting token information` | 5004 | 
     | 500 | `error encoding tokens` | 5011 | 
+    
+    **MVP Warn**: If `defaultStrategy` is `0`, no strategy (neither the dummy strategy) is associated to the given token.
 
 + **POST** `/strategies`
 Stores a new strategy based on the defined combination of tokens provided, these tokens must be registered previously.
@@ -246,7 +250,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
     | 500 | `error encoding strategy holders` | 5014 | 
 
 
-+ **GET** `/census/strategy/{strategyId}/` (API OK)
++ **GET** `/census/strategy/{strategyId}` (API OK)
 Returns a list of censusID for the strategy provided.
 
     - 📥 response:

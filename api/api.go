@@ -45,6 +45,7 @@ func Init(db *queries.Queries, conf Census3APIConf) error {
 	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir); err != nil {
 		log.Errorw(err, "error starting census database")
 	}
+	// init handlers
 	newAPI.initTokenHandlers()
 	newAPI.initCensusHandlers()
 	newAPI.initStrategiesHandlers()

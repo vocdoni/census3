@@ -142,11 +142,15 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// getStrategyCensuses function handler returns the censuses that had been
+// generated with the strategy identified by the ID provided.
 func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get strategy ID
 	strategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
 	if err != nil {
 		return ErrMalformedCensusID
 	}
+	// get censuses by this strategy ID
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	rows, err := capi.sqlc.CensusByStrategyID(internalCtx, int64(strategyID))
@@ -156,6 +160,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 		}
 		return ErrCantGetCensus
 	}
+	// parse and encode response
 	censuses := GetCensusesResponse{Censuses: []uint64{}}
 	for _, censusInfo := range rows {
 		censuses.Censuses = append(censuses.Censuses, uint64(censusInfo.ID))

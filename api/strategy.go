@@ -25,10 +25,14 @@ func (capi *census3API) initStrategiesHandlers() {
 		api.MethodAccessTypePublic, capi.getTokenStrategies)
 }
 
+// getStrategies function handler returns the current registered strategies from
+// the database. It returns a 204 response if any strategy is registered or a
+// 500 error if something fails.
 func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	// TODO: Support for pagination
+	// get strategies from the database
 	rows, err := capi.sqlc.PaginatedStrategies(internalCtx, queries.PaginatedStrategiesParams{
 		Limit:  -1,
 		Offset: 0,
@@ -40,6 +44,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		log.Errorw(ErrCantGetStrategies, err.Error())
 		return ErrCantGetStrategies
 	}
+	// parse and encode the strategies
 	strategies := GetStrategiesResponse{Strategies: []uint64{}}
 	for _, strategy := range rows {
 		strategies.Strategies = append(strategies.Strategies, uint64(strategy.ID))
@@ -52,6 +57,10 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// getStrategy function handler return the information of the strategy
+// indetified by the ID provided. It returns a 400 error if the provided ID is
+// wrong or empty, a 404 error if the strategy is not found or a 500 error if
+// something fails.
 func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	strategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
 	if err != nil {
@@ -100,6 +109,10 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// getTokenStrategies function handler returns the strategies that involves the
+// token identified by the ID (token address) provided. It returns a 400 error
+// if the provided ID is wrong or empty, a 204 response if the token has not any
+// associated strategy or a 500 error if something fails.
 func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	tokenID := ctx.URLParam("tokenID")
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)

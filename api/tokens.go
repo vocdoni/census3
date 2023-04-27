@@ -26,10 +26,14 @@ func (capi *census3API) initTokenHandlers() {
 		api.MethodAccessTypePublic, capi.getTokenTypes)
 }
 
+// getTokens function handler returns the registered tokens information from the
+// database. It returns a 204 response if no tokens are registered or a 500
+// error if something fails.
 func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	// TODO: Support for pagination
+	// get tokens from the database
 	rows, err := capi.sqlc.PaginatedTokens(internalCtx, queries.PaginatedTokensParams{
 		Limit:  -1,
 		Offset: 0,
@@ -41,6 +45,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		log.Errorw(ErrCantGetTokens, err.Error())
 		return ErrCantGetTokens
 	}
+	// parse and encode resulting tokens
 	tokens := GetTokensResponse{Tokens: []GetTokenResponse{}}
 	for _, tokenData := range rows {
 		tokens.Tokens = append(tokens.Tokens, GetTokenResponse{
@@ -62,7 +67,8 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 // createToken function creates a new token in the current database instance. It
 // first gets the token information from the network and then stores it in the
 // database. The new token created will be scanned from the block number
-// provided as argument.
+// provided as argument. It returns a 400 error if the provided inputs are
+// wrong or empty or a 500 error if something fails.
 func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	req := CreateTokenRequest{}
 	if err := json.Unmarshal(msg.Data, &req); err != nil {
@@ -119,7 +125,9 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 }
 
 // getToken function handler returns the information of the given token address
-// from the database.
+// from the database. It returns a 400 error if the provided ID is wrong or
+// empty, a 404 error if the token is not found or a 500 error if something
+// fails.
 func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	address := common.HexToAddress(ctx.URLParam("tokenID"))
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

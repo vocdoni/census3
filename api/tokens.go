@@ -45,6 +45,9 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		log.Errorw(ErrCantGetTokens, err.Error())
 		return ErrCantGetTokens
 	}
+	if len(rows) == 0 {
+		return ErrNoTokens
+	}
 	// parse and encode resulting tokens
 	tokens := GetTokensResponse{Tokens: []GetTokenResponse{}}
 	for _, tokenData := range rows {
@@ -82,12 +85,13 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := w3.Init(internalCtx, capi.web3, addr, tokenType); err != nil {
-		return err
+		log.Errorw(ErrInitializingWeb3, err.Error())
+		return ErrInitializingWeb3
 	}
 	info, err := w3.GetTokenData()
 	if err != nil {
-		log.Errorw(err, "error getting token contract data")
-		return err
+		log.Errorw(ErrCantGetToken, err.Error())
+		return ErrCantGetToken
 	}
 	var (
 		name     = new(sql.NullString)
@@ -95,13 +99,16 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		decimals = new(sql.NullInt32)
 	)
 	if err := name.Scan(info.Name); err != nil {
-		return err
+		log.Errorw(ErrCantGetToken, err.Error())
+		return ErrCantGetToken
 	}
 	if err := symbol.Scan(info.Symbol); err != nil {
-		return err
+		log.Errorw(ErrCantGetToken, err.Error())
+		return ErrCantGetToken
 	}
 	if err := decimals.Scan(info.Decimals); err != nil {
-		return err
+		log.Errorw(ErrCantGetToken, err.Error())
+		return ErrCantGetToken
 	}
 	_, err = capi.sqlc.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),

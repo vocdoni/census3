@@ -10,7 +10,7 @@ var (
 	ErrMalformedToken         = apirest.APIerror{Code: 4000, HTTPstatus: apirest.HTTPstatusBadRequest, Err: fmt.Errorf("malformed token information")}
 	ErrMalformedCensusID      = apirest.APIerror{Code: 4001, HTTPstatus: apirest.HTTPstatusBadRequest, Err: fmt.Errorf("malformed census ID, it must be a integer")}
 	ErrMalformedStrategyID    = apirest.APIerror{Code: 4002, HTTPstatus: apirest.HTTPstatusBadRequest, Err: fmt.Errorf("malformed strategy ID, it must be a integer")}
-	ErrNotFoundToken          = apirest.APIerror{Code: 4003, HTTPstatus: apirest.HTTPstatusNotFound, Err: fmt.Errorf("uknown token")}
+	ErrNotFoundToken          = apirest.APIerror{Code: 4003, HTTPstatus: apirest.HTTPstatusNotFound, Err: fmt.Errorf("no token found")}
 	ErrNotFoundTokenHolders   = apirest.APIerror{Code: 4004, HTTPstatus: apirest.HTTPstatusNotFound, Err: fmt.Errorf("no token holders found")}
 	ErrNotFoundStrategy       = apirest.APIerror{Code: 4005, HTTPstatus: apirest.HTTPstatusNotFound, Err: fmt.Errorf("no strategy found with the ID provided")}
 	ErrNotFoundCensus         = apirest.APIerror{Code: 4006, HTTPstatus: apirest.HTTPstatusNotFound, Err: fmt.Errorf("census not found")}
@@ -21,7 +21,7 @@ var (
 	ErrCantAddHoldersToCensus = apirest.APIerror{Code: 5002, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error adding the holders to the created census")}
 	ErrPruningCensus          = apirest.APIerror{Code: 5003, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error pruning the current census tree")}
 	ErrCantGetToken           = apirest.APIerror{Code: 5004, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error getting token information")}
-	ErrCantGetTokens          = apirest.APIerror{Code: 5005, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("no tokens found")}
+	ErrCantGetTokens          = apirest.APIerror{Code: 5005, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error getting tokens information")}
 	ErrCantGetTokenHolders    = apirest.APIerror{Code: 5006, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error getting token holders")}
 	ErrCantGetStrategy        = apirest.APIerror{Code: 5007, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error getting strategy information")}
 	ErrCantGetStrategies      = apirest.APIerror{Code: 5008, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error getting strategies information")}
@@ -35,4 +35,5 @@ var (
 	ErrEncodeStrategies       = apirest.APIerror{Code: 5016, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding strategies")}
 	ErrEncodeCensus           = apirest.APIerror{Code: 5017, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding census")}
 	ErrEncodeCensuses         = apirest.APIerror{Code: 5018, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error encoding censuses")}
+	ErrInitializingWeb3       = apirest.APIerror{Code: 5019, HTTPstatus: apirest.HTTPstatusInternalErr, Err: fmt.Errorf("error initialising web3 client")}
 )

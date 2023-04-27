@@ -44,6 +44,9 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		log.Errorw(ErrCantGetStrategies, err.Error())
 		return ErrCantGetStrategies
 	}
+	if len(rows) == 0 {
+		return ErrNoStrategies
+	}
 	// parse and encode the strategies
 	strategies := GetStrategiesResponse{Strategies: []uint64{}}
 	for _, strategy := range rows {
@@ -62,11 +65,13 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 // wrong or empty, a 404 error if the strategy is not found or a 500 error if
 // something fails.
 func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get provided strategyID
 	strategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
 	if err != nil {
 		log.Errorw(ErrMalformedStrategyID, err.Error())
 		return ErrMalformedStrategyID
 	}
+	// get strategy from the database
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	strategyData, err := capi.sqlc.StrategyByID(internalCtx, int64(strategyID))
@@ -77,12 +82,13 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		log.Errorw(ErrCantGetStrategy, err.Error())
 		return ErrCantGetStrategy
 	}
+	// parse strategy information
 	strategy := GetStrategyResponse{
 		ID:        uint64(strategyData.ID),
 		Predicate: strategyData.Predicate,
 		Tokens:    []GetStrategyToken{},
 	}
-
+	// get information of the strategy related tokens
 	tokensData, err := capi.sqlc.TokensByStrategyID(internalCtx, queries.TokensByStrategyIDParams{
 		StrategyID: strategyData.ID,
 		Limit:      -1,
@@ -92,6 +98,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		log.Errorw(ErrCantGetTokens, err.Error())
 		return ErrCantGetTokens
 	}
+	// parse and encode tokens information
 	for _, tokenData := range tokensData {
 		strategy.Tokens = append(strategy.Tokens, GetStrategyToken{
 			ID:         common.BytesToAddress(tokenData.ID).String(),
@@ -100,7 +107,6 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 			Method:     common.Bytes2Hex(tokenData.MethodHash),
 		})
 	}
-
 	res, err := json.Marshal(strategy)
 	if err != nil {
 		log.Errorw(ErrEncodeStrategy, err.Error())
@@ -114,9 +120,11 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 // if the provided ID is wrong or empty, a 204 response if the token has not any
 // associated strategy or a 500 error if something fails.
 func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get the tokenID provided
 	tokenID := ctx.URLParam("tokenID")
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
+	// get strategies associated to the token provided
 	rows, err := capi.sqlc.PaginatedStrategiesByTokenID(internalCtx, queries.PaginatedStrategiesByTokenIDParams{
 		TokenID: common.HexToAddress(tokenID).Bytes(),
 		Limit:   -1,
@@ -129,12 +137,14 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 		log.Errorw(ErrCantGetStrategies, err.Error())
 		return ErrCantGetStrategies
 	}
-
+	if len(rows) == 0 {
+		return ErrNoStrategies
+	}
+	// parse and encode strategies
 	strategies := GetStrategiesResponse{Strategies: []uint64{}}
 	for _, tokenStrategy := range rows {
 		strategies.Strategies = append(strategies.Strategies, uint64(tokenStrategy.ID))
 	}
-
 	res, err := json.Marshal(strategies)
 	if err != nil {
 		log.Errorw(ErrEncodeStrategies, err.Error())

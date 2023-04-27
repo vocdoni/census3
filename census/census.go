@@ -12,9 +12,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"go.vocdoni.io/dvote/api/censusdb"
 	"go.vocdoni.io/dvote/censustree"
 	storagelayer "go.vocdoni.io/dvote/data"
-	"go.vocdoni.io/dvote/data/compressor"
 	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/db/metadb"
 	"go.vocdoni.io/dvote/log"
@@ -195,11 +195,10 @@ func (cdb *CensusDB) publish(def *CensusDefinition) (*CensusDump, error) {
 		StrategyID: def.StrategyID,
 		Type:       def.Type,
 		RootHash:   root,
-		Data:       compressor.NewCompressor().CompressBytes(data),
 		MaxLevels:  def.MaxLevels,
 	}
 	// encode it into a JSON
-	exportData, err := json.Marshal(dump)
+	exportData, err := censusdb.BuildExportDump(root, data, def.Type, def.MaxLevels)
 	if err != nil {
 		return nil, err
 	}

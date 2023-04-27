@@ -19,11 +19,11 @@ import (
 
 // TODO: Only for the MVP, remove it.
 func (capi *census3API) initDebugHandlers() {
-	capi.endpoint.RegisterMethod("/token/{address}/holder", "GET",
+	capi.endpoint.RegisterMethod("/debug/token/{address}/holders", "GET",
 		api.MethodAccessTypePublic, capi.getTokenHolders)
-	capi.endpoint.RegisterMethod("/token/{address}/holder/count", "GET",
+	capi.endpoint.RegisterMethod("/debug/token/{address}/holders/count", "GET",
 		api.MethodAccessTypePublic, capi.countHolders)
-	capi.endpoint.RegisterMethod("/censu/{censusID}/check/{root}", "POST",
+	capi.endpoint.RegisterMethod("/debug/census/{censusID}/check/{root}", "POST",
 		api.MethodAccessTypePublic, capi.checkIPFSCensus)
 }
 

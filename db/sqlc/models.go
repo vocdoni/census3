@@ -21,7 +21,7 @@ type Censusblock struct {
 	BlockID  int64
 }
 
-type Censuse struct {
+type Censuses struct {
 	ID         int64
 	StrategyID int64
 	MerkleRoot annotations.Hash

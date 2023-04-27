@@ -1,7 +1,7 @@
 -- +goose Up
 CREATE TABLE Strategies (
     id INTEGER PRIMARY KEY,
-    predicate TEXT NOT NULL UNIQUE
+    predicate TEXT NOT NULL
 );
 
 CREATE TABLE TokenTypes (

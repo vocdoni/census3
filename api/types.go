@@ -22,8 +22,8 @@ type GetTokenResponse struct {
 	Symbol          string                 `json:"symbol"`
 	TotalSupply     *big.Int               `json:"totalSupply"`
 	Name            string                 `json:"name"`
-	Status          GetTokenStatusResponse `json:"status"`
-	DefaultStrategy uint64                 `json:"defaultStrategy"`
+	Status          GetTokenStatusResponse `json:"status,omitempty"`
+	DefaultStrategy uint64                 `json:"defaultStrategy,omitempty"`
 }
 
 type GetTokensResponse struct {

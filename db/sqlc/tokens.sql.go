@@ -164,7 +164,7 @@ func (q *Queries) TokenBySymbol(ctx context.Context, symbol sql.NullString) (Tok
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id FROM Tokens t
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM Tokens t
 JOIN StrategyTokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
@@ -177,15 +177,29 @@ type TokensByStrategyIDParams struct {
 	Offset     int32
 }
 
-func (q *Queries) TokensByStrategyID(ctx context.Context, arg TokensByStrategyIDParams) ([]Token, error) {
+type TokensByStrategyIDRow struct {
+	ID            annotations.Address
+	Name          sql.NullString
+	Symbol        sql.NullString
+	Decimals      sql.NullInt32
+	TotalSupply   annotations.BigInt
+	CreationBlock int64
+	TypeID        int64
+	StrategyID    int64
+	TokenID       annotations.Address
+	MinBalance    annotations.BigInt
+	MethodHash    annotations.MethodHash
+}
+
+func (q *Queries) TokensByStrategyID(ctx context.Context, arg TokensByStrategyIDParams) ([]TokensByStrategyIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, tokensByStrategyID, arg.StrategyID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Token
+	var items []TokensByStrategyIDRow
 	for rows.Next() {
-		var i Token
+		var i TokensByStrategyIDRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -194,6 +208,10 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, arg TokensByStrategyID
 			&i.TotalSupply,
 			&i.CreationBlock,
 			&i.TypeID,
+			&i.StrategyID,
+			&i.TokenID,
+			&i.MinBalance,
+			&i.MethodHash,
 		); err != nil {
 			return nil, err
 		}

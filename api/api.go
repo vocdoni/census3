@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
@@ -19,6 +20,7 @@ type census3API struct {
 	web3     string
 	sqlc     *queries.Queries
 	endpoint *api.API
+	censusDB *census.CensusDB
 }
 
 func Init(db *queries.Queries, conf Census3APIConf) error {
@@ -35,13 +37,19 @@ func Init(db *queries.Queries, conf Census3APIConf) error {
 		return err
 	}
 	// init API using the http router created
-	newAPI.endpoint, err = api.NewAPI(&r, "/api")
-	if err != nil {
+	if newAPI.endpoint, err = api.NewAPI(&r, "/api"); err != nil {
 		log.Errorw(err, "error starting the API")
 		return err
 	}
-
+	// init the census DB
+	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir); err != nil {
+		log.Errorw(err, "error starting census database")
+	}
+	// init handlers
 	newAPI.initTokenHandlers()
-	newAPI.initHoldersHandlers()
+	newAPI.initCensusHandlers()
+	newAPI.initStrategiesHandlers()
+	// TODO: Only for the MVP, remove it.
+	newAPI.initDebugHandlers()
 	return nil
 }

@@ -1,25 +1,25 @@
 version: "3.7"
 
 services:
-  tokenscan:
-    image: ghcr.io/vocdoni/tokenscan:master
+  census3:
+    image: ghcr.io/vocdoni/census3:master
     build: .
     env_file: ".env"
     sysctls:
       net.core.somaxconn: 8128
     volumes:
-      - tokenscan:/app/data
+      - census3:/app/data
     command:
       - "--url=${WEB3_PROVIDER}"
       - "--port=${PORT}"
       - "--logLevel=${LOGLEVEL}"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.tokenscan.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.tokenscan.entrypoints=websecure"
-      - "traefik.http.routers.tokenscan.tls.certresolver=le"
-      - "traefik.http.routers.tokenscan.service=tokenscan"
-      - "traefik.http.services.tokenscan.loadbalancer.server.port=${PORT}"
+      - "traefik.http.routers.census3.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.census3.entrypoints=websecure"
+      - "traefik.http.routers.census3.tls.certresolver=le"
+      - "traefik.http.routers.census3.service=census3"
+      - "traefik.http.services.census3.loadbalancer.server.port=${PORT}"
 
   traefik:
     image: traefik:2.5
@@ -53,6 +53,6 @@ services:
 
 
 volumes:
-  tokenscan: {}
+  census3: {}
   traefik: {}
 

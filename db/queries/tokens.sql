@@ -25,7 +25,7 @@ ORDER BY name
 LIMIT ? OFFSET ?;
 
 -- name: TokensByStrategyID :many
-SELECT t.* FROM Tokens t
+SELECT t.*, st.* FROM Tokens t
 JOIN StrategyTokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name

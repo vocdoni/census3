@@ -2,13 +2,15 @@ package census
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
-	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"go.vocdoni.io/dvote/censustree"
 	storagelayer "go.vocdoni.io/dvote/data"
@@ -20,46 +22,57 @@ import (
 )
 
 const (
-	censusDBprefix          = "cs_"
-	censusDBreferencePrefix = "cr_"
+	censusDBprefix    = "cs_"
+	defaultMaxLevels  = 160
+	defaultCensusType = models.Census_ARBO_BLAKE2B
 )
 
 var (
-	// ErrCensusNotFound is returned when a census is not found in the database.
-	ErrCensusNotFound = fmt.Errorf("census not found in the local database")
-	// ErrCensusAlreadyExists is returned by New() if the census already exists in the database.
-	ErrCensusAlreadyExists = fmt.Errorf("census already exists in the local database")
-	// ErrWrongAuthenticationToken is returned when the authentication token is invalid.
-	ErrWrongAuthenticationToken = fmt.Errorf("wrong authentication token")
-	// ErrCensusIsLocked is returned if the census does not allow write operations.
-	ErrCensusIsLocked = fmt.Errorf("census is locked")
+	ErrCreatingCensusDB          = fmt.Errorf("error creating the census trees database")
+	ErrInitializingIPFS          = fmt.Errorf("error initializing the IPFS service")
+	ErrCreatingCensusTree        = fmt.Errorf("error creating the census tree")
+	ErrSavingCensusTree          = fmt.Errorf("error saving the census tree")
+	ErrAddingHoldersToCensusTree = fmt.Errorf("error adding holders to the census tree")
+	ErrPublishingCensusTree      = fmt.Errorf("error publishing the census tree")
+	ErrPruningCensusTree         = fmt.Errorf("error pruning the census tree")
 )
 
-// CensusRef is a reference to a census. It holds the merkle tree which can be acceded
-// by calling Tree().
-type CensusRef struct {
-	tree       *censustree.Tree // must be private to avoid gob serialization
-	AuthToken  *uuid.UUID
-	CensusType int32
+// CensusDefinintion envolves the required parameters to create and use a
+// census merkle tree
+type CensusDefinition struct {
+	ID         int
+	StrategyID int
+	Type       models.Census_Type
 	URI        string
-	// MaxLevels is required to load the census with the original size because
-	// it could be different according to the election (and census) type.
-	MaxLevels int
+	AuthToken  *uuid.UUID
+	MaxLevels  int
+	Holders    map[common.Address]int
+	tree       *censustree.Tree
 }
 
-// Tree returns the censustree.Tree object of the census reference.
-func (cr *CensusRef) Tree() *censustree.Tree {
-	return cr.tree
-}
-
-// SetTree sets the censustree.Tree object to the census reference.
-func (cr *CensusRef) SetTree(tree *censustree.Tree) {
-	cr.tree = tree
+// DefaultCensusDefinition function returns a populated census definition with
+// the default values for some parameters and the supplied values for the rest.
+func DefaultCensusDefinition(id, strategyID int, holders map[common.Address]int) *CensusDefinition {
+	return &CensusDefinition{
+		ID:         id,
+		StrategyID: strategyID,
+		Type:       defaultCensusType,
+		URI:        "",
+		AuthToken:  nil,
+		MaxLevels:  defaultMaxLevels,
+		Holders:    holders,
+	}
 }
 
 // CensusDump is a struct that contains the data of a census. It is used
 // for import/export operations.
 type CensusDump struct {
+	// the following attributes are only for internal use and they have not be
+	// published on IPFS
+	ID         int    `json:"-"`
+	StrategyID int    `json:"-"`
+	URI        string `json:"-"`
+
 	Type     models.Census_Type `json:"type"`
 	RootHash []byte             `json:"rootHash"`
 	Data     []byte             `json:"data"`
@@ -68,190 +81,179 @@ type CensusDump struct {
 	MaxLevels int `json:"maxLevels"`
 }
 
-// CensusTreeDB is a safe and persistent database of census trees. It allows
-// authentication control over the census if a UUID token is provided.
-type CensusTreeDB struct {
-	db db.Database
+// CensusDB struct envolves the internal trees database and the IPFS handler,
+// required to create and publish censuses.
+type CensusDB struct {
+	treeDB  db.Database
+	storage storagelayer.Storage
 }
 
-// NewCensusTreeDB creates a new CensusDB object.
-func NewCensusTreeDB(dataDir string) (*CensusTreeDB, error) {
+// NewCensusDB function instansiates an new internal tree database that will be
+// located into the directory path provided.
+func NewCensusDB(dataDir string) (*CensusDB, error) {
 	db, err := metadb.New(db.TypePebble, filepath.Join(dataDir, "censusdb"))
 	if err != nil {
-		return nil, err
+		log.Errorw(ErrCreatingCensusDB, err.Error())
+		return nil, ErrCreatingCensusDB
 	}
-	return &CensusTreeDB{db: db}, nil
+	ipfsConfig := storagelayer.IPFSNewConfig(dataDir)
+	storage, err := storagelayer.Init(storagelayer.IPFS, ipfsConfig)
+	if err != nil {
+		log.Errorw(ErrInitializingIPFS, err.Error())
+		return nil, ErrInitializingIPFS
+	}
+	return &CensusDB{treeDB: db, storage: storage}, nil
 }
 
-// Generate creates a new census and adds it to the database.
-func (c *CensusTreeDB) Generate(censusID []byte, censusType models.Census_Type,
-	uri string, authToken *uuid.UUID, maxLevels int) (*CensusRef, error) {
-	if c.Exists(censusID) {
-		return nil, ErrCensusAlreadyExists
+// CreateAndPublish function creates a new census tree based on the definition
+// provided and publishes it to IPFS. It needs to persist it temporaly into a
+// internal trees database.
+func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error) {
+	var err error
+	if def, err = cdb.newTree(def); err != nil {
+		log.Errorw(ErrCreatingCensusTree, err.Error())
+		return nil, ErrCreatingCensusTree
 	}
-	tree, err := censustree.New(censustree.Options{Name: censusDBKey(censusID),
-		ParentDB: c.db, MaxLevels: maxLevels, CensusType: censusType})
+	// save the census definition into the trees database
+	if err := cdb.save(def); err != nil {
+		log.Errorw(ErrSavingCensusTree, err.Error())
+		return nil, ErrSavingCensusTree
+	}
+	// encode the holders
+	holdersAddresses, holdersValues := [][]byte{}, [][]byte{}
+	for addr, value := range def.Holders {
+		holdersAddresses = append(holdersAddresses, addr.Bytes())
+		holdersValues = append(holdersValues, []byte(strconv.Itoa(value)))
+	}
+	// add the holders
+	if _, err := def.tree.AddBatch(holdersAddresses, holdersValues); err != nil {
+		log.Errorw(ErrAddingHoldersToCensusTree, err.Error())
+		return nil, ErrAddingHoldersToCensusTree
+	}
+	// publish on IPFS
+	dump, err := cdb.publish(def)
+	if err != nil {
+		log.Errorw(ErrPublishingCensusTree, err.Error())
+		return nil, ErrPublishingCensusTree
+	}
+	// prune the created census from the database
+	if err := cdb.delete(def); err != nil {
+		log.Errorw(ErrPruningCensusTree, err.Error())
+		return nil, ErrPruningCensusTree
+	}
+	return dump, nil
+}
+
+// newTree function creates a new census tree based on the provided definition
+func (cdb *CensusDB) newTree(def *CensusDefinition) (*CensusDefinition, error) {
+	tree, err := censustree.New(censustree.Options{
+		Name:       censusDBKey(def.ID),
+		ParentDB:   cdb.treeDB,
+		MaxLevels:  def.MaxLevels,
+		CensusType: def.Type})
 	if err != nil {
 		return nil, err
 	}
-	ref, err := c.addCensusRefToDB(censusID, authToken, censusType, uri, maxLevels)
-	if err != nil {
-		return nil, err
-	}
-	ref.tree = tree
-	if uri != "" {
-		ref.tree.Publish()
-	}
-	return ref, nil
+	tree.Publish()
+	def.tree = tree
+	return def, nil
 }
 
-// Exists returns true if the censusID exists in the local database.
-func (c *CensusTreeDB) Exists(censusID []byte) bool {
-	_, err := c.getCensusRefFromDB(censusID)
-	return err == nil
-}
-
-// Load returns an already loaded census from memory or from the persistent kv database.
-// Authentication is checked if authToken is not nil.
-func (c *CensusTreeDB) Load(censusID []byte, authToken *uuid.UUID) (*CensusRef, error) {
-	ref, err := c.getCensusRefFromDB(censusID)
-	if err != nil {
-		return nil, err
-	}
-	// check authentication
-	if authToken != nil {
-		// if no token stored in the reference but the called provided a token, we don't allow
-		if ref.AuthToken == nil {
-			return nil, ErrCensusIsLocked
-		}
-		if !bytes.Equal(authToken[:], ref.AuthToken[:]) {
-			return nil, ErrWrongAuthenticationToken
-		}
-	}
-
-	ref.tree, err = censustree.New(censustree.Options{Name: censusDBKey(censusID), ParentDB: c.db,
-		MaxLevels: ref.MaxLevels, CensusType: models.Census_Type(ref.CensusType)})
-	if err != nil {
-		return nil, err
-	}
-	if ref.URI != "" {
-		ref.tree.Publish()
-	}
-	log.Debugf("loaded tree %x of type %s", censusID, models.Census_Type_name[ref.CensusType])
-	return ref, nil
-}
-
-// Delete removes a census from the database and memory.
-func (c *CensusTreeDB) Delete(censusID []byte) error {
-	wtx := c.db.WriteTx()
+// save function persists the provided census definition into the internal trees
+// database. It encodes the census definition using Gob and the creates a new
+// entry on the database using the census ID as its identifier.
+func (cdb *CensusDB) save(def *CensusDefinition) error {
+	wtx := cdb.treeDB.WriteTx()
 	defer wtx.Discard()
-	if err := wtx.Delete(append([]byte(censusDBreferencePrefix), censusID...)); err != nil {
+	defData := bytes.Buffer{}
+	enc := gob.NewEncoder(&defData)
+	if err := enc.Encode(def); err != nil {
+		return err
+	}
+	if err := wtx.Set([]byte(censusDBKey(def.ID)), defData.Bytes()); err != nil {
+		return err
+	}
+	return wtx.Commit()
+}
+
+// publish function takes a dump of the given census, serialises and publishes
+// it to IPFS. If all goes well, it returns the census dump struct.
+func (cdb *CensusDB) publish(def *CensusDefinition) (*CensusDump, error) {
+	// get census tree root
+	root, err := def.tree.Root()
+	if err != nil {
+		return nil, err
+	}
+	// get tree dump
+	data, err := def.tree.Dump()
+	if err != nil {
+		return nil, err
+	}
+	// create census dump compressing the tree dump
+	dump := &CensusDump{
+		ID:         def.ID,
+		StrategyID: def.StrategyID,
+		Type:       def.Type,
+		RootHash:   root,
+		Data:       compressor.NewCompressor().CompressBytes(data),
+		MaxLevels:  def.MaxLevels,
+	}
+	// encode it into a JSON
+	exportData, err := json.Marshal(dump)
+	if err != nil {
+		return nil, err
+	}
+	// publish it on IPFS
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	if dump.URI, err = cdb.storage.Publish(ctx, exportData); err != nil {
+		return nil, err
+	}
+	return dump, nil
+}
+
+// delete function removes the census provided from the internal tree database
+func (cdb *CensusDB) delete(def *CensusDefinition) error {
+	wtx := cdb.treeDB.WriteTx()
+	defer wtx.Discard()
+	if err := wtx.Delete([]byte(censusDBKey(def.ID))); err != nil {
 		return err
 	}
 	// the removal of the tree from the disk is done in a separate goroutine.
-	// This is because the tree is locked and we don't want to block the operations,
-	// and depending on the size of the tree, it can take a while to delete it.
+	// This is because the tree is locked and we don't want to block the
+	// operations, and depending on the size of the tree, it can take a while
+	// to delete it.
 	go func() {
-		_, err := censustree.DeleteCensusTreeFromDatabase(c.db, censusDBKey(censusID))
+		_, err := censustree.DeleteCensusTreeFromDatabase(cdb.treeDB, censusDBKey(def.ID))
 		if err != nil {
-			log.Warnf("error deleting census tree %x: %s", censusID, err)
+			log.Warnf("error deleting census tree %x: %s", def.ID, err)
 		}
 	}()
 	return wtx.Commit()
 }
 
-// Dump builds a census serialization that can be used for import.
-func Dump(root, data []byte, typ models.Census_Type, maxLevels int) ([]byte, error) {
-	export := CensusDump{
-		Type:      typ,
-		RootHash:  root,
-		Data:      compressor.NewCompressor().CompressBytes(data),
-		MaxLevels: maxLevels,
-	}
-	exportData, err := json.Marshal(export)
-	if err != nil {
-		return nil, err
-	}
-	return exportData, nil
-}
-
-// ImportAndPublish imports a census from a dump and makes it public
-func (c *CensusTreeDB) ImportAndPublish(data []byte) error {
-	cdata := CensusDump{}
-	if err := json.Unmarshal(data, &cdata); err != nil {
-		return err
-	}
-	if cdata.Data == nil || cdata.RootHash == nil {
-		return fmt.Errorf("missing dump or root parameters")
-	}
-	log.Debugw("importing census", "root", hex.EncodeToString(cdata.RootHash), "type", cdata.Type.String())
-	if c.Exists(cdata.RootHash) {
-		return ErrCensusAlreadyExists
-	}
-	uri := "ipfs://" + storagelayer.CalculateIPFSCIDv1json(data)
-	ref, err := c.Generate(cdata.RootHash, cdata.Type, uri, nil, cdata.MaxLevels)
-	if err != nil {
-		return err
-	}
-	if err := ref.Tree().ImportDump(compressor.NewCompressor().DecompressBytes(cdata.Data)); err != nil {
-		return err
-	}
-	root, err := ref.Tree().Root()
-	if err != nil {
-		return err
-	}
-	if !bytes.Equal(root, cdata.RootHash) {
-		if err := c.Delete(cdata.RootHash); err != nil {
-			log.Warnf("could not delete census %x: %v", cdata.RootHash, err)
-		}
-		return fmt.Errorf("root hash does not match after importing dump")
-	}
-
-	return nil
-}
-
-// addCensusRefToDB adds a censusRef to the database.
-func (c *CensusTreeDB) addCensusRefToDB(censusID []byte, authToken *uuid.UUID,
-	t models.Census_Type, uri string, maxLevels int) (*CensusRef, error) {
-	wtx := c.db.WriteTx()
-	defer wtx.Discard()
-	refData := bytes.Buffer{}
-	enc := gob.NewEncoder(&refData)
-	ref := &CensusRef{
-		AuthToken:  authToken,
-		CensusType: int32(t),
-		URI:        uri,
-		MaxLevels:  maxLevels,
-	}
-	if err := enc.Encode(ref); err != nil {
-		return nil, err
-	}
-	if err := wtx.Set(append([]byte(censusDBreferencePrefix), censusID...),
-		refData.Bytes()); err != nil {
-		return nil, err
-	}
-	return ref, wtx.Commit()
-}
-
-// getCensusRefFromDB returns the censusRef from the database.
-func (c *CensusTreeDB) getCensusRefFromDB(censusID []byte) (*CensusRef, error) {
-	b, err := c.db.ReadTx().Get(
-		append(
-			[]byte(censusDBreferencePrefix),
-			censusID...,
-		))
-	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
-			return nil, ErrCensusNotFound
-		}
-		return nil, err
-	}
-	dec := gob.NewDecoder(bytes.NewReader(b))
-	ref := CensusRef{}
-	return &ref, dec.Decode(&ref)
-}
-
 // censusDBKey returns the db key of the census tree in the database given a censusID.
-func censusDBKey(censusID []byte) string {
-	return fmt.Sprintf("%s%x", censusDBprefix, censusID)
+func censusDBKey(censusID int) string {
+	return fmt.Sprintf("%s%x", censusDBprefix, []byte(strconv.Itoa(censusID)))
+}
+
+// TODO: Only used to debug on MVP stage, remove it
+func (cdb *CensusDB) Check(def *CensusDefinition, root []byte) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	// download census dump from IPFS
+	data, err := cdb.storage.Retrieve(ctx, def.URI, 0)
+	if err != nil {
+		return err
+	}
+	// decode result
+	dump := CensusDump{}
+	if err := json.Unmarshal(data, &dump); err != nil {
+		return err
+	}
+	// compare roots
+	if strDumpRoot := common.Bytes2Hex(dump.RootHash); strDumpRoot != string(root) {
+		return fmt.Errorf("root hashes does not match (%s != %s)", string(root), strDumpRoot)
+	}
+	return nil
 }

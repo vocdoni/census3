@@ -42,14 +42,21 @@ JOIN TokenTypes AS tt ON t.type_id = tt.id
 WHERE tt.type_name = ?
 LIMIT ? OFFSET ?;
 
+-- name: LastCensusID :one
+SELECT strategy_id 
+FROM Censuses 
+ORDER BY strategy_id DESC
+LIMIT 1;
+
 -- name: CreateCensus :execresult
 INSERT INTO Censuses (
+    id,
     strategy_id,
     merkle_root,
     uri
 )
 VALUES (
-    ?, ?, ?
+    ?, ?, ?, ?
 );
 
 -- name: DeleteCensus :execresult

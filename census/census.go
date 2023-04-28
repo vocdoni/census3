@@ -81,6 +81,14 @@ type CensusDump struct {
 	MaxLevels int `json:"maxLevels"`
 }
 
+type PublishedCensus struct {
+	ID         int
+	StrategyID int
+	RootHash   []byte
+	URI        string
+	Dump       []byte
+}
+
 // CensusDB struct envolves the internal trees database and the IPFS handler,
 // required to create and publish censuses.
 type CensusDB struct {
@@ -108,7 +116,7 @@ func NewCensusDB(dataDir string) (*CensusDB, error) {
 // CreateAndPublish function creates a new census tree based on the definition
 // provided and publishes it to IPFS. It needs to persist it temporaly into a
 // internal trees database.
-func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error) {
+func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*PublishedCensus, error) {
 	var err error
 	if def, err = cdb.newTree(def); err != nil {
 		log.Errorw(ErrCreatingCensusTree, err.Error())
@@ -126,7 +134,6 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error
 		if err != nil {
 			return nil, ErrAddingHoldersToCensusTree
 		}
-		log.Infow("new key to add", "key", string(key[:censustree.DefaultMaxKeyLen]))
 		holdersAddresses = append(holdersAddresses, key[:censustree.DefaultMaxKeyLen])
 		holdersValues = append(holdersValues, []byte(strconv.Itoa(value)))
 	}
@@ -135,9 +142,8 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error
 		log.Errorw(ErrAddingHoldersToCensusTree, err.Error())
 		return nil, ErrAddingHoldersToCensusTree
 	}
-	log.Infow("keys added", "nkeys", len(holdersAddresses))
 	// publish on IPFS
-	dump, err := cdb.publish(def)
+	res, err := cdb.publish(def)
 	if err != nil {
 		log.Errorw(ErrPublishingCensusTree, err.Error())
 		return nil, ErrPublishingCensusTree
@@ -147,12 +153,13 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*CensusDump, error
 		log.Errorw(ErrPruningCensusTree, err.Error())
 		return nil, ErrPruningCensusTree
 	}
-	return dump, nil
+	return res, nil
 }
 
 // newTree function creates a new census tree based on the provided definition
 func (cdb *CensusDB) newTree(def *CensusDefinition) (*CensusDefinition, error) {
-	tree, err := censustree.New(censustree.Options{
+	var err error
+	def.tree, err = censustree.New(censustree.Options{
 		Name:       censusDBKey(def.ID),
 		ParentDB:   cdb.treeDB,
 		MaxLevels:  def.MaxLevels,
@@ -160,8 +167,7 @@ func (cdb *CensusDB) newTree(def *CensusDefinition) (*CensusDefinition, error) {
 	if err != nil {
 		return nil, err
 	}
-	tree.Publish()
-	def.tree = tree
+	def.tree.Publish()
 	return def, nil
 }
 
@@ -184,7 +190,7 @@ func (cdb *CensusDB) save(def *CensusDefinition) error {
 
 // publish function takes a dump of the given census, serialises and publishes
 // it to IPFS. If all goes well, it returns the census dump struct.
-func (cdb *CensusDB) publish(def *CensusDefinition) (*CensusDump, error) {
+func (cdb *CensusDB) publish(def *CensusDefinition) (*PublishedCensus, error) {
 	// get census tree root
 	root, err := def.tree.Root()
 	if err != nil {
@@ -196,25 +202,23 @@ func (cdb *CensusDB) publish(def *CensusDefinition) (*CensusDump, error) {
 		return nil, err
 	}
 	// create census dump compressing the tree dump
-	dump := &CensusDump{
+	res := &PublishedCensus{
 		ID:         def.ID,
 		StrategyID: def.StrategyID,
-		Type:       def.Type,
 		RootHash:   root,
-		MaxLevels:  def.MaxLevels,
 	}
 	// encode it into a JSON
-	exportData, err := censusdb.BuildExportDump(root, data, def.Type, def.MaxLevels)
+	res.Dump, err = censusdb.BuildExportDump(root, data, def.Type, def.MaxLevels)
 	if err != nil {
 		return nil, err
 	}
 	// publish it on IPFS
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	if dump.URI, err = cdb.storage.Publish(ctx, exportData); err != nil {
+	if res.URI, err = cdb.storage.Publish(ctx, res.Dump); err != nil {
 		return nil, err
 	}
-	return dump, nil
+	return res, nil
 }
 
 // delete function removes the census provided from the internal tree database

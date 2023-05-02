@@ -105,10 +105,12 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 			}
 		}
 	}
-	// get the maximun current census ID to calculate the next one
+	// get the maximun current census ID to calculate the next one, if any 
+	// census has been created yet, continue
 	lastCensusID, err := capi.sqlc.LastCensusID(internalCtx)
-	if err != nil {
-		log.Errorf("error getting last census ID, continue")
+	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+		log.Errorw(err, "error getting last census ID")
+		return ErrCantCreateCensus
 	}
 	// create a census tree and publish on IPFS
 	def := census.DefaultCensusDefinition(int(lastCensusID+1), int(req.StrategyID), strategyHolders)
@@ -117,10 +119,28 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		log.Errorw(err, "error creating or publishing the census")
 		return ErrCantCreateCensus
 	}
+	// check if the census already exists using the merkle root of the generated
+	// census
+	existingCensus, err := capi.sqlc.CensusByMerkleRoot(internalCtx, newCensus.RootHash)
+	if err == nil {
+		// encoding the result and response it
+		res, err := json.Marshal(CreateCensusResponse{
+			CensusID: uint64(existingCensus.StrategyID),
+		})
+		if err != nil {
+			log.Error("error marshalling holders")
+			return ErrEncodeStrategyHolders
+		}
+		return ctx.Send(res, api.HTTPstatusOK)
+	}
+	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+		log.Errorw(err, "error checking if the generated census already exists")
+		return ErrCantCreateCensus
+	}
 	// save the new census in the SQL database
 	sqlURI := new(sql.NullString)
 	if err := sqlURI.Scan(newCensus.URI); err != nil {
-		log.Errorf("error saving the census on the database: %w", err)
+		log.Errorw(err, "error saving the census on the database")
 		return ErrCantCreateCensus
 	}
 	_, err = capi.sqlc.CreateCensus(internalCtx, queries.CreateCensusParams{
@@ -130,7 +150,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		Uri:        *sqlURI,
 	})
 	if err != nil {
-		log.Errorf("error saving the census on the database: %w", err)
+		log.Errorw(err, "error saving the census on the database")
 		return ErrCantCreateCensus
 	}
 	// encoding the result and response it

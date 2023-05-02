@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -82,7 +83,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	}
 	// get holders associated to every strategy token
 	// create a map to avoid duplicates
-	strategyHolders := map[common.Address]int{}
+	strategyHolders := map[common.Address]*big.Int{}
 	for _, token := range strategyTokens {
 		holders, err := capi.sqlc.TokenHoldersByTokenID(internalCtx, queries.TokenHoldersByTokenIDParams{
 			TokenID: token.ID,
@@ -96,10 +97,11 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 			return ErrCantGetTokenHolders.Withf("for the token with address %s",
 				common.BytesToAddress(token.ID))
 		}
-		for _, bAddr := range holders {
-			holderAddr := common.BytesToAddress(bAddr)
+		for _, holder := range holders {
+			holderAddr := common.BytesToAddress(holder.ID)
+			holderBalance := new(big.Int).SetBytes(holder.Balance)
 			if _, exists := strategyHolders[holderAddr]; !exists {
-				strategyHolders[holderAddr] = 1
+				strategyHolders[holderAddr] = holderBalance
 			}
 		}
 	}

@@ -84,9 +84,11 @@ func (capi *census3API) getTokenHolders(msg *api.APIdata, ctx *httprouter.HTTPCo
 		return ctx.Send(nil, api.HTTPstatusNoContent)
 	}
 	// encode the response with the token holders addresses
-	holders := TokenHoldersResponse{Holders: []string{}}
+	holders := TokenHoldersResponse{Holders: map[string]string{}}
 	for _, holder := range dbHolders {
-		holders.Holders = append(holders.Holders, common.BytesToAddress(holder).Hex())
+		addr := common.BytesToAddress(holder.ID).String()
+		balance := new(big.Int).SetBytes(holder.Balance)
+		holders.Holders[addr] = balance.String()
 	}
 	response, err := json.Marshal(holders)
 	if err != nil {

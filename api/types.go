@@ -35,7 +35,7 @@ type TokenTypesResponse struct {
 }
 
 type TokenHoldersResponse struct {
-	Holders []string `json:"holders"`
+	Holders map[string]string `json:"holders"`
 }
 
 type CreateCensusResquest struct {

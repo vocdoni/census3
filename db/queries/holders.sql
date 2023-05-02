@@ -36,7 +36,7 @@ WHERE TokenHolders.holder_id = ? AND TokenHolders.block_id = ?
 LIMIT ? OFFSET ?;
 
 -- name: TokenHoldersByTokenID :many
-SELECT Holders.*
+SELECT Holders.*, TokenHolders.balance
 FROM Holders
 JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
 WHERE TokenHolders.token_id = ?

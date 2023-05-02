@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -46,13 +47,13 @@ type CensusDefinition struct {
 	URI        string
 	AuthToken  *uuid.UUID
 	MaxLevels  int
-	Holders    map[common.Address]int
+	Holders    map[common.Address]*big.Int
 	tree       *censustree.Tree
 }
 
 // DefaultCensusDefinition function returns a populated census definition with
 // the default values for some parameters and the supplied values for the rest.
-func DefaultCensusDefinition(id, strategyID int, holders map[common.Address]int) *CensusDefinition {
+func DefaultCensusDefinition(id, strategyID int, holders map[common.Address]*big.Int) *CensusDefinition {
 	return &CensusDefinition{
 		ID:         id,
 		StrategyID: strategyID,
@@ -135,7 +136,7 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*PublishedCensus, 
 			return nil, ErrAddingHoldersToCensusTree
 		}
 		holdersAddresses = append(holdersAddresses, key[:censustree.DefaultMaxKeyLen])
-		holdersValues = append(holdersValues, []byte(strconv.Itoa(value)))
+		holdersValues = append(holdersValues, value.Bytes())
 	}
 	// add the holders
 	if _, err := def.tree.AddBatch(holdersAddresses, holdersValues); err != nil {

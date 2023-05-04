@@ -12,7 +12,7 @@ import (
 
 const createTokenType = `-- name: CreateTokenType :execresult
 INSERT INTO TokenTypes (type_name)
-VALUES (?)
+VALUES ($1)
 `
 
 func (q *Queries) CreateTokenType(ctx context.Context, typeName string) (sql.Result, error) {
@@ -21,7 +21,7 @@ func (q *Queries) CreateTokenType(ctx context.Context, typeName string) (sql.Res
 
 const deleteTokenType = `-- name: DeleteTokenType :execresult
 DELETE FROM TokenTypes
-WHERE id = ?
+WHERE id = $1
 `
 
 func (q *Queries) DeleteTokenType(ctx context.Context, id int64) (sql.Result, error) {
@@ -31,7 +31,7 @@ func (q *Queries) DeleteTokenType(ctx context.Context, id int64) (sql.Result, er
 const paginatedTokenTypes = `-- name: PaginatedTokenTypes :many
 SELECT id, type_name FROM TokenTypes
 ORDER BY id
-LIMIT ? OFFSET ?
+LIMIT $1 OFFSET $2
 `
 
 type PaginatedTokenTypesParams struct {
@@ -64,7 +64,7 @@ func (q *Queries) PaginatedTokenTypes(ctx context.Context, arg PaginatedTokenTyp
 
 const tokenTypeByID = `-- name: TokenTypeByID :one
 SELECT id, type_name FROM TokenTypes
-WHERE id = ?
+WHERE id = $1
 LIMIT 1
 `
 
@@ -77,7 +77,7 @@ func (q *Queries) TokenTypeByID(ctx context.Context, id int64) (Tokentype, error
 
 const tokenTypeByName = `-- name: TokenTypeByName :one
 SELECT id, type_name FROM TokenTypes
-WHERE type_name = ?
+WHERE type_name = $1
 LIMIT 1
 `
 
@@ -90,8 +90,8 @@ func (q *Queries) TokenTypeByName(ctx context.Context, typeName string) (Tokenty
 
 const updateTokenType = `-- name: UpdateTokenType :execresult
 UPDATE TokenTypes
-SET type_name = ?
-WHERE id = ?
+SET type_name = $1
+WHERE id = $2
 `
 
 type UpdateTokenTypeParams struct {

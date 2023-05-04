@@ -1,7 +1,8 @@
 -- name: PaginatedBlocks :many
 SELECT * FROM Blocks
 ORDER BY id
-LIMIT ? OFFSET ?;
+LIMIT ?
+OFFSET ?;
 
 -- name: BlockByID :one
 SELECT * FROM Blocks

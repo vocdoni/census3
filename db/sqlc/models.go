@@ -21,7 +21,7 @@ type Censusblock struct {
 	BlockID  int64
 }
 
-type Censuses struct {
+type Censuse struct {
 	ID         int64
 	StrategyID int64
 	MerkleRoot annotations.Hash
@@ -48,7 +48,7 @@ type Token struct {
 	ID            annotations.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt32
+	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64

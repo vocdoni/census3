@@ -1,0 +1,23 @@
+version: "3.7"
+
+services:
+  census3:
+    env_file: ".env"
+    build: 
+      context: ../../
+      args:
+        SQLC_MIGRATIONS: ${SQLC_MIGRATIONS}
+    ports:
+      - ${PORT}:${PORT}
+    sysctls:
+      net.core.somaxconn: 8128
+    volumes:
+      - census3:/app/data
+    command:
+      - "--url=${WEB3_PROVIDER}"
+      - "--port=${PORT}"
+      - "--logLevel=${LOGLEVEL}"
+
+volumes:
+  census3: {}
+

@@ -1,0 +1,36 @@
+version: 2
+sql:
+- schema: "migrations/sqlite3"
+  queries: "queries/sqlite3"
+  engine: "mysql"
+  gen:
+    go:
+      package: "queries"
+      out: "sqlc"
+      overrides:
+        # Defaults to int32 for integers, which is a bit small, use int64 instead.
+        - db_type: "int"
+          go_type: "int64"
+        # Force these blobs to be our "bytes" types.
+        - column: "tokens.id"
+          go_type: "github.com/vocdoni/census3/db/annotations.Address"
+        - column: "tokens.total_supply"
+          go_type: "github.com/vocdoni/census3/db/annotations.BigInt"
+        - column: "censuses.merkle_root"
+          go_type: "github.com/vocdoni/census3/db/annotations.Hash"
+        - column: "blocks.root_hash"
+          go_type: "github.com/vocdoni/census3/db/annotations.Hash"
+        - column: "holders.id"
+          go_type: "github.com/vocdoni/census3/db/annotations.Address"
+        - column: "tokenholders.token_id"
+          go_type: "github.com/vocdoni/census3/db/annotations.Address"
+        - column: "tokenholders.holder_id"
+          go_type: "github.com/vocdoni/census3/db/annotations.Address"
+        - column: "tokenholders.balance"
+          go_type: "github.com/vocdoni/census3/db/annotations.BigInt"
+        - column: "strategytokens.token_id"
+          go_type: "github.com/vocdoni/census3/db/annotations.Address"
+        - column: "strategytokens.method_hash"
+          go_type: "github.com/vocdoni/census3/db/annotations.MethodHash"
+        - column: "strategytokens.min_balance"
+          go_type: "github.com/vocdoni/census3/db/annotations.BigInt"

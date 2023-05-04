@@ -15,7 +15,7 @@ import (
 const countTokenHoldersByTokenID = `-- name: CountTokenHoldersByTokenID :one
 SELECT COUNT(holder_id) 
 FROM TokenHolders
-WHERE token_id = ?
+WHERE token_id = $1
 `
 
 func (q *Queries) CountTokenHoldersByTokenID(ctx context.Context, tokenID annotations.Address) (int64, error) {
@@ -27,7 +27,7 @@ func (q *Queries) CountTokenHoldersByTokenID(ctx context.Context, tokenID annota
 
 const createHolder = `-- name: CreateHolder :execresult
 INSERT INTO Holders (id)
-VALUES (?)
+VALUES ($1)
 `
 
 func (q *Queries) CreateHolder(ctx context.Context, id annotations.Address) (sql.Result, error) {
@@ -42,7 +42,7 @@ INSERT INTO TokenHolders (
     block_id
 )
 VALUES (
-    ?, ?, ?, ?
+    $1, $2, $3, $4
 )
 `
 
@@ -64,7 +64,7 @@ func (q *Queries) CreateTokenHolder(ctx context.Context, arg CreateTokenHolderPa
 
 const deleteHolder = `-- name: DeleteHolder :execresult
 DELETE FROM Holders
-WHERE id = ?
+WHERE id = $1
 `
 
 func (q *Queries) DeleteHolder(ctx context.Context, id annotations.Address) (sql.Result, error) {
@@ -73,7 +73,7 @@ func (q *Queries) DeleteHolder(ctx context.Context, id annotations.Address) (sql
 
 const deleteTokenHolder = `-- name: DeleteTokenHolder :execresult
 DELETE FROM TokenHolders
-WHERE token_id = ? AND holder_id = ?
+WHERE token_id = $1 AND holder_id = $2
 `
 
 type DeleteTokenHolderParams struct {
@@ -87,7 +87,7 @@ func (q *Queries) DeleteTokenHolder(ctx context.Context, arg DeleteTokenHolderPa
 
 const holderByID = `-- name: HolderByID :one
 SELECT id FROM Holders
-WHERE id = ?
+WHERE id = $1
 LIMIT 1
 `
 
@@ -100,7 +100,7 @@ func (q *Queries) HolderByID(ctx context.Context, id annotations.Address) (annot
 const lastBlockByTokenID = `-- name: LastBlockByTokenID :one
 SELECT block_id 
 FROM TokenHolders
-WHERE token_id = ?
+WHERE token_id = $1
 ORDER BY block_id DESC
 LIMIT 1
 `
@@ -115,7 +115,7 @@ func (q *Queries) LastBlockByTokenID(ctx context.Context, tokenID annotations.Ad
 const paginatedHolders = `-- name: PaginatedHolders :many
 SELECT id FROM Holders
 ORDER BY id
-LIMIT ? OFFSET ?
+LIMIT $1 OFFSET $2
 `
 
 type PaginatedHoldersParams struct {
@@ -150,7 +150,7 @@ const tokenHolderByTokenIDAndBlockIDAndHolderID = `-- name: TokenHolderByTokenID
 SELECT holders.id, TokenHolders.balance
 FROM Holders
 JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.holder_id = ? AND TokenHolders.block_id = ?
+WHERE TokenHolders.token_id = $1 AND TokenHolders.holder_id = $2 AND TokenHolders.block_id = $3
 `
 
 type TokenHolderByTokenIDAndBlockIDAndHolderIDParams struct {
@@ -175,7 +175,7 @@ const tokenHolderByTokenIDAndHolderID = `-- name: TokenHolderByTokenIDAndHolderI
 SELECT holders.id, TokenHolders.balance
 FROM Holders
 JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.holder_id = ?
+WHERE TokenHolders.token_id = $1 AND TokenHolders.holder_id = $2
 `
 
 type TokenHolderByTokenIDAndHolderIDParams struct {
@@ -199,8 +199,8 @@ const tokenHoldersByTokenID = `-- name: TokenHoldersByTokenID :many
 SELECT holders.id, TokenHolders.balance
 FROM Holders
 JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ?
-LIMIT ? OFFSET ?
+WHERE TokenHolders.token_id = $1
+LIMIT $2 OFFSET $3
 `
 
 type TokenHoldersByTokenIDParams struct {
@@ -241,8 +241,8 @@ const tokenHoldersByTokenIDAndBlockID = `-- name: TokenHoldersByTokenIDAndBlockI
 SELECT holders.id
 FROM Holders
 JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.block_id = ?
-LIMIT ? OFFSET ?
+WHERE TokenHolders.token_id = $1 AND TokenHolders.block_id = $2
+LIMIT $3 OFFSET $4
 `
 
 type TokenHoldersByTokenIDAndBlockIDParams struct {
@@ -284,8 +284,8 @@ const tokenHoldersByTokenIDAndBlockIDAndMinBalance = `-- name: TokenHoldersByTok
 SELECT holders.id
 FROM Holders
 JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.balance >= ? AND TokenHolders.block_id = ?
-LIMIT ? OFFSET ?
+WHERE TokenHolders.token_id = $1 AND TokenHolders.balance >= $2 AND TokenHolders.block_id = $3
+LIMIT $4 OFFSET $5
 `
 
 type TokenHoldersByTokenIDAndBlockIDAndMinBalanceParams struct {
@@ -329,8 +329,8 @@ const tokenHoldersByTokenIDAndMinBalance = `-- name: TokenHoldersByTokenIDAndMin
 SELECT holders.id
 FROM Holders
 JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.balance >= ?
-LIMIT ? OFFSET ?
+WHERE TokenHolders.token_id = $1 AND TokenHolders.balance >= $2
+LIMIT $3 OFFSET $4
 `
 
 type TokenHoldersByTokenIDAndMinBalanceParams struct {
@@ -371,7 +371,7 @@ func (q *Queries) TokenHoldersByTokenIDAndMinBalance(ctx context.Context, arg To
 const tokenHoldersPaginated = `-- name: TokenHoldersPaginated :many
 SELECT token_id, holder_id, balance, block_id FROM TokenHolders
 ORDER BY token_id, holder_id, block_id
-LIMIT ? OFFSET ?
+LIMIT $1 OFFSET $2
 `
 
 type TokenHoldersPaginatedParams struct {
@@ -411,8 +411,8 @@ const tokensByHolderID = `-- name: TokensByHolderID :many
 SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id
 FROM Tokens
 JOIN TokenHolders ON Tokens.id = TokenHolders.token_id
-WHERE TokenHolders.holder_id = ?
-LIMIT ? OFFSET ?
+WHERE TokenHolders.holder_id = $1
+LIMIT $2 OFFSET $3
 `
 
 type TokensByHolderIDParams struct {
@@ -456,8 +456,8 @@ const tokensByHolderIDAndBlockID = `-- name: TokensByHolderIDAndBlockID :many
 SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id
 FROM Tokens
 JOIN TokenHolders ON Tokens.id = TokenHolders.token_id
-WHERE TokenHolders.holder_id = ? AND TokenHolders.block_id = ?
-LIMIT ? OFFSET ?
+WHERE TokenHolders.holder_id = $1 AND TokenHolders.block_id = $2
+LIMIT $3 OFFSET $4
 `
 
 type TokensByHolderIDAndBlockIDParams struct {
@@ -505,9 +505,9 @@ func (q *Queries) TokensByHolderIDAndBlockID(ctx context.Context, arg TokensByHo
 
 const updateTokenHolder = `-- name: UpdateTokenHolder :execresult
 UPDATE TokenHolders
-SET balance = ?,
-    block_id = ?
-WHERE token_id = ? AND holder_id = ? AND block_id = ?
+SET balance = $1,
+    block_id = $2
+WHERE token_id = $3 AND holder_id = $4 AND block_id = $2
 `
 
 type UpdateTokenHolderParams struct {
@@ -523,6 +523,5 @@ func (q *Queries) UpdateTokenHolder(ctx context.Context, arg UpdateTokenHolderPa
 		arg.BlockID,
 		arg.TokenID,
 		arg.HolderID,
-		arg.BlockID,
 	)
 }

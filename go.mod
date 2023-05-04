@@ -3,10 +3,10 @@ module github.com/vocdoni/census3
 go 1.20
 
 require (
-	git.sr.ht/~sircmpwn/go-bare v0.0.0-20210406120253-ab86bc2846d9
 	github.com/ethereum/go-ethereum v1.11.5
 	github.com/frankban/quicktest v1.14.4
 	github.com/google/uuid v1.3.0
+	github.com/lib/pq v1.10.7
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/pressly/goose/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5

@@ -23,23 +23,24 @@ func main() {
 	url := flag.String("url", "", "ethereum web3 url")
 	dataDir := flag.String("dataDir", home, "data directory for persistent storage")
 	logLevel := flag.String("logLevel", "info", "log level (debug, info, warn, error)")
+	dbEngine := flag.String("dbEngine", "sqlite3", "database engine (sqlite3, postgres)")
 	port := flag.Int("port", 7788, "HTTP port for the API")
 	flag.Parse()
 	log.Init(*logLevel, "stdout")
 
-	db, err := db.Init(*dataDir)
+	database, err := db.Init(db.StringToEngine[*dbEngine], *dataDir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the holder scanner
-	hc, err := service.NewHoldersScanner(db, *url)
+	hc, err := service.NewHoldersScanner(database, *url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the API
-	err = api.Init(db, api.Census3APIConf{
+	err = api.Init(database, api.Census3APIConf{
 		Hostname: "0.0.0.0",
 		Port:     *port,
 		DataDir:  *dataDir,

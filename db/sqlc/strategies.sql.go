@@ -14,7 +14,7 @@ import (
 
 const createStategy = `-- name: CreateStategy :execresult
 INSERT INTO Strategies (predicate)
-VALUES (?)
+VALUES ($1)
 `
 
 func (q *Queries) CreateStategy(ctx context.Context, predicate string) (sql.Result, error) {
@@ -29,7 +29,7 @@ INSERT INTO StrategyTokens (
     method_hash
 )
 VALUES (
-    ?, ?, ?, ?
+    $1, $2, $3, $4
 )
 `
 
@@ -51,7 +51,7 @@ func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTok
 
 const deleteStrategy = `-- name: DeleteStrategy :execresult
 DELETE FROM Strategies
-WHERE id = ?
+WHERE id = $1
 `
 
 func (q *Queries) DeleteStrategy(ctx context.Context, id int64) (sql.Result, error) {
@@ -60,7 +60,7 @@ func (q *Queries) DeleteStrategy(ctx context.Context, id int64) (sql.Result, err
 
 const deleteStrategyToken = `-- name: DeleteStrategyToken :execresult
 DELETE FROM StrategyTokens
-WHERE strategy_id = ? AND token_id = ?
+WHERE strategy_id = $1 AND token_id = $2
 `
 
 type DeleteStrategyTokenParams struct {
@@ -75,7 +75,7 @@ func (q *Queries) DeleteStrategyToken(ctx context.Context, arg DeleteStrategyTok
 const paginatedStrategies = `-- name: PaginatedStrategies :many
 SELECT id, predicate FROM Strategies
 ORDER BY id
-LIMIT ? OFFSET ?
+LIMIT $1 OFFSET $2
 `
 
 type PaginatedStrategiesParams struct {
@@ -109,9 +109,9 @@ func (q *Queries) PaginatedStrategies(ctx context.Context, arg PaginatedStrategi
 const paginatedStrategiesByTokenID = `-- name: PaginatedStrategiesByTokenID :many
 SELECT s.id, s.predicate FROM Strategies s
 JOIN StrategyTokens st ON st.strategy_id = s.id
-WHERE st.token_id = ?
+WHERE st.token_id = $1
 ORDER BY s.id
-LIMIT ? OFFSET ?
+LIMIT $2 OFFSET $3
 `
 
 type PaginatedStrategiesByTokenIDParams struct {
@@ -147,7 +147,7 @@ const paginatedStrategyTokens = `-- name: PaginatedStrategyTokens :many
 SELECT strategy_id, token_id, min_balance, method_hash
 FROM StrategyTokens
 ORDER BY strategy_id, token_id
-LIMIT ? OFFSET ?
+LIMIT $1 OFFSET $2
 `
 
 type PaginatedStrategyTokensParams struct {
@@ -185,7 +185,7 @@ func (q *Queries) PaginatedStrategyTokens(ctx context.Context, arg PaginatedStra
 
 const strategyByID = `-- name: StrategyByID :one
 SELECT id, predicate FROM Strategies
-WHERE id = ?
+WHERE id = $1
 LIMIT 1
 `
 
@@ -198,7 +198,7 @@ func (q *Queries) StrategyByID(ctx context.Context, id int64) (Strategy, error) 
 
 const strategyByPredicate = `-- name: StrategyByPredicate :one
 SELECT id, predicate FROM Strategies
-WHERE predicate = ?
+WHERE predicate = $1
 LIMIT 1
 `
 
@@ -212,7 +212,7 @@ func (q *Queries) StrategyByPredicate(ctx context.Context, predicate string) (St
 const strategyTokenByStrategyIDAndTokenID = `-- name: StrategyTokenByStrategyIDAndTokenID :one
 SELECT strategy_id, token_id, min_balance, method_hash
 FROM StrategyTokens
-WHERE strategy_id = ? AND token_id = ?
+WHERE strategy_id = $1 AND token_id = $2
 LIMIT 1
 `
 
@@ -236,7 +236,7 @@ func (q *Queries) StrategyTokenByStrategyIDAndTokenID(ctx context.Context, arg S
 const strategyTokenByStrategyIDAndTokenIDAndMethodHash = `-- name: StrategyTokenByStrategyIDAndTokenIDAndMethodHash :one
 SELECT strategy_id, token_id, min_balance, method_hash
 FROM StrategyTokens
-WHERE strategy_id = ? AND token_id = ? AND method_hash = ?
+WHERE strategy_id = $1 AND token_id = $2 AND method_hash = $3
 `
 
 type StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams struct {
@@ -259,8 +259,8 @@ func (q *Queries) StrategyTokenByStrategyIDAndTokenIDAndMethodHash(ctx context.C
 
 const updateStrategy = `-- name: UpdateStrategy :execresult
 UPDATE Strategies
-SET predicate = ?
-WHERE id = ?
+SET predicate = $1
+WHERE id = $2
 `
 
 type UpdateStrategyParams struct {
@@ -274,9 +274,9 @@ func (q *Queries) UpdateStrategy(ctx context.Context, arg UpdateStrategyParams) 
 
 const updateStrategyToken = `-- name: UpdateStrategyToken :execresult
 UPDATE StrategyTokens
-SET min_balance = ?,
-    method_hash = ?
-WHERE strategy_id = ? AND token_id = ?
+SET min_balance = $1,
+    method_hash = $2
+WHERE strategy_id = $3 AND token_id = $4
 `
 
 type UpdateStrategyTokenParams struct {

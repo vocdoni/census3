@@ -23,7 +23,7 @@ INSERT INTO Tokens (
     type_id
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?
+    $1, $2, $3, $4, $5, $6, $7
 )
 `
 
@@ -31,7 +31,7 @@ type CreateTokenParams struct {
 	ID            annotations.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt32
+	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64
@@ -51,7 +51,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.R
 
 const deleteToken = `-- name: DeleteToken :execresult
 DELETE FROM Tokens
-WHERE id = ?
+WHERE id = $1
 `
 
 func (q *Queries) DeleteToken(ctx context.Context, id annotations.Address) (sql.Result, error) {
@@ -61,7 +61,7 @@ func (q *Queries) DeleteToken(ctx context.Context, id annotations.Address) (sql.
 const paginatedTokens = `-- name: PaginatedTokens :many
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
 ORDER BY type_id, name
-LIMIT ? OFFSET ?
+LIMIT $1 OFFSET $2
 `
 
 type PaginatedTokensParams struct {
@@ -102,7 +102,7 @@ func (q *Queries) PaginatedTokens(ctx context.Context, arg PaginatedTokensParams
 
 const tokenByID = `-- name: TokenByID :one
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
-WHERE id = ?
+WHERE id = $1
 LIMIT 1
 `
 
@@ -123,7 +123,7 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 
 const tokenByName = `-- name: TokenByName :one
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
-WHERE name = ?
+WHERE name = $1
 LIMIT 1
 `
 
@@ -144,7 +144,7 @@ func (q *Queries) TokenByName(ctx context.Context, name sql.NullString) (Token, 
 
 const tokenBySymbol = `-- name: TokenBySymbol :one
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
-WHERE symbol = ?
+WHERE symbol = $1
 LIMIT 1
 `
 
@@ -166,9 +166,9 @@ func (q *Queries) TokenBySymbol(ctx context.Context, symbol sql.NullString) (Tok
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
 SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM Tokens t
 JOIN StrategyTokens st ON st.token_id = t.id
-WHERE st.strategy_id = ?
+WHERE st.strategy_id = $1
 ORDER BY t.name
-LIMIT ? OFFSET ?
+LIMIT $2 OFFSET $3
 `
 
 type TokensByStrategyIDParams struct {
@@ -181,7 +181,7 @@ type TokensByStrategyIDRow struct {
 	ID            annotations.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt32
+	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64
@@ -228,9 +228,9 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, arg TokensByStrategyID
 
 const tokensByType = `-- name: TokensByType :many
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
-WHERE type_id = ?
+WHERE type_id = $1
 ORDER BY name
-LIMIT ? OFFSET ?
+LIMIT $2 OFFSET $3
 `
 
 type TokensByTypeParams struct {
@@ -272,19 +272,19 @@ func (q *Queries) TokensByType(ctx context.Context, arg TokensByTypeParams) ([]T
 
 const updateToken = `-- name: UpdateToken :execresult
 UPDATE Tokens
-SET name = ?,
-    symbol = ?,
-    decimals = ?,
-    total_supply = ?,
-    creation_block = ?,
-    type_id = ?
-WHERE id = ?
+SET name = $1,
+    symbol = $2,
+    decimals = $3,
+    total_supply = $4,
+    creation_block = $5,
+    type_id = $6
+WHERE id = $7
 `
 
 type UpdateTokenParams struct {
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt32
+	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64

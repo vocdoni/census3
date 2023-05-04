@@ -55,7 +55,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		tokens.Tokens = append(tokens.Tokens, GetTokenResponse{
 			ID:         common.BytesToAddress(tokenData.ID).String(),
 			Type:       state.TokenType(int(tokenData.TypeID)).String(),
-			Decimals:   uint64(tokenData.Decimals.Int32),
+			Decimals:   uint64(tokenData.Decimals.Int64),
 			StartBlock: uint64(tokenData.CreationBlock),
 			Name:       tokenData.Name.String,
 		})
@@ -97,7 +97,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	var (
 		name     = new(sql.NullString)
 		symbol   = new(sql.NullString)
-		decimals = new(sql.NullInt32)
+		decimals = new(sql.NullInt64)
 	)
 	if err := name.Scan(info.Name); err != nil {
 		log.Errorw(ErrCantGetToken, err.Error())
@@ -170,7 +170,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	res, err := json.Marshal(GetTokenResponse{
 		ID:          address.String(),
 		Type:        state.TokenType(int(tokenData.TypeID)).String(),
-		Decimals:    uint64(tokenData.Decimals.Int32),
+		Decimals:    uint64(tokenData.Decimals.Int64),
 		StartBlock:  uint64(tokenData.CreationBlock),
 		Name:        tokenData.Name.String,
 		Symbol:      tokenData.Symbol.String,

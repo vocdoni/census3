@@ -11,8 +11,8 @@ import (
 )
 
 const createTokenType = `-- name: CreateTokenType :execresult
-INSERT INTO TokenTypes (type_name)
-VALUES ($1)
+INSERT INTO token_types (type_name)
+VALUES (?)
 `
 
 func (q *Queries) CreateTokenType(ctx context.Context, typeName string) (sql.Result, error) {
@@ -20,34 +20,28 @@ func (q *Queries) CreateTokenType(ctx context.Context, typeName string) (sql.Res
 }
 
 const deleteTokenType = `-- name: DeleteTokenType :execresult
-DELETE FROM TokenTypes
-WHERE id = $1
+DELETE FROM token_types
+WHERE id = ?
 `
 
 func (q *Queries) DeleteTokenType(ctx context.Context, id int64) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteTokenType, id)
 }
 
-const paginatedTokenTypes = `-- name: PaginatedTokenTypes :many
-SELECT id, type_name FROM TokenTypes
+const listTokenTypes = `-- name: ListTokenTypes :many
+SELECT id, type_name FROM token_types
 ORDER BY id
-LIMIT $1 OFFSET $2
 `
 
-type PaginatedTokenTypesParams struct {
-	Limit  int32
-	Offset int32
-}
-
-func (q *Queries) PaginatedTokenTypes(ctx context.Context, arg PaginatedTokenTypesParams) ([]Tokentype, error) {
-	rows, err := q.db.QueryContext(ctx, paginatedTokenTypes, arg.Limit, arg.Offset)
+func (q *Queries) ListTokenTypes(ctx context.Context) ([]TokenType, error) {
+	rows, err := q.db.QueryContext(ctx, listTokenTypes)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Tokentype
+	var items []TokenType
 	for rows.Next() {
-		var i Tokentype
+		var i TokenType
 		if err := rows.Scan(&i.ID, &i.TypeName); err != nil {
 			return nil, err
 		}
@@ -63,35 +57,35 @@ func (q *Queries) PaginatedTokenTypes(ctx context.Context, arg PaginatedTokenTyp
 }
 
 const tokenTypeByID = `-- name: TokenTypeByID :one
-SELECT id, type_name FROM TokenTypes
-WHERE id = $1
+SELECT id, type_name FROM token_types
+WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) TokenTypeByID(ctx context.Context, id int64) (Tokentype, error) {
+func (q *Queries) TokenTypeByID(ctx context.Context, id int64) (TokenType, error) {
 	row := q.db.QueryRowContext(ctx, tokenTypeByID, id)
-	var i Tokentype
+	var i TokenType
 	err := row.Scan(&i.ID, &i.TypeName)
 	return i, err
 }
 
 const tokenTypeByName = `-- name: TokenTypeByName :one
-SELECT id, type_name FROM TokenTypes
-WHERE type_name = $1
+SELECT id, type_name FROM token_types
+WHERE type_name = ?
 LIMIT 1
 `
 
-func (q *Queries) TokenTypeByName(ctx context.Context, typeName string) (Tokentype, error) {
+func (q *Queries) TokenTypeByName(ctx context.Context, typeName string) (TokenType, error) {
 	row := q.db.QueryRowContext(ctx, tokenTypeByName, typeName)
-	var i Tokentype
+	var i TokenType
 	err := row.Scan(&i.ID, &i.TypeName)
 	return i, err
 }
 
 const updateTokenType = `-- name: UpdateTokenType :execresult
-UPDATE TokenTypes
-SET type_name = $1
-WHERE id = $2
+UPDATE token_types
+SET type_name = ?
+WHERE id = ?
 `
 
 type UpdateTokenTypeParams struct {

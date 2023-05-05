@@ -1,12 +1,12 @@
 version: 2
 sql:
-- schema: "migrations/sqlite3"
-  queries: "queries/sqlite3"
+- schema: "migrations"
+  queries: "queries"
   engine: "mysql"
   gen:
     go:
       package: "queries"
-      out: "sqlc"
+      out: "../sqlc"
       overrides:
         # Defaults to int32 for integers, which is a bit small, use int64 instead.
         - db_type: "int"

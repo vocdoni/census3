@@ -87,10 +87,7 @@ func (s *HoldersScanner) getTokenAddresses() ([]common.Address, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// get tokens from the database
-	tokens, err := s.sqlc.PaginatedTokens(ctx, queries.PaginatedTokensParams{
-		Limit:  -1,
-		Offset: 0,
-	})
+	tokens, err := s.sqlc.ListTokens(ctx)
 	// if error raises and is no rows error return nil results, if it is not
 	// return the error.
 	if err != nil {
@@ -173,7 +170,9 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 			}
 			_, err = s.sqlc.CreateHolder(ctx, holder.Bytes())
 			if err != nil {
-				if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				// TODO: replace with SQL query to get
+				if strings.Contains(err.Error(), "UNIQUE constraint failed") ||
+					strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 					continue
 				}
 				return err

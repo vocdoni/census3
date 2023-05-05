@@ -35,10 +35,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	defer cancel()
 	// TODO: Support for pagination
 	// get tokens from the database
-	rows, err := capi.sqlc.PaginatedTokens(internalCtx, queries.PaginatedTokensParams{
-		Limit:  -1,
-		Offset: 0,
-	})
+	rows, err := capi.sqlc.ListTokens(internalCtx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoTokens
@@ -151,12 +148,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	}
 
 	// TODO: Only for the MVP, consider to remove it
-	tokenStrategies, err := capi.sqlc.PaginatedStrategiesByTokenID(internalCtx,
-		queries.PaginatedStrategiesByTokenIDParams{
-			TokenID: tokenData.ID,
-			Limit:   -1,
-			Offset:  0,
-		})
+	tokenStrategies, err := capi.sqlc.StrategiesByTokenID(internalCtx, tokenData.ID)
 	log.Info(tokenStrategies)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Errorw(ErrCantGetToken, err.Error())

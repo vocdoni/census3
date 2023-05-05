@@ -1,12 +1,12 @@
 version: 2
 sql:
-- schema: "migrations/postgres"
-  queries: "queries/postgres"
+- schema: "migrations"
+  queries: "queries"
   engine: "postgresql"
   gen:
     go:
       package: "queries"
-      out: "sqlc"
+      out: "../sqlc"
       overrides:
         # Defaults to int32 for integers, which is a bit small, use int64 instead.
         - db_type: "int"

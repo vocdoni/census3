@@ -1,38 +1,35 @@
--- name: PaginatedTokens :many
-SELECT * FROM Tokens
-ORDER BY type_id, name
-LIMIT $1 OFFSET $2;
+-- name: ListTokens :many
+SELECT * FROM tokens
+ORDER BY type_id, name;
 
 -- name: TokenByID :one
-SELECT * FROM Tokens
+SELECT * FROM tokens
 WHERE id = $1
 LIMIT 1;
 
 -- name: TokenByName :one
-SELECT * FROM Tokens
+SELECT * FROM tokens
 WHERE name = $1
 LIMIT 1;
 
 -- name: TokenBySymbol :one
-SELECT * FROM Tokens
+SELECT * FROM tokens
 WHERE symbol = $1
 LIMIT 1;
 
 -- name: TokensByType :many
-SELECT * FROM Tokens
+SELECT * FROM tokens
 WHERE type_id = $1
-ORDER BY name
-LIMIT $2 OFFSET $3;
+ORDER BY name;
 
 -- name: TokensByStrategyID :many
-SELECT t.*, st.* FROM Tokens t
-JOIN StrategyTokens st ON st.token_id = t.id
+SELECT t.*, st.* FROM tokens t
+JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = $1
-ORDER BY t.name
-LIMIT $2 OFFSET $3;
+ORDER BY t.name;
 
 -- name: CreateToken :execresult
-INSERT INTO Tokens (
+INSERT INTO tokens (
     id,
     name,
     symbol,
@@ -46,7 +43,7 @@ VALUES (
 );
 
 -- name: UpdateToken :execresult
-UPDATE Tokens
+UPDATE tokens
 SET name = sqlc.arg(name),
     symbol = sqlc.arg(symbol),
     decimals = sqlc.arg(decimals),
@@ -56,5 +53,5 @@ SET name = sqlc.arg(name),
 WHERE id = sqlc.arg(id);
 
 -- name: DeleteToken :execresult
-DELETE FROM Tokens
+DELETE FROM tokens
 WHERE id = $1;

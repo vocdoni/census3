@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	queries "github.com/vocdoni/census3/db/sqlc"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -33,10 +32,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 	defer cancel()
 	// TODO: Support for pagination
 	// get strategies from the database
-	rows, err := capi.sqlc.PaginatedStrategies(internalCtx, queries.PaginatedStrategiesParams{
-		Limit:  -1,
-		Offset: 0,
-	})
+	rows, err := capi.sqlc.ListStrategies(internalCtx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoStrategies
@@ -89,11 +85,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Tokens:    []GetStrategyToken{},
 	}
 	// get information of the strategy related tokens
-	tokensData, err := capi.sqlc.TokensByStrategyID(internalCtx, queries.TokensByStrategyIDParams{
-		StrategyID: strategyData.ID,
-		Limit:      -1,
-		Offset:     0,
-	})
+	tokensData, err := capi.sqlc.TokensByStrategyID(internalCtx, strategyData.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Errorw(ErrCantGetTokens, err.Error())
 		return ErrCantGetTokens
@@ -125,11 +117,7 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	// get strategies associated to the token provided
-	rows, err := capi.sqlc.PaginatedStrategiesByTokenID(internalCtx, queries.PaginatedStrategiesByTokenIDParams{
-		TokenID: common.HexToAddress(tokenID).Bytes(),
-		Limit:   -1,
-		Offset:  0,
-	})
+	rows, err := capi.sqlc.StrategiesByTokenID(internalCtx, common.HexToAddress(tokenID).Bytes())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoStrategies

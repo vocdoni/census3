@@ -13,8 +13,8 @@ import (
 )
 
 const censusByID = `-- name: CensusByID :one
-SELECT id, strategy_id, merkle_root, uri FROM Censuses
-WHERE id = $1
+SELECT id, strategy_id, merkle_root, uri FROM censuses
+WHERE id = ?
 LIMIT 1
 `
 
@@ -31,8 +31,8 @@ func (q *Queries) CensusByID(ctx context.Context, id int64) (Censuse, error) {
 }
 
 const censusByMerkleRoot = `-- name: CensusByMerkleRoot :one
-SELECT id, strategy_id, merkle_root, uri FROM Censuses
-WHERE merkle_root = $1
+SELECT id, strategy_id, merkle_root, uri FROM censuses
+WHERE merkle_root = ?
 LIMIT 1
 `
 
@@ -49,8 +49,8 @@ func (q *Queries) CensusByMerkleRoot(ctx context.Context, merkleRoot annotations
 }
 
 const censusByStrategyID = `-- name: CensusByStrategyID :many
-SELECT id, strategy_id, merkle_root, uri FROM Censuses
-WHERE strategy_id = $1
+SELECT id, strategy_id, merkle_root, uri FROM censuses
+WHERE strategy_id = ?
 `
 
 func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID int64) ([]Censuse, error) {
@@ -82,8 +82,8 @@ func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID int64) ([]C
 }
 
 const censusByURI = `-- name: CensusByURI :one
-SELECT id, strategy_id, merkle_root, uri FROM Censuses
-WHERE uri = $1
+SELECT id, strategy_id, merkle_root, uri FROM censuses
+WHERE uri = ?
 LIMIT 1
 `
 
@@ -100,25 +100,25 @@ func (q *Queries) CensusByURI(ctx context.Context, uri sql.NullString) (Censuse,
 }
 
 const censusesByStrategyIDAndBlockID = `-- name: CensusesByStrategyIDAndBlockID :many
-SELECT c.id, c.strategy_id, c.merkle_root, c.uri FROM Censuses c
-JOIN CensusBlocks cb ON c.id = cb.census_id
-WHERE c.strategy_id = $3 AND cb.block_id = $4
-LIMIT $1 OFFSET $2
+SELECT c.id, c.strategy_id, c.merkle_root, c.uri FROM censuses c
+JOIN census_blocks cb ON c.id = cb.census_id
+WHERE c.strategy_id = ? AND cb.block_id = ?
+LIMIT ? OFFSET ?
 `
 
 type CensusesByStrategyIDAndBlockIDParams struct {
-	Limit      int32
-	Offset     int32
 	StrategyID int64
 	BlockID    int64
+	Limit      int32
+	Offset     int32
 }
 
 func (q *Queries) CensusesByStrategyIDAndBlockID(ctx context.Context, arg CensusesByStrategyIDAndBlockIDParams) ([]Censuse, error) {
 	rows, err := q.db.QueryContext(ctx, censusesByStrategyIDAndBlockID,
-		arg.Limit,
-		arg.Offset,
 		arg.StrategyID,
 		arg.BlockID,
+		arg.Limit,
+		arg.Offset,
 	)
 	if err != nil {
 		return nil, err
@@ -147,20 +147,56 @@ func (q *Queries) CensusesByStrategyIDAndBlockID(ctx context.Context, arg Census
 }
 
 const censusesByTokenID = `-- name: CensusesByTokenID :many
-SELECT c.id, c.strategy_id, c.merkle_root, c.uri FROM Censuses AS c
-JOIN StrategyTokens AS st ON c.strategy_id = st.strategy_id
-WHERE st.token_id = $3
-LIMIT $1 OFFSET $2
+SELECT c.id, c.strategy_id, c.merkle_root, c.uri FROM censuses AS c
+JOIN strategy_tokens AS st ON c.strategy_id = st.strategy_id
+WHERE st.token_id = ?
+LIMIT ? OFFSET ?
 `
 
 type CensusesByTokenIDParams struct {
+	TokenID []byte
 	Limit   int32
 	Offset  int32
-	TokenID annotations.Address
 }
 
 func (q *Queries) CensusesByTokenID(ctx context.Context, arg CensusesByTokenIDParams) ([]Censuse, error) {
-	rows, err := q.db.QueryContext(ctx, censusesByTokenID, arg.Limit, arg.Offset, arg.TokenID)
+	rows, err := q.db.QueryContext(ctx, censusesByTokenID, arg.TokenID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Censuse
+	for rows.Next() {
+		var i Censuse
+		if err := rows.Scan(
+			&i.ID,
+			&i.StrategyID,
+			&i.MerkleRoot,
+			&i.Uri,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const censusesByTokenType = `-- name: CensusesByTokenType :many
+SELECT c.id, c.strategy_id, c.merkle_root, c.uri FROM censuses AS c
+JOIN strategy_tokens AS st ON c.strategy_id = st.strategy_id
+JOIN tokens AS t ON st.token_id = t.id
+JOIN token_types AS tt ON t.type_id = tt.id
+WHERE tt.type_name = ?
+`
+
+func (q *Queries) CensusesByTokenType(ctx context.Context, typeName string) ([]Censuse, error) {
+	rows, err := q.db.QueryContext(ctx, censusesByTokenType, typeName)
 	if err != nil {
 		return nil, err
 	}
@@ -188,14 +224,14 @@ func (q *Queries) CensusesByTokenID(ctx context.Context, arg CensusesByTokenIDPa
 }
 
 const createCensus = `-- name: CreateCensus :execresult
-INSERT INTO Censuses (
+INSERT INTO censuses (
     id,
     strategy_id,
     merkle_root,
     uri
 )
 VALUES (
-    $1, $2, $3, $4
+    ?, ?, ?, ?
 )
 `
 
@@ -216,12 +252,12 @@ func (q *Queries) CreateCensus(ctx context.Context, arg CreateCensusParams) (sql
 }
 
 const createCensusBlock = `-- name: CreateCensusBlock :execresult
-INSERT INTO CensusBlocks (
+INSERT INTO census_blocks (
     census_id,
     block_id
 )
 VALUES (
-    $1, $2
+    ?, ?
 )
 `
 
@@ -235,8 +271,8 @@ func (q *Queries) CreateCensusBlock(ctx context.Context, arg CreateCensusBlockPa
 }
 
 const deleteCensus = `-- name: DeleteCensus :execresult
-DELETE FROM Censuses
-WHERE id = $1
+DELETE FROM censuses
+WHERE id = ?
 `
 
 func (q *Queries) DeleteCensus(ctx context.Context, id int64) (sql.Result, error) {
@@ -244,8 +280,8 @@ func (q *Queries) DeleteCensus(ctx context.Context, id int64) (sql.Result, error
 }
 
 const deleteCensusBlock = `-- name: DeleteCensusBlock :execresult
-DELETE FROM CensusBlocks
-WHERE census_id = $1 AND block_id = $2
+DELETE FROM census_blocks
+WHERE census_id = ? AND block_id = ?
 `
 
 type DeleteCensusBlockParams struct {
@@ -259,7 +295,7 @@ func (q *Queries) DeleteCensusBlock(ctx context.Context, arg DeleteCensusBlockPa
 
 const lastCensusID = `-- name: LastCensusID :one
 SELECT strategy_id 
-FROM Censuses 
+FROM censuses 
 ORDER BY strategy_id DESC
 LIMIT 1
 `
@@ -271,19 +307,13 @@ func (q *Queries) LastCensusID(ctx context.Context) (int64, error) {
 	return strategy_id, err
 }
 
-const paginatedCensuses = `-- name: PaginatedCensuses :many
-SELECT id, strategy_id, merkle_root, uri FROM Censuses
+const listCensuses = `-- name: ListCensuses :many
+SELECT id, strategy_id, merkle_root, uri FROM censuses
 ORDER BY id
-LIMIT $1 OFFSET $2
 `
 
-type PaginatedCensusesParams struct {
-	Limit  int32
-	Offset int32
-}
-
-func (q *Queries) PaginatedCensuses(ctx context.Context, arg PaginatedCensusesParams) ([]Censuse, error) {
-	rows, err := q.db.QueryContext(ctx, paginatedCensuses, arg.Limit, arg.Offset)
+func (q *Queries) ListCensuses(ctx context.Context) ([]Censuse, error) {
+	rows, err := q.db.QueryContext(ctx, listCensuses)
 	if err != nil {
 		return nil, err
 	}
@@ -311,11 +341,11 @@ func (q *Queries) PaginatedCensuses(ctx context.Context, arg PaginatedCensusesPa
 }
 
 const updateCensus = `-- name: UpdateCensus :execresult
-UPDATE Censuses
-SET strategy_id = $1,
-    merkle_root = $2,
-    uri = $3
-WHERE id = $4
+UPDATE censuses
+SET strategy_id = ?,
+    merkle_root = ?,
+    uri = ?
+WHERE id = ?
 `
 
 type UpdateCensusParams struct {
@@ -335,10 +365,10 @@ func (q *Queries) UpdateCensus(ctx context.Context, arg UpdateCensusParams) (sql
 }
 
 const updateCensusBlock = `-- name: UpdateCensusBlock :execresult
-UPDATE CensusBlocks
-SET census_id = $1,
-    block_id = $2
-WHERE census_id = $1 AND block_id = $2
+UPDATE census_blocks
+SET census_id = ?,
+    block_id = ?
+WHERE census_id = ? AND block_id = ?
 `
 
 type UpdateCensusBlockParams struct {
@@ -347,5 +377,10 @@ type UpdateCensusBlockParams struct {
 }
 
 func (q *Queries) UpdateCensusBlock(ctx context.Context, arg UpdateCensusBlockParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateCensusBlock, arg.CensusID, arg.BlockID)
+	return q.db.ExecContext(ctx, updateCensusBlock,
+		arg.CensusID,
+		arg.BlockID,
+		arg.CensusID,
+		arg.BlockID,
+	)
 }

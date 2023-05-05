@@ -62,12 +62,7 @@ func (capi *census3API) getTokenHolders(msg *api.APIdata, ctx *httprouter.HTTPCo
 
 	// get token holders from the database
 	addr := common.HexToAddress(ctx.URLParam("address"))
-	dbHolders, err := capi.sqlc.TokenHoldersByTokenID(ctx2,
-		queries.TokenHoldersByTokenIDParams{
-			TokenID: addr.Bytes(),
-			Limit:   -1,
-			Offset:  0,
-		})
+	dbHolders, err := capi.sqlc.TokenHoldersByTokenID(ctx2, addr.Bytes())
 	if err != nil {
 		// if database does not contain any token holder for this token, return
 		// no content, else return generic error.

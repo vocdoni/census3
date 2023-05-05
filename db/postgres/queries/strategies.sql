@@ -1,40 +1,38 @@
--- name: PaginatedStrategies :many
-SELECT * FROM Strategies
-ORDER BY id
-LIMIT $1 OFFSET $2;
+-- name: ListStrategies :many
+SELECT * FROM strategies
+ORDER BY id;
 
 -- name: StrategyByID :one
-SELECT * FROM Strategies
+SELECT * FROM strategies
 WHERE id = $1
 LIMIT 1;
 
 -- name: StrategyByPredicate :one
-SELECT * FROM Strategies
+SELECT * FROM strategies
 WHERE predicate = $1
 LIMIT 1;
 
--- name: PaginatedStrategiesByTokenID :many
-SELECT s.* FROM Strategies s
-JOIN StrategyTokens st ON st.strategy_id = s.id
+-- name: StrategiesByTokenID :many
+SELECT s.* FROM strategies s
+JOIN strategy_tokens st ON st.strategy_id = s.id
 WHERE st.token_id = $1
-ORDER BY s.id
-LIMIT $2 OFFSET $3;
+ORDER BY s.id;
 
 -- name: CreateStategy :execresult
-INSERT INTO Strategies (predicate)
+INSERT INTO strategies (predicate)
 VALUES ($1);
 
 -- name: UpdateStrategy :execresult
-UPDATE Strategies
+UPDATE strategies
 SET predicate = sqlc.arg(predicate)
 WHERE id = sqlc.arg(id);
 
 -- name: DeleteStrategy :execresult
-DELETE FROM Strategies
+DELETE FROM strategies
 WHERE id = $1;
 
 -- name: CreateStrategyToken :execresult
-INSERT INTO StrategyTokens (
+INSERT INTO strategy_tokens (
     strategy_id,
     token_id,
     min_balance,
@@ -45,28 +43,27 @@ VALUES (
 );
 
 -- name: UpdateStrategyToken :execresult
-UPDATE StrategyTokens
+UPDATE strategy_tokens
 SET min_balance = sqlc.arg(min_balance),
     method_hash = sqlc.arg(method_hash)
 WHERE strategy_id = sqlc.arg(strategy_id) AND token_id = sqlc.arg(token_id);
 
 -- name: DeleteStrategyToken :execresult
-DELETE FROM StrategyTokens
+DELETE FROM strategy_tokens
 WHERE strategy_id = $1 AND token_id = $2;
 
--- name: PaginatedStrategyTokens :many
+-- name: StrategyTokens :many
 SELECT *
-FROM StrategyTokens
-ORDER BY strategy_id, token_id
-LIMIT $1 OFFSET $2;
+FROM strategy_tokens
+ORDER BY strategy_id, token_id;
 
 -- name: StrategyTokenByStrategyIDAndTokenID :one 
 SELECT *
-FROM StrategyTokens
+FROM strategy_tokens
 WHERE strategy_id = $1 AND token_id = $2
 LIMIT 1;
 
 -- name: StrategyTokenByStrategyIDAndTokenIDAndMethodHash :one
 SELECT *
-FROM StrategyTokens
+FROM strategy_tokens
 WHERE strategy_id = $1 AND token_id = $2 AND method_hash = $3;

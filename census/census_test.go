@@ -67,7 +67,7 @@ func Test_validateCensus(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !bytes.Equal(tval, val.Bytes()) {
+		if !bytes.Equal(tval, tree.BigIntToBytes(val)) {
 			t.Fatalf("value not equals for %s", addr.String())
 		}
 	}

@@ -68,11 +68,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	// get tokens associated to the strategy
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	strategyTokens, err := capi.sqlc.TokensByStrategyID(internalCtx, queries.TokensByStrategyIDParams{
-		StrategyID: int64(req.StrategyID),
-		Limit:      -1,
-		Offset:     0,
-	})
+	strategyTokens, err := capi.sqlc.TokensByStrategyID(internalCtx, int64(req.StrategyID))
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			log.Errorf("no strategy found for id %d: %w", req.StrategyID, err)
@@ -85,11 +81,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	// create a map to avoid duplicates
 	strategyHolders := map[common.Address]*big.Int{}
 	for _, token := range strategyTokens {
-		holders, err := capi.sqlc.TokenHoldersByTokenID(internalCtx, queries.TokenHoldersByTokenIDParams{
-			TokenID: token.ID,
-			Limit:   -1,
-			Offset:  0,
-		})
+		holders, err := capi.sqlc.TokenHoldersByTokenID(internalCtx, token.ID)
 		if err != nil {
 			if errors.Is(sql.ErrNoRows, err) {
 				continue
@@ -105,7 +97,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 			}
 		}
 	}
-	// get the maximun current census ID to calculate the next one, if any 
+	// get the maximun current census ID to calculate the next one, if any
 	// census has been created yet, continue
 	lastCensusID, err := capi.sqlc.LastCensusID(internalCtx)
 	if err != nil && !errors.Is(sql.ErrNoRows, err) {

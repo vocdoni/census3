@@ -35,10 +35,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	defer cancel()
 	// TODO: Support for pagination
 	// get tokens from the database
-	rows, err := capi.sqlc.PaginatedTokens(internalCtx, queries.PaginatedTokensParams{
-		Limit:  -1,
-		Offset: 0,
-	})
+	rows, err := capi.sqlc.ListTokens(internalCtx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoTokens
@@ -55,7 +52,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		tokens.Tokens = append(tokens.Tokens, GetTokenResponse{
 			ID:         common.BytesToAddress(tokenData.ID).String(),
 			Type:       state.TokenType(int(tokenData.TypeID)).String(),
-			Decimals:   uint64(tokenData.Decimals.Int32),
+			Decimals:   uint64(tokenData.Decimals.Int64),
 			StartBlock: uint64(tokenData.CreationBlock),
 			Name:       tokenData.Name.String,
 		})
@@ -97,7 +94,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	var (
 		name     = new(sql.NullString)
 		symbol   = new(sql.NullString)
-		decimals = new(sql.NullInt32)
+		decimals = new(sql.NullInt64)
 	)
 	if err := name.Scan(info.Name); err != nil {
 		log.Errorw(ErrCantGetToken, err.Error())
@@ -151,12 +148,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	}
 
 	// TODO: Only for the MVP, consider to remove it
-	tokenStrategies, err := capi.sqlc.PaginatedStrategiesByTokenID(internalCtx,
-		queries.PaginatedStrategiesByTokenIDParams{
-			TokenID: tokenData.ID,
-			Limit:   -1,
-			Offset:  0,
-		})
+	tokenStrategies, err := capi.sqlc.StrategiesByTokenID(internalCtx, tokenData.ID)
 	log.Info(tokenStrategies)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Errorw(ErrCantGetToken, err.Error())
@@ -170,7 +162,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	res, err := json.Marshal(GetTokenResponse{
 		ID:          address.String(),
 		Type:        state.TokenType(int(tokenData.TypeID)).String(),
-		Decimals:    uint64(tokenData.Decimals.Int32),
+		Decimals:    uint64(tokenData.Decimals.Int64),
 		StartBlock:  uint64(tokenData.CreationBlock),
 		Name:        tokenData.Name.String,
 		Symbol:      tokenData.Symbol.String,

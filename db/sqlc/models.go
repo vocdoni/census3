@@ -16,12 +16,12 @@ type Block struct {
 	RootHash  annotations.Hash
 }
 
-type Censusblock struct {
+type CensusBlock struct {
 	CensusID int64
 	BlockID  int64
 }
 
-type Censuses struct {
+type Censuse struct {
 	ID         int64
 	StrategyID int64
 	MerkleRoot annotations.Hash
@@ -37,31 +37,31 @@ type Strategy struct {
 	Predicate string
 }
 
-type Strategytoken struct {
+type StrategyToken struct {
 	StrategyID int64
-	TokenID    annotations.Address
-	MinBalance annotations.BigInt
-	MethodHash annotations.MethodHash
+	TokenID    []byte
+	MinBalance []byte
+	MethodHash []byte
 }
 
 type Token struct {
 	ID            annotations.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt32
+	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64
 }
 
-type Tokenholder struct {
-	TokenID  annotations.Address
-	HolderID annotations.Address
-	Balance  annotations.BigInt
+type TokenHolder struct {
+	TokenID  []byte
+	HolderID []byte
+	Balance  []byte
 	BlockID  int64
 }
 
-type Tokentype struct {
+type TokenType struct {
 	ID       int64
 	TypeName string
 }

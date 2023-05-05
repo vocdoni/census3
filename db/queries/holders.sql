@@ -1,94 +1,86 @@
--- name: PaginatedHolders :many
-SELECT * FROM Holders
-ORDER BY id
-LIMIT ? OFFSET ?;
+-- name: ListHolders :many
+SELECT * FROM holders
+ORDER BY id;
 
 -- name: HolderByID :one
-SELECT * FROM Holders
+SELECT * FROM holders
 WHERE id = ?
 LIMIT 1;
 
 -- name: CreateHolder :execresult
-INSERT INTO Holders (id)
+INSERT INTO holders (id)
 VALUES (?);
 
 -- name: DeleteHolder :execresult
-DELETE FROM Holders
+DELETE FROM holders
 WHERE id = ?;
 
--- name: TokenHoldersPaginated :many
-SELECT * FROM TokenHolders
-ORDER BY token_id, holder_id, block_id
-LIMIT ? OFFSET ?;
+-- name: ListTokenHolders :many
+SELECT * FROM token_holders
+ORDER BY token_id, holder_id, block_id;
 
 -- name: TokensByHolderID :many
-SELECT Tokens.*
+SELECT tokens.*
 FROM Tokens
-JOIN TokenHolders ON Tokens.id = TokenHolders.token_id
-WHERE TokenHolders.holder_id = ?
-LIMIT ? OFFSET ?;
+JOIN token_holders ON tokens.id = token_holders.token_id
+WHERE token_holders.holder_id = ?;
 
 -- name: TokensByHolderIDAndBlockID :many
-SELECT Tokens.*
+SELECT tokens.*
 FROM Tokens
-JOIN TokenHolders ON Tokens.id = TokenHolders.token_id
-WHERE TokenHolders.holder_id = ? AND TokenHolders.block_id = ?
-LIMIT ? OFFSET ?;
+JOIN token_holders ON tokens.id = token_holders.token_id
+WHERE token_holders.holder_id = ? AND token_holders.block_id = ?;
 
 -- name: TokenHoldersByTokenID :many
-SELECT Holders.*, TokenHolders.balance
-FROM Holders
-JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ?
-LIMIT ? OFFSET ?;
+SELECT holders.*, token_holders.balance
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ?;
 
 -- name: TokenHoldersByTokenIDAndBlockID :many
-SELECT Holders.*
-FROM Holders
-JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.block_id = ?
-LIMIT ? OFFSET ?;
+SELECT holders.*
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.block_id = ?;
 
 -- name: TokenHoldersByTokenIDAndMinBalance :many
-SELECT Holders.*
-FROM Holders
-JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.balance >= ?
-LIMIT ? OFFSET ?;
+SELECT holders.*
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.balance >= ?;
 
 -- name: TokenHoldersByTokenIDAndBlockIDAndMinBalance :many
-SELECT Holders.*
-FROM Holders
-JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.balance >= ? AND TokenHolders.block_id = ?
-LIMIT ? OFFSET ?;
+SELECT holders.*
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.balance >= ? AND token_holders.block_id = ?;
 
 -- name: TokenHolderByTokenIDAndHolderID :one
-SELECT Holders.*, TokenHolders.balance
-FROM Holders
-JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.holder_id = ?;
+SELECT holders.*, token_holders.balance
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.holder_id = ?;
 
 -- name: TokenHolderByTokenIDAndBlockIDAndHolderID :one
-SELECT Holders.*, TokenHolders.balance
-FROM Holders
-JOIN TokenHolders ON Holders.id = TokenHolders.holder_id
-WHERE TokenHolders.token_id = ? AND TokenHolders.holder_id = ? AND TokenHolders.block_id = ?;
+SELECT holders.*, token_holders.balance
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.holder_id = ? AND token_holders.block_id = ?;
 
 -- name: LastBlockByTokenID :one
 SELECT block_id 
-FROM TokenHolders
+FROM token_holders
 WHERE token_id = ?
 ORDER BY block_id DESC
 LIMIT 1;
 
 -- name: CountTokenHoldersByTokenID :one
 SELECT COUNT(holder_id) 
-FROM TokenHolders
+FROM token_holders
 WHERE token_id = ?;
 
 -- name: CreateTokenHolder :execresult
-INSERT INTO TokenHolders (
+INSERT INTO token_holders (
     token_id,
     holder_id,
     balance,
@@ -99,11 +91,11 @@ VALUES (
 );
 
 -- name: UpdateTokenHolder :execresult
-UPDATE TokenHolders
+UPDATE token_holders
 SET balance = sqlc.arg(balance),
     block_id = sqlc.arg(block_id)
 WHERE token_id = sqlc.arg(token_id) AND holder_id = sqlc.arg(holder_id) AND block_id = sqlc.arg(block_id);
 
 -- name: DeleteTokenHolder :execresult
-DELETE FROM TokenHolders
+DELETE FROM token_holders
 WHERE token_id = ? AND holder_id = ?;

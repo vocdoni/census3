@@ -13,7 +13,7 @@ import (
 )
 
 const createToken = `-- name: CreateToken :execresult
-INSERT INTO Tokens (
+INSERT INTO tokens (
     id,
     name,
     symbol,
@@ -31,7 +31,7 @@ type CreateTokenParams struct {
 	ID            annotations.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt32
+	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64
@@ -50,7 +50,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.R
 }
 
 const deleteToken = `-- name: DeleteToken :execresult
-DELETE FROM Tokens
+DELETE FROM tokens
 WHERE id = ?
 `
 
@@ -58,19 +58,13 @@ func (q *Queries) DeleteToken(ctx context.Context, id annotations.Address) (sql.
 	return q.db.ExecContext(ctx, deleteToken, id)
 }
 
-const paginatedTokens = `-- name: PaginatedTokens :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
+const listTokens = `-- name: ListTokens :many
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
 ORDER BY type_id, name
-LIMIT ? OFFSET ?
 `
 
-type PaginatedTokensParams struct {
-	Limit  int32
-	Offset int32
-}
-
-func (q *Queries) PaginatedTokens(ctx context.Context, arg PaginatedTokensParams) ([]Token, error) {
-	rows, err := q.db.QueryContext(ctx, paginatedTokens, arg.Limit, arg.Offset)
+func (q *Queries) ListTokens(ctx context.Context) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, listTokens)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +95,7 @@ func (q *Queries) PaginatedTokens(ctx context.Context, arg PaginatedTokensParams
 }
 
 const tokenByID = `-- name: TokenByID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
 WHERE id = ?
 LIMIT 1
 `
@@ -122,7 +116,7 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 }
 
 const tokenByName = `-- name: TokenByName :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
 WHERE name = ?
 LIMIT 1
 `
@@ -143,7 +137,7 @@ func (q *Queries) TokenByName(ctx context.Context, name sql.NullString) (Token, 
 }
 
 const tokenBySymbol = `-- name: TokenBySymbol :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
 WHERE symbol = ?
 LIMIT 1
 `
@@ -164,35 +158,28 @@ func (q *Queries) TokenBySymbol(ctx context.Context, symbol sql.NullString) (Tok
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM Tokens t
-JOIN StrategyTokens st ON st.token_id = t.id
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM tokens t
+JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
-LIMIT ? OFFSET ?
 `
-
-type TokensByStrategyIDParams struct {
-	StrategyID int64
-	Limit      int32
-	Offset     int32
-}
 
 type TokensByStrategyIDRow struct {
 	ID            annotations.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt32
+	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64
 	StrategyID    int64
-	TokenID       annotations.Address
-	MinBalance    annotations.BigInt
-	MethodHash    annotations.MethodHash
+	TokenID       []byte
+	MinBalance    []byte
+	MethodHash    []byte
 }
 
-func (q *Queries) TokensByStrategyID(ctx context.Context, arg TokensByStrategyIDParams) ([]TokensByStrategyIDRow, error) {
-	rows, err := q.db.QueryContext(ctx, tokensByStrategyID, arg.StrategyID, arg.Limit, arg.Offset)
+func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID int64) ([]TokensByStrategyIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, tokensByStrategyID, strategyID)
 	if err != nil {
 		return nil, err
 	}
@@ -227,20 +214,13 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, arg TokensByStrategyID
 }
 
 const tokensByType = `-- name: TokensByType :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM Tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
 WHERE type_id = ?
 ORDER BY name
-LIMIT ? OFFSET ?
 `
 
-type TokensByTypeParams struct {
-	TypeID int64
-	Limit  int32
-	Offset int32
-}
-
-func (q *Queries) TokensByType(ctx context.Context, arg TokensByTypeParams) ([]Token, error) {
-	rows, err := q.db.QueryContext(ctx, tokensByType, arg.TypeID, arg.Limit, arg.Offset)
+func (q *Queries) TokensByType(ctx context.Context, typeID int64) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, tokensByType, typeID)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +251,7 @@ func (q *Queries) TokensByType(ctx context.Context, arg TokensByTypeParams) ([]T
 }
 
 const updateToken = `-- name: UpdateToken :execresult
-UPDATE Tokens
+UPDATE tokens
 SET name = ?,
     symbol = ?,
     decimals = ?,
@@ -284,7 +264,7 @@ WHERE id = ?
 type UpdateTokenParams struct {
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt32
+	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64

@@ -13,7 +13,7 @@ import (
 )
 
 const blockByID = `-- name: BlockByID :one
-SELECT id, timestamp, root_hash FROM Blocks
+SELECT id, timestamp, root_hash FROM blocks
 WHERE id = ?
 LIMIT 1
 `
@@ -26,7 +26,7 @@ func (q *Queries) BlockByID(ctx context.Context, id int64) (Block, error) {
 }
 
 const blockByRootHash = `-- name: BlockByRootHash :one
-SELECT id, timestamp, root_hash FROM Blocks
+SELECT id, timestamp, root_hash FROM blocks
 WHERE root_hash = ?
 LIMIT 1
 `
@@ -39,7 +39,7 @@ func (q *Queries) BlockByRootHash(ctx context.Context, rootHash annotations.Hash
 }
 
 const blockByTimestamp = `-- name: BlockByTimestamp :one
-SELECT id, timestamp, root_hash FROM Blocks
+SELECT id, timestamp, root_hash FROM blocks
 WHERE timestamp = ?
 LIMIT 1
 `
@@ -52,7 +52,7 @@ func (q *Queries) BlockByTimestamp(ctx context.Context, timestamp string) (Block
 }
 
 const createBlock = `-- name: CreateBlock :execresult
-INSERT INTO Blocks (
+INSERT INTO blocks (
     id,
     timestamp,
     root_hash
@@ -73,7 +73,7 @@ func (q *Queries) CreateBlock(ctx context.Context, arg CreateBlockParams) (sql.R
 }
 
 const deleteBlock = `-- name: DeleteBlock :execresult
-DELETE FROM Blocks
+DELETE FROM blocks
 WHERE id = ?
 `
 
@@ -82,7 +82,7 @@ func (q *Queries) DeleteBlock(ctx context.Context, id int64) (sql.Result, error)
 }
 
 const lastBlock = `-- name: LastBlock :one
-SELECT id FROM Blocks 
+SELECT id FROM blocks 
 ORDER BY id DESC 
 LIMIT 1
 `
@@ -94,19 +94,13 @@ func (q *Queries) LastBlock(ctx context.Context) (int64, error) {
 	return id, err
 }
 
-const paginatedBlocks = `-- name: PaginatedBlocks :many
-SELECT id, timestamp, root_hash FROM Blocks
+const listBlocks = `-- name: ListBlocks :many
+SELECT id, timestamp, root_hash FROM blocks
 ORDER BY id
-LIMIT ? OFFSET ?
 `
 
-type PaginatedBlocksParams struct {
-	Limit  int32
-	Offset int32
-}
-
-func (q *Queries) PaginatedBlocks(ctx context.Context, arg PaginatedBlocksParams) ([]Block, error) {
-	rows, err := q.db.QueryContext(ctx, paginatedBlocks, arg.Limit, arg.Offset)
+func (q *Queries) ListBlocks(ctx context.Context) ([]Block, error) {
+	rows, err := q.db.QueryContext(ctx, listBlocks)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +123,7 @@ func (q *Queries) PaginatedBlocks(ctx context.Context, arg PaginatedBlocksParams
 }
 
 const updateBlock = `-- name: UpdateBlock :execresult
-UPDATE Blocks
+UPDATE blocks
 SET timestamp = ?,
     root_hash = ?
 WHERE id = ?

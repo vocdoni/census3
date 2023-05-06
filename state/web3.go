@@ -541,3 +541,46 @@ func (w *Web3) GetTokenData() (*TokenData, error) {
 	}
 	return td, nil
 }
+
+// GetContractCreationBlock function calculates the block number where the
+// current was created. It tries to calculate it using the first block (0) and
+// the current last block.
+func (w *Web3) GetContractCreationBlock(ctx context.Context) (uint64, error) {
+	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	log.Debugf("last block number: %d", lastBlockHeader.Number.Uint64())
+	return w.getCreationBlock(ctx, 0, lastBlockHeader.Number.Uint64())
+}
+
+// getCreationBlock function finds the block number of a contract between the
+// bounds provided as start and end blocks.
+func (w *Web3) getCreationBlock(ctx context.Context, start, end uint64) (uint64, error) {
+	// if both block numbers are equal, return its value as birthblock
+	if start == end {
+		return start, nil
+	}
+	// find the middle block between start and end blocks and get the contract
+	// code at this block
+	midBlock := (start + end) / 2
+	codeLen, err := w.SourceCodeLenAt(ctx, midBlock)
+	if err != nil {
+		return 0, err
+	}
+	// if any code is found, keep trying with the lower half of blocks until
+	// find the first. if not, keep trying with the upper half
+	if codeLen > 2 {
+		return w.getCreationBlock(ctx, start, midBlock)
+	} else {
+		return w.getCreationBlock(ctx, midBlock+1, end)
+	}
+}
+
+// SourceCodeLenAt function returns the length of the current contratct bytecode
+// at the block number provided.
+func (w *Web3) SourceCodeLenAt(ctx context.Context, atBlockNumber uint64) (int, error) {
+	blockNumber := new(big.Int).SetUint64(atBlockNumber)
+	sourceCode, err := w.client.CodeAt(ctx, w.contractAddress, blockNumber)
+	return len(sourceCode), err
+}

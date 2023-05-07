@@ -1,6 +1,8 @@
 package api
 
 import (
+	"database/sql"
+
 	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"go.vocdoni.io/dvote/httprouter"
@@ -18,16 +20,18 @@ type Census3APIConf struct {
 type census3API struct {
 	conf     Census3APIConf
 	web3     string
+	db       *sql.DB
 	sqlc     *queries.Queries
 	endpoint *api.API
 	censusDB *census.CensusDB
 }
 
-func Init(db *queries.Queries, conf Census3APIConf) error {
+func Init(db *sql.DB, q *queries.Queries, conf Census3APIConf) error {
 	newAPI := &census3API{
 		conf: conf,
 		web3: conf.Web3URI,
-		sqlc: db,
+		db:   db,
+		sqlc: q,
 	}
 	// create a new http router with the hostname and port provided in the conf
 	r := httprouter.HTTProuter{}

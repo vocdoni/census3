@@ -559,7 +559,7 @@ func (w *Web3) GetContractCreationBlock(ctx context.Context) (uint64, error) {
 func (w *Web3) getCreationBlock(ctx context.Context, start, end uint64) (uint64, error) {
 	// if both block numbers are equal, return its value as birthblock
 	if start == end {
-		return start, nil
+		return start - 1, nil
 	}
 	// find the middle block between start and end blocks and get the contract
 	// code at this block

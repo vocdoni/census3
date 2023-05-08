@@ -108,13 +108,18 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
 	}
+	birthBlock, err := w3.GetContractCreationBlock(internalCtx)
+	if err != nil {
+		log.Errorw(ErrCantGetToken, err.Error())
+		return ErrCantGetToken
+	}
 	_, err = capi.sqlc.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
 		Name:          *name,
 		Symbol:        *symbol,
 		Decimals:      *decimals,
 		TotalSupply:   info.TotalSupply.Bytes(),
-		CreationBlock: int64(req.StartBlock),
+		CreationBlock: int64(birthBlock),
 		TypeID:        int64(tokenType),
 	})
 	if err != nil {

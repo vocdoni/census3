@@ -335,11 +335,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
 				1000*float32(len(blocksToSave))/float32(time.Since(startTime).Milliseconds()))
 			// check if we need to exit because max logs reached for iteration
-			if len(holdersCandidates) > MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION {
-				log.Debug("MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION limit reached... stop scanning")
-				th.BlockDone(fromBlockNumber)
-				return fromBlockNumber, w.submitTokenHolders(th, holdersCandidates, fromBlockNumber)
-			}
 			if logCount > MAX_SCAN_LOGS_PER_ITERATION {
 				log.Debug("MAX_SCAN_LOGS_PER_ITERATION limit reached... stop scanning")
 				th.BlockDone(fromBlockNumber)

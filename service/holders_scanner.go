@@ -241,7 +241,7 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 // address provided. It checks if the address provided already has a
 // TokenHolders state cached, if not, it gets the token information from the
 // HoldersScanner database and caches it. If something expected fails or the
-// scan process ends succesfully, the cached information is stored in the
+// scan process ends successfully, the cached information is stored in the
 // database. If it has no updates, it does not change anything and returns nil.
 func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) error {
 	log.Debugf("scanning contract %s", addr)

@@ -577,7 +577,7 @@ func (w *Web3) getCreationBlock(ctx context.Context, start, end uint64) (uint64,
 	}
 }
 
-// SourceCodeLenAt function returns the length of the current contratct bytecode
+// SourceCodeLenAt function returns the length of the current contract bytecode
 // at the block number provided.
 func (w *Web3) SourceCodeLenAt(ctx context.Context, atBlockNumber uint64) (int, error) {
 	blockNumber := new(big.Int).SetUint64(atBlockNumber)

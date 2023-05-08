@@ -108,7 +108,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
 	}
-	birthBlock, err := w3.GetContractCreationBlock(internalCtx)
+	contractCreationBlock, err := w3.GetContractCreationBlock(internalCtx)
 	if err != nil {
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
@@ -119,7 +119,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Symbol:        *symbol,
 		Decimals:      *decimals,
 		TotalSupply:   info.TotalSupply.Bytes(),
-		CreationBlock: int64(birthBlock),
+		CreationBlock: int64(contractCreationBlock),
 		TypeID:        int64(tokenType),
 	})
 	if err != nil {

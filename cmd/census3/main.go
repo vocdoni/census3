@@ -57,7 +57,7 @@ func main() {
 	<-c
 	log.Warnf("received SIGTERM, exiting at %s", time.Now().Format(time.RFC850))
 	cancel()
-	log.Infof("waiting for routines to end gracefuly...")
+	log.Infof("waiting for routines to end gracefully...")
 	time.Sleep(5 * time.Second)
 	os.Exit(0)
 }

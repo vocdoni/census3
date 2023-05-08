@@ -12,6 +12,7 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/service"
 	"go.vocdoni.io/dvote/log"
+	"go.vocdoni.io/dvote/util"
 )
 
 func main() {
@@ -44,6 +45,8 @@ func main() {
 		Port:     *port,
 		DataDir:  *dataDir,
 		Web3URI:  *url,
+		GroupKey: "vocdonidev",
+		PrivKey:  util.RandomHex(32),
 	})
 	if err != nil {
 		log.Fatal(err)

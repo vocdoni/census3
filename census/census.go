@@ -18,6 +18,7 @@ import (
 	storagelayer "go.vocdoni.io/dvote/data"
 	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/db/metadb"
+	"go.vocdoni.io/dvote/ipfsconnect"
 	"go.vocdoni.io/dvote/log"
 	"go.vocdoni.io/proto/build/go/models"
 )
@@ -93,13 +94,14 @@ type PublishedCensus struct {
 // CensusDB struct envolves the internal trees database and the IPFS handler,
 // required to create and publish censuses.
 type CensusDB struct {
-	treeDB  db.Database
-	storage storagelayer.Storage
+	treeDB   db.Database
+	storage  storagelayer.Storage
+	ipfsConn *ipfsconnect.IPFSConnect
 }
 
 // NewCensusDB function instansiates an new internal tree database that will be
 // located into the directory path provided.
-func NewCensusDB(dataDir string) (*CensusDB, error) {
+func NewCensusDB(dataDir, groupKey, privKey string) (*CensusDB, error) {
 	db, err := metadb.New(db.TypePebble, filepath.Join(dataDir, "censusdb"))
 	if err != nil {
 		log.Errorw(ErrCreatingCensusDB, err.Error())
@@ -111,7 +113,9 @@ func NewCensusDB(dataDir string) (*CensusDB, error) {
 		log.Errorw(ErrInitializingIPFS, err.Error())
 		return nil, ErrInitializingIPFS
 	}
-	return &CensusDB{treeDB: db, storage: storage}, nil
+	ipfsConn := ipfsconnect.New(groupKey, privKey, "libp2p", storage)
+	ipfsConn.Start()
+	return &CensusDB{treeDB: db, storage: storage, ipfsConn: ipfsConn}, nil
 }
 
 // CreateAndPublish function creates a new census tree based on the definition

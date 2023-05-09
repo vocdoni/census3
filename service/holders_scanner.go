@@ -70,7 +70,13 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 				continue
 			}
 			// scan for new holders of every token
-			for _, addr := range tokens {
+			for addr, ready := range tokens {
+				if !ready {
+					if err := s.calcTokenCreationBlock(ctx, addr); err != nil {
+						log.Error(err)
+						continue
+					}
+				}
 				if err := s.scanHolders(ctx, addr); err != nil {
 					log.Error(err)
 				}
@@ -85,11 +91,11 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 // and returns it as a list of common.Address structs. If the current database
 // instance does not contain any token, it returns nil addresses without error.
 // This behaviour helps to deal with this particular case.
-func (s *HoldersScanner) getTokenAddresses() ([]common.Address, error) {
+func (s *HoldersScanner) getTokenAddresses() (map[common.Address]bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// get tokens from the database
-	tokens, err := s.sqlc.ListReadyTokens(ctx)
+	tokens, err := s.sqlc.ListTokens(ctx)
 	// if error raises and is no rows error return nil results, if it is not
 	// return the error.
 	if err != nil {
@@ -99,9 +105,9 @@ func (s *HoldersScanner) getTokenAddresses() ([]common.Address, error) {
 		return nil, err
 	}
 	// parse and return token addresses
-	results := make([]common.Address, len(tokens))
-	for idx, token := range tokens {
-		results[idx] = common.BytesToAddress(token.ID)
+	results := make(map[common.Address]bool)
+	for _, token := range tokens {
+		results[common.BytesToAddress(token.ID)] = token.CreationBlock.Valid
 	}
 	return results, nil
 }
@@ -310,4 +316,40 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 		log.Error(err)
 	}
 	return nil
+}
+
+// calcTokenCreationBlock function attemps to calculate the block number when
+// the token contract provided was created and deployed and updates the database
+// with the result obtained.
+func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common.Address) error {
+	// set a deadline of 10 seconds from the current context
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	// get the token type
+	tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
+	if err != nil {
+		return err
+	}
+	ttype := state.TokenType(tokenInfo.TypeID)
+	// init web3 contract state
+	w3 := state.Web3{}
+	if err := w3.Init(ctx, s.web3, addr, ttype); err != nil {
+		return err
+	}
+	// get creation block of the current token contract
+	creationBlock, err := w3.GetContractCreationBlock(ctx)
+	if err != nil {
+		return err
+	}
+	dbCreationBlock := new(sql.NullInt32)
+	if err := dbCreationBlock.Scan(creationBlock); err != nil {
+		return err
+	}
+	// save the creation block into the database
+	_, err = s.sqlc.UpdateTokenCreationBlock(ctx,
+		queries.UpdateTokenCreationBlockParams{
+			ID:            addr.Bytes(),
+			CreationBlock: *dbCreationBlock,
+		})
+	return err
 }

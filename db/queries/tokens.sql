@@ -2,16 +2,6 @@
 SELECT * FROM tokens
 ORDER BY type_id, name;
 
--- name: ListReadyTokens :many
-SELECT * FROM tokens
-WHERE creation_block IS NOT NULL
-ORDER BY type_id, name;
-
--- name: ListNotReadyTokens :many
-SELECT * FROM tokens
-WHERE creation_block IS NULL
-ORDER BY type_id, name;
-
 -- name: TokenByID :one
 SELECT * FROM tokens
 WHERE id = ?
@@ -60,6 +50,11 @@ SET name = sqlc.arg(name),
     total_supply = sqlc.arg(total_supply),
     creation_block = sqlc.arg(creation_block),
     type_id = sqlc.arg(type_id)
+WHERE id = sqlc.arg(id);
+
+-- name: UpdateTokenCreationBlock :execresult
+UPDATE tokens
+SET creation_block = sqlc.arg(creation_block)
 WHERE id = sqlc.arg(id);
 
 -- name: DeleteToken :execresult

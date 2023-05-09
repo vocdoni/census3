@@ -58,80 +58,6 @@ func (q *Queries) DeleteToken(ctx context.Context, id annotations.Address) (sql.
 	return q.db.ExecContext(ctx, deleteToken, id)
 }
 
-const listNotReadyTokens = `-- name: ListNotReadyTokens :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
-WHERE creation_block IS NULL
-ORDER BY type_id, name
-`
-
-func (q *Queries) ListNotReadyTokens(ctx context.Context) ([]Token, error) {
-	rows, err := q.db.QueryContext(ctx, listNotReadyTokens)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Token
-	for rows.Next() {
-		var i Token
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Symbol,
-			&i.Decimals,
-			&i.TotalSupply,
-			&i.CreationBlock,
-			&i.TypeID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listReadyTokens = `-- name: ListReadyTokens :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
-WHERE creation_block IS NOT NULL
-ORDER BY type_id, name
-`
-
-func (q *Queries) ListReadyTokens(ctx context.Context) ([]Token, error) {
-	rows, err := q.db.QueryContext(ctx, listReadyTokens)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Token
-	for rows.Next() {
-		var i Token
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Symbol,
-			&i.Decimals,
-			&i.TotalSupply,
-			&i.CreationBlock,
-			&i.TypeID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listTokens = `-- name: ListTokens :many
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
 ORDER BY type_id, name
@@ -355,4 +281,19 @@ func (q *Queries) UpdateToken(ctx context.Context, arg UpdateTokenParams) (sql.R
 		arg.TypeID,
 		arg.ID,
 	)
+}
+
+const updateTokenCreationBlock = `-- name: UpdateTokenCreationBlock :execresult
+UPDATE tokens
+SET creation_block = ?
+WHERE id = ?
+`
+
+type UpdateTokenCreationBlockParams struct {
+	CreationBlock sql.NullInt32
+	ID            annotations.Address
+}
+
+func (q *Queries) UpdateTokenCreationBlock(ctx context.Context, arg UpdateTokenCreationBlockParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateTokenCreationBlock, arg.CreationBlock, arg.ID)
 }

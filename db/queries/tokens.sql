@@ -2,6 +2,16 @@
 SELECT * FROM tokens
 ORDER BY type_id, name;
 
+-- name: ListReadyTokens :many
+SELECT * FROM tokens
+WHERE creation_block IS NOT NULL
+ORDER BY type_id, name;
+
+-- name: ListNotReadyTokens :many
+SELECT * FROM tokens
+WHERE creation_block IS NULL
+ORDER BY type_id, name;
+
 -- name: TokenByID :one
 SELECT * FROM tokens
 WHERE id = ?

@@ -22,7 +22,7 @@ CREATE TABLE tokens (
     symbol TEXT,
     decimals BIGINT,
     total_supply BLOB,
-    creation_block INTEGER NOT NULL,
+    creation_block INTEGER,
     type_id INTEGER NOT NULL,
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );

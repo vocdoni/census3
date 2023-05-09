@@ -89,7 +89,7 @@ func (s *HoldersScanner) getTokenAddresses() ([]common.Address, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// get tokens from the database
-	tokens, err := s.sqlc.ListTokens(ctx)
+	tokens, err := s.sqlc.ListReadyTokens(ctx)
 	// if error raises and is no rows error return nil results, if it is not
 	// return the error.
 	if err != nil {
@@ -259,7 +259,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 			return err
 		}
 		ttype := state.TokenType(tokenInfo.TypeID)
-		tokenLastBlock := uint64(tokenInfo.CreationBlock)
+		tokenLastBlock := uint64(tokenInfo.CreationBlock.Int32)
 		if blockNumber, err := s.sqlc.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
 			tokenLastBlock = uint64(blockNumber)
 		}

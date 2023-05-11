@@ -78,7 +78,8 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	tokenType := state.TokenTypeFromString(req.Type)
 	addr := common.HexToAddress(req.ID)
-
+	// init web3 client to get the token information before register in the
+	// database
 	w3 := state.Web3{}
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -116,16 +117,16 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		TotalSupply:   info.TotalSupply.Bytes(),
 		CreationBlock: int64(req.StartBlock),
 		TypeID:        int64(tokenType),
+		Synced:        false,
 	})
 	if err != nil {
 		log.Errorw(err, "error creating token on the database")
 		return ErrCantCreateToken.Withf("error creating token with address %s", addr)
 	}
-
+	// TODO: Only for the MVP, consider to remove it
 	if err := capi.createDummyStrategy(info.Address.Bytes()); err != nil {
 		log.Warn(err, "error creating dummy strategy for this token")
 	}
-
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 
@@ -146,10 +147,8 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
 	}
-
 	// TODO: Only for the MVP, consider to remove it
 	tokenStrategies, err := capi.sqlc.StrategiesByTokenID(internalCtx, tokenData.ID)
-	log.Info(tokenStrategies)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
@@ -158,7 +157,33 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	if len(tokenStrategies) > 0 {
 		defaultStrategyID = uint64(tokenStrategies[0].ID)
 	}
-
+	// get last block with token information
+	atBlock, err := capi.sqlc.LastBlockByTokenID(internalCtx, address.Bytes())
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			log.Errorw(ErrCantGetToken, err.Error())
+			return ErrCantGetToken
+		}
+		atBlock = 0
+	}
+	// if the token is not synced, get the last block of the network to
+	// calculate the current scan progress
+	tokenProgress := uint64(100)
+	if !tokenData.Synced {
+		// get last block of the network, if something fails return progress 0
+		w3 := state.Web3{}
+		if err := w3.Init(internalCtx, capi.web3, address, state.TokenType(tokenData.TypeID)); err != nil {
+			log.Errorw(ErrInitializingWeb3, err.Error())
+			tokenProgress = 0
+		}
+		// fetch the last block header and calculate progress
+		lastBlockNumber, err := w3.LatestBlockNumber(internalCtx)
+		if err != nil {
+			tokenProgress = 0
+		}
+		log.Info(lastBlockNumber)
+		tokenProgress = uint64(float64(atBlock) / float64(lastBlockNumber) * 100)
+	}
 	res, err := json.Marshal(GetTokenResponse{
 		ID:          address.String(),
 		Type:        state.TokenType(int(tokenData.TypeID)).String(),
@@ -168,9 +193,9 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		Symbol:      tokenData.Symbol.String,
 		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply),
 		Status: GetTokenStatusResponse{
-			AtBlock:  20000000,
-			Synced:   true,
-			Progress: 100,
+			AtBlock:  uint64(atBlock),
+			Synced:   tokenData.Synced,
+			Progress: tokenProgress,
 		},
 		// TODO: Only for the MVP, consider to remove it
 		DefaultStrategy: defaultStrategyID,
@@ -188,7 +213,6 @@ func (capi *census3API) getTokenTypes(msg *api.APIdata, ctx *httprouter.HTTPCont
 	for _, supportedType := range state.TokenTypeStringMap {
 		supportedTypes = append(supportedTypes, supportedType)
 	}
-
 	res, err := json.Marshal(TokenTypesResponse{supportedTypes})
 	if err != nil {
 		return ErrEncodeTokenTypes

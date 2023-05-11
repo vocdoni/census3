@@ -252,6 +252,16 @@ func (w *Web3) BlockRootHash(ctx context.Context, blockNumber uint) ([]byte, err
 	return blockHeader.Root.Bytes(), nil
 }
 
+// LatestBlockNumber function return the number of the latest block of the
+// current web3 client network
+func (w *Web3) LatestBlockNumber(ctx context.Context) (uint64, error) {
+	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	return lastBlockHeader.Number.Uint64(), nil
+}
+
 // UpdateTokenHolders function checks the transfer logs of the given contract
 // (in the TokenHolders struct) from the given block number. It gets all
 // addresses (candidates to holders) and their balances from the given block
@@ -259,24 +269,24 @@ func (w *Web3) BlockRootHash(ctx context.Context, blockNumber uint) ([]byte, err
 // Web3.submitTokenHolders function.
 func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64, error) {
 	// fetch the last block header
-	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
+	lastBlockNumber, err := w.LatestBlockNumber(ctx)
 	if err != nil {
 		return 0, err
 	}
-	log.Debugf("last block number: %d", lastBlockHeader.Number.Uint64())
+	log.Debugf("last block number: %d", lastBlockNumber)
 	// check if there are new blocks to scan
-	lastBlockNumber := lastBlockHeader.Number.Uint64()
+	toBlock := lastBlockNumber
 	fromBlockNumber := th.LastBlock() + 1
 	if fromBlockNumber >= lastBlockNumber {
 		return fromBlockNumber, fmt.Errorf("no new blocks to scan for %s", th.Address().String())
 	}
 	// check if we need to scan more than MAX_SCAN_BLOCKS_PER_ITERATION
 	// if so, scan only MAX_SCAN_BLOCKS_PER_ITERATION blocks
-	if lastBlockNumber-fromBlockNumber > MAX_SCAN_BLOCKS_PER_ITERATION {
-		lastBlockNumber = fromBlockNumber + MAX_SCAN_BLOCKS_PER_ITERATION
+	if toBlock-fromBlockNumber > MAX_SCAN_BLOCKS_PER_ITERATION {
+		toBlock = fromBlockNumber + MAX_SCAN_BLOCKS_PER_ITERATION
 	}
 	blocks := BLOCKS_TO_SCAN_AT_ONCE
-	log.Infof("start scan iteration for %s from block %d to %d", th.Address().Hex(), fromBlockNumber, lastBlockNumber)
+	log.Infof("start scan iteration for %s from block %d to %d", th.Address().Hex(), fromBlockNumber, toBlock)
 
 	// get logs and get new candidates to holder. A valid candidate is every
 	// address with a positive balance at the end of logs review. It requires
@@ -284,7 +294,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 	logCount := 0
 	newBlocksMap := make(map[uint64]bool)
 	holdersCandidates := HoldersCandidates{}
-	for fromBlockNumber < lastBlockNumber {
+	for fromBlockNumber < toBlock {
 		select {
 		// check if we need to close due context signal
 		case <-ctx.Done():
@@ -294,7 +304,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 		default:
 			startTime := time.Now()
 			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlockNumber,
-				fromBlockNumber+blocks, (fromBlockNumber*100)/lastBlockNumber)
+				fromBlockNumber+blocks, (fromBlockNumber*100)/toBlock)
 			// get transfer logs for the following n blocks
 			logs, err := w.getTransferLogs(th, fromBlockNumber, blocks)
 			if err != nil {
@@ -347,8 +357,12 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 			}
 		}
 	}
-	th.BlockDone(lastBlockNumber)
-	return lastBlockNumber, w.submitTokenHolders(th, holdersCandidates, lastBlockNumber)
+	th.BlockDone(toBlock)
+	if fromBlockNumber >= lastBlockNumber {
+		log.Infow("token synced!", "token", th.Address().Hex())
+		th.Synced()
+	}
+	return toBlock, w.submitTokenHolders(th, holdersCandidates, toBlock)
 }
 
 // getTransferLogs function queries to the web3 endpoint for the transfer logs

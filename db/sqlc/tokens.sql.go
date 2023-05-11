@@ -20,10 +20,11 @@ INSERT INTO tokens (
     decimals,
     total_supply,
     creation_block,
-    type_id
+    type_id,
+    synced
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?
 )
 `
 
@@ -35,6 +36,7 @@ type CreateTokenParams struct {
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64
+	Synced        bool
 }
 
 func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.Result, error) {
@@ -46,6 +48,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.R
 		arg.TotalSupply,
 		arg.CreationBlock,
 		arg.TypeID,
+		arg.Synced,
 	)
 }
 
@@ -59,7 +62,7 @@ func (q *Queries) DeleteToken(ctx context.Context, id annotations.Address) (sql.
 }
 
 const listTokens = `-- name: ListTokens :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced FROM tokens
 ORDER BY type_id, name
 `
 
@@ -80,6 +83,7 @@ func (q *Queries) ListTokens(ctx context.Context) ([]Token, error) {
 			&i.TotalSupply,
 			&i.CreationBlock,
 			&i.TypeID,
+			&i.Synced,
 		); err != nil {
 			return nil, err
 		}
@@ -95,7 +99,7 @@ func (q *Queries) ListTokens(ctx context.Context) ([]Token, error) {
 }
 
 const tokenByID = `-- name: TokenByID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced FROM tokens
 WHERE id = ?
 LIMIT 1
 `
@@ -111,12 +115,13 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 		&i.TotalSupply,
 		&i.CreationBlock,
 		&i.TypeID,
+		&i.Synced,
 	)
 	return i, err
 }
 
 const tokenByName = `-- name: TokenByName :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced FROM tokens
 WHERE name = ?
 LIMIT 1
 `
@@ -132,12 +137,13 @@ func (q *Queries) TokenByName(ctx context.Context, name sql.NullString) (Token, 
 		&i.TotalSupply,
 		&i.CreationBlock,
 		&i.TypeID,
+		&i.Synced,
 	)
 	return i, err
 }
 
 const tokenBySymbol = `-- name: TokenBySymbol :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced FROM tokens
 WHERE symbol = ?
 LIMIT 1
 `
@@ -153,12 +159,13 @@ func (q *Queries) TokenBySymbol(ctx context.Context, symbol sql.NullString) (Tok
 		&i.TotalSupply,
 		&i.CreationBlock,
 		&i.TypeID,
+		&i.Synced,
 	)
 	return i, err
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM tokens t
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
@@ -172,6 +179,7 @@ type TokensByStrategyIDRow struct {
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64
+	Synced        bool
 	StrategyID    int64
 	TokenID       []byte
 	MinBalance    []byte
@@ -195,6 +203,7 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID int64) ([]T
 			&i.TotalSupply,
 			&i.CreationBlock,
 			&i.TypeID,
+			&i.Synced,
 			&i.StrategyID,
 			&i.TokenID,
 			&i.MinBalance,
@@ -214,7 +223,7 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID int64) ([]T
 }
 
 const tokensByType = `-- name: TokensByType :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced FROM tokens
 WHERE type_id = ?
 ORDER BY name
 `
@@ -236,6 +245,7 @@ func (q *Queries) TokensByType(ctx context.Context, typeID int64) ([]Token, erro
 			&i.TotalSupply,
 			&i.CreationBlock,
 			&i.TypeID,
+			&i.Synced,
 		); err != nil {
 			return nil, err
 		}
@@ -257,7 +267,8 @@ SET name = ?,
     decimals = ?,
     total_supply = ?,
     creation_block = ?,
-    type_id = ?
+    type_id = ?,
+    synced = ?
 WHERE id = ?
 `
 
@@ -268,6 +279,7 @@ type UpdateTokenParams struct {
 	TotalSupply   annotations.BigInt
 	CreationBlock int64
 	TypeID        int64
+	Synced        bool
 	ID            annotations.Address
 }
 
@@ -279,6 +291,22 @@ func (q *Queries) UpdateToken(ctx context.Context, arg UpdateTokenParams) (sql.R
 		arg.TotalSupply,
 		arg.CreationBlock,
 		arg.TypeID,
+		arg.Synced,
 		arg.ID,
 	)
+}
+
+const updateTokenStatus = `-- name: UpdateTokenStatus :execresult
+UPDATE tokens
+SET synced = ?
+WHERE id = ?
+`
+
+type UpdateTokenStatusParams struct {
+	Synced bool
+	ID     annotations.Address
+}
+
+func (q *Queries) UpdateTokenStatus(ctx context.Context, arg UpdateTokenStatusParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateTokenStatus, arg.Synced, arg.ID)
 }

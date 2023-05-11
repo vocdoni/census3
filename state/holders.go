@@ -22,6 +22,7 @@ type TokenHolders struct {
 	holders   sync.Map
 	blocks    sync.Map
 	lastBlock atomic.Uint64
+	synced    atomic.Bool
 }
 
 // Init function fills the given TokenHolders struct with the address and type
@@ -33,6 +34,7 @@ func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block uint64) 
 	h.holders = sync.Map{}
 	h.blocks = sync.Map{}
 	h.lastBlock.Store(block)
+	h.synced.Store(false)
 	return h
 }
 
@@ -70,8 +72,8 @@ func (h *TokenHolders) Exists(address common.Address) bool {
 	return exists
 }
 
-// Append function appends the holder address and the balance provided into the 
-// given TokenHolders list of holders. If the holder already exists, it will 
+// Append function appends the holder address and the balance provided into the
+// given TokenHolders list of holders. If the holder already exists, it will
 // update its balance.
 func (h *TokenHolders) Append(addr common.Address, balance *big.Int) {
 	if currentBalance, exists := h.holders.Load(addr); exists {
@@ -98,6 +100,7 @@ func (h *TokenHolders) FlushHolders() {
 // TokenHolders block number, it will be updated.
 func (h *TokenHolders) BlockDone(blockNumber uint64) {
 	h.blocks.Store(blockNumber, true)
+	h.synced.Store(false)
 	h.lastBlock.CompareAndSwap(h.lastBlock.Load(), blockNumber)
 }
 
@@ -111,4 +114,16 @@ func (h *TokenHolders) HasBlock(blockNumber uint64) bool {
 // LastBlock function returns the number of latest block registered.
 func (h *TokenHolders) LastBlock() uint64 {
 	return h.lastBlock.Load()
+}
+
+// Synced function marks the current TokenHolders struct as synced with the
+// latest network status.
+func (h *TokenHolders) Synced() {
+	h.synced.Store(true)
+}
+
+// IsSynced function returns if the current TokenHolders instance is already
+// synced with the latest network status.
+func (h *TokenHolders) IsSynced() bool {
+	return h.synced.Load()
 }

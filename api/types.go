@@ -3,9 +3,8 @@ package api
 import "math/big"
 
 type CreateTokenRequest struct {
-	ID         string `json:"id"`
-	Type       string `type:"type"`
-	StartBlock uint64 `type:"startBlock"`
+	ID   string `json:"id"`
+	Type string `type:"type"`
 }
 
 type GetTokenStatusResponse struct {

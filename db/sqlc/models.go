@@ -50,7 +50,7 @@ type Token struct {
 	Symbol        sql.NullString
 	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
-	CreationBlock int64
+	CreationBlock sql.NullInt32
 	TypeID        int64
 	Synced        bool
 }

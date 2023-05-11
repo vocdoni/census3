@@ -59,6 +59,11 @@ UPDATE tokens
 SET synced = sqlc.arg(synced)
 WHERE id = sqlc.arg(id);
 
+-- name: UpdateTokenCreationBlock :execresult
+UPDATE tokens
+SET creation_block = sqlc.arg(creation_block)
+WHERE id = sqlc.arg(id);
+
 -- name: DeleteToken :execresult
 DELETE FROM tokens
 WHERE id = ?;

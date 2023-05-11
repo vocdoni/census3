@@ -52,6 +52,11 @@ SET name = sqlc.arg(name),
     type_id = sqlc.arg(type_id)
 WHERE id = sqlc.arg(id);
 
+-- name: UpdateTokenCreationBlock :execresult
+UPDATE tokens
+SET creation_block = sqlc.arg(creation_block)
+WHERE id = sqlc.arg(id);
+
 -- name: DeleteToken :execresult
 DELETE FROM tokens
 WHERE id = ?;

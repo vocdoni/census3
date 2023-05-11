@@ -49,13 +49,16 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	// parse and encode resulting tokens
 	tokens := GetTokensResponse{Tokens: []GetTokenResponse{}}
 	for _, tokenData := range rows {
-		tokens.Tokens = append(tokens.Tokens, GetTokenResponse{
-			ID:         common.BytesToAddress(tokenData.ID).String(),
-			Type:       state.TokenType(int(tokenData.TypeID)).String(),
-			Decimals:   uint64(tokenData.Decimals.Int64),
-			StartBlock: uint64(tokenData.CreationBlock),
-			Name:       tokenData.Name.String,
-		})
+		tokenResponse := GetTokenResponse{
+			ID:       common.BytesToAddress(tokenData.ID).String(),
+			Type:     state.TokenType(int(tokenData.TypeID)).String(),
+			Decimals: uint64(tokenData.Decimals.Int64),
+			Name:     tokenData.Name.String,
+		}
+		if tokenData.CreationBlock.Valid {
+			tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int32)
+		}
+		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}
 	res, err := json.Marshal(tokens)
 	if err != nil {
@@ -78,7 +81,6 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	tokenType := state.TokenTypeFromString(req.Type)
 	addr := common.HexToAddress(req.ID)
-
 	w3 := state.Web3{}
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -92,9 +94,10 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrCantGetToken
 	}
 	var (
-		name     = new(sql.NullString)
-		symbol   = new(sql.NullString)
-		decimals = new(sql.NullInt64)
+		name          = new(sql.NullString)
+		symbol        = new(sql.NullString)
+		decimals      = new(sql.NullInt64)
+		creationBlock = new(sql.NullInt32)
 	)
 	if err := name.Scan(info.Name); err != nil {
 		log.Errorw(ErrCantGetToken, err.Error())
@@ -114,18 +117,16 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Symbol:        *symbol,
 		Decimals:      *decimals,
 		TotalSupply:   info.TotalSupply.Bytes(),
-		CreationBlock: int64(req.StartBlock),
+		CreationBlock: *creationBlock,
 		TypeID:        int64(tokenType),
 	})
 	if err != nil {
 		log.Errorw(err, "error creating token on the database")
 		return ErrCantCreateToken.Withf("error creating token with address %s", addr)
 	}
-
 	if err := capi.createDummyStrategy(info.Address.Bytes()); err != nil {
 		log.Warn(err, "error creating dummy strategy for this token")
 	}
-
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 
@@ -146,7 +147,6 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
 	}
-
 	// TODO: Only for the MVP, consider to remove it
 	tokenStrategies, err := capi.sqlc.StrategiesByTokenID(internalCtx, tokenData.ID)
 	log.Info(tokenStrategies)
@@ -158,12 +158,10 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	if len(tokenStrategies) > 0 {
 		defaultStrategyID = uint64(tokenStrategies[0].ID)
 	}
-
-	res, err := json.Marshal(GetTokenResponse{
+	tokenResponse := GetTokenResponse{
 		ID:          address.String(),
 		Type:        state.TokenType(int(tokenData.TypeID)).String(),
 		Decimals:    uint64(tokenData.Decimals.Int64),
-		StartBlock:  uint64(tokenData.CreationBlock),
 		Name:        tokenData.Name.String,
 		Symbol:      tokenData.Symbol.String,
 		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply),
@@ -174,7 +172,11 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		},
 		// TODO: Only for the MVP, consider to remove it
 		DefaultStrategy: defaultStrategyID,
-	})
+	}
+	if tokenData.CreationBlock.Valid {
+		tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int32)
+	}
+	res, err := json.Marshal(tokenResponse)
 	if err != nil {
 		return ErrEncodeToken
 	}
@@ -188,7 +190,6 @@ func (capi *census3API) getTokenTypes(msg *api.APIdata, ctx *httprouter.HTTPCont
 	for _, supportedType := range state.TokenTypeStringMap {
 		supportedTypes = append(supportedTypes, supportedType)
 	}
-
 	res, err := json.Marshal(TokenTypesResponse{supportedTypes})
 	if err != nil {
 		return ErrEncodeTokenTypes

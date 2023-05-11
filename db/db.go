@@ -22,21 +22,11 @@ func Init(dataDir string) (*sql.DB, *queries.Queries, error) {
 			return nil, nil, fmt.Errorf("error creating a new database file: %w", err)
 		}
 	}
-
-	// if _, err := os.Stat(dbFile); err != nil {
-	// 	fd, err := os.Create(dbFile)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("error creating a new database file: %w", err)
-	// 	}
-	// 	fd.Close()
-	// }
-
 	// open database file
 	database, err := sql.Open("sqlite3", dbFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error opening database: %w", err)
 	}
-	fmt.Println(filepath.Join(dataDir, "census3.sql"))
 	// get census3 goose migrations and setup for sqlite3
 	goose.SetDialect("sqlite3")
 	goose.SetBaseFS(migrationsFS)

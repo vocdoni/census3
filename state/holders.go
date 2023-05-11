@@ -13,7 +13,7 @@ type HoldersCandidates map[common.Address]*big.Int
 // TokenHolders struct abstracts the current state of a TokenHolders into the
 // Census3 HoldersScanner for a specific token. It contains some information
 // about the token such as its address or its type. Also includes some atomic
-// variables used to store the state of the token holders safely accross
+// variables used to store the state of the token holders safely across
 // differents goroutines, such as holders list, analyzed blocks or the last
 // block analyzed.
 type TokenHolders struct {
@@ -47,7 +47,7 @@ func (h *TokenHolders) Type() TokenType {
 }
 
 // Holders function returns the given TokenHolders current token holders
-// addresses adn its balances.
+// addresses and its balances.
 func (h *TokenHolders) Holders() HoldersCandidates {
 	holders := HoldersCandidates{}
 	h.holders.Range(func(rawAddr, rawBalance any) bool {
@@ -70,8 +70,8 @@ func (h *TokenHolders) Exists(address common.Address) bool {
 	return exists
 }
 
-// Append function appends the holder address and the balance provided into the 
-// given TokenHolders list of holders. If the holder already exists, it will 
+// Append function appends the holder address and the balance provided into the
+// given TokenHolders list of holders. If the holder already exists, it will
 // update its balance.
 func (h *TokenHolders) Append(addr common.Address, balance *big.Int) {
 	if currentBalance, exists := h.holders.Load(addr); exists {

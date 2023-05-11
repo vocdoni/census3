@@ -33,7 +33,7 @@ type CreateTokenParams struct {
 	Symbol        sql.NullString
 	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
-	CreationBlock int64
+	CreationBlock sql.NullInt32
 	TypeID        int64
 }
 
@@ -170,7 +170,7 @@ type TokensByStrategyIDRow struct {
 	Symbol        sql.NullString
 	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
-	CreationBlock int64
+	CreationBlock sql.NullInt32
 	TypeID        int64
 	StrategyID    int64
 	TokenID       []byte
@@ -266,7 +266,7 @@ type UpdateTokenParams struct {
 	Symbol        sql.NullString
 	Decimals      sql.NullInt64
 	TotalSupply   annotations.BigInt
-	CreationBlock int64
+	CreationBlock sql.NullInt32
 	TypeID        int64
 	ID            annotations.Address
 }
@@ -281,4 +281,19 @@ func (q *Queries) UpdateToken(ctx context.Context, arg UpdateTokenParams) (sql.R
 		arg.TypeID,
 		arg.ID,
 	)
+}
+
+const updateTokenCreationBlock = `-- name: UpdateTokenCreationBlock :execresult
+UPDATE tokens
+SET creation_block = ?
+WHERE id = ?
+`
+
+type UpdateTokenCreationBlockParams struct {
+	CreationBlock sql.NullInt32
+	ID            annotations.Address
+}
+
+func (q *Queries) UpdateTokenCreationBlock(ctx context.Context, arg UpdateTokenCreationBlockParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateTokenCreationBlock, arg.CreationBlock, arg.ID)
 }

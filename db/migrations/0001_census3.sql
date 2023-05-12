@@ -24,6 +24,7 @@ CREATE TABLE tokens (
     total_supply BLOB,
     creation_block INTEGER,
     type_id INTEGER NOT NULL,
+    synced BOOLEAN NOT NULL,
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_tokens_type_id ON tokens(type_id);

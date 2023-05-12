@@ -36,10 +36,11 @@ INSERT INTO tokens (
     decimals,
     total_supply,
     creation_block,
-    type_id
+    type_id,
+    synced
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?
 );
 
 -- name: UpdateToken :execresult
@@ -49,7 +50,13 @@ SET name = sqlc.arg(name),
     decimals = sqlc.arg(decimals),
     total_supply = sqlc.arg(total_supply),
     creation_block = sqlc.arg(creation_block),
-    type_id = sqlc.arg(type_id)
+    type_id = sqlc.arg(type_id),
+    synced = sqlc.arg(synced)
+WHERE id = sqlc.arg(id);
+
+-- name: UpdateTokenStatus :execresult
+UPDATE tokens
+SET synced = sqlc.arg(synced)
 WHERE id = sqlc.arg(id);
 
 -- name: UpdateTokenCreationBlock :execresult

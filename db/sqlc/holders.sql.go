@@ -364,7 +364,7 @@ func (q *Queries) TokenHoldersByTokenIDAndMinBalance(ctx context.Context, arg To
 }
 
 const tokensByHolderID = `-- name: TokensByHolderID :many
-SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id
+SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced
 FROM Tokens
 JOIN token_holders ON tokens.id = token_holders.token_id
 WHERE token_holders.holder_id = ?
@@ -387,6 +387,7 @@ func (q *Queries) TokensByHolderID(ctx context.Context, holderID []byte) ([]Toke
 			&i.TotalSupply,
 			&i.CreationBlock,
 			&i.TypeID,
+			&i.Synced,
 		); err != nil {
 			return nil, err
 		}
@@ -402,7 +403,7 @@ func (q *Queries) TokensByHolderID(ctx context.Context, holderID []byte) ([]Toke
 }
 
 const tokensByHolderIDAndBlockID = `-- name: TokensByHolderIDAndBlockID :many
-SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id
+SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced
 FROM Tokens
 JOIN token_holders ON tokens.id = token_holders.token_id
 WHERE token_holders.holder_id = ? AND token_holders.block_id = ?
@@ -430,6 +431,7 @@ func (q *Queries) TokensByHolderIDAndBlockID(ctx context.Context, arg TokensByHo
 			&i.TotalSupply,
 			&i.CreationBlock,
 			&i.TypeID,
+			&i.Synced,
 		); err != nil {
 			return nil, err
 		}

@@ -8,9 +8,9 @@ type CreateTokenRequest struct {
 }
 
 type GetTokenStatusResponse struct {
-	AtBlock  uint64 `json:"atBlock,omitempty"`
-	Synced   bool   `json:"synced,omitempty"`
-	Progress uint64 `json:"progress,omitempty"`
+	AtBlock  uint64 `json:"atBlock"`
+	Synced   bool   `json:"synced"`
+	Progress uint64 `json:"progress"`
 }
 
 type GetTokenResponse struct {

@@ -120,6 +120,21 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 	log.Debugf("saving token holders state for token %s at block %d", th.Address(), th.LastBlock())
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	// begin a transaction for group sql queries
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	qtx := s.sqlc.WithTx(tx)
+	_, err = qtx.UpdateTokenStatus(ctx, queries.UpdateTokenStatusParams{
+		Synced: th.IsSynced(),
+		ID:     th.Address().Bytes(),
+	})
+	if err != nil {
+		return fmt.Errorf("error updating token: %w", err)
+	}
+	// if not token holders received, skip
 	if len(th.Holders()) == 0 {
 		log.Debug("nothing to save. skipping...")
 		return nil
@@ -143,11 +158,11 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 	}
 	// if the current HoldersScanner last block not exists in the database,
 	// create it
-	if _, err := s.sqlc.BlockByID(ctx, int64(th.LastBlock())); err != nil {
+	if _, err := qtx.BlockByID(ctx, int64(th.LastBlock())); err != nil {
 		if !errors.Is(sql.ErrNoRows, err) {
 			return err
 		}
-		_, err = s.sqlc.CreateBlock(ctx, queries.CreateBlockParams{
+		_, err = qtx.CreateBlock(ctx, queries.CreateBlockParams{
 			ID:        int64(th.LastBlock()),
 			Timestamp: timestamp,
 			RootHash:  rootHash,
@@ -158,13 +173,6 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 	}
 	created, updated, deleted := 0, 0, 0
 	log.Debugf("new token holders: %d", len(th.Holders()))
-	// begin a transaction for group sql queries
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	qtx := s.sqlc.WithTx(tx)
 	// iterate over given holders
 	//  - if the holder not exists, create it
 	//  - if the holder already exists, calculate the new balance with the

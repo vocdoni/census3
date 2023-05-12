@@ -52,6 +52,7 @@ type Token struct {
 	TotalSupply   annotations.BigInt
 	CreationBlock sql.NullInt32
 	TypeID        int64
+	Synced        bool
 }
 
 type TokenHolder struct {

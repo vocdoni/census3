@@ -1,0 +1,19 @@
+issues:
+        max-same-issues: 0
+        exclude-use-default: false
+linters:
+        enable:
+        - misspell
+        - gofumpt
+        - lll
+        - staticcheck
+        - unused
+        - typecheck
+        - ineffassign
+        - errcheck
+        - gosimple
+        - goconst
+
+linters-settings:
+        lll:
+                line-length: 130

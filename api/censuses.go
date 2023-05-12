@@ -71,10 +71,10 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	strategyTokens, err := capi.sqlc.TokensByStrategyID(internalCtx, int64(req.StrategyID))
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
-			log.Errorf("no strategy found for id %d: %w", req.StrategyID, err)
+			log.Errorf("no strategy found for id %d: %s", req.StrategyID, err.Error())
 			return ErrNotFoundStrategy
 		}
-		log.Errorf("error getting strategy with id %d: %w", req.StrategyID, err)
+		log.Errorf("error getting strategy with id %d: %s", req.StrategyID, err.Error())
 		return ErrCantGetStrategy
 	}
 	// get holders associated to every strategy token

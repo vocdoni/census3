@@ -67,15 +67,15 @@ func (capi *census3API) getTokenHolders(msg *api.APIdata, ctx *httprouter.HTTPCo
 		// if database does not contain any token holder for this token, return
 		// no content, else return generic error.
 		if errors.Is(sql.ErrNoRows, err) {
-			log.Errorf("no holders found for address %s: %w", addr, err)
+			log.Errorf("no holders found for address %s: %s", addr, err.Error())
 			return ctx.Send(nil, api.HTTPstatusNoContent)
 		}
-		log.Errorf("error getting token with address %s: %w", addr, err)
+		log.Errorf("error getting token with address %s: %s", addr, err.Error())
 		return ErrCantGetTokenHolders.Withf("error getting token with address %s", addr)
 	}
 	// if no error but the results are empty, return no content
 	if len(dbHolders) == 0 {
-		log.Errorf("no holders found for address %s: %w", addr, err)
+		log.Errorf("no holders found for address %s: %s", addr, err.Error())
 		return ctx.Send(nil, api.HTTPstatusNoContent)
 	}
 	// encode the response with the token holders addresses
@@ -87,7 +87,7 @@ func (capi *census3API) getTokenHolders(msg *api.APIdata, ctx *httprouter.HTTPCo
 	}
 	response, err := json.Marshal(holders)
 	if err != nil {
-		log.Errorf("error marshalling holder of %s: %w", addr, err)
+		log.Errorf("error marshalling holder of %s: %s", addr, err.Error())
 		return ErrEncodeTokenHolders.Withf("error marshalling holder of %s", addr)
 	}
 	return ctx.Send(response, api.HTTPstatusOK)
@@ -105,15 +105,15 @@ func (capi *census3API) countHolders(msg *api.APIdata, ctx *httprouter.HTTPConte
 	numberOfHolders, err := capi.sqlc.CountTokenHoldersByTokenID(ctx2, addr.Bytes())
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
-			log.Errorf("no holders found for address %s: %w", addr, err)
+			log.Errorf("no holders found for address %s: %s", addr, err.Error())
 			return ctx.Send(nil, api.HTTPstatusNoContent)
 		}
-		log.Errorf("error getting holders of %s: %w", addr, err)
+		log.Errorf("error getting holders of %s: %s", addr, err.Error())
 		return ErrCantGetTokenHolders.Withf("token address: %s", addr)
 	}
 	// if no error but the results are empty, return no content
 	if numberOfHolders == 0 {
-		log.Errorf("no holders found for address %s: %w", addr, err)
+		log.Errorf("no holders found for address %s: %s", addr, err.Error())
 		return ctx.Send(nil, api.HTTPstatusNoContent)
 	}
 	response, err := json.Marshal(struct {
@@ -122,7 +122,7 @@ func (capi *census3API) countHolders(msg *api.APIdata, ctx *httprouter.HTTPConte
 		Count: numberOfHolders,
 	})
 	if err != nil {
-		log.Errorf("error marshalling holder of %s: %s", addr, err)
+		log.Errorf("error marshalling holder of %s: %s", addr, err.Error())
 		return ErrEncodeTokenHolders.Withf("token address: %s", addr)
 	}
 	return ctx.Send(response, api.HTTPstatusOK)

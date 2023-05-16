@@ -10,7 +10,6 @@ import (
 	"go.vocdoni.io/dvote/api/censusdb"
 	"go.vocdoni.io/dvote/censustree"
 	"go.vocdoni.io/dvote/data/compressor"
-	"go.vocdoni.io/dvote/util"
 )
 
 var internalAddresses = map[common.Address]*big.Int{
@@ -26,7 +25,7 @@ var internalAddresses = map[common.Address]*big.Int{
 }
 
 func Test_validateCensus(t *testing.T) {
-	cdb, err := NewCensusDB(t.TempDir(), "vocdonidev", util.RandomHex(32))
+	cdb, err := NewCensusDB(t.TempDir(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

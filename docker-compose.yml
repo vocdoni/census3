@@ -13,6 +13,7 @@ services:
       - "--url=${WEB3_PROVIDER}"
       - "--port=${PORT}"
       - "--logLevel=${LOGLEVEL}"
+      - "--connectKey=${CONNECT_KEY}"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.census3.rule=Host(`${DOMAIN}`)"

@@ -15,7 +15,6 @@ type Census3APIConf struct {
 	Port     int
 	DataDir  string
 	Web3URI  string
-	PrivKey  string
 	GroupKey string
 }
 
@@ -48,7 +47,7 @@ func Init(db *sql.DB, q *queries.Queries, conf Census3APIConf) error {
 		return err
 	}
 	// init the census DB
-	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir, conf.GroupKey, conf.PrivKey); err != nil {
+	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir, conf.GroupKey); err != nil {
 		log.Errorw(err, "error starting census database")
 	}
 	// init handlers

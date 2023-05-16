@@ -16,7 +16,7 @@ var fromblock = flag.Uint64("blocks", 17060829, "number of blocks from the lates
 
 // go test -v -run TestUpdateTokenHolders -url http://... -block 100
 func TestUpdateTokenHolders(t *testing.T) {
-	log.Init(log.LogLevelDebug, "stderr")
+	log.Init(log.LogLevelDebug, "stderr", nil)
 
 	c := qt.New(t)
 

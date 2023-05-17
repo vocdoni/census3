@@ -318,7 +318,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 	return s.saveTokenHolders(th)
 }
 
-// calcTokenCreationBlock function attemps to calculate the block number when
+// calcTokenCreationBlock function attempts to calculate the block number when
 // the token contract provided was created and deployed and updates the database
 // with the result obtained.
 func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common.Address) error {

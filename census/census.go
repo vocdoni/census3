@@ -166,7 +166,8 @@ func (cdb *CensusDB) newTree(def *CensusDefinition) (*CensusDefinition, error) {
 		Name:       censusDBKey(def.ID),
 		ParentDB:   cdb.treeDB,
 		MaxLevels:  def.MaxLevels,
-		CensusType: def.Type})
+		CensusType: def.Type,
+	})
 	if err != nil {
 		return nil, err
 	}

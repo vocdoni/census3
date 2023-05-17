@@ -414,7 +414,8 @@ func (w *Web3) getTransferLogs(th *TokenHolders, fromBlock, nblocks uint64) ([]t
 // values of the log provided. It uses uses functions appropriate to the token
 // type indicated.
 func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType,
-	currentLog types.Log) (HoldersCandidates, error) {
+	currentLog types.Log,
+) (HoldersCandidates, error) {
 	// update the token holders state with the log data
 	switch ttype {
 	case CONTRACT_TYPE_ERC20:

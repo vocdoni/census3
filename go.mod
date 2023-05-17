@@ -3,19 +3,21 @@ module github.com/vocdoni/census3
 go 1.20
 
 require (
+	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2
 	github.com/ethereum/go-ethereum v1.11.6
 	github.com/frankban/quicktest v1.14.4
 	github.com/google/uuid v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/pressly/goose/v3 v3.11.0
 	github.com/spf13/pflag v1.0.5
-	go.vocdoni.io/dvote v1.7.1-0.20230512090522-af85c0571e28
+	go.vocdoni.io/dvote v1.7.1-0.20230515111502-af25ad88fd8d
 	go.vocdoni.io/proto v1.14.5-0.20230426091403-1c1475660dc8
 )
 
 require (
 	bazil.org/fuse v0.0.0-20200407214033-5883e5a4b512 // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2 // indirect
+	git.sr.ht/~sircmpwn/go-bare v0.0.0-20210406120253-ab86bc2846d9 // indirect
 	github.com/766b/chi-prometheus v0.0.0-20211217152057-87afa9aa2ca8 // indirect
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/DataDog/zstd v1.5.2 // indirect

@@ -12,7 +12,7 @@ import (
 	"go.vocdoni.io/dvote/data/compressor"
 )
 
-var testAddresses = map[common.Address]*big.Int{
+var internalAddresses = map[common.Address]*big.Int{
 	common.HexToAddress("0xe54d702f98E312aBA4318E3c6BDba98ab5e11012"): big.NewInt(16),
 	common.HexToAddress("0x38d2BC91B89928f78cBaB3e4b1949e28787eC7a3"): big.NewInt(13),
 	common.HexToAddress("0xF752B527E2ABA395D1Ba4C0dE9C147B763dDA1f4"): big.NewInt(12),
@@ -25,12 +25,12 @@ var testAddresses = map[common.Address]*big.Int{
 }
 
 func Test_validateCensus(t *testing.T) {
-	cdb, err := NewCensusDB(t.TempDir())
+	cdb, err := NewCensusDB(t.TempDir(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	censusDefinition := DefaultCensusDefinition(1, 1, testAddresses)
+	censusDefinition := DefaultCensusDefinition(1, 1, internalAddresses)
 	publishedCensus, err := cdb.CreateAndPublish(censusDefinition)
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +57,7 @@ func Test_validateCensus(t *testing.T) {
 	if !bytes.Equal(publishedCensus.RootHash, root) {
 		t.Fatal("roots are not equal")
 	}
-	for addr, val := range testAddresses {
+	for addr, val := range internalAddresses {
 		key, err := tree.Hash(addr.Bytes())
 		if err != nil {
 			t.Fatal(err)

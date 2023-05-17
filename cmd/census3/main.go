@@ -24,8 +24,9 @@ func main() {
 	dataDir := flag.String("dataDir", home, "data directory for persistent storage")
 	logLevel := flag.String("logLevel", "info", "log level (debug, info, warn, error)")
 	port := flag.Int("port", 7788, "HTTP port for the API")
+	connectKey := flag.String("connectKey", "", "connect group key for IPFS connect")
 	flag.Parse()
-	log.Init(*logLevel, "stdout")
+	log.Init(*logLevel, "stdout", nil)
 
 	db, q, err := db.Init(*dataDir)
 	if err != nil {
@@ -44,6 +45,7 @@ func main() {
 		Port:     *port,
 		DataDir:  *dataDir,
 		Web3URI:  *url,
+		GroupKey: *connectKey,
 	})
 	if err != nil {
 		log.Fatal(err)

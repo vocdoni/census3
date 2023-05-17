@@ -94,7 +94,7 @@ VALUES (
 UPDATE token_holders
 SET balance = sqlc.arg(balance),
     block_id = sqlc.arg(block_id)
-WHERE token_id = sqlc.arg(token_id) AND holder_id = sqlc.arg(holder_id) AND block_id = sqlc.arg(block_id);
+WHERE token_id = sqlc.arg(token_id) AND holder_id = sqlc.arg(holder_id);
 
 -- name: DeleteTokenHolder :execresult
 DELETE FROM token_holders

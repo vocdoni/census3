@@ -450,7 +450,7 @@ const updateTokenHolder = `-- name: UpdateTokenHolder :execresult
 UPDATE token_holders
 SET balance = ?,
     block_id = ?
-WHERE token_id = ? AND holder_id = ? AND block_id = ?
+WHERE token_id = ? AND holder_id = ?
 `
 
 type UpdateTokenHolderParams struct {
@@ -466,6 +466,5 @@ func (q *Queries) UpdateTokenHolder(ctx context.Context, arg UpdateTokenHolderPa
 		arg.BlockID,
 		arg.TokenID,
 		arg.HolderID,
-		arg.BlockID,
 	)
 }

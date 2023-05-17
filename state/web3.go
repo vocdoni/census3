@@ -75,7 +75,6 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string, contractAddress co
 	if w.contract, err = w.NewContract(); err != nil {
 		return err
 	}
-	log.Infof("loaded token contract %s", contractAddress)
 	return nil
 }
 
@@ -341,6 +340,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				holdersCandidates = w.updateHolderCandidates(holdersCandidates, th.Type(), currentLog)
 				blocksToSave[currentLog.BlockNumber] = true
 				newBlocksMap[currentLog.BlockNumber] = true
+				th.BlockDone(currentLog.BlockNumber)
 			}
 			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
 				1000*float32(len(blocksToSave))/float32(time.Since(startTime).Milliseconds()))
@@ -447,7 +447,7 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 		if fromBalance, exists := hc[logData.From]; exists {
 			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
-			hc[logData.From] = new(big.Int).Neg(big.NewInt(1))
+			hc[logData.From] = big.NewInt(-1)
 		}
 	case CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
 		filter := w.contract.(*erc721.ERC721Contract).ERC721ContractFilterer
@@ -464,7 +464,7 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 		if fromBalance, exists := hc[logData.From]; exists {
 			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
-			hc[logData.From] = new(big.Int).Neg(big.NewInt(1))
+			hc[logData.From] = big.NewInt(-1)
 		}
 	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		// This token contract is a bit special, token balances
@@ -564,7 +564,6 @@ func (w *Web3) GetContractCreationBlock(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Debugf("last block number: %d", lastBlockHeader.Number.Uint64())
 	return w.getCreationBlock(ctx, 0, lastBlockHeader.Number.Uint64())
 }
 

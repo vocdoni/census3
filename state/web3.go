@@ -103,7 +103,6 @@ func (w *Web3) TokenName() (string, error) {
 	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
 		return caller.Name(nil)
-
 	}
 	return "", fmt.Errorf("unknown contract type %d", w.contractType)
 }
@@ -287,7 +286,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 	}
 	blocks := BLOCKS_TO_SCAN_AT_ONCE
 	log.Infof("start scan iteration for %s from block %d to %d", th.Address().Hex(), fromBlockNumber, toBlock)
-
 	// get logs and get new candidates to holder. A valid candidate is every
 	// address with a positive balance at the end of logs review. It requires
 	// take into account the countability of the candidates' balances.
@@ -338,7 +336,10 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 					}
 				}
 				// update the holders candidates with the current log
-				holdersCandidates = w.updateHolderCandidates(holdersCandidates, th.Type(), currentLog)
+				holdersCandidates, err = w.updateHolderCandidates(holdersCandidates, th.Type(), currentLog)
+				if err != nil {
+					return fromBlockNumber, err
+				}
 				blocksToSave[currentLog.BlockNumber] = true
 				newBlocksMap[currentLog.BlockNumber] = true
 			}
@@ -359,7 +360,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 	}
 	th.BlockDone(toBlock)
 	if fromBlockNumber >= lastBlockNumber {
-		log.Infow("token synced!", "token", th.Address().Hex())
+		log.Infow("token synced", "token", th.Address().Hex())
 		th.Synced()
 	}
 	return toBlock, w.submitTokenHolders(th, holdersCandidates, toBlock)
@@ -412,15 +413,15 @@ func (w *Web3) getTransferLogs(th *TokenHolders, fromBlock, nblocks uint64) ([]t
 // updateHolderCandidates function updates the given holder candidates with the
 // values of the log provided. It uses uses functions appropriate to the token
 // type indicated.
-func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, currentLog types.Log) HoldersCandidates {
+func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType,
+	currentLog types.Log) (HoldersCandidates, error) {
 	// update the token holders state with the log data
 	switch ttype {
 	case CONTRACT_TYPE_ERC20:
 		filter := w.contract.(*erc20.ERC20Contract).ERC20ContractFilterer
 		logData, err := filter.ParseTransfer(currentLog)
 		if err != nil {
-			log.Errorf("error parsing log data %s", err)
-			return hc
+			return hc, err
 		}
 		if toBalance, exists := hc[logData.To]; exists {
 			hc[logData.To] = new(big.Int).Add(toBalance, logData.Value)
@@ -436,8 +437,7 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 		filter := w.contract.(*erc777.ERC777Contract).ERC777ContractFilterer
 		logData, err := filter.ParseTransfer(currentLog)
 		if err != nil {
-			log.Errorf("error parsing log data %s", err)
-			return hc
+			return hc, err
 		}
 		if toBalance, exists := hc[logData.To]; exists {
 			hc[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
@@ -454,7 +454,7 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 		logData, err := filter.ParseTransfer(currentLog)
 		if err != nil {
 			log.Errorf("error parsing log data %s", err)
-			return hc
+			return hc, err
 		}
 		if toBalance, exists := hc[logData.To]; exists {
 			hc[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
@@ -493,8 +493,7 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 		case common.HexToHash(LOG_TOPIC_WANT_DEPOSIT):
 			logData, err := filter.ParseDeposit(currentLog)
 			if err != nil {
-				log.Errorf("error parsing log data %s", err)
-				return hc
+				return hc, err
 			}
 			if toBalance, exists := hc[logData.Entity]; exists {
 				hc[logData.Entity] = new(big.Int).Add(toBalance, logData.Amount)
@@ -504,8 +503,7 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 		case common.HexToHash(LOG_TOPIC_WANT_WITHDRAWAL):
 			logData, err := filter.ParseWithdrawal(currentLog)
 			if err != nil {
-				log.Errorf("error parsing log data %s", err)
-				return hc
+				return hc, err
 			}
 			if fromBalance, exists := hc[logData.Entity]; exists {
 				hc[logData.Entity] = new(big.Int).Sub(fromBalance, logData.Amount)
@@ -514,7 +512,7 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, cur
 			}
 		}
 	}
-	return hc
+	return hc, nil
 }
 
 // submitTokenHolders function checks each candidate to token holder provided,
@@ -564,7 +562,6 @@ func (w *Web3) GetContractCreationBlock(ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	log.Debugf("last block number: %d", lastBlockHeader.Number.Uint64())
 	return w.getCreationBlock(ctx, 0, lastBlockHeader.Number.Uint64())
 }
 

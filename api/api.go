@@ -7,7 +7,6 @@ import (
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
-	"go.vocdoni.io/dvote/log"
 )
 
 type Census3APIConf struct {
@@ -38,17 +37,15 @@ func Init(db *sql.DB, q *queries.Queries, conf Census3APIConf) error {
 	r := httprouter.HTTProuter{}
 	err := r.Init(conf.Hostname, conf.Port)
 	if err != nil {
-		log.Errorw(err, "error creating http router")
 		return err
 	}
 	// init API using the http router created
 	if newAPI.endpoint, err = api.NewAPI(&r, "/api"); err != nil {
-		log.Errorw(err, "error starting the API")
 		return err
 	}
 	// init the census DB
 	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir, conf.GroupKey); err != nil {
-		log.Errorw(err, "error starting census database")
+		return err
 	}
 	// init handlers
 	newAPI.initTokenHandlers()

@@ -148,12 +148,10 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 	// create a new block in the database
 	timestamp, err := w3.BlockTimestamp(ctx, uint(th.LastBlock()))
 	if err != nil {
-		log.Error(err)
-		return nil
+		return err
 	}
 	rootHash, err := w3.BlockRootHash(ctx, uint(th.LastBlock()))
 	if err != nil {
-		log.Error(err)
 		return err
 	}
 	// if the current HoldersScanner last block not exists in the database,
@@ -309,10 +307,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 			log.Warnw("warning scanning contract", "token", th.Address().Hex(),
 				"block", th.LastBlock(), "error", err)
 			// save TokesHolders state into the database before exit of the function
-			if err := s.saveTokenHolders(th); err != nil {
-				log.Error(err)
-			}
-			return nil
+			return s.saveTokenHolders(th)
 		}
 		// if unexpected error raises, log it as error and return it.
 		log.Error("warning scanning contract", "token", th.Address().Hex(),
@@ -320,10 +315,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 		return err
 	}
 	// save TokesHolders state into the database before exit of the function
-	if err := s.saveTokenHolders(th); err != nil {
-		log.Error(err)
-	}
-	return nil
+	return s.saveTokenHolders(th)
 }
 
 // calcTokenCreationBlock function attemps to calculate the block number when

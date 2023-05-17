@@ -453,7 +453,6 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType,
 		filter := w.contract.(*erc721.ERC721Contract).ERC721ContractFilterer
 		logData, err := filter.ParseTransfer(currentLog)
 		if err != nil {
-			log.Errorf("error parsing log data %s", err)
 			return hc, err
 		}
 		if toBalance, exists := hc[logData.To]; exists {

@@ -4,13 +4,13 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
       - name: Install Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.20.x
           cache: true
-      - name: Checkout code
-        uses: actions/checkout@v3
       - name: Run golangci-lint
         # run: |
         #   curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.30.0

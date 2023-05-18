@@ -125,7 +125,11 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorw(err, "holders transaction rollback failed")
+		}
+	}()
 	qtx := s.sqlc.WithTx(tx)
 	_, err = qtx.UpdateTokenStatus(ctx, queries.UpdateTokenStatusParams{
 		Synced: th.IsSynced(),

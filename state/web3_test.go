@@ -11,8 +11,10 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-var url = flag.String("url", "", "ethereum web3 url")
-var fromblock = flag.Uint64("blocks", 17060829, "number of blocks from the latest")
+var (
+	url       = flag.String("url", "", "ethereum web3 url")
+	fromblock = flag.Uint64("blocks", 17060829, "number of blocks from the latest")
+)
 
 // go test -v -run TestUpdateTokenHolders -url http://... -block 100
 func TestUpdateTokenHolders(t *testing.T) {

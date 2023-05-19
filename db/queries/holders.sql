@@ -56,7 +56,7 @@ JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ? AND token_holders.balance >= ? AND token_holders.block_id = ?;
 
 -- name: TokenHolderByTokenIDAndHolderID :one
-SELECT holders.*, token_holders.balance
+SELECT holders.*, token_holders.*
 FROM holders
 JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ? AND token_holders.holder_id = ?;
@@ -90,10 +90,10 @@ VALUES (
     ?, ?, ?, ?
 );
 
--- name: UpdateTokenHolder :execresult
+-- name: UpdateTokenHolderBalance :execresult
 UPDATE token_holders
 SET balance = sqlc.arg(balance),
-    block_id = sqlc.arg(block_id)
+    block_id = sqlc.arg(new_block_id)
 WHERE token_id = sqlc.arg(token_id) AND holder_id = sqlc.arg(holder_id) AND block_id = sqlc.arg(block_id);
 
 -- name: DeleteTokenHolder :execresult

@@ -75,7 +75,6 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string, contractAddress co
 	if w.contract, err = w.NewContract(); err != nil {
 		return err
 	}
-	log.Infof("loaded token contract %s", contractAddress)
 	return nil
 }
 
@@ -336,12 +335,13 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 					}
 				}
 				// update the holders candidates with the current log
-				holdersCandidates, err = w.updateHolderCandidates(holdersCandidates, th.Type(), currentLog)
+				holdersCandidates, err = w.calcPartialBalances(holdersCandidates, th.Type(), currentLog)
 				if err != nil {
 					return fromBlockNumber, err
 				}
 				blocksToSave[currentLog.BlockNumber] = true
 				newBlocksMap[currentLog.BlockNumber] = true
+				th.BlockDone(currentLog.BlockNumber)
 			}
 			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
 				1000*float32(len(blocksToSave))/float32(time.Since(startTime).Milliseconds()))
@@ -410,11 +410,19 @@ func (w *Web3) getTransferLogs(th *TokenHolders, fromBlock, nblocks uint64) ([]t
 	return w.client.FilterLogs(ctx, query)
 }
 
-// updateHolderCandidates function updates the given holder candidates with the
-// values of the log provided. It uses uses functions appropriate to the token
-// type indicated.
-func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType,
-	currentLog types.Log) (HoldersCandidates, error) {
+// calcPartialBalances function calculates the partial balances of the given
+// holder candidates with the values of the given log. It uses the appropriate
+// functions for the given token type. If the holder address is the 'from'
+// address, the transaction value is added to the current balance (if it does
+// not exist, it is set to the received value). If the holder address is the
+// 'to' address, the transaction value is subtracted from the current balance
+// (if it does not exist, it is set to the received value, but in negative).
+// This behaviour allows to keep track of the partial balance of each holder
+// candidate for a batch of logs or blocks, and then update the total balance
+// in a single operation.
+func (w *Web3) calcPartialBalances(hc HoldersCandidates, ttype TokenType,
+	currentLog types.Log,
+) (HoldersCandidates, error) {
 	// update the token holders state with the log data
 	switch ttype {
 	case CONTRACT_TYPE_ERC20:
@@ -447,7 +455,7 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType,
 		if fromBalance, exists := hc[logData.From]; exists {
 			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
-			hc[logData.From] = new(big.Int).Neg(big.NewInt(1))
+			hc[logData.From] = big.NewInt(-1)
 		}
 	case CONTRACT_TYPE_ERC721: // stores the total count per address, not all identifiers
 		filter := w.contract.(*erc721.ERC721Contract).ERC721ContractFilterer
@@ -463,7 +471,7 @@ func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType,
 		if fromBalance, exists := hc[logData.From]; exists {
 			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
-			hc[logData.From] = new(big.Int).Neg(big.NewInt(1))
+			hc[logData.From] = big.NewInt(-1)
 		}
 	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		// This token contract is a bit special, token balances

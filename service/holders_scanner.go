@@ -117,7 +117,10 @@ func (s *HoldersScanner) getTokenAddresses() (map[common.Address]bool, error) {
 // the blocks scanned. To do this, it requires the root hash and the timestampt
 // of the given TokenHolders state block.
 func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
-	log.Debugf("saving token holders state for token %s at block %d", th.Address(), th.LastBlock())
+	log.Debugw("saving token holders",
+		"token", th.Address(),
+		"block", th.LastBlock(),
+		"holders", len(th.Holders()))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// begin a transaction for group sql queries
@@ -125,7 +128,11 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorw(err, "holders transaction rollback failed")
+		}
+	}()
 	qtx := s.sqlc.WithTx(tx)
 	_, err = qtx.UpdateTokenStatus(ctx, queries.UpdateTokenStatusParams{
 		Synced: th.IsSynced(),
@@ -169,14 +176,13 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 			return err
 		}
 	}
-	created, updated, deleted := 0, 0, 0
-	log.Debugf("new token holders: %d", len(th.Holders()))
 	// iterate over given holders
 	//  - if the holder not exists, create it
 	//  - if the holder already exists, calculate the new balance with the
 	//    current balance
 	//		- if the calculated balance is 0 delete it
 	//		- if the calculated balance is not 0, update it
+	created, updated, deleted := 0, 0, 0
 	for holder, balance := range th.Holders() {
 		currentTokenHolder, err := qtx.TokenHolderByTokenIDAndHolderID(ctx,
 			queries.TokenHolderByTokenIDAndHolderIDParams{
@@ -189,10 +195,7 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 				return err
 			}
 			_, err = qtx.CreateHolder(ctx, holder.Bytes())
-			if err != nil {
-				if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-					continue
-				}
+			if err != nil && !strings.Contains(err.Error(), "UNIQUE constraint failed") {
 				return err
 			}
 			// if the token holder not exists, create it
@@ -210,8 +213,8 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 		}
 		// if the holder already exists, calculate the holder balance with the
 		// current balance and the new one
-		newBalance := new(big.Int).Add(
-			new(big.Int).SetBytes(currentTokenHolder.Balance), balance)
+		currentBalance := new(big.Int).SetBytes(currentTokenHolder.Balance)
+		newBalance := new(big.Int).Add(currentBalance, balance)
 		// if the calculated balance is 0 delete it
 		if newBalance.Cmp(big.NewInt(0)) <= 0 {
 			_, err := qtx.DeleteTokenHolder(ctx,
@@ -226,11 +229,12 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 			continue
 		}
 		// if the calculated balance is not 0, update it
-		_, err = qtx.UpdateTokenHolder(ctx, queries.UpdateTokenHolderParams{
-			TokenID:  th.Address().Bytes(),
-			HolderID: holder.Bytes(),
-			BlockID:  int64(th.LastBlock()),
-			Balance:  newBalance.Bytes(),
+		_, err = qtx.UpdateTokenHolderBalance(ctx, queries.UpdateTokenHolderBalanceParams{
+			TokenID:    th.Address().Bytes(),
+			HolderID:   holder.Bytes(),
+			BlockID:    currentTokenHolder.BlockID,
+			NewBlockID: int64(th.LastBlock()),
+			Balance:    newBalance.Bytes(),
 		})
 		if err != nil {
 			return fmt.Errorf("error updating token holder: %w", err)
@@ -240,12 +244,13 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	log.Debugw("token holders state updated",
+	log.Debugw("token holders saved",
+		"token", th.Address(),
+		"block", th.LastBlock(),
 		"created", created,
 		"updated", updated,
 		"deleted", deleted)
 	th.FlushHolders()
-	log.Debug("token holders state reset")
 	return nil
 }
 
@@ -318,7 +323,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 	return s.saveTokenHolders(th)
 }
 
-// calcTokenCreationBlock function attemps to calculate the block number when
+// calcTokenCreationBlock function attempts to calculate the block number when
 // the token contract provided was created and deployed and updates the database
 // with the result obtained.
 func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common.Address) error {

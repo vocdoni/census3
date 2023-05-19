@@ -227,11 +227,12 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 			continue
 		}
 		// if the calculated balance is not 0, update it
-		_, err = qtx.UpdateTokenHolder(ctx, queries.UpdateTokenHolderParams{
-			TokenID:  th.Address().Bytes(),
-			HolderID: holder.Bytes(),
-			BlockID:  int64(th.LastBlock()),
-			Balance:  newBalance.Bytes(),
+		_, err = qtx.UpdateTokenHolderBalance(ctx, queries.UpdateTokenHolderBalanceParams{
+			TokenID:    th.Address().Bytes(),
+			HolderID:   holder.Bytes(),
+			BlockID:    currentTokenHolder.BlockID,
+			NewBlockID: int64(th.LastBlock()),
+			Balance:    newBalance.Bytes(),
 		})
 		if err != nil {
 			return fmt.Errorf("error updating token holder: %w", err)

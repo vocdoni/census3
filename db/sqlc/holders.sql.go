@@ -199,7 +199,7 @@ func (q *Queries) TokenHolderByTokenIDAndBlockIDAndHolderID(ctx context.Context,
 }
 
 const tokenHolderByTokenIDAndHolderID = `-- name: TokenHolderByTokenIDAndHolderID :one
-SELECT holders.id, token_holders.balance
+SELECT holders.id, token_holders.token_id, token_holders.holder_id, token_holders.balance, token_holders.block_id
 FROM holders
 JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ? AND token_holders.holder_id = ?
@@ -211,14 +211,23 @@ type TokenHolderByTokenIDAndHolderIDParams struct {
 }
 
 type TokenHolderByTokenIDAndHolderIDRow struct {
-	ID      annotations.Address
-	Balance []byte
+	ID       annotations.Address
+	TokenID  []byte
+	HolderID []byte
+	Balance  []byte
+	BlockID  int64
 }
 
 func (q *Queries) TokenHolderByTokenIDAndHolderID(ctx context.Context, arg TokenHolderByTokenIDAndHolderIDParams) (TokenHolderByTokenIDAndHolderIDRow, error) {
 	row := q.db.QueryRowContext(ctx, tokenHolderByTokenIDAndHolderID, arg.TokenID, arg.HolderID)
 	var i TokenHolderByTokenIDAndHolderIDRow
-	err := row.Scan(&i.ID, &i.Balance)
+	err := row.Scan(
+		&i.ID,
+		&i.TokenID,
+		&i.HolderID,
+		&i.Balance,
+		&i.BlockID,
+	)
 	return i, err
 }
 
@@ -446,25 +455,27 @@ func (q *Queries) TokensByHolderIDAndBlockID(ctx context.Context, arg TokensByHo
 	return items, nil
 }
 
-const updateTokenHolder = `-- name: UpdateTokenHolder :execresult
+const updateTokenHolderBalance = `-- name: UpdateTokenHolderBalance :execresult
 UPDATE token_holders
 SET balance = ?,
     block_id = ?
-WHERE token_id = ? AND holder_id = ?
+WHERE token_id = ? AND holder_id = ? AND block_id = ?
 `
 
-type UpdateTokenHolderParams struct {
-	Balance  []byte
-	BlockID  int64
-	TokenID  []byte
-	HolderID []byte
+type UpdateTokenHolderBalanceParams struct {
+	Balance    []byte
+	NewBlockID int64
+	TokenID    []byte
+	HolderID   []byte
+	BlockID    int64
 }
 
-func (q *Queries) UpdateTokenHolder(ctx context.Context, arg UpdateTokenHolderParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateTokenHolder,
+func (q *Queries) UpdateTokenHolderBalance(ctx context.Context, arg UpdateTokenHolderBalanceParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateTokenHolderBalance,
 		arg.Balance,
-		arg.BlockID,
+		arg.NewBlockID,
 		arg.TokenID,
 		arg.HolderID,
+		arg.BlockID,
 	)
 }

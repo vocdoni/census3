@@ -337,7 +337,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 					}
 				}
 				// update the holders candidates with the current log
-				holdersCandidates = w.updateHolderCandidates(holdersCandidates, th.Type(), currentLog)
+				holdersCandidates = w.calcPartialBalances(holdersCandidates, th.Type(), currentLog)
 				blocksToSave[currentLog.BlockNumber] = true
 				newBlocksMap[currentLog.BlockNumber] = true
 				th.BlockDone(currentLog.BlockNumber)
@@ -409,10 +409,17 @@ func (w *Web3) getTransferLogs(th *TokenHolders, fromBlock, nblocks uint64) ([]t
 	return w.client.FilterLogs(ctx, query)
 }
 
-// updateHolderCandidates function updates the given holder candidates with the
-// values of the log provided. It uses uses functions appropriate to the token
-// type indicated.
-func (w *Web3) updateHolderCandidates(hc HoldersCandidates, ttype TokenType, currentLog types.Log) HoldersCandidates {
+// calcPartialBalances function calculates the partial balances of the given
+// holder candidates with the values of the given log. It uses the appropriate
+// functions for the given token type. If the holder address is the 'from'
+// address, the transaction value is added to the current balance (if it does
+// not exist, it is set to the received value). If the holder address is the
+// 'to' address, the transaction value is subtracted from the current balance
+// (if it does not exist, it is set to the received value, but in negative).
+// This behaviour allows to keep track of the partial balance of each holder
+// candidate for a batch of logs or blocks, and then update the total balance
+// in a single operation.
+func (w *Web3) calcPartialBalances(hc HoldersCandidates, ttype TokenType, currentLog types.Log) HoldersCandidates {
 	// update the token holders state with the log data
 	switch ttype {
 	case CONTRACT_TYPE_ERC20:

@@ -16,14 +16,20 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-func (capi *census3API) initTokenHandlers() {
-	capi.endpoint.RegisterMethod("/token", "GET",
-		api.MethodAccessTypePublic, capi.getTokens)
-	capi.endpoint.RegisterMethod("/token", "POST",
-		api.MethodAccessTypePublic, capi.createToken)
-	capi.endpoint.RegisterMethod("/token/{tokenID}", "GET",
-		api.MethodAccessTypePublic, capi.getToken)
-	capi.endpoint.RegisterMethod("/token/types", "GET",
+func (capi *census3API) initTokenHandlers() error {
+	if err := capi.endpoint.RegisterMethod("/token", "GET",
+		api.MethodAccessTypePublic, capi.getTokens); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/token", "POST",
+		api.MethodAccessTypePublic, capi.createToken); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/token/{tokenID}", "GET",
+		api.MethodAccessTypePublic, capi.getToken); err != nil {
+		return err
+	}
+	return capi.endpoint.RegisterMethod("/token/types", "GET",
 		api.MethodAccessTypePublic, capi.getTokenTypes)
 }
 
@@ -177,15 +183,13 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		// get last block of the network, if something fails return progress 0
 		w3 := state.Web3{}
 		if err := w3.Init(internalCtx, capi.web3, address, state.TokenType(tokenData.TypeID)); err != nil {
-			log.Errorw(ErrInitializingWeb3, err.Error())
-			tokenProgress = 0
+			return err
 		}
 		// fetch the last block header and calculate progress
 		lastBlockNumber, err := w3.LatestBlockNumber(internalCtx)
 		if err != nil {
-			tokenProgress = 0
+			return err
 		}
-		log.Info(lastBlockNumber)
 		tokenProgress = uint64(float64(atBlock) / float64(lastBlockNumber) * 100)
 	}
 	tokenResponse := GetTokenResponse{

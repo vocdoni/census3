@@ -28,7 +28,9 @@ func Init(dataDir string) (*sql.DB, *queries.Queries, error) {
 		return nil, nil, fmt.Errorf("error opening database: %w", err)
 	}
 	// get census3 goose migrations and setup for sqlite3
-	goose.SetDialect("sqlite3")
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		return nil, nil, fmt.Errorf("error setting up driver for sqlite: %w", err)
+	}
 	goose.SetBaseFS(migrationsFS)
 	// perform goose up
 	if err := goose.Up(database, "migrations"); err != nil {

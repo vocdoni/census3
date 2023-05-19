@@ -128,7 +128,11 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorw(err, "holders transaction rollback failed")
+		}
+	}()
 	qtx := s.sqlc.WithTx(tx)
 	_, err = qtx.UpdateTokenStatus(ctx, queries.UpdateTokenStatusParams{
 		Synced: th.IsSynced(),
@@ -151,12 +155,10 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 	// create a new block in the database
 	timestamp, err := w3.BlockTimestamp(ctx, uint(th.LastBlock()))
 	if err != nil {
-		log.Error(err)
-		return nil
+		return err
 	}
 	rootHash, err := w3.BlockRootHash(ctx, uint(th.LastBlock()))
 	if err != nil {
-		log.Error(err)
 		return err
 	}
 	// if the current HoldersScanner last block not exists in the database,
@@ -321,7 +323,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 	return s.saveTokenHolders(th)
 }
 
-// calcTokenCreationBlock function attemps to calculate the block number when
+// calcTokenCreationBlock function attempts to calculate the block number when
 // the token contract provided was created and deployed and updates the database
 // with the result obtained.
 func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common.Address) error {

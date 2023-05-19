@@ -105,13 +105,11 @@ type CensusDB struct {
 func NewCensusDB(dataDir, groupKey string) (*CensusDB, error) {
 	db, err := metadb.New(db.TypePebble, filepath.Join(dataDir, "censusdb"))
 	if err != nil {
-		log.Errorw(ErrCreatingCensusDB, err.Error())
 		return nil, ErrCreatingCensusDB
 	}
 	ipfsConfig := storagelayer.IPFSNewConfig(dataDir)
 	storage, err := storagelayer.Init(storagelayer.IPFS, ipfsConfig)
 	if err != nil {
-		log.Errorw(ErrInitializingIPFS, err.Error())
 		return nil, ErrInitializingIPFS
 	}
 	var ipfsConn *ipfsconnect.IPFSConnect
@@ -128,12 +126,10 @@ func NewCensusDB(dataDir, groupKey string) (*CensusDB, error) {
 func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*PublishedCensus, error) {
 	var err error
 	if def, err = cdb.newTree(def); err != nil {
-		log.Errorw(ErrCreatingCensusTree, err.Error())
 		return nil, ErrCreatingCensusTree
 	}
 	// save the census definition into the trees database
 	if err := cdb.save(def); err != nil {
-		log.Errorw(ErrSavingCensusTree, err.Error())
 		return nil, ErrSavingCensusTree
 	}
 	// encode the holders
@@ -149,18 +145,15 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*PublishedCensus, 
 	}
 	// add the holders
 	if _, err := def.tree.AddBatch(holdersAddresses, holdersValues); err != nil {
-		log.Errorw(ErrAddingHoldersToCensusTree, err.Error())
 		return nil, ErrAddingHoldersToCensusTree
 	}
 	// publish on IPFS
 	res, err := cdb.publish(def)
 	if err != nil {
-		log.Errorw(ErrPublishingCensusTree, err.Error())
 		return nil, ErrPublishingCensusTree
 	}
 	// prune the created census from the database
 	if err := cdb.delete(def); err != nil {
-		log.Errorw(ErrPruningCensusTree, err.Error())
 		return nil, ErrPruningCensusTree
 	}
 	return res, nil
@@ -173,7 +166,8 @@ func (cdb *CensusDB) newTree(def *CensusDefinition) (*CensusDefinition, error) {
 		Name:       censusDBKey(def.ID),
 		ParentDB:   cdb.treeDB,
 		MaxLevels:  def.MaxLevels,
-		CensusType: def.Type})
+		CensusType: def.Type,
+	})
 	if err != nil {
 		return nil, err
 	}

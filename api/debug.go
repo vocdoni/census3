@@ -18,12 +18,16 @@ import (
 )
 
 // TODO: Only for the MVP, remove it.
-func (capi *census3API) initDebugHandlers() {
-	capi.endpoint.RegisterMethod("/debug/token/{address}/holders", "GET",
-		api.MethodAccessTypePublic, capi.getTokenHolders)
-	capi.endpoint.RegisterMethod("/debug/token/{address}/holders/count", "GET",
-		api.MethodAccessTypePublic, capi.countHolders)
-	capi.endpoint.RegisterMethod("/debug/census/{censusID}/check/{root}", "POST",
+func (capi *census3API) initDebugHandlers() error {
+	if err := capi.endpoint.RegisterMethod("/debug/token/{address}/holders", "GET",
+		api.MethodAccessTypePublic, capi.getTokenHolders); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/debug/token/{address}/holders/count", "GET",
+		api.MethodAccessTypePublic, capi.countHolders); err != nil {
+		return err
+	}
+	return capi.endpoint.RegisterMethod("/debug/census/{censusID}/check/{root}", "POST",
 		api.MethodAccessTypePublic, capi.checkIPFSCensus)
 }
 

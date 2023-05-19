@@ -18,7 +18,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         ### golangci-lint will take much time if loading multiple linters in .golangci.yml
         with:
-          version: v1.30.0
+          version: latest
           args: --timeout 3m --verbose
           skip-cache: false
           skip-pkg-cache: false

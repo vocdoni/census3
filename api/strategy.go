@@ -15,12 +15,16 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-func (capi *census3API) initStrategiesHandlers() {
-	capi.endpoint.RegisterMethod("/strategy/", "GET",
-		api.MethodAccessTypePublic, capi.getStrategies)
-	capi.endpoint.RegisterMethod("/strategy/{strategyID}", "GET",
-		api.MethodAccessTypePublic, capi.getStrategy)
-	capi.endpoint.RegisterMethod("/strategy/token/{tokenID}", "GET",
+func (capi *census3API) initStrategiesHandlers() error {
+	if err := capi.endpoint.RegisterMethod("/strategy/", "GET",
+		api.MethodAccessTypePublic, capi.getStrategies); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/strategy/{strategyID}", "GET",
+		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
+		return err
+	}
+	return capi.endpoint.RegisterMethod("/strategy/token/{tokenID}", "GET",
 		api.MethodAccessTypePublic, capi.getTokenStrategies)
 }
 

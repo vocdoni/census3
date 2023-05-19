@@ -14,9 +14,9 @@ import (
 
 var (
 	url           = flag.String("url", "https://eth-goerli.api.onfinality.io/public", "ethereum web3 url")
-	tokenContract = flag.String("address", "0xf530280176385af31177d78bbfd5ea3f6d07488a", "number of blocks to scan from the 'from' block provided")
+	tokenContract = flag.String("address", "0xf530280176385af31177d78bbfd5ea3f6d07488a", "token address to scan")
 	fromblock     = flag.Uint64("from", 8947005, "from block to scan")
-	nblocks       = flag.Uint64("nblock", 100, "number of blocks to scan from the 'from' block provided")
+	nblocks       = flag.Uint64("nblock", 100, "number of blocks to scan from the 'from' block")
 )
 
 var expectedHolders = map[common.Address]string{

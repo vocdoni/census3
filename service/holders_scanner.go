@@ -342,7 +342,7 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 		return err
 	}
 	// get creation block of the current token contract
-	creationBlock, err := w3.GetContractCreationBlock(ctx)
+	creationBlock, err := w3.ContractCreationBlock(ctx)
 	if err != nil {
 		return err
 	}

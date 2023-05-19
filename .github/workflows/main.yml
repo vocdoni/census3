@@ -19,7 +19,7 @@ jobs:
         ### golangci-lint will take much time if loading multiple linters in .golangci.yml
         with:
           version: latest
-          args: --timeout 3m --verbose
+          args: --timeout 5m --verbose
           skip-cache: false
           skip-pkg-cache: false
           skip-build-cache: false

@@ -3,7 +3,8 @@ version: "3.7"
 services:
   census3:
     image: ghcr.io/vocdoni/census3:master
-    build: .
+    build: 
+      context: ../../
     env_file: ".env"
     sysctls:
       net.core.somaxconn: 8128

@@ -1,0 +1,59 @@
+version: "3.7"
+
+services:
+  testnet:
+    image: ghcr.io/foundry-rs/foundry:latest
+    env_file: ".env"
+    command: 
+      - "anvil --host 0.0.0.0 --fork-url ${WEB3_PROVIDER}"
+
+  census3:
+    image: ghcr.io/vocdoni/census3:master
+    build: 
+      context: ../../
+    env_file: ".env"
+    sysctls:
+      net.core.somaxconn: 8128
+    volumes:
+      - census3:/app/data
+    links:
+      - testnet
+    command: 
+      - "--url=http://testnet:8545"
+      - "--port=${PORT}"
+      - "--logLevel=${LOGLEVEL}"
+      - "--connectKey=${CONNECT_KEY}"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.census3.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.census3.entrypoints=websecure"
+      - "traefik.http.routers.census3.tls.certresolver=le"
+      - "traefik.http.routers.census3.service=census3"
+      - "traefik.http.services.census3.loadbalancer.server.port=${PORT}"
+
+  traefik:
+    image: traefik:2.5
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    command:
+      - "--log.level=DEBUG"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.httpchallenge=true"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.le.acme.email=email@foo.bar"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+    restart: always
+
+volumes:
+  census3: {}
+

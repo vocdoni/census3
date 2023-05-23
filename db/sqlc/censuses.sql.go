@@ -294,17 +294,17 @@ func (q *Queries) DeleteCensusBlock(ctx context.Context, arg DeleteCensusBlockPa
 }
 
 const lastCensusID = `-- name: LastCensusID :one
-SELECT strategy_id 
+SELECT id 
 FROM censuses 
-ORDER BY strategy_id DESC
+ORDER BY id DESC
 LIMIT 1
 `
 
 func (q *Queries) LastCensusID(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, lastCensusID)
-	var strategy_id int64
-	err := row.Scan(&strategy_id)
-	return strategy_id, err
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const listCensuses = `-- name: ListCensuses :many

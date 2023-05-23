@@ -41,9 +41,9 @@ JOIN token_types AS tt ON t.type_id = tt.id
 WHERE tt.type_name = ?;
 
 -- name: LastCensusID :one
-SELECT strategy_id 
+SELECT id 
 FROM censuses 
-ORDER BY strategy_id DESC
+ORDER BY id DESC
 LIMIT 1;
 
 -- name: CreateCensus :execresult

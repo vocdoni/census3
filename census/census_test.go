@@ -17,7 +17,7 @@ import (
 	"go.vocdoni.io/proto/build/go/models"
 )
 
-var internalAddresses = map[common.Address]*big.Int{
+var MonkeysAddresses = map[common.Address]*big.Int{
 	common.HexToAddress("0xe54d702f98E312aBA4318E3c6BDba98ab5e11012"): big.NewInt(16),
 	common.HexToAddress("0x38d2BC91B89928f78cBaB3e4b1949e28787eC7a3"): big.NewInt(13),
 	common.HexToAddress("0xF752B527E2ABA395D1Ba4C0dE9C147B763dDA1f4"): big.NewInt(12),
@@ -44,14 +44,20 @@ func TestNewCensusDB(t *testing.T) {
 	cdb, err = NewCensusDB(t.TempDir(), "test")
 	c.Assert(err, qt.IsNil)
 	c.Assert(cdb.ipfsConn, qt.IsNotNil)
+	err = cdb.storage.Stop()
+	c.Assert(err, qt.IsNil)
 }
 
 func TestCreateAndPublish(t *testing.T) {
 	c := qt.New(t)
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
+	defer func() {
+		err = cdb.storage.Stop()
+		c.Assert(err, qt.IsNil)
+	}()
 
-	censusDefinition := DefaultCensusDefinition(1, 1, internalAddresses)
+	censusDefinition := DefaultCensusDefinition(1, 1, MonkeysAddresses)
 	publishedCensus, err := cdb.CreateAndPublish(censusDefinition)
 	c.Assert(err, qt.IsNil)
 
@@ -70,7 +76,7 @@ func TestCreateAndPublish(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 	c.Assert(publishedCensus.RootHash, qt.ContentEquals, root)
 
-	for addr, val := range internalAddresses {
+	for addr, val := range MonkeysAddresses {
 		key, err := tree.Hash(addr.Bytes())
 		c.Assert(err, qt.IsNil)
 		tval, _, err := tree.GenProof(key[:censustree.DefaultMaxKeyLen])
@@ -83,6 +89,10 @@ func Test_newTree(t *testing.T) {
 	c := qt.New(t)
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
+	defer func() {
+		err = cdb.storage.Stop()
+		c.Assert(err, qt.IsNil)
+	}()
 
 	_, err = cdb.newTree(&CensusDefinition{
 		ID:        1,
@@ -99,6 +109,10 @@ func Test_save(t *testing.T) {
 	c := qt.New(t)
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
+	defer func() {
+		err = cdb.storage.Stop()
+		c.Assert(err, qt.IsNil)
+	}()
 
 	def := DefaultCensusDefinition(0, 0, map[common.Address]*big.Int{})
 	rtx := cdb.treeDB.ReadTx()
@@ -121,8 +135,12 @@ func Test_publish(t *testing.T) {
 	c := qt.New(t)
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
+	defer func() {
+		err = cdb.storage.Stop()
+		c.Assert(err, qt.IsNil)
+	}()
 
-	def, err := cdb.newTree(DefaultCensusDefinition(0, 0, internalAddresses))
+	def, err := cdb.newTree(DefaultCensusDefinition(0, 0, MonkeysAddresses))
 	c.Assert(err, qt.IsNil)
 
 	keys, values := [][]byte{}, [][]byte{}
@@ -151,6 +169,10 @@ func Test_delete(t *testing.T) {
 	c := qt.New(t)
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
+	defer func() {
+		err = cdb.storage.Stop()
+		c.Assert(err, qt.IsNil)
+	}()
 
 	def := DefaultCensusDefinition(0, 0, map[common.Address]*big.Int{})
 	err = cdb.save(def)

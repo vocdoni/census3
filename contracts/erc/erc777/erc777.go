@@ -185,7 +185,6 @@ func (_ERC777Contract *ERC777ContractTransactorRaw) Transact(opts *bind.Transact
 func (_ERC777Contract *ERC777ContractCaller) Allowance(opts *bind.CallOpts, holder common.Address, spender common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _ERC777Contract.contract.Call(opts, &out, "allowance", holder, spender)
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -193,7 +192,6 @@ func (_ERC777Contract *ERC777ContractCaller) Allowance(opts *bind.CallOpts, hold
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
@@ -216,7 +214,6 @@ func (_ERC777Contract *ERC777ContractCallerSession) Allowance(holder common.Addr
 func (_ERC777Contract *ERC777ContractCaller) BalanceOf(opts *bind.CallOpts, tokenHolder common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _ERC777Contract.contract.Call(opts, &out, "balanceOf", tokenHolder)
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -224,7 +221,6 @@ func (_ERC777Contract *ERC777ContractCaller) BalanceOf(opts *bind.CallOpts, toke
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
@@ -247,7 +243,6 @@ func (_ERC777Contract *ERC777ContractCallerSession) BalanceOf(tokenHolder common
 func (_ERC777Contract *ERC777ContractCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
 	var out []interface{}
 	err := _ERC777Contract.contract.Call(opts, &out, "decimals")
-
 	if err != nil {
 		return *new(uint8), err
 	}
@@ -255,7 +250,6 @@ func (_ERC777Contract *ERC777ContractCaller) Decimals(opts *bind.CallOpts) (uint
 	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
 
 	return out0, err
-
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
@@ -278,7 +272,6 @@ func (_ERC777Contract *ERC777ContractCallerSession) Decimals() (uint8, error) {
 func (_ERC777Contract *ERC777ContractCaller) DefaultOperators(opts *bind.CallOpts) ([]common.Address, error) {
 	var out []interface{}
 	err := _ERC777Contract.contract.Call(opts, &out, "defaultOperators")
-
 	if err != nil {
 		return *new([]common.Address), err
 	}
@@ -286,7 +279,6 @@ func (_ERC777Contract *ERC777ContractCaller) DefaultOperators(opts *bind.CallOpt
 	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
 
 	return out0, err
-
 }
 
 // DefaultOperators is a free data retrieval call binding the contract method 0x06e48538.
@@ -309,7 +301,6 @@ func (_ERC777Contract *ERC777ContractCallerSession) DefaultOperators() ([]common
 func (_ERC777Contract *ERC777ContractCaller) Granularity(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _ERC777Contract.contract.Call(opts, &out, "granularity")
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -317,7 +308,6 @@ func (_ERC777Contract *ERC777ContractCaller) Granularity(opts *bind.CallOpts) (*
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // Granularity is a free data retrieval call binding the contract method 0x556f0dc7.
@@ -340,7 +330,6 @@ func (_ERC777Contract *ERC777ContractCallerSession) Granularity() (*big.Int, err
 func (_ERC777Contract *ERC777ContractCaller) IsOperatorFor(opts *bind.CallOpts, operator common.Address, tokenHolder common.Address) (bool, error) {
 	var out []interface{}
 	err := _ERC777Contract.contract.Call(opts, &out, "isOperatorFor", operator, tokenHolder)
-
 	if err != nil {
 		return *new(bool), err
 	}
@@ -348,7 +337,6 @@ func (_ERC777Contract *ERC777ContractCaller) IsOperatorFor(opts *bind.CallOpts, 
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
-
 }
 
 // IsOperatorFor is a free data retrieval call binding the contract method 0xd95b6371.
@@ -371,7 +359,6 @@ func (_ERC777Contract *ERC777ContractCallerSession) IsOperatorFor(operator commo
 func (_ERC777Contract *ERC777ContractCaller) Name(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _ERC777Contract.contract.Call(opts, &out, "name")
-
 	if err != nil {
 		return *new(string), err
 	}
@@ -379,7 +366,6 @@ func (_ERC777Contract *ERC777ContractCaller) Name(opts *bind.CallOpts) (string, 
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
-
 }
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
@@ -402,7 +388,6 @@ func (_ERC777Contract *ERC777ContractCallerSession) Name() (string, error) {
 func (_ERC777Contract *ERC777ContractCaller) Symbol(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _ERC777Contract.contract.Call(opts, &out, "symbol")
-
 	if err != nil {
 		return *new(string), err
 	}
@@ -410,7 +395,6 @@ func (_ERC777Contract *ERC777ContractCaller) Symbol(opts *bind.CallOpts) (string
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
-
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
@@ -433,7 +417,6 @@ func (_ERC777Contract *ERC777ContractCallerSession) Symbol() (string, error) {
 func (_ERC777Contract *ERC777ContractCaller) TotalSupply(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _ERC777Contract.contract.Call(opts, &out, "totalSupply")
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -441,7 +424,6 @@ func (_ERC777Contract *ERC777ContractCaller) TotalSupply(opts *bind.CallOpts) (*
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
@@ -726,7 +708,6 @@ type ERC777ContractApproval struct {
 //
 // Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
 func (_ERC777Contract *ERC777ContractFilterer) FilterApproval(opts *bind.FilterOpts, owner []common.Address, spender []common.Address) (*ERC777ContractApprovalIterator, error) {
-
 	var ownerRule []interface{}
 	for _, ownerItem := range owner {
 		ownerRule = append(ownerRule, ownerItem)
@@ -747,7 +728,6 @@ func (_ERC777Contract *ERC777ContractFilterer) FilterApproval(opts *bind.FilterO
 //
 // Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
 func (_ERC777Contract *ERC777ContractFilterer) WatchApproval(opts *bind.WatchOpts, sink chan<- *ERC777ContractApproval, owner []common.Address, spender []common.Address) (event.Subscription, error) {
-
 	var ownerRule []interface{}
 	for _, ownerItem := range owner {
 		ownerRule = append(ownerRule, ownerItem)
@@ -879,7 +859,6 @@ type ERC777ContractAuthorizedOperator struct {
 //
 // Solidity: event AuthorizedOperator(address indexed operator, address indexed tokenHolder)
 func (_ERC777Contract *ERC777ContractFilterer) FilterAuthorizedOperator(opts *bind.FilterOpts, operator []common.Address, tokenHolder []common.Address) (*ERC777ContractAuthorizedOperatorIterator, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -900,7 +879,6 @@ func (_ERC777Contract *ERC777ContractFilterer) FilterAuthorizedOperator(opts *bi
 //
 // Solidity: event AuthorizedOperator(address indexed operator, address indexed tokenHolder)
 func (_ERC777Contract *ERC777ContractFilterer) WatchAuthorizedOperator(opts *bind.WatchOpts, sink chan<- *ERC777ContractAuthorizedOperator, operator []common.Address, tokenHolder []common.Address) (event.Subscription, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -1035,7 +1013,6 @@ type ERC777ContractBurned struct {
 //
 // Solidity: event Burned(address indexed operator, address indexed from, uint256 amount, bytes data, bytes operatorData)
 func (_ERC777Contract *ERC777ContractFilterer) FilterBurned(opts *bind.FilterOpts, operator []common.Address, from []common.Address) (*ERC777ContractBurnedIterator, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -1056,7 +1033,6 @@ func (_ERC777Contract *ERC777ContractFilterer) FilterBurned(opts *bind.FilterOpt
 //
 // Solidity: event Burned(address indexed operator, address indexed from, uint256 amount, bytes data, bytes operatorData)
 func (_ERC777Contract *ERC777ContractFilterer) WatchBurned(opts *bind.WatchOpts, sink chan<- *ERC777ContractBurned, operator []common.Address, from []common.Address) (event.Subscription, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -1191,7 +1167,6 @@ type ERC777ContractMinted struct {
 //
 // Solidity: event Minted(address indexed operator, address indexed to, uint256 amount, bytes data, bytes operatorData)
 func (_ERC777Contract *ERC777ContractFilterer) FilterMinted(opts *bind.FilterOpts, operator []common.Address, to []common.Address) (*ERC777ContractMintedIterator, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -1212,7 +1187,6 @@ func (_ERC777Contract *ERC777ContractFilterer) FilterMinted(opts *bind.FilterOpt
 //
 // Solidity: event Minted(address indexed operator, address indexed to, uint256 amount, bytes data, bytes operatorData)
 func (_ERC777Contract *ERC777ContractFilterer) WatchMinted(opts *bind.WatchOpts, sink chan<- *ERC777ContractMinted, operator []common.Address, to []common.Address) (event.Subscription, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -1344,7 +1318,6 @@ type ERC777ContractRevokedOperator struct {
 //
 // Solidity: event RevokedOperator(address indexed operator, address indexed tokenHolder)
 func (_ERC777Contract *ERC777ContractFilterer) FilterRevokedOperator(opts *bind.FilterOpts, operator []common.Address, tokenHolder []common.Address) (*ERC777ContractRevokedOperatorIterator, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -1365,7 +1338,6 @@ func (_ERC777Contract *ERC777ContractFilterer) FilterRevokedOperator(opts *bind.
 //
 // Solidity: event RevokedOperator(address indexed operator, address indexed tokenHolder)
 func (_ERC777Contract *ERC777ContractFilterer) WatchRevokedOperator(opts *bind.WatchOpts, sink chan<- *ERC777ContractRevokedOperator, operator []common.Address, tokenHolder []common.Address) (event.Subscription, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -1501,7 +1473,6 @@ type ERC777ContractSent struct {
 //
 // Solidity: event Sent(address indexed operator, address indexed from, address indexed to, uint256 amount, bytes data, bytes operatorData)
 func (_ERC777Contract *ERC777ContractFilterer) FilterSent(opts *bind.FilterOpts, operator []common.Address, from []common.Address, to []common.Address) (*ERC777ContractSentIterator, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -1526,7 +1497,6 @@ func (_ERC777Contract *ERC777ContractFilterer) FilterSent(opts *bind.FilterOpts,
 //
 // Solidity: event Sent(address indexed operator, address indexed from, address indexed to, uint256 amount, bytes data, bytes operatorData)
 func (_ERC777Contract *ERC777ContractFilterer) WatchSent(opts *bind.WatchOpts, sink chan<- *ERC777ContractSent, operator []common.Address, from []common.Address, to []common.Address) (event.Subscription, error) {
-
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -1663,7 +1633,6 @@ type ERC777ContractTransfer struct {
 //
 // Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
 func (_ERC777Contract *ERC777ContractFilterer) FilterTransfer(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*ERC777ContractTransferIterator, error) {
-
 	var fromRule []interface{}
 	for _, fromItem := range from {
 		fromRule = append(fromRule, fromItem)
@@ -1684,7 +1653,6 @@ func (_ERC777Contract *ERC777ContractFilterer) FilterTransfer(opts *bind.FilterO
 //
 // Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
 func (_ERC777Contract *ERC777ContractFilterer) WatchTransfer(opts *bind.WatchOpts, sink chan<- *ERC777ContractTransfer, from []common.Address, to []common.Address) (event.Subscription, error) {
-
 	var fromRule []interface{}
 	for _, fromItem := range from {
 		fromRule = append(fromRule, fromItem)

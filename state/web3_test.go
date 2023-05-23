@@ -32,6 +32,18 @@ var expectedHolders = map[common.Address]string{
 	common.HexToAddress("0x1893eD78480267D1854373A99Cee8dE2E08d430F"): "2000000000000000000",
 }
 
+func TestNewContract(t *testing.T)       {}
+func TestWeb3Init(t *testing.T)          {}
+func TestTokenName(t *testing.T)         {}
+func TestTokenSymbol(t *testing.T)       {}
+func TestTokenDecimals(t *testing.T)     {}
+func TestTokenTotalSupply(t *testing.T)  {}
+func TestTokenData(t *testing.T)         {}
+func TestTokenBalanceOf(t *testing.T)    {}
+func TestBlockTimestamp(t *testing.T)    {}
+func TestBlockRootHash(t *testing.T)     {}
+func TestLatestBlockNumber(t *testing.T) {}
+
 // go test -v -run TestUpdateTokenHolders -url http://... -block 100
 func TestUpdateTokenHolders(t *testing.T) {
 	log.Init(log.LogLevelDebug, "stderr", nil)
@@ -65,8 +77,14 @@ func TestUpdateTokenHolders(t *testing.T) {
 		fmt.Println(addr.String())
 		fmt.Println(balance.String())
 		expectedBalance, ok := expectedHolders[addr]
-		fmt.Println(expectedBalance)
 		c.Assert(ok, qt.IsTrue)
 		c.Assert(balance.String(), qt.Equals, expectedBalance)
 	}
 }
+
+func Test_transferLogs(t *testing.T)         {}
+func Test_calcPartialBalances(t *testing.T)  {}
+func Test_commitTokenHolders(t *testing.T)   {}
+func TestCreationBlock(t *testing.T)         {}
+func Test_creationBlockInRange(t *testing.T) {}
+func TestSourceCodeLenAt(t *testing.T)       {}

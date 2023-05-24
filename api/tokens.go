@@ -56,13 +56,10 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	tokens := GetTokensResponse{Tokens: []GetTokenResponse{}}
 	for _, tokenData := range rows {
 		tokenResponse := GetTokenResponse{
-			ID:       common.BytesToAddress(tokenData.ID).String(),
-			Type:     state.TokenType(int(tokenData.TypeID)).String(),
-			Decimals: uint64(tokenData.Decimals.Int64),
-			Name:     tokenData.Name.String,
-		}
-		if tokenData.CreationBlock.Valid {
-			tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int32)
+			ID:         common.BytesToAddress(tokenData.ID).String(),
+			Type:       state.TokenType(int(tokenData.TypeID)).String(),
+			Name:       tokenData.Name.String,
+			StartBlock: uint64(tokenData.CreationBlock.Int32),
 		}
 		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}

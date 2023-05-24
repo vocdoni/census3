@@ -199,7 +199,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		Name:        tokenData.Name.String,
 		Symbol:      tokenData.Symbol.String,
 		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply).String(),
-		Status: GetTokenStatusResponse{
+		Status: &GetTokenStatusResponse{
 			AtBlock:  uint64(atBlock),
 			Synced:   tokenData.Synced,
 			Progress: tokenProgress,

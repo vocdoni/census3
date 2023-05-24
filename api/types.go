@@ -12,15 +12,15 @@ type GetTokenStatusResponse struct {
 }
 
 type GetTokenResponse struct {
-	ID              string                 `json:"id"`
-	Type            string                 `json:"type"`
-	Decimals        uint64                 `json:"decimals"`
-	StartBlock      uint64                 `json:"startBlock"`
-	Symbol          string                 `json:"symbol"`
-	TotalSupply     string                 `json:"totalSupply"`
-	Name            string                 `json:"name"`
-	Status          GetTokenStatusResponse `json:"status,omitempty"`
-	DefaultStrategy uint64                 `json:"defaultStrategy,omitempty"`
+	ID              string                  `json:"id"`
+	Type            string                  `json:"type"`
+	Decimals        uint64                  `json:"decimals"`
+	StartBlock      uint64                  `json:"startBlock"`
+	Symbol          string                  `json:"symbol"`
+	TotalSupply     string                  `json:"totalSupply"`
+	Name            string                  `json:"name"`
+	Status          *GetTokenStatusResponse `json:"status,omitempty"`
+	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
 }
 
 type GetTokensResponse struct {

@@ -34,7 +34,7 @@ CREATE TABLE censuses (
     strategy_id INTEGER NOT NULL,
     merkle_root BLOB NOT NULL UNIQUE,
     uri TEXT UNIQUE,
-    size BLOB NOT NULL,
+    size INTEGER NOT NULL,
     weight BLOB NOT NULL,
     FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE
 );

@@ -52,7 +52,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		StrategyID: uint64(currentCensus.StrategyID),
 		MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
 		URI:        "ipfs://" + currentCensus.Uri.String,
-		Size:       new(big.Int).SetBytes(currentCensus.Size).String(),
+		Size:       uint64(currentCensus.Size),
 		Weight:     new(big.Int).SetBytes(currentCensus.Weight).String(),
 	})
 	if err != nil {
@@ -97,8 +97,9 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		log.Errorf("error getting strategy with id %d: %s", req.StrategyID, err.Error())
 		return ErrCantGetStrategy
 	}
-	// get holders associated to every strategy token
-	// create a map to avoid duplicates
+	// get holders associated to every strategy token, create a map to avoid
+	// duplicates and count the sum of the balances to get the weight of the
+	// census
 	censusWeight := new(big.Int)
 	strategyHolders := map[common.Address]*big.Int{}
 	for _, token := range strategyTokens {
@@ -162,7 +163,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		StrategyID: int64(req.StrategyID),
 		MerkleRoot: newCensus.RootHash,
 		Uri:        *sqlURI,
-		Size:       new(big.Int).SetInt64(int64(len(strategyHolders))).Bytes(),
+		Size:       int64(len(strategyHolders)),
 		Weight:     censusWeight.Bytes(),
 	})
 	if err != nil {

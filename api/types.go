@@ -49,7 +49,7 @@ type GetCensusResponse struct {
 	StrategyID uint64 `json:"strategyId"`
 	MerkleRoot string `json:"merkleRoot"`
 	URI        string `json:"uri"`
-	Size       uint64 `json:"size"`
+	Size       int32  `json:"size"`
 	Weight     string `json:"weight"`
 }
 

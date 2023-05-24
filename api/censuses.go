@@ -52,7 +52,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		StrategyID: uint64(currentCensus.StrategyID),
 		MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
 		URI:        "ipfs://" + currentCensus.Uri.String,
-		Size:       uint64(currentCensus.Size),
+		Size:       int32(currentCensus.Size),
 		Weight:     new(big.Int).SetBytes(currentCensus.Weight).String(),
 	})
 	if err != nil {

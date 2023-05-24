@@ -34,6 +34,8 @@ CREATE TABLE censuses (
     strategy_id INTEGER NOT NULL,
     merkle_root BLOB NOT NULL UNIQUE,
     uri TEXT UNIQUE,
+    size BLOB NOT NULL,
+    weight BLOB NOT NULL,
     FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_censuses_strategy_id ON censuses(strategy_id);

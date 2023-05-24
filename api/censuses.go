@@ -46,11 +46,14 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		}
 		return ErrCantGetCensus
 	}
+
 	res, err := json.Marshal(GetCensusResponse{
 		CensusID:   uint64(censusID),
 		StrategyID: uint64(currentCensus.StrategyID),
 		MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
 		URI:        "ipfs://" + currentCensus.Uri.String,
+		Size:       new(big.Int).SetBytes(currentCensus.Size).String(),
+		Weight:     new(big.Int).SetBytes(currentCensus.Weight).String(),
 	})
 	if err != nil {
 		return ErrEncodeCensus
@@ -96,6 +99,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	}
 	// get holders associated to every strategy token
 	// create a map to avoid duplicates
+	censusWeight := new(big.Int)
 	strategyHolders := map[common.Address]*big.Int{}
 	for _, token := range strategyTokens {
 		holders, err := qtx.TokenHoldersByTokenID(internalCtx, token.ID)
@@ -111,6 +115,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 			holderBalance := new(big.Int).SetBytes(holder.Balance)
 			if _, exists := strategyHolders[holderAddr]; !exists {
 				strategyHolders[holderAddr] = holderBalance
+				censusWeight = new(big.Int).Add(censusWeight, holderBalance)
 			}
 		}
 	}
@@ -157,6 +162,8 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		StrategyID: int64(req.StrategyID),
 		MerkleRoot: newCensus.RootHash,
 		Uri:        *sqlURI,
+		Size:       new(big.Int).SetInt64(int64(len(strategyHolders))).Bytes(),
+		Weight:     censusWeight.Bytes(),
 	})
 	if err != nil {
 		log.Errorw(err, "error saving the census on the database")

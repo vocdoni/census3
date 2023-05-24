@@ -198,7 +198,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		Decimals:    uint64(tokenData.Decimals.Int64),
 		Name:        tokenData.Name.String,
 		Symbol:      tokenData.Symbol.String,
-		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply),
+		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply).String(),
 		Status: GetTokenStatusResponse{
 			AtBlock:  uint64(atBlock),
 			Synced:   tokenData.Synced,

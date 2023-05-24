@@ -18,6 +18,12 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
+var (
+	ErrNoDB           = fmt.Errorf("no database instance provided")
+	ErrHalted         = fmt.Errorf("scanner loop halted")
+	ErrTokenNotExists = fmt.Errorf("token does not exists")
+)
+
 // HoldersScanner struct contains the needed parameters to scan the holders of
 // the tokens stored on the database (located on 'dataDir/dbFilename'). It
 // keeps the database updated scanning the network using the web3 endpoint.
@@ -34,6 +40,9 @@ type HoldersScanner struct {
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
 func NewHoldersScanner(db *sql.DB, q *queries.Queries, w3uri string) (*HoldersScanner, error) {
+	if db == nil || q == nil {
+		return nil, ErrNoDB
+	}
 	// create an empty scanner
 	s := HoldersScanner{
 		tokens: make(map[common.Address]*state.TokenHolders),
@@ -60,11 +69,11 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("scanner loop halted")
+			log.Info(ErrHalted)
 			return
 		default:
 			// get updated list of tokens
-			tokens, err := s.getTokenAddresses()
+			tokens, err := s.tokenAddresses()
 			if err != nil {
 				log.Error(err)
 				continue
@@ -87,11 +96,11 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 	}
 }
 
-// getTokenAddresses function gets the current token addresses from the database
+// tokenAddresses function gets the current token addresses from the database
 // and returns it as a list of common.Address structs. If the current database
 // instance does not contain any token, it returns nil addresses without error.
 // This behaviour helps to deal with this particular case.
-func (s *HoldersScanner) getTokenAddresses() (map[common.Address]bool, error) {
+func (s *HoldersScanner) tokenAddresses() (map[common.Address]bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// get tokens from the database
@@ -112,11 +121,11 @@ func (s *HoldersScanner) getTokenAddresses() (map[common.Address]bool, error) {
 	return results, nil
 }
 
-// saveTokenHolders function updates the current HoldersScanner database with the
+// saveHolders function updates the current HoldersScanner database with the
 // TokenHolders state provided. Updates the holders for associated token and
 // the blocks scanned. To do this, it requires the root hash and the timestampt
 // of the given TokenHolders state block.
-func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
+func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	log.Debugw("saving token holders",
 		"token", th.Address(),
 		"block", th.LastBlock(),
@@ -134,6 +143,12 @@ func (s *HoldersScanner) saveTokenHolders(th *state.TokenHolders) error {
 		}
 	}()
 	qtx := s.sqlc.WithTx(tx)
+	if exists, err := qtx.ExistsToken(ctx, th.Address().Bytes()); err != nil {
+		return fmt.Errorf("error checking if token exists: %w", err)
+	} else if !exists {
+		return ErrTokenNotExists
+	}
+
 	_, err = qtx.UpdateTokenStatus(ctx, queries.UpdateTokenStatusParams{
 		Synced: th.IsSynced(),
 		ID:     th.Address().Bytes(),
@@ -312,7 +327,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 			log.Warnw("warning scanning contract", "token", th.Address().Hex(),
 				"block", th.LastBlock(), "error", err)
 			// save TokesHolders state into the database before exit of the function
-			return s.saveTokenHolders(th)
+			return s.saveHolders(th)
 		}
 		// if unexpected error raises, log it as error and return it.
 		log.Error("warning scanning contract", "token", th.Address().Hex(),
@@ -320,7 +335,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 		return err
 	}
 	// save TokesHolders state into the database before exit of the function
-	return s.saveTokenHolders(th)
+	return s.saveHolders(th)
 }
 
 // calcTokenCreationBlock function attempts to calculate the block number when
@@ -333,22 +348,22 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 	// get the token type
 	tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting token from database: %w", err)
 	}
 	ttype := state.TokenType(tokenInfo.TypeID)
 	// init web3 contract state
 	w3 := state.Web3{}
 	if err := w3.Init(ctx, s.web3, addr, ttype); err != nil {
-		return err
+		return fmt.Errorf("error intializing web3 client for this token: %w", err)
 	}
 	// get creation block of the current token contract
-	creationBlock, err := w3.GetContractCreationBlock(ctx)
+	creationBlock, err := w3.ContractCreationBlock(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting token creation block: %w", err)
 	}
 	dbCreationBlock := new(sql.NullInt32)
 	if err := dbCreationBlock.Scan(creationBlock); err != nil {
-		return err
+		return fmt.Errorf("error getting token creation block value: %w", err)
 	}
 	// save the creation block into the database
 	_, err = s.sqlc.UpdateTokenCreationBlock(ctx,
@@ -356,5 +371,8 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 			ID:            addr.Bytes(),
 			CreationBlock: *dbCreationBlock,
 		})
+	if err != nil {
+		return fmt.Errorf("error updating token creation block on the database: %w", err)
+	}
 	return err
 }

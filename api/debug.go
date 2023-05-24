@@ -6,12 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vocdoni/census3/census"
-	queries "github.com/vocdoni/census3/db/sqlc"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -27,33 +24,7 @@ func (capi *census3API) initDebugHandlers() error {
 		api.MethodAccessTypePublic, capi.countHolders); err != nil {
 		return err
 	}
-	return capi.endpoint.RegisterMethod("/debug/census/{censusID}/check/{root}", "POST",
-		api.MethodAccessTypePublic, capi.checkIPFSCensus)
-}
-
-// createDummyStrategy creates the default strategy for a given token. This
-// basic strategy only includes the holders of the given token which have a
-// balance positive balance (holder_balance > 0).
-//
-// TODO: Only for the MVP, remove it.
-func (capi *census3API) createDummyStrategy(tokenID []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	res, err := capi.sqlc.CreateStategy(ctx, "test")
-	if err != nil {
-		return err
-	}
-	strategyID, err := res.LastInsertId()
-	if err != nil {
-		return err
-	}
-	_, err = capi.sqlc.CreateStrategyToken(ctx, queries.CreateStrategyTokenParams{
-		StrategyID: strategyID,
-		TokenID:    tokenID,
-		MinBalance: big.NewInt(0).Bytes(),
-		MethodHash: []byte("test"),
-	})
-	return err
+	return nil
 }
 
 // getTokenHolders handler function gets the token holders states from the
@@ -130,30 +101,4 @@ func (capi *census3API) countHolders(msg *api.APIdata, ctx *httprouter.HTTPConte
 		return ErrEncodeTokenHolders.Withf("token address: %s", addr)
 	}
 	return ctx.Send(response, api.HTTPstatusOK)
-}
-
-// TODO: Only for the MVP, remove it.
-func (capi *census3API) checkIPFSCensus(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// get strategy and query about the tokens that it includes
-	censusID, err := strconv.Atoi(ctx.URLParam("censusID"))
-	root := ctx.URLParam("root")
-	if err != nil {
-		return ErrMalformedStrategyID
-	}
-
-	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	currentCensus, err := capi.sqlc.CensusByID(internalCtx, int64(censusID))
-	if err != nil {
-		return ErrCantGetStrategy
-	}
-
-	censusDef := census.DefaultCensusDefinition(censusID, 0, nil)
-	censusDef.URI = currentCensus.Uri.String
-	if err := capi.censusDB.Check(censusDef, []byte(root)); err != nil {
-		log.Error(err)
-		return api.APIerror{Code: 5100, HTTPstatus: 500, Err: err}
-	}
-
-	return ctx.Send([]byte("ok"), api.HTTPstatusOK)
 }

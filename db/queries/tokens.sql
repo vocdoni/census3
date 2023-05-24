@@ -67,3 +67,9 @@ WHERE id = sqlc.arg(id);
 -- name: DeleteToken :execresult
 DELETE FROM tokens
 WHERE id = ?;
+
+-- name: ExistsToken :one
+SELECT EXISTS 
+    (SELECT id 
+    FROM tokens
+    WHERE id = ?)

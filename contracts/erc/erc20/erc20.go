@@ -185,7 +185,6 @@ func (_ERC20Contract *ERC20ContractTransactorRaw) Transact(opts *bind.TransactOp
 func (_ERC20Contract *ERC20ContractCaller) Allowance(opts *bind.CallOpts, owner common.Address, spender common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _ERC20Contract.contract.Call(opts, &out, "allowance", owner, spender)
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -193,7 +192,6 @@ func (_ERC20Contract *ERC20ContractCaller) Allowance(opts *bind.CallOpts, owner 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
@@ -216,7 +214,6 @@ func (_ERC20Contract *ERC20ContractCallerSession) Allowance(owner common.Address
 func (_ERC20Contract *ERC20ContractCaller) BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _ERC20Contract.contract.Call(opts, &out, "balanceOf", account)
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -224,7 +221,6 @@ func (_ERC20Contract *ERC20ContractCaller) BalanceOf(opts *bind.CallOpts, accoun
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
@@ -247,7 +243,6 @@ func (_ERC20Contract *ERC20ContractCallerSession) BalanceOf(account common.Addre
 func (_ERC20Contract *ERC20ContractCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
 	var out []interface{}
 	err := _ERC20Contract.contract.Call(opts, &out, "decimals")
-
 	if err != nil {
 		return *new(uint8), err
 	}
@@ -255,7 +250,6 @@ func (_ERC20Contract *ERC20ContractCaller) Decimals(opts *bind.CallOpts) (uint8,
 	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
 
 	return out0, err
-
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
@@ -278,7 +272,6 @@ func (_ERC20Contract *ERC20ContractCallerSession) Decimals() (uint8, error) {
 func (_ERC20Contract *ERC20ContractCaller) Name(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _ERC20Contract.contract.Call(opts, &out, "name")
-
 	if err != nil {
 		return *new(string), err
 	}
@@ -286,7 +279,6 @@ func (_ERC20Contract *ERC20ContractCaller) Name(opts *bind.CallOpts) (string, er
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
-
 }
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
@@ -309,7 +301,6 @@ func (_ERC20Contract *ERC20ContractCallerSession) Name() (string, error) {
 func (_ERC20Contract *ERC20ContractCaller) Symbol(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _ERC20Contract.contract.Call(opts, &out, "symbol")
-
 	if err != nil {
 		return *new(string), err
 	}
@@ -317,7 +308,6 @@ func (_ERC20Contract *ERC20ContractCaller) Symbol(opts *bind.CallOpts) (string, 
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
-
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
@@ -340,7 +330,6 @@ func (_ERC20Contract *ERC20ContractCallerSession) Symbol() (string, error) {
 func (_ERC20Contract *ERC20ContractCaller) TotalSupply(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _ERC20Contract.contract.Call(opts, &out, "totalSupply")
-
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -348,7 +337,6 @@ func (_ERC20Contract *ERC20ContractCaller) TotalSupply(opts *bind.CallOpts) (*bi
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
-
 }
 
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
@@ -549,7 +537,6 @@ type ERC20ContractApproval struct {
 //
 // Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
 func (_ERC20Contract *ERC20ContractFilterer) FilterApproval(opts *bind.FilterOpts, owner []common.Address, spender []common.Address) (*ERC20ContractApprovalIterator, error) {
-
 	var ownerRule []interface{}
 	for _, ownerItem := range owner {
 		ownerRule = append(ownerRule, ownerItem)
@@ -570,7 +557,6 @@ func (_ERC20Contract *ERC20ContractFilterer) FilterApproval(opts *bind.FilterOpt
 //
 // Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
 func (_ERC20Contract *ERC20ContractFilterer) WatchApproval(opts *bind.WatchOpts, sink chan<- *ERC20ContractApproval, owner []common.Address, spender []common.Address) (event.Subscription, error) {
-
 	var ownerRule []interface{}
 	for _, ownerItem := range owner {
 		ownerRule = append(ownerRule, ownerItem)
@@ -703,7 +689,6 @@ type ERC20ContractTransfer struct {
 //
 // Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
 func (_ERC20Contract *ERC20ContractFilterer) FilterTransfer(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*ERC20ContractTransferIterator, error) {
-
 	var fromRule []interface{}
 	for _, fromItem := range from {
 		fromRule = append(fromRule, fromItem)
@@ -724,7 +709,6 @@ func (_ERC20Contract *ERC20ContractFilterer) FilterTransfer(opts *bind.FilterOpt
 //
 // Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
 func (_ERC20Contract *ERC20ContractFilterer) WatchTransfer(opts *bind.WatchOpts, sink chan<- *ERC20ContractTransfer, from []common.Address, to []common.Address) (event.Subscription, error) {
-
 	var fromRule []interface{}
 	for _, fromItem := range from {
 		fromRule = append(fromRule, fromItem)

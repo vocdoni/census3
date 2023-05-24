@@ -183,12 +183,12 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		// get last block of the network, if something fails return progress 0
 		w3 := state.Web3{}
 		if err := w3.Init(internalCtx, capi.web3, address, state.TokenType(tokenData.TypeID)); err != nil {
-			return err
+			return ErrInitializingWeb3
 		}
 		// fetch the last block header and calculate progress
 		lastBlockNumber, err := w3.LatestBlockNumber(internalCtx)
 		if err != nil {
-			return err
+			return ErrCantGetToken
 		}
 		tokenProgress = uint64(float64(atBlock) / float64(lastBlockNumber) * 100)
 	}

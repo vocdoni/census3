@@ -14,11 +14,6 @@ import (
 	"github.com/vocdoni/census3/state"
 )
 
-const (
-	web3testUri  = "https://eth-goerli.api.onfinality.io/public"
-	web3testUri2 = "https://rpc.ankr.com/eth_goerli"
-)
-
 func TestNewHolderScanner(t *testing.T) {
 	c := qt.New(t)
 
@@ -82,7 +77,8 @@ func Test_tokenAddresses(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_, err = testdb.queries.CreateToken(ctx, testTokenParams("0x1", "test0",
-		"test0", 18, 0, 10, uint64(state.CONTRACT_TYPE_ERC20), false))
+		"test0", MonkeysDecimals, 0, MonkeysTotalSupply.Uint64(),
+		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
 
 	res, err = hs.tokenAddresses()
@@ -90,7 +86,8 @@ func Test_tokenAddresses(t *testing.T) {
 	c.Assert(res[common.HexToAddress("0x1")], qt.IsFalse)
 
 	_, err = testdb.queries.CreateToken(ctx, testTokenParams("0x2", "test2",
-		"test3", 18, 10, 10, uint64(state.CONTRACT_TYPE_ERC20), false))
+		"test3", MonkeysDecimals, 10, MonkeysTotalSupply.Uint64(),
+		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
 
 	res, err = hs.tokenAddresses()
@@ -112,7 +109,8 @@ func Test_saveHolders(t *testing.T) {
 	err = hs.saveHolders(th)
 	c.Assert(err, qt.ErrorIs, ErrTokenNotExists)
 	_, err = testdb.queries.CreateToken(context.Background(), testTokenParams(
-		MonkeysAddress.String(), "Monkeys", "MON", 18, MonkeysCreationBlock, 10,
+		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals,
+		MonkeysCreationBlock, MonkeysTotalSupply.Uint64(),
 		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
 	// check no new holders
@@ -181,7 +179,7 @@ func Test_scanHolders(t *testing.T) {
 	c.Assert(err, qt.IsNotNil)
 
 	_, err = testdb.queries.CreateToken(context.Background(), testTokenParams(
-		MonkeysAddress.String(), "Monkeys", "MON", 18, MonkeysCreationBlock, 10,
+		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals, MonkeysCreationBlock, 10,
 		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
 	// token exists and the scanner gets the holders
@@ -195,7 +193,7 @@ func Test_scanHolders(t *testing.T) {
 	for _, holder := range res {
 		balance, ok := MonkeysHolders[common.BytesToAddress(holder.ID)]
 		c.Assert(ok, qt.IsTrue)
-		c.Assert([]byte(holder.Balance), qt.ContentEquals, balance.Bytes())
+		c.Assert(new(big.Int).SetBytes(holder.Balance).String(), qt.ContentEquals, balance.String())
 	}
 }
 
@@ -212,7 +210,8 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	c.Assert(err, qt.IsNotNil)
 
 	_, err = testdb.queries.CreateToken(context.Background(), testTokenParams(
-		MonkeysAddress.String(), "Monkeys", "MON", 18, MonkeysCreationBlock, 10,
+		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals,
+		MonkeysCreationBlock, MonkeysTotalSupply.Uint64(),
 		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
 

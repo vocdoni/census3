@@ -1,5 +1,7 @@
 package state
 
+const timeLayout = "2006-01-02T15:04:05Z07:00"
+
 const (
 	// OTHER CONSTANTS
 	MAX_SCAN_BLOCKS_PER_ITERATION           = 1000000

@@ -22,8 +22,6 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-const timeLayout = "2006-01-02T15:04:05Z07:00"
-
 var (
 	ErrUnknownTokenType   = fmt.Errorf("unknown contract type")
 	ErrTokenData          = fmt.Errorf("unable to get token data")
@@ -42,32 +40,15 @@ type Web3 struct {
 	contractAddress common.Address
 }
 
-func (w *Web3) NewContract() (interface{}, error) {
-	switch w.contractType {
-	case CONTRACT_TYPE_ERC20:
-		return erc20.NewERC20Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_ERC721:
-		return erc721.NewERC721Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_ERC1155:
-		return erc1155.NewERC1155Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_ERC777:
-		return erc777.NewERC777Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
-		return venation.NewNation3VestedTokenContract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
-		return want.NewAragonWrappedANTTokenContract(w.contractAddress, w.client)
-	default:
-		return nil, ErrUnknownTokenType
-	}
-}
-
 // Init creates and client connection and connects to contract given its address
-func (w *Web3) Init(ctx context.Context, web3Endpoint string, contractAddress common.Address, contractType TokenType) error {
+func (w *Web3) Init(ctx context.Context, web3Endpoint string,
+	contractAddress common.Address, contractType TokenType,
+) error {
 	var err error
 	// connect to ethereum endpoint
 	w.client, err = ethclient.Dial(web3Endpoint)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	switch contractType {
 	case CONTRACT_TYPE_ERC20,
@@ -89,6 +70,25 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string, contractAddress co
 
 func (w *Web3) Close() {
 	w.client.Close()
+}
+
+func (w *Web3) NewContract() (interface{}, error) {
+	switch w.contractType {
+	case CONTRACT_TYPE_ERC20:
+		return erc20.NewERC20Contract(w.contractAddress, w.client)
+	case CONTRACT_TYPE_ERC721:
+		return erc721.NewERC721Contract(w.contractAddress, w.client)
+	case CONTRACT_TYPE_ERC1155:
+		return erc1155.NewERC1155Contract(w.contractAddress, w.client)
+	case CONTRACT_TYPE_ERC777:
+		return erc777.NewERC777Contract(w.contractAddress, w.client)
+	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
+		return venation.NewNation3VestedTokenContract(w.contractAddress, w.client)
+	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+		return want.NewAragonWrappedANTTokenContract(w.contractAddress, w.client)
+	default:
+		return nil, ErrUnknownTokenType
+	}
 }
 
 // TokenName wraps the name() function contract call
@@ -306,7 +306,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 	log.Debugf("last block number: %d", lastBlockNumber)
 	// check if there are new blocks to scan
 	toBlock := lastBlockNumber
-	fromBlockNumber := th.LastBlock() + 1
+	fromBlockNumber := th.LastBlock()
 	if fromBlockNumber >= lastBlockNumber {
 		return fromBlockNumber, ErrNoNewBlocks
 	}
@@ -316,7 +316,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 		toBlock = fromBlockNumber + MAX_SCAN_BLOCKS_PER_ITERATION
 	}
 	blocks := BLOCKS_TO_SCAN_AT_ONCE
-	log.Infof("start scan iteration for %s from block %d to %d", th.Address().Hex(), fromBlockNumber, toBlock)
+	log.Infof("start scan iteration for %s from block %d to %d", w.contractAddress.Hex(), fromBlockNumber, toBlock)
 	// get logs and get new candidates to holder. A valid candidate is every
 	// address with a positive balance at the end of logs review. It requires
 	// take into account the countability of the candidates' balances.
@@ -335,7 +335,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlockNumber,
 				fromBlockNumber+blocks, (fromBlockNumber*100)/toBlock)
 			// get transfer logs for the following n blocks
-			logs, err := w.transferLogs(th.Address(), fromBlockNumber, blocks)
+			logs, err := w.transferLogs(fromBlockNumber, blocks)
 			if err != nil {
 				// if we have too much results, decrease the blocks to scan
 				if strings.Contains(err.Error(), "query returned more than") {
@@ -392,7 +392,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 	}
 	th.BlockDone(toBlock)
 	if fromBlockNumber >= lastBlockNumber {
-		log.Infow("token synced", "token", th.Address().Hex())
+		log.Infow("token synced", "token", w.contractAddress.Hex())
 		th.Synced()
 	}
 	return toBlock, w.commitTokenHolders(th, holdersCandidates, toBlock)
@@ -401,10 +401,10 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 // getTransferLogs function queries to the web3 endpoint for the transfer logs
 // of the token provided, that are included in the range of blocks defined by
 // the from block number provided to the following number of blocks given.
-func (w *Web3) transferLogs(addr common.Address, fromBlock, nblocks uint64) ([]types.Log, error) {
+func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
 	// create the filter query
 	query := eth.FilterQuery{
-		Addresses: []common.Address{addr},
+		Addresses: []common.Address{w.contractAddress},
 		FromBlock: big.NewInt(int64(fromBlock)),
 		ToBlock:   big.NewInt(int64(fromBlock + nblocks)),
 	}
@@ -583,7 +583,7 @@ func (w *Web3) ContractCreationBlock(ctx context.Context) (uint64, error) {
 func (w *Web3) creationBlockInRange(ctx context.Context, start, end uint64) (uint64, error) {
 	// if both block numbers are equal, return its value as birthblock
 	if start == end {
-		return start - 1, nil
+		return start, nil
 	}
 	// find the middle block between start and end blocks and get the contract
 	// code at this block

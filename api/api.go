@@ -57,5 +57,9 @@ func Init(db *sql.DB, q *queries.Queries, conf Census3APIConf) error {
 	if err := newAPI.initStrategiesHandlers(); err != nil {
 		return err
 	}
+	// TODO: Only for the MVP, remove it.
+	if err := newAPI.initDebugHandlers(); err != nil {
+		return err
+	}
 	return nil
 }

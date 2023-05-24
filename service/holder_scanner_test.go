@@ -14,13 +14,15 @@ import (
 	"github.com/vocdoni/census3/state"
 )
 
+var web3uri = web3testUri()
+
 func TestNewHolderScanner(t *testing.T) {
 	c := qt.New(t)
 
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3testUri)
+	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(0))
 
@@ -33,11 +35,11 @@ func TestNewHolderScanner(t *testing.T) {
 	})
 	c.Assert(err, qt.IsNil)
 
-	hs, err = NewHoldersScanner(testdb.db, testdb.queries, web3testUri)
+	hs, err = NewHoldersScanner(testdb.db, testdb.queries, web3uri)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(1000))
 
-	_, err = NewHoldersScanner(nil, nil, web3testUri)
+	_, err = NewHoldersScanner(nil, nil, web3uri)
 	c.Assert(err, qt.IsNotNil)
 }
 
@@ -50,7 +52,7 @@ func TestHolderScannerStart(t *testing.T) {
 	defer testdb.Close(t)
 
 	twg.Add(1)
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3testUri)
+	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
 	c.Assert(err, qt.IsNil)
 	go func() {
 		hs.Start(ctx)
@@ -67,7 +69,7 @@ func Test_tokenAddresses(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3testUri)
+	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
 	c.Assert(err, qt.IsNil)
 
 	res, err := hs.tokenAddresses()
@@ -128,7 +130,7 @@ func Test_saveHolders(t *testing.T) {
 	_, err = testdb.queries.BlockByID(context.Background(), int64(MonkeysCreationBlock))
 	c.Assert(err, qt.ErrorIs, sql.ErrNoRows)
 	// check good web3
-	hs.web3 = web3testUri
+	hs.web3 = web3uri
 	err = hs.saveHolders(th)
 	c.Assert(err, qt.IsNil)
 	// check new holders
@@ -169,7 +171,7 @@ func Test_scanHolders(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3testUri)
+	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
 	c.Assert(err, qt.IsNil)
 
 	// token does not exists
@@ -203,7 +205,7 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3testUri2)
+	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
 	c.Assert(err, qt.IsNil)
 
 	err = hs.calcTokenCreationBlock(context.Background(), MonkeysAddress)

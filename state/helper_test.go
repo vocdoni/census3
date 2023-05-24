@@ -2,11 +2,10 @@ package state
 
 import (
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 )
-
-const web3testUri = "https://eth-goerli.api.onfinality.io/public"
 
 var (
 	MonkeysAddress        = common.HexToAddress("0xF530280176385AF31177D78BbFD5eA3f6D07488A")
@@ -28,3 +27,12 @@ var (
 		common.HexToAddress("0x1893eD78480267D1854373A99Cee8dE2E08d430F"): new(big.Int).SetUint64(2000000000000000000),
 	}
 )
+
+const defaultWeb3testUri = "https://eth-goerli.api.onfinality.io/public"
+
+func web3testUri() string {
+	if uri := os.Getenv("WEB3_URI"); uri != "" {
+		return uri
+	}
+	return defaultWeb3testUri
+}

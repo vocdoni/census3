@@ -10,6 +10,8 @@ import (
 	qt "github.com/frankban/quicktest"
 )
 
+var web3URI = web3testUri()
+
 func TestWeb3Init(t *testing.T) {
 	c := qt.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -17,7 +19,7 @@ func TestWeb3Init(t *testing.T) {
 
 	err := new(Web3).Init(ctx, "", MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNotNil)
-	err = new(Web3).Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = new(Web3).Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 }
 
@@ -47,12 +49,12 @@ func TestTokenName(t *testing.T) {
 	_, err = w.TokenName()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	_, err = w.TokenName()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	name, err := w.TokenName()
 	c.Assert(err, qt.IsNil)
@@ -70,12 +72,12 @@ func TestTokenSymbol(t *testing.T) {
 	_, err = w.TokenSymbol()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	_, err = w.TokenSymbol()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	symbol, err := w.TokenSymbol()
 	c.Assert(err, qt.IsNil)
@@ -93,12 +95,12 @@ func TestTokenDecimals(t *testing.T) {
 	_, err = w.TokenDecimals()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	_, err = w.TokenDecimals()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	decimals, err := w.TokenDecimals()
 	c.Assert(err, qt.IsNil)
@@ -116,12 +118,12 @@ func TestTokenTotalSupply(t *testing.T) {
 	_, err = w.TokenTotalSupply()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	_, err = w.TokenTotalSupply()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	totalSupply, err := w.TokenTotalSupply()
 	c.Assert(err, qt.IsNil)
@@ -139,12 +141,12 @@ func TestTokenData(t *testing.T) {
 	_, err = w.TokenData()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	_, err = w.TokenData()
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	data, err := w.TokenData()
 	c.Assert(err, qt.IsNil)
@@ -162,7 +164,7 @@ func TestTokenBalanceOf(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	err := w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err := w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
 	holderAddress := common.HexToAddress("0xB1F05B11Ba3d892EdD00f2e7689779E2B8841827")
@@ -186,13 +188,16 @@ func TestBlockTimestamp(t *testing.T) {
 	_, err = w.BlockTimestamp(ctx, uint(MonkeysCreationBlock))
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
-	expected := "2023-04-27T19:21:24+02:00"
+	expected, err := time.Parse(timeLayout, "2023-04-27T19:21:24+02:00")
+	c.Assert(err, qt.IsNil)
 	timestamp, err := w.BlockTimestamp(ctx, uint(MonkeysCreationBlock))
 	c.Assert(err, qt.IsNil)
-	c.Assert(timestamp, qt.Equals, expected)
+	result, err := time.Parse(timeLayout, timestamp)
+	c.Assert(err, qt.IsNil)
+	c.Assert(expected.Equal(result), qt.IsTrue)
 }
 
 func TestBlockRootHash(t *testing.T) {
@@ -206,7 +211,7 @@ func TestBlockRootHash(t *testing.T) {
 	_, err = w.BlockRootHash(ctx, uint(MonkeysCreationBlock))
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
 	expected := common.HexToHash("0x541528e4030f29a87e81ea034e485ede7ea3086784212a3a4863a7de32415de0")
@@ -226,7 +231,7 @@ func TestLatestBlockNumber(t *testing.T) {
 	_, err = w.LatestBlockNumber(ctx)
 	c.Assert(err, qt.IsNotNil)
 
-	err = w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 	blockNumber, err := w.LatestBlockNumber(ctx)
 	c.Assert(err, qt.IsNil)
@@ -243,7 +248,7 @@ func TestUpdateTokenHolders(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Second)
 	defer cancel()
 
-	err := w3.Init(ctx, web3testUri, th.Address(), th.Type())
+	err := w3.Init(ctx, web3URI, th.Address(), th.Type())
 	c.Assert(err, qt.IsNil)
 
 	current, end := MonkeysCreationBlock, MonkeysCreationBlock+1000
@@ -269,7 +274,7 @@ func Test_transferLogs(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	err := w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err := w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
 	logs, err := w.transferLogs(MonkeysCreationBlock, MonkeysCreationBlock+500)
@@ -283,7 +288,7 @@ func Test_calcPartialBalances(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	err := w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err := w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
 	logs, err := w.transferLogs(MonkeysCreationBlock, MonkeysCreationBlock+500)
@@ -307,7 +312,7 @@ func Test_commitTokenHolders(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	err := w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err := w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
 	hc := HoldersCandidates(MonkeysHolders)
@@ -330,7 +335,7 @@ func TestCreationBlock(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	err := w.Init(ctx, web3testUri, common.HexToAddress(""), CONTRACT_TYPE_ERC20)
+	err := w.Init(ctx, web3URI, common.HexToAddress(""), CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
 	// for an invalid contract address, returns the latest block number, the test uses a range of block numbers to cover
@@ -341,7 +346,7 @@ func TestCreationBlock(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 	c.Assert(creationBlock > latestBlock-5 && creationBlock < latestBlock+5, qt.IsTrue)
 
-	err = w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err = w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
 	creationBlock, err = w.ContractCreationBlock(ctx)
@@ -355,7 +360,7 @@ func Test_creationBlockInRange(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	err := w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err := w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
 	blockNumber, err := w.creationBlockInRange(ctx, 0, 10)
@@ -366,7 +371,7 @@ func Test_creationBlockInRange(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 	c.Assert(blockNumber, qt.Equals, uint64(1))
 
-	blockNumber, err = w.creationBlockInRange(ctx, 0, 100000000)
+	blockNumber, err = w.creationBlockInRange(ctx, 0, 9000000)
 	c.Assert(err, qt.IsNil)
 	c.Assert(blockNumber, qt.Equals, MonkeysCreationBlock)
 }
@@ -377,7 +382,7 @@ func TestSourceCodeLenAt(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	err := w.Init(ctx, web3testUri, MonkeysAddress, CONTRACT_TYPE_ERC20)
+	err := w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20)
 	c.Assert(err, qt.IsNil)
 
 	codeLen, err := w.SourceCodeLenAt(ctx, MonkeysCreationBlock)

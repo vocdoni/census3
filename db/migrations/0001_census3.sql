@@ -1,4 +1,8 @@
 -- +goose Up
+CREATE TABLE metadata (
+    chainID INTEGER PRIMARY KEY
+);
+
 CREATE TABLE strategies (
     id INTEGER PRIMARY KEY,
     predicate TEXT NOT NULL

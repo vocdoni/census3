@@ -108,31 +108,27 @@ func Test_saveHolders(t *testing.T) {
 
 	th := new(state.TokenHolders).Init(MonkeysAddress, state.CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
 	// no registered token
-	err = hs.saveHolders(th)
-	c.Assert(err, qt.ErrorIs, ErrTokenNotExists)
+	c.Assert(hs.saveHolders(th), qt.ErrorIs, ErrTokenNotExists)
 	_, err = testdb.queries.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals,
 		MonkeysCreationBlock, MonkeysTotalSupply.Uint64(),
 		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
 	// check no new holders
-	err = hs.saveHolders(th)
-	c.Assert(err, qt.IsNil)
+	c.Assert(hs.saveHolders(th), qt.IsNil)
 	// mock holder
 	holderAddr := common.HexToAddress("0x1")
 	holderBalance := new(big.Int).SetUint64(12)
 	th.Append(holderAddr, holderBalance)
 	th.BlockDone(MonkeysCreationBlock)
 	// check wrong web3
-	err = hs.saveHolders(th)
-	c.Assert(err, qt.IsNotNil)
+	c.Assert(hs.saveHolders(th), qt.IsNotNil)
 	// check new block created
 	_, err = testdb.queries.BlockByID(context.Background(), int64(MonkeysCreationBlock))
 	c.Assert(err, qt.ErrorIs, sql.ErrNoRows)
 	// check good web3
 	hs.web3 = web3uri
-	err = hs.saveHolders(th)
-	c.Assert(err, qt.IsNil)
+	c.Assert(hs.saveHolders(th), qt.IsNil)
 	// check new holders
 	res, err := testdb.queries.TokenHolderByTokenIDAndHolderID(context.Background(),
 		queries.TokenHolderByTokenIDAndHolderIDParams{
@@ -143,8 +139,7 @@ func Test_saveHolders(t *testing.T) {
 	c.Assert([]byte(res.Balance), qt.ContentEquals, holderBalance.Bytes())
 	// check update holders
 	th.Append(holderAddr, holderBalance)
-	err = hs.saveHolders(th)
-	c.Assert(err, qt.IsNil)
+	c.Assert(hs.saveHolders(th), qt.IsNil)
 	res, err = testdb.queries.TokenHolderByTokenIDAndHolderID(context.Background(),
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
@@ -155,8 +150,7 @@ func Test_saveHolders(t *testing.T) {
 	c.Assert(resBalance.String(), qt.Equals, "24")
 	// check delete holders
 	th.Append(holderAddr, big.NewInt(-24))
-	err = hs.saveHolders(th)
-	c.Assert(err, qt.IsNil)
+	c.Assert(hs.saveHolders(th), qt.IsNil)
 	_, err = testdb.queries.TokenHolderByTokenIDAndHolderID(context.Background(),
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
@@ -187,8 +181,7 @@ func Test_scanHolders(t *testing.T) {
 	// token exists and the scanner gets the holders
 	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err = hs.scanHolders(ctx2, MonkeysAddress)
-	c.Assert(err, qt.IsNil)
+	c.Assert(hs.scanHolders(ctx2, MonkeysAddress), qt.IsNil)
 
 	res, err := testdb.queries.TokenHoldersByTokenID(context.Background(), MonkeysAddress.Bytes())
 	c.Assert(err, qt.IsNil)
@@ -207,9 +200,7 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 
 	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
 	c.Assert(err, qt.IsNil)
-
-	err = hs.calcTokenCreationBlock(context.Background(), MonkeysAddress)
-	c.Assert(err, qt.IsNotNil)
+	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress), qt.IsNotNil)
 
 	_, err = testdb.queries.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals,
@@ -217,9 +208,7 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
 
-	err = hs.calcTokenCreationBlock(context.Background(), MonkeysAddress)
-	c.Assert(err, qt.IsNil)
-
+	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress), qt.IsNil)
 	token, err := testdb.queries.TokenByID(context.Background(), MonkeysAddress.Bytes())
 	c.Assert(err, qt.IsNil)
 	c.Assert(uint64(token.CreationBlock.Int32), qt.Equals, MonkeysCreationBlock)

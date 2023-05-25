@@ -38,14 +38,12 @@ func TestNewCensusDB(t *testing.T) {
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
 	c.Assert(cdb.ipfsConn, qt.IsNil)
-	err = cdb.storage.Stop()
-	c.Assert(err, qt.IsNil)
+	c.Assert(cdb.storage.Stop(), qt.IsNil)
 
 	cdb, err = NewCensusDB(t.TempDir(), "test")
 	c.Assert(err, qt.IsNil)
 	c.Assert(cdb.ipfsConn, qt.IsNotNil)
-	err = cdb.storage.Stop()
-	c.Assert(err, qt.IsNil)
+	c.Assert(cdb.storage.Stop(), qt.IsNil)
 }
 
 func TestCreateAndPublish(t *testing.T) {
@@ -53,8 +51,7 @@ func TestCreateAndPublish(t *testing.T) {
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
 	defer func() {
-		err = cdb.storage.Stop()
-		c.Assert(err, qt.IsNil)
+		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
 	censusDefinition := DefaultCensusDefinition(1, 1, MonkeysAddresses)
@@ -66,22 +63,19 @@ func TestCreateAndPublish(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 
 	dump := censusdb.CensusDump{}
-	err = json.Unmarshal(publishedCensus.Dump, &dump)
-	c.Assert(err, qt.IsNil)
+	c.Assert(json.Unmarshal(publishedCensus.Dump, &dump), qt.IsNil)
 	ddata := compressor.NewCompressor().DecompressBytes(dump.Data)
-	err = importedCensusDefinition.tree.ImportDump(ddata)
-	c.Assert(err, qt.IsNil)
-	tree := importedCensusDefinition.tree
-	root, err := tree.Root()
+	c.Assert(importedCensusDefinition.tree.ImportDump(ddata), qt.IsNil)
+	root, err := importedCensusDefinition.tree.Root()
 	c.Assert(err, qt.IsNil)
 	c.Assert(publishedCensus.RootHash, qt.ContentEquals, root)
 
 	for addr, val := range MonkeysAddresses {
-		key, err := tree.Hash(addr.Bytes())
+		key, err := importedCensusDefinition.tree.Hash(addr.Bytes())
 		c.Assert(err, qt.IsNil)
-		tval, _, err := tree.GenProof(key[:censustree.DefaultMaxKeyLen])
+		tval, _, err := importedCensusDefinition.tree.GenProof(key[:censustree.DefaultMaxKeyLen])
 		c.Assert(err, qt.IsNil)
-		c.Assert(tval, qt.ContentEquals, tree.BigIntToBytes(val))
+		c.Assert(tval, qt.ContentEquals, importedCensusDefinition.tree.BigIntToBytes(val))
 	}
 }
 
@@ -90,8 +84,7 @@ func Test_newTree(t *testing.T) {
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
 	defer func() {
-		err = cdb.storage.Stop()
-		c.Assert(err, qt.IsNil)
+		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
 	_, err = cdb.newTree(&CensusDefinition{
@@ -110,8 +103,7 @@ func Test_save(t *testing.T) {
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
 	defer func() {
-		err = cdb.storage.Stop()
-		c.Assert(err, qt.IsNil)
+		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
 	def := DefaultCensusDefinition(0, 0, map[common.Address]*big.Int{})
@@ -121,11 +113,9 @@ func Test_save(t *testing.T) {
 
 	bdef := bytes.Buffer{}
 	encoder := gob.NewEncoder(&bdef)
-	err = encoder.Encode(def)
-	c.Assert(err, qt.IsNil)
+	c.Assert(encoder.Encode(def), qt.IsNil)
 
-	err = cdb.save(def)
-	c.Assert(err, qt.IsNil)
+	c.Assert(cdb.save(def), qt.IsNil)
 	res, err := rtx.Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNil)
 	c.Assert(res, qt.ContentEquals, bdef.Bytes())
@@ -136,8 +126,7 @@ func Test_publish(t *testing.T) {
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
 	defer func() {
-		err = cdb.storage.Stop()
-		c.Assert(err, qt.IsNil)
+		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
 	def, err := cdb.newTree(DefaultCensusDefinition(0, 0, MonkeysAddresses))
@@ -170,20 +159,16 @@ func Test_delete(t *testing.T) {
 	cdb, err := NewCensusDB(t.TempDir(), "")
 	c.Assert(err, qt.IsNil)
 	defer func() {
-		err = cdb.storage.Stop()
-		c.Assert(err, qt.IsNil)
+		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
 	def := DefaultCensusDefinition(0, 0, map[common.Address]*big.Int{})
-	err = cdb.save(def)
-	c.Assert(err, qt.IsNil)
+	c.Assert(cdb.save(def), qt.IsNil)
 
 	rtx := cdb.treeDB.ReadTx()
 	_, err = rtx.Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNil)
-
-	err = cdb.delete(def)
-	c.Assert(err, qt.IsNil)
+	c.Assert(cdb.delete(def), qt.IsNil)
 
 	_, err = rtx.Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNotNil)

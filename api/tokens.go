@@ -53,9 +53,9 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		return ErrNoTokens
 	}
 	// parse and encode resulting tokens
-	tokens := GetTokensResponse{Tokens: []GetTokenResponse{}}
+	tokens := GetTokensResponse{Tokens: []GetTokensItem{}}
 	for _, tokenData := range rows {
-		tokenResponse := GetTokenResponse{
+		tokenResponse := GetTokensItem{
 			ID:         common.BytesToAddress(tokenData.ID).String(),
 			Type:       state.TokenType(int(tokenData.TypeID)).String(),
 			Name:       tokenData.Name.String,
@@ -103,6 +103,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		symbol        = new(sql.NullString)
 		decimals      = new(sql.NullInt64)
 		creationBlock = new(sql.NullInt32)
+		totalSupply   = new(big.Int)
 	)
 	if err := name.Scan(info.Name); err != nil {
 		log.Errorw(ErrCantGetToken, err.Error())
@@ -116,12 +117,15 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
 	}
+	if info.TotalSupply != nil {
+		totalSupply = info.TotalSupply
+	}
 	_, err = capi.sqlc.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
 		Name:          *name,
 		Symbol:        *symbol,
 		Decimals:      *decimals,
-		TotalSupply:   info.TotalSupply.Bytes(),
+		TotalSupply:   totalSupply.Bytes(),
 		CreationBlock: *creationBlock,
 		TypeID:        int64(tokenType),
 		Synced:        false,

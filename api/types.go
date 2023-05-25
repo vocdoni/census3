@@ -14,17 +14,24 @@ type GetTokenStatusResponse struct {
 type GetTokenResponse struct {
 	ID              string                  `json:"id"`
 	Type            string                  `json:"type"`
-	Decimals        uint64                  `json:"decimals,omitempty"`
+	Decimals        uint64                  `json:"decimals"`
 	StartBlock      uint64                  `json:"startBlock"`
-	Symbol          string                  `json:"symbol,omitempty"`
-	TotalSupply     string                  `json:"totalSupply,omitempty"`
+	Symbol          string                  `json:"symbol"`
+	TotalSupply     string                  `json:"totalSupply"`
 	Name            string                  `json:"name"`
-	Status          *GetTokenStatusResponse `json:"status,omitempty"`
+	Status          *GetTokenStatusResponse `json:"status"`
 	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
 }
 
+type GetTokensItem struct {
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	StartBlock uint64 `json:"startBlock"`
+	Name       string `json:"name"`
+}
+
 type GetTokensResponse struct {
-	Tokens []GetTokenResponse `json:"tokens"`
+	Tokens []GetTokensItem `json:"tokens"`
 }
 
 type TokenTypesResponse struct {

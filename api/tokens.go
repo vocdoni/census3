@@ -60,6 +60,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			Type:       state.TokenType(int(tokenData.TypeID)).String(),
 			Name:       tokenData.Name.String,
 			StartBlock: uint64(tokenData.CreationBlock.Int32),
+			Tag:        tokenData.Tag.String,
 		}
 		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}
@@ -104,6 +105,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		decimals      = new(sql.NullInt64)
 		creationBlock = new(sql.NullInt32)
 		totalSupply   = new(big.Int)
+		tag           = new(sql.NullString)
 	)
 	if err := name.Scan(info.Name); err != nil {
 		log.Errorw(ErrCantGetToken, err.Error())
@@ -120,6 +122,11 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	if info.TotalSupply != nil {
 		totalSupply = info.TotalSupply
 	}
+	if req.Tag != "" {
+		if err := tag.Scan(req.Tag); err != nil {
+			return ErrCantGetToken
+		}
+	}
 	_, err = capi.sqlc.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
 		Name:          *name,
@@ -129,6 +136,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		CreationBlock: *creationBlock,
 		TypeID:        int64(tokenType),
 		Synced:        false,
+		Tag:           *tag,
 	})
 	if err != nil {
 		log.Errorw(err, "error creating token on the database")
@@ -206,6 +214,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 			Progress: tokenProgress,
 		},
 		// TODO: Only for the MVP, consider to remove it
+		Tag:             tokenData.Tag.String,
 		DefaultStrategy: defaultStrategyID,
 	}
 	if tokenData.CreationBlock.Valid {

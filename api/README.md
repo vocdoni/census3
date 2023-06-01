@@ -19,7 +19,8 @@ List of already added tokens.
             "id": "0x1234",
             "name": "wANT",
             "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
-            "startBlock": 123456
+            "startBlock": 123456,
+            "tag": "testTag1,testTag2"
         }
     ]
 }
@@ -61,7 +62,8 @@ Triggers a new scan for the provided token, starting from the defined block.
 ```json
 {
     "id": "0x1234",
-    "type": "erc20|erc721|erc777|erc1155|nation3|wANT"
+    "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
+    "tag": "testTag1,testTag2"
 }
 ```
 
@@ -87,13 +89,14 @@ Returns the information about the token referenced by the provided ID.
     "startBlock": 123456,
     "symbol": "$",
     "totalSupply": "21323",
-    "name": "Amazing token"
+    "name": "Amazing token",
     "status": {
         "atBlock": 12345,
         "synced": true|false,
         "progress": 87
     },
     "defaultStrategy": 1,
+    "tag": "testTag1,testTag2"
 }
 ```
 
@@ -120,12 +123,12 @@ Stores a new strategy based on the defined combination of tokens provided, these
     "tokens": [
         {
             "id": "0x1324",
-            "name": "wANT"
+            "name": "wANT",
             "minBalance": "10000",
-            "method": "0x8230" 
+            "method": "0x8230"
         },
         {
-            "id": "0x5678"
+            "id": "0x5678",
             "name": "USDC",
             "minBalance": "20000",
             "method": "0x3241" 
@@ -134,7 +137,7 @@ Stores a new strategy based on the defined combination of tokens provided, these
             "id": "0x9da2",
             "name": "ANT",
             "minBalance": "1",
-            "method": "0x9db1" 
+            "method": "0x9db1"
         }
     ],
     "strategy": "(wANT OR ANT) AND USDC"
@@ -183,16 +186,16 @@ Returns the information of the strategy related to the provided ID.
 
 ```json
 {
-    "id": 2
+    "id": 2,
     "tokens": [
         {
             "id": "0x1324",
-            "name": "wANT"
+            "name": "wANT",
             "minBalance": "10000",
             "method": "0x8230" 
         },
         {
-            "id": "0x5678"
+            "id": "0x5678",
             "name": "USDC",
             "minBalance": "20000",
             "method": "0x3241" 
@@ -296,7 +299,7 @@ Returns the information of the snapshots related to the provided ID.
 { 
     "id": 2,
     "strategyId": 1,
-    "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac"
+    "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac",
     "uri": "ipfs://Qma....",
     "size": 1000,
     "weight": "200000000000000000000"

@@ -96,7 +96,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		log.Errorw(ErrInitializingWeb3, err.Error())
 		return ErrInitializingWeb3
 	}
-	info, err := w3.GetTokenData()
+	info, err := w3.TokenData()
 	if err != nil {
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken

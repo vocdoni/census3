@@ -41,6 +41,8 @@ jobs:
           go-version: ${{ matrix.go-version }}
           cache: true
       - name: Run go test
+        env: 
+          WEB3_URI: ${{ secrets.WEB3_URI }}
         run: go test -timeout=10m -race ./...
 
   docker-release:

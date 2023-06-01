@@ -26,6 +26,8 @@ List of already added tokens.
 }
 ```
 
+> If `tag` is empty, it will be ommited.
+
 - ⚠️ errors:
 
 | HTTP Status  | Message | Internal error |
@@ -67,6 +69,8 @@ Triggers a new scan for the provided token, starting from the defined block.
 }
 ```
 
+> `tag` attribute is *optional*.
+
 - ⚠️ errors:
 
 | HTTP Status  | Message | Internal error |
@@ -99,6 +103,8 @@ Returns the information about the token referenced by the provided ID.
     "tag": "testTag1,testTag2"
 }
 ```
+
+> If `tag` is empty, it will be ommited.
 
 - ⚠️ errors:
 

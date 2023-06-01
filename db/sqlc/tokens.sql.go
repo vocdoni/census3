@@ -61,6 +61,20 @@ func (q *Queries) DeleteToken(ctx context.Context, id annotations.Address) (sql.
 	return q.db.ExecContext(ctx, deleteToken, id)
 }
 
+const existsToken = `-- name: ExistsToken :one
+SELECT EXISTS 
+    (SELECT id 
+    FROM tokens
+    WHERE id = ?)
+`
+
+func (q *Queries) ExistsToken(ctx context.Context, id annotations.Address) (bool, error) {
+	row := q.db.QueryRowContext(ctx, existsToken, id)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listTokens = `-- name: ListTokens :many
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced FROM tokens
 ORDER BY type_id, name

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"path/filepath"
@@ -65,23 +64,6 @@ func DefaultCensusDefinition(id, strategyID int, holders map[common.Address]*big
 		MaxLevels:  defaultMaxLevels,
 		Holders:    holders,
 	}
-}
-
-// CensusDump is a struct that contains the data of a census. It is used
-// for import/export operations.
-type CensusDump struct {
-	// the following attributes are only for internal use and they have not be
-	// published on IPFS
-	ID         int    `json:"-"`
-	StrategyID int    `json:"-"`
-	URI        string `json:"-"`
-
-	Type     models.Census_Type `json:"type"`
-	RootHash []byte             `json:"rootHash"`
-	Data     []byte             `json:"data"`
-	// MaxLevels is required to load the census with the original size because
-	// it could be different according to the election (and census) type.
-	MaxLevels int `json:"maxLevels"`
 }
 
 type PublishedCensus struct {
@@ -248,25 +230,4 @@ func (cdb *CensusDB) delete(def *CensusDefinition) error {
 // censusDBKey returns the db key of the census tree in the database given a censusID.
 func censusDBKey(censusID int) string {
 	return fmt.Sprintf("%s%x", censusDBprefix, []byte(strconv.Itoa(censusID)))
-}
-
-// TODO: Only used to debug on MVP stage, remove it
-func (cdb *CensusDB) Check(def *CensusDefinition, root []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-	// download census dump from IPFS
-	data, err := cdb.storage.Retrieve(ctx, def.URI, 0)
-	if err != nil {
-		return err
-	}
-	// decode result
-	dump := CensusDump{}
-	if err := json.Unmarshal(data, &dump); err != nil {
-		return err
-	}
-	// compare roots
-	if strDumpRoot := common.Bytes2Hex(dump.RootHash); strDumpRoot != string(root) {
-		return fmt.Errorf("root hashes does not match (%s != %s)", string(root), strDumpRoot)
-	}
-	return nil
 }

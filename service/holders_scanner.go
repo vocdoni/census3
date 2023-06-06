@@ -137,9 +137,12 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	if err != nil {
 		return err
 	}
+	skipRollback := false
 	defer func() {
-		if err := tx.Rollback(); err != nil {
-			log.Errorw(err, "holders transaction rollback failed")
+		if !skipRollback {
+			if err := tx.Rollback(); err != nil {
+				log.Errorw(err, "holders transaction rollback failed")
+			}
 		}
 	}()
 	qtx := s.sqlc.WithTx(tx)
@@ -162,6 +165,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		if err := tx.Commit(); err != nil {
 			return err
 		}
+		skipRollback = true
 		return nil
 	}
 	// init web3 contract state
@@ -269,6 +273,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		"updated", updated,
 		"deleted", deleted)
 	th.FlushHolders()
+	skipRollback = true
 	return nil
 }
 

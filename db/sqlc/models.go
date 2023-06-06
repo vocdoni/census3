@@ -26,10 +26,16 @@ type Censuse struct {
 	StrategyID int64
 	MerkleRoot annotations.Hash
 	Uri        sql.NullString
+	Size       int64
+	Weight     []byte
 }
 
 type Holder struct {
 	ID annotations.Address
+}
+
+type Metadatum struct {
+	Chainid int64
 }
 
 type Strategy struct {
@@ -53,6 +59,7 @@ type Token struct {
 	CreationBlock sql.NullInt32
 	TypeID        int64
 	Synced        bool
+	Tag           sql.NullString
 }
 
 type TokenHolder struct {

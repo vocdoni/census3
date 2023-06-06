@@ -125,7 +125,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		strategy.Tokens = append(strategy.Tokens, GetStrategyToken{
 			ID:         common.BytesToAddress(tokenData.ID).String(),
 			Name:       tokenData.Name.String,
-			MinBalance: new(big.Int).SetBytes(tokenData.MinBalance),
+			MinBalance: new(big.Int).SetBytes(tokenData.MinBalance).String(),
 			Method:     common.Bytes2Hex(tokenData.MethodHash),
 		})
 	}

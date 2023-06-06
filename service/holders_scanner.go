@@ -148,7 +148,6 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	} else if !exists {
 		return ErrTokenNotExists
 	}
-
 	_, err = qtx.UpdateTokenStatus(ctx, queries.UpdateTokenStatusParams{
 		Synced: th.IsSynced(),
 		ID:     th.Address().Bytes(),
@@ -158,7 +157,11 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	}
 	// if not token holders received, skip
 	if len(th.Holders()) == 0 {
-		log.Debug("nothing to save. skipping...")
+		log.Debug("no holders to save. skip scanning and saving...")
+		// save btw to update if token is synced
+		if err := tx.Commit(); err != nil {
+			return err
+		}
 		return nil
 	}
 	// init web3 contract state

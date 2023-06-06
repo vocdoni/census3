@@ -327,7 +327,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 		select {
 		// check if we need to close due context signal
 		case <-ctx.Done():
-			log.Warnf("scan graceful canceled by context")
+			log.Debug("scan graceful canceled by context")
 			th.BlockDone(fromBlockNumber)
 			return fromBlockNumber, w.commitTokenHolders(th, holdersCandidates, th.LastBlock())
 		default:
@@ -502,6 +502,46 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
 			hc[logData.From] = big.NewInt(-1)
+		}
+	case CONTRACT_TYPE_ERC1155:
+		filter := w.contract.(*erc1155.ERC1155Contract).ERC1155ContractFilterer
+		switch currentLog.Topics[0] {
+		case common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_SINGLE):
+			logData, err := filter.ParseTransferSingle(currentLog)
+			if err != nil {
+				return hc, err
+			}
+
+			if toBalance, exists := hc[logData.To]; exists {
+				hc[logData.To] = new(big.Int).Add(toBalance, logData.Value)
+			} else {
+				hc[logData.To] = big.NewInt(1)
+			}
+			if fromBalance, exists := hc[logData.From]; exists {
+				hc[logData.From] = new(big.Int).Sub(fromBalance, logData.Value)
+			} else {
+				hc[logData.From] = new(big.Int).Neg(logData.Value)
+			}
+		case common.HexToHash(LOG_TOPIC_ERC1155_TRANSFER_BATCH):
+			logData, err := filter.ParseTransferBatch(currentLog)
+			if err != nil {
+				return hc, err
+			}
+
+			totalValue := big.NewInt(0)
+			for _, value := range logData.Values {
+				totalValue = new(big.Int).Add(totalValue, value)
+			}
+			if toBalance, exists := hc[logData.To]; exists {
+				hc[logData.To] = new(big.Int).Add(toBalance, totalValue)
+			} else {
+				hc[logData.To] = totalValue
+			}
+			if fromBalance, exists := hc[logData.From]; exists {
+				hc[logData.From] = new(big.Int).Sub(fromBalance, totalValue)
+			} else {
+				hc[logData.From] = new(big.Int).Neg(totalValue)
+			}
 		}
 	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		// This token contract is a bit special, token balances

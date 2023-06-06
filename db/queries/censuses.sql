@@ -51,10 +51,12 @@ INSERT INTO censuses (
     id,
     strategy_id,
     merkle_root,
-    uri
+    uri,
+    size, 
+    weight
 )
 VALUES (
-    ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 );
 
 -- name: DeleteCensus :execresult

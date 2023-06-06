@@ -1,10 +1,9 @@
 package api
 
-import "math/big"
-
 type CreateTokenRequest struct {
 	ID   string `json:"id"`
-	Type string `type:"type"`
+	Type string `json:"type"`
+	Tag  string `json:"tag"`
 }
 
 type GetTokenStatusResponse struct {
@@ -14,19 +13,28 @@ type GetTokenStatusResponse struct {
 }
 
 type GetTokenResponse struct {
-	ID              string                 `json:"id"`
-	Type            string                 `json:"type"`
-	Decimals        uint64                 `json:"decimals"`
-	StartBlock      uint64                 `json:"startBlock"`
-	Symbol          string                 `json:"symbol"`
-	TotalSupply     *big.Int               `json:"totalSupply"`
-	Name            string                 `json:"name"`
-	Status          GetTokenStatusResponse `json:"status,omitempty"`
-	DefaultStrategy uint64                 `json:"defaultStrategy,omitempty"`
+	ID              string                  `json:"id"`
+	Type            string                  `json:"type"`
+	Decimals        uint64                  `json:"decimals"`
+	StartBlock      uint64                  `json:"startBlock"`
+	Symbol          string                  `json:"symbol"`
+	TotalSupply     string                  `json:"totalSupply"`
+	Name            string                  `json:"name"`
+	Status          *GetTokenStatusResponse `json:"status"`
+	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
+	Tag             string                  `json:"tag,omitempty"`
+}
+
+type GetTokensItem struct {
+	ID         string `json:"id"`
+	Type       string `json:"type"`
+	StartBlock uint64 `json:"startBlock"`
+	Name       string `json:"name"`
+	Tag        string `json:"tag,omitempty"`
 }
 
 type GetTokensResponse struct {
-	Tokens []GetTokenResponse `json:"tokens"`
+	Tokens []GetTokensItem `json:"tokens"`
 }
 
 type TokenTypesResponse struct {
@@ -51,6 +59,8 @@ type GetCensusResponse struct {
 	StrategyID uint64 `json:"strategyId"`
 	MerkleRoot string `json:"merkleRoot"`
 	URI        string `json:"uri"`
+	Size       int32  `json:"size"`
+	Weight     string `json:"weight"`
 }
 
 type GetCensusesResponse struct {
@@ -62,10 +72,10 @@ type GetStrategiesResponse struct {
 }
 
 type GetStrategyToken struct {
-	ID         string   `json:"id"`
-	Name       string   `json:"name"`
-	MinBalance *big.Int `json:"minBalance"`
-	Method     string   `json:"method"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	MinBalance string `json:"minBalance"`
+	Method     string `json:"method"`
 }
 
 type GetStrategyResponse struct {

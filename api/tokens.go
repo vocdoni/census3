@@ -53,16 +53,14 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		return ErrNoTokens
 	}
 	// parse and encode resulting tokens
-	tokens := GetTokensResponse{Tokens: []GetTokenResponse{}}
+	tokens := GetTokensResponse{Tokens: []GetTokensItem{}}
 	for _, tokenData := range rows {
-		tokenResponse := GetTokenResponse{
-			ID:       common.BytesToAddress(tokenData.ID).String(),
-			Type:     state.TokenType(int(tokenData.TypeID)).String(),
-			Decimals: uint64(tokenData.Decimals.Int64),
-			Name:     tokenData.Name.String,
-		}
-		if tokenData.CreationBlock.Valid {
-			tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int32)
+		tokenResponse := GetTokensItem{
+			ID:         common.BytesToAddress(tokenData.ID).String(),
+			Type:       state.TokenType(int(tokenData.TypeID)).String(),
+			Name:       tokenData.Name.String,
+			StartBlock: uint64(tokenData.CreationBlock.Int32),
+			Tag:        tokenData.Tag.String,
 		}
 		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}
@@ -106,6 +104,8 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		symbol        = new(sql.NullString)
 		decimals      = new(sql.NullInt64)
 		creationBlock = new(sql.NullInt32)
+		totalSupply   = new(big.Int)
+		tag           = new(sql.NullString)
 	)
 	if err := name.Scan(info.Name); err != nil {
 		log.Errorw(ErrCantGetToken, err.Error())
@@ -119,15 +119,24 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
 	}
+	if info.TotalSupply != nil {
+		totalSupply = info.TotalSupply
+	}
+	if req.Tag != "" {
+		if err := tag.Scan(req.Tag); err != nil {
+			return ErrCantGetToken
+		}
+	}
 	_, err = capi.sqlc.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
 		Name:          *name,
 		Symbol:        *symbol,
 		Decimals:      *decimals,
-		TotalSupply:   info.TotalSupply.Bytes(),
+		TotalSupply:   totalSupply.Bytes(),
 		CreationBlock: *creationBlock,
 		TypeID:        int64(tokenType),
 		Synced:        false,
+		Tag:           *tag,
 	})
 	if err != nil {
 		log.Errorw(err, "error creating token on the database")
@@ -183,12 +192,12 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		// get last block of the network, if something fails return progress 0
 		w3 := state.Web3{}
 		if err := w3.Init(internalCtx, capi.web3, address, state.TokenType(tokenData.TypeID)); err != nil {
-			return err
+			return ErrInitializingWeb3
 		}
 		// fetch the last block header and calculate progress
 		lastBlockNumber, err := w3.LatestBlockNumber(internalCtx)
 		if err != nil {
-			return err
+			return ErrCantGetToken
 		}
 		tokenProgress = uint64(float64(atBlock) / float64(lastBlockNumber) * 100)
 	}
@@ -198,13 +207,14 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		Decimals:    uint64(tokenData.Decimals.Int64),
 		Name:        tokenData.Name.String,
 		Symbol:      tokenData.Symbol.String,
-		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply),
-		Status: GetTokenStatusResponse{
+		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply).String(),
+		Status: &GetTokenStatusResponse{
 			AtBlock:  uint64(atBlock),
 			Synced:   tokenData.Synced,
 			Progress: tokenProgress,
 		},
 		// TODO: Only for the MVP, consider to remove it
+		Tag:             tokenData.Tag.String,
 		DefaultStrategy: defaultStrategyID,
 	}
 	if tokenData.CreationBlock.Valid {

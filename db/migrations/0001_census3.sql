@@ -1,4 +1,8 @@
 -- +goose Up
+CREATE TABLE metadata (
+    chainID INTEGER PRIMARY KEY
+);
+
 CREATE TABLE strategies (
     id INTEGER PRIMARY KEY,
     predicate TEXT NOT NULL
@@ -25,6 +29,7 @@ CREATE TABLE tokens (
     creation_block INTEGER,
     type_id INTEGER NOT NULL,
     synced BOOLEAN NOT NULL,
+    tag TEXT,
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_tokens_type_id ON tokens(type_id);
@@ -34,6 +39,8 @@ CREATE TABLE censuses (
     strategy_id INTEGER NOT NULL,
     merkle_root BLOB NOT NULL UNIQUE,
     uri TEXT UNIQUE,
+    size INTEGER NOT NULL,
+    weight BLOB NOT NULL,
     FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_censuses_strategy_id ON censuses(strategy_id);

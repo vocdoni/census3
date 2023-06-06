@@ -61,6 +61,7 @@ type GetCensusResponse struct {
 	URI        string `json:"uri"`
 	Size       int32  `json:"size"`
 	Weight     string `json:"weight"`
+	ChainID    uint64 `json:"chainId"`
 }
 
 type GetCensusesResponse struct {

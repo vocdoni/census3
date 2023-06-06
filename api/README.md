@@ -303,12 +303,13 @@ Returns the information of the snapshots related to the provided ID.
 - 📥 response:
 ```json
 { 
-    "id": 2,
+    "censusId": 2,
     "strategyId": 1,
     "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac",
     "uri": "ipfs://Qma....",
     "size": 1000,
-    "weight": "200000000000000000000"
+    "weight": "200000000000000000000",
+    "chainId": 1
 }
 ```
 

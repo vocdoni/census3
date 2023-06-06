@@ -39,14 +39,28 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	currentCensus, err := capi.sqlc.CensusByID(internalCtx, int64(censusID))
+	// begin a transaction for group sql queries
+	tx, err := capi.db.BeginTx(internalCtx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorw(err, "holders transaction rollback failed")
+		}
+	}()
+	qtx := capi.sqlc.WithTx(tx)
+	currentCensus, err := qtx.CensusByID(internalCtx, int64(censusID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundCensus
 		}
 		return ErrCantGetCensus
 	}
-
+	chainID, err := qtx.ChainID(internalCtx)
+	if err != nil {
+		return ErrCantGetCensus
+	}
 	res, err := json.Marshal(GetCensusResponse{
 		CensusID:   uint64(censusID),
 		StrategyID: uint64(currentCensus.StrategyID),
@@ -54,6 +68,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		URI:        "ipfs://" + currentCensus.Uri.String,
 		Size:       int32(currentCensus.Size),
 		Weight:     new(big.Int).SetBytes(currentCensus.Weight).String(),
+		ChainID:    uint64(chainID),
 	})
 	if err != nil {
 		return ErrEncodeCensus

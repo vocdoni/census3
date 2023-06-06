@@ -14,7 +14,7 @@ services:
       - "--port=${PORT}"
       - "--logLevel=${LOGLEVEL}"
       - "--connectKey=${CONNECT_KEY}"
-      - "--dataDir=/app/data"
+      - "--dataDir=/app/data/census3"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.census3.rule=Host(`${DOMAIN}`)"

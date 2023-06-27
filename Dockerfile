@@ -4,7 +4,7 @@ WORKDIR /src
 COPY . .
 RUN go build -o=census3 -ldflags="-s -w" ./cmd/census3
 
-FROM debian:11.6-slim
+FROM debian:bookworm-slim
 
 WORKDIR /app
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

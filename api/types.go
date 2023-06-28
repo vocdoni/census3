@@ -30,6 +30,7 @@ type GetTokensItem struct {
 	Type       string `json:"type"`
 	StartBlock uint64 `json:"startBlock"`
 	Name       string `json:"name"`
+	Symbol     string `json:"symbol"`
 	Tag        string `json:"tag,omitempty"`
 }
 

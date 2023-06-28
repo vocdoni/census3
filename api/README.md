@@ -17,9 +17,10 @@ List of already added tokens.
     "tokens": [
         {
             "id": "0x1234",
-            "name": "wANT",
+            "name": "Wrapped Aragon Network Token",
             "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
             "startBlock": 123456,
+            "symbol": "wANT",
             "tag": "testTag1,testTag2"
         }
     ]

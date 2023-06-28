@@ -61,6 +61,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			Name:       tokenData.Name.String,
 			StartBlock: uint64(tokenData.CreationBlock.Int32),
 			Tag:        tokenData.Tag.String,
+			Symbol:     tokenData.Symbol.String,
 		}
 		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}

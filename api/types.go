@@ -21,6 +21,7 @@ type GetTokenResponse struct {
 	TotalSupply     string                  `json:"totalSupply"`
 	Name            string                  `json:"name"`
 	Status          *GetTokenStatusResponse `json:"status"`
+	Size            uint32                  `json:"size"`
 	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
 	Tag             string                  `json:"tag,omitempty"`
 }

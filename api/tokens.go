@@ -202,10 +202,19 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		}
 		tokenProgress = uint64(float64(atBlock) / float64(lastBlockNumber) * 100)
 	}
+
+	countHoldersCtx, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel2()
+	holders, err := capi.sqlc.CountTokenHoldersByTokenID(countHoldersCtx, address.Bytes())
+	if err != nil {
+		return ErrCantGetToken
+	}
+
 	tokenResponse := GetTokenResponse{
 		ID:          address.String(),
 		Type:        state.TokenType(int(tokenData.TypeID)).String(),
 		Decimals:    uint64(tokenData.Decimals.Int64),
+		Size:        uint32(holders),
 		Name:        tokenData.Name.String,
 		Symbol:      tokenData.Symbol.String,
 		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply).String(),

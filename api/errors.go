@@ -152,4 +152,9 @@ var (
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error initialising web3 client"),
 	}
+	ErrCantGetTokenCount = apirest.APIerror{
+		Code:       5020,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error counting census size"),
+	}
 )

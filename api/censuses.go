@@ -81,6 +81,8 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 // all the required information from the database, and then creates and publish
 // the census merkle tree on IPFS. Then saves the resulting information of the
 // census tree in the database and returns its ID.
+//
+// TODO: This handler is costly, specially for big censuses. It should be refactored to be a background task.
 func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// decode request
 	req := &CreateCensusResquest{}
@@ -88,7 +90,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		return ErrMalformedStrategyID
 	}
 	// get tokens associated to the strategy
-	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	internalCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	// begin a transaction for group sql queries
@@ -123,6 +125,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 			if errors.Is(sql.ErrNoRows, err) {
 				continue
 			}
+			log.Errorw(err, "error getting token holders")
 			return ErrCantGetTokenHolders.Withf("for the token with address %s",
 				common.BytesToAddress(token.ID))
 		}

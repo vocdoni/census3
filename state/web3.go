@@ -381,7 +381,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 			}
 			log.Debugw("saving blocks",
 				"count", len(blocksToSave),
-				"logs", logs,
+				"logs", len(logs),
 				"blocks/s", 1000*float32(len(blocksToSave))/float32(time.Since(startTime).Milliseconds()),
 				"took", time.Since(startTime).Seconds(),
 				"progress", fmt.Sprintf("%d%%", (fromBlockNumber*100)/toBlock))

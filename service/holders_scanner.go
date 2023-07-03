@@ -101,7 +101,7 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 			}
 			log.Infow("scan iteration finished",
 				"iteration", itCounter,
-				"duration", time.Since(startTime),
+				"duration", time.Since(startTime).Seconds(),
 				"atSync", atSyncGlobal)
 			if atSyncGlobal {
 				time.Sleep(scanSleepTimeOnceSync)

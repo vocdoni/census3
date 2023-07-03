@@ -323,7 +323,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 	blocks := BLOCKS_TO_SCAN_AT_ONCE
 	log.Infow("scan iteration",
 		"address", th.Address().Hex(),
-		"type", th.Type(),
+		"type", th.Type().String(),
 		"from", fromBlockNumber,
 		"to", toBlock)
 	// get logs and get new candidates to holder. A valid candidate is every

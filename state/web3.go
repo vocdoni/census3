@@ -342,7 +342,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				"type", th.Type(),
 				"from", fromBlockNumber,
 				"to", fromBlockNumber+blocks,
-				"progress", fmt.Sprintf("%d%%", (fromBlockNumber*100)/toBlock),
 			)
 
 			// get transfer logs for the following n blocks
@@ -365,7 +364,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				continue
 			}
 			logCount += len(logs)
-			log.Infof("found %d logs, iteration count %d", len(logs), logCount)
 			blocksToSave := make(map[uint64]bool)
 			// iterate over the logs and update the token holders state
 			for _, currentLog := range logs {
@@ -386,8 +384,13 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				newBlocksMap[currentLog.BlockNumber] = true
 				th.BlockDone(currentLog.BlockNumber)
 			}
-			log.Debugf("saved %d blocks at %.2f blocks/second", len(blocksToSave),
-				1000*float32(len(blocksToSave))/float32(time.Since(startTime).Milliseconds()))
+			log.Debugw("saving blocks",
+				"count", len(blocksToSave),
+				"logs", logs,
+				"blocks/s", 1000*float32(len(blocksToSave))/float32(time.Since(startTime).Milliseconds()),
+				"took", time.Since(startTime).Seconds(),
+				"progress", fmt.Sprintf("%d%%", (fromBlockNumber*100)/toBlock))
+
 			// check if we need to exit because max logs reached for iteration
 			if len(holdersCandidates) > MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION {
 				log.Debug("MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION limit reached... stop scanning")

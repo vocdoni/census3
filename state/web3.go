@@ -23,10 +23,11 @@ import (
 )
 
 var (
-	ErrUnknownTokenType   = fmt.Errorf("unknown contract type")
-	ErrTokenData          = fmt.Errorf("unable to get token data")
-	ErrWrongBalanceOfArgs = fmt.Errorf("wrong number of arguments for balanceOf function")
-	ErrNoNewBlocks        = fmt.Errorf("no new blocks")
+	ErrUnknownTokenType    = fmt.Errorf("unknown contract type")
+	ErrTokenData           = fmt.Errorf("unable to get token data")
+	ErrNoImplementedMethod = fmt.Errorf("this method is not implemented for this token type")
+	ErrWrongBalanceOfArgs  = fmt.Errorf("wrong number of arguments for balanceOf function")
+	ErrNoNewBlocks         = fmt.Errorf("no new blocks")
 )
 
 // Web3 holds a reference to a web3 client and a contract, as
@@ -50,9 +51,11 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string,
 	if err != nil {
 		return err
 	}
+
 	switch contractType {
 	case CONTRACT_TYPE_ERC20,
 		CONTRACT_TYPE_ERC721,
+		CONTRACT_TYPE_ERC721_BURNED,
 		CONTRACT_TYPE_ERC1155,
 		CONTRACT_TYPE_ERC777,
 		CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
@@ -76,7 +79,7 @@ func (w *Web3) NewContract() (interface{}, error) {
 	switch w.contractType {
 	case CONTRACT_TYPE_ERC20:
 		return erc20.NewERC20Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_ERC721:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		return erc721.NewERC721Contract(w.contractAddress, w.client)
 	case CONTRACT_TYPE_ERC1155:
 		return erc1155.NewERC1155Contract(w.contractAddress, w.client)
@@ -97,7 +100,7 @@ func (w *Web3) TokenName() (string, error) {
 	case CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Name(nil)
-	case CONTRACT_TYPE_ERC721:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.Name(nil)
 	case CONTRACT_TYPE_ERC777:
@@ -121,7 +124,7 @@ func (w *Web3) TokenSymbol() (string, error) {
 	case CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Symbol(nil)
-	case CONTRACT_TYPE_ERC721:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.Symbol(nil)
 	case CONTRACT_TYPE_ERC777:
@@ -145,7 +148,7 @@ func (w *Web3) TokenDecimals() (uint8, error) {
 	case CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Decimals(nil)
-	case CONTRACT_TYPE_ERC721:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		return 0, nil
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
@@ -172,7 +175,7 @@ func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 	case CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.TotalSupply(nil)
-	case CONTRACT_TYPE_ERC721:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		return nil, nil
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
@@ -227,6 +230,8 @@ func (w *Web3) TokenBalanceOf(tokenHolderAddress common.Address, args ...interfa
 	case CONTRACT_TYPE_ERC721:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.BalanceOf(nil, tokenHolderAddress)
+	case CONTRACT_TYPE_ERC721_BURNED:
+		return nil, ErrNoImplementedMethod
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.BalanceOf(nil, tokenHolderAddress)
@@ -423,7 +428,7 @@ func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
 	}
 	// set the topics to filter depending on the contract type
 	switch w.contractType {
-	case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721:
+	case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20_TRANSFER)}}
 	case CONTRACT_TYPE_ERC1155:
 		query.Topics = [][]common.Hash{
@@ -515,6 +520,19 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
 			hc[logData.From] = big.NewInt(-1)
+		}
+	case CONTRACT_TYPE_ERC721_BURNED:
+		filter := w.contract.(*erc721.ERC721Contract).ERC721ContractFilterer
+		logData, err := filter.ParseTransfer(currentLog)
+		if err != nil {
+			return hc, err
+		}
+		if logData.To == common.HexToAddress(NULL_ADDRESS) {
+			if fromBalance, exists := hc[logData.From]; exists {
+				hc[logData.From] = new(big.Int).Add(fromBalance, big.NewInt(1))
+			} else {
+				hc[logData.From] = big.NewInt(1)
+			}
 		}
 	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		// This token contract is a bit special, token balances

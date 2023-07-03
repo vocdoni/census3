@@ -66,12 +66,15 @@ func NewHoldersScanner(db *sql.DB, q *queries.Queries, w3uri string) (*HoldersSc
 // synchronised with the database instance.
 func (s *HoldersScanner) Start(ctx context.Context) {
 	// monitor for new tokens added and update every token holders
+	itCounter := uint64(0)
 	for {
 		select {
 		case <-ctx.Done():
 			log.Info(ErrHalted)
 			return
 		default:
+			itCounter++
+			startTime := time.Now()
 			// get updated list of tokens
 			tokens, err := s.tokenAddresses()
 			if err != nil {
@@ -79,6 +82,7 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 				continue
 			}
 			// scan for new holders of every token
+			atSyncGlobal := true
 			for addr, ready := range tokens {
 				if !ready {
 					if err := s.calcTokenCreationBlock(ctx, addr); err != nil {
@@ -86,12 +90,24 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 						continue
 					}
 				}
-				if err := s.scanHolders(ctx, addr); err != nil {
+				atSync, err := s.scanHolders(ctx, addr)
+				if err != nil {
 					log.Error(err)
+					continue
+				}
+				if !atSync {
+					atSyncGlobal = false
 				}
 			}
-			log.Info("waiting until next scan iteration")
-			time.Sleep(scanSleepTime)
+			log.Infow("scan iteration finished",
+				"iteration", itCounter,
+				"duration", time.Since(startTime).Seconds(),
+				"atSync", atSyncGlobal)
+			if atSyncGlobal {
+				time.Sleep(scanSleepTimeOnceSync)
+			} else {
+				time.Sleep(scanSleepTime)
+			}
 		}
 	}
 }
@@ -138,9 +154,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		return err
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil {
-			log.Errorw(err, "holders transaction rollback failed")
-		}
+		_ = tx.Rollback()
 	}()
 	qtx := s.sqlc.WithTx(tx)
 	if exists, err := qtx.ExistsToken(ctx, th.Address().Bytes()); err != nil {
@@ -278,9 +292,9 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 // HoldersScanner database and caches it. If something expected fails or the
 // scan process ends successfully, the cached information is stored in the
 // database. If it has no updates, it does not change anything and returns nil.
-func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) error {
+func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (bool, error) {
 	log.Debugf("scanning contract %s", addr)
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, scanIterationDurationPerToken)
 	defer cancel()
 	// get the token TokenHolders struct from cache, if it not exists it will
 	// be initialized
@@ -291,7 +305,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 		// get token information from the database
 		tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
 		if err != nil {
-			return err
+			return false, err
 		}
 		ttype := state.TokenType(tokenInfo.TypeID)
 		tokenLastBlock := uint64(tokenInfo.CreationBlock.Int32)
@@ -311,15 +325,15 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 	// init web3 contract state
 	w3 := state.Web3{}
 	if err := w3.Init(ctx, s.web3, addr, th.Type()); err != nil {
-		return err
+		return th.IsSynced(), err
 	}
 	// try to update the TokenHolders struct and the current scanner last block
-	var err error
-	if _, err = w3.UpdateTokenHolders(ctx, th); err != nil {
+	_, err := w3.UpdateTokenHolders(ctx, th)
+	if err != nil {
 		if strings.Contains(err.Error(), "no new blocks") {
 			// if no new blocks error raises, log it as debug and return nil
 			log.Debugw("no new blocks to scan", "token", th.Address())
-			return nil
+			return true, nil
 		}
 		if strings.Contains(err.Error(), "connection reset") ||
 			strings.Contains(err.Error(), "context deadline") ||
@@ -330,15 +344,15 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) e
 			log.Warnw("warning scanning contract", "token", th.Address().Hex(),
 				"block", th.LastBlock(), "error", err)
 			// save TokesHolders state into the database before exit of the function
-			return s.saveHolders(th)
+			return th.IsSynced(), s.saveHolders(th)
 		}
 		// if unexpected error raises, log it as error and return it.
 		log.Error("warning scanning contract", "token", th.Address().Hex(),
 			"block", th.LastBlock(), "error", err)
-		return err
+		return th.IsSynced(), err
 	}
 	// save TokesHolders state into the database before exit of the function
-	return s.saveHolders(th)
+	return th.IsSynced(), s.saveHolders(th)
 }
 
 // calcTokenCreationBlock function attempts to calculate the block number when

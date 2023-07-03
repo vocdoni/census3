@@ -332,8 +332,14 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 			return fromBlockNumber, w.commitTokenHolders(th, holdersCandidates, th.LastBlock())
 		default:
 			startTime := time.Now()
-			log.Infof("analyzing blocks from %d to %d [%d%%]", fromBlockNumber,
-				fromBlockNumber+blocks, (fromBlockNumber*100)/toBlock)
+			log.Infow("analyzing blocks",
+				"address", th.Address().Hex(),
+				"type", th.Type(),
+				"from", fromBlockNumber,
+				"to", fromBlockNumber+blocks,
+				"progress", fmt.Sprintf("%d%%", (fromBlockNumber*100)/toBlock),
+			)
+
 			// get transfer logs for the following n blocks
 			logs, err := w.transferLogs(fromBlockNumber, blocks)
 			if err != nil {

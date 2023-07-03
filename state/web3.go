@@ -308,10 +308,10 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 	if err != nil {
 		return 0, err
 	}
-	log.Debugf("last block number: %d", lastBlockNumber)
 	// check if there are new blocks to scan
 	toBlock := lastBlockNumber
 	fromBlockNumber := th.LastBlock()
+	initialBlockNumber := fromBlockNumber
 	if fromBlockNumber >= lastBlockNumber {
 		return fromBlockNumber, ErrNoNewBlocks
 	}
@@ -321,13 +321,18 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 		toBlock = fromBlockNumber + MAX_SCAN_BLOCKS_PER_ITERATION
 	}
 	blocks := BLOCKS_TO_SCAN_AT_ONCE
-	log.Infof("start scan iteration for %s from block %d to %d", w.contractAddress.Hex(), fromBlockNumber, toBlock)
+	log.Infow("scan iteration",
+		"address", th.Address().Hex(),
+		"type", th.Type(),
+		"from", fromBlockNumber,
+		"to", toBlock)
 	// get logs and get new candidates to holder. A valid candidate is every
 	// address with a positive balance at the end of logs review. It requires
 	// take into account the countability of the candidates' balances.
 	logCount := 0
 	newBlocksMap := make(map[uint64]bool)
 	holdersCandidates := HoldersCandidates{}
+	startTime := time.Now()
 	for fromBlockNumber < toBlock {
 		select {
 		// check if we need to close due context signal
@@ -336,8 +341,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 			th.BlockDone(fromBlockNumber)
 			return fromBlockNumber, w.commitTokenHolders(th, holdersCandidates, th.LastBlock())
 		default:
-			startTime := time.Now()
-			log.Infow("analyzing blocks",
+			log.Debugw("analyzing blocks",
 				"address", th.Address().Hex(),
 				"type", th.Type(),
 				"from", fromBlockNumber,
@@ -384,13 +388,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				newBlocksMap[currentLog.BlockNumber] = true
 				th.BlockDone(currentLog.BlockNumber)
 			}
-			log.Debugw("saving blocks",
-				"count", len(blocksToSave),
-				"logs", len(logs),
-				"blocks/s", 1000*float32(len(blocksToSave))/float32(time.Since(startTime).Milliseconds()),
-				"took", time.Since(startTime).Seconds(),
-				"progress", fmt.Sprintf("%d%%", (fromBlockNumber*100)/toBlock))
-
 			// check if we need to exit because max logs reached for iteration
 			if len(holdersCandidates) > MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION {
 				log.Debug("MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION limit reached... stop scanning")
@@ -406,9 +403,16 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 	}
 	th.BlockDone(toBlock)
 	if fromBlockNumber >= lastBlockNumber {
-		log.Infow("token synced", "token", w.contractAddress.Hex())
+		log.Infow("token synced!", "token", w.contractAddress.Hex())
 		th.Synced()
 	}
+	log.Infow("saving blocks",
+		"count", len(holdersCandidates),
+		"logs", logCount,
+		"blocks/s", 1000*float32(fromBlockNumber-initialBlockNumber)/float32(time.Since(startTime).Milliseconds()),
+		"took", time.Since(startTime).Seconds(),
+		"progress", fmt.Sprintf("%d%%", (fromBlockNumber*100)/lastBlockNumber))
+
 	return toBlock, w.commitTokenHolders(th, holdersCandidates, toBlock)
 }
 

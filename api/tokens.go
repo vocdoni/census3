@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -140,6 +141,9 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Tag:           *tag,
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return ErrTokenAlreadyExists
+		}
 		log.Errorw(err, "error creating token on the database")
 		return ErrCantCreateToken.Withf("error creating token with address %s", addr)
 	}
@@ -193,12 +197,12 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		// get last block of the network, if something fails return progress 0
 		w3 := state.Web3{}
 		if err := w3.Init(internalCtx, capi.web3, address, state.TokenType(tokenData.TypeID)); err != nil {
-			return ErrInitializingWeb3
+			return ErrInitializingWeb3.WithErr(err)
 		}
 		// fetch the last block header and calculate progress
 		lastBlockNumber, err := w3.LatestBlockNumber(internalCtx)
 		if err != nil {
-			return ErrCantGetToken
+			return ErrCantGetLastBlockNumber
 		}
 		tokenProgress = uint64(float64(atBlock) / float64(lastBlockNumber) * 100)
 	}

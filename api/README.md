@@ -77,6 +77,7 @@ Triggers a new scan for the provided token, starting from the defined block.
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed token information` | 4000 | 
+| 409 | `token already created` | 4009 | 
 | 500 | `the token cannot be created` | 5000 | 
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error initialising web3 client` | 5018 | 
@@ -114,6 +115,7 @@ Returns the information about the token referenced by the provided ID.
 | 404 | `no token found` | 4003 |
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error initialising web3 client` | 5018 | 
+| 500 | `error getting last block number from web3 endpoint` | 5021 | 
 | 500 | `error encoding tokens` | 5011 | 
 
 **MVP Warn**: If `defaultStrategy` is `0`, no strategy (neither the dummy strategy) is associated to the given token.

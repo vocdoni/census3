@@ -41,6 +41,7 @@ CREATE TABLE censuses (
     uri TEXT UNIQUE,
     size INTEGER NOT NULL,
     weight BLOB NOT NULL,
+    census_type INTEGER NOT NULL,
     FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_censuses_strategy_id ON censuses(strategy_id);

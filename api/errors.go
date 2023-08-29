@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 
 	"go.vocdoni.io/dvote/httprouter/apirest"
 )
@@ -51,6 +52,11 @@ var (
 		Code:       4008,
 		HTTPstatus: apirest.HTTPstatusNoContent,
 		Err:        fmt.Errorf("no strategy found"),
+	}
+	ErrTokenAlreadyExists = apirest.APIerror{
+		Code:       4009,
+		HTTPstatus: http.StatusConflict,
+		Err:        fmt.Errorf("token already created"),
 	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
@@ -156,5 +162,10 @@ var (
 		Code:       5020,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error counting census size"),
+	}
+	ErrCantGetLastBlockNumber = apirest.APIerror{
+		Code:       5021,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error getting last block number from web3 endpoint"),
 	}
 )

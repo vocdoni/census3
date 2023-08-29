@@ -42,7 +42,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	// begin a transaction for group sql queries
 	tx, err := capi.db.BeginTx(internalCtx, nil)
 	if err != nil {
-		return err
+		return ErrCantGetCensus
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil {
@@ -96,7 +96,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	// begin a transaction for group sql queries
 	tx, err := capi.db.BeginTx(internalCtx, nil)
 	if err != nil {
-		return err
+		return ErrCantCreateCensus
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil {

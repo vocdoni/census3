@@ -204,7 +204,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 				log.Errorw(err, "census already exists, error deleting new redundant census")
 			}
 			if err := tx.Commit(); err != nil {
-				log.Errorw(err, "error commiting the census deletion on the database")
+				log.Errorw(err, "error committing the census deletion on the database")
 				return
 			}
 			return
@@ -242,7 +242,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 			return
 		}
 		if err := tx.Commit(); err != nil {
-			log.Errorw(err, "error commiting the census on the database")
+			log.Errorw(err, "error committing the census on the database")
 			return
 		}
 	}(capi.db, capi.sqlc, newCensusID, strategyTokens)

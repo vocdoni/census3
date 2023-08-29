@@ -52,6 +52,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusNoContent,
 		Err:        fmt.Errorf("no strategy found"),
 	}
+	ErrNoStrategyTokens = apirest.APIerror{
+		Code:       4009,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("no tokens found for the strategy provided"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,

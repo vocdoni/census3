@@ -37,12 +37,14 @@ CREATE INDEX idx_tokens_type_id ON tokens(type_id);
 CREATE TABLE censuses (
     id INTEGER PRIMARY KEY,
     strategy_id INTEGER NOT NULL,
-    merkle_root BLOB NOT NULL UNIQUE,
-    uri TEXT UNIQUE,
-    size INTEGER NOT NULL,
-    weight BLOB NOT NULL,
+    merkle_root BLOB NOT NULL,
+    uri TEXT,
+    size INTEGER,
+    weight BLOB,
     census_type INTEGER NOT NULL,
-    FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE
+    published BOOLEAN NOT NULL,
+    FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE,
+    UNIQUE(id, merkle_root)
 );
 CREATE INDEX idx_censuses_strategy_id ON censuses(strategy_id);
 

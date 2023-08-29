@@ -42,7 +42,8 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	// begin a transaction for group sql queries
 	tx, err := capi.db.BeginTx(internalCtx, nil)
 	if err != nil {
-		return err
+		log.Errorw(err, "error starting database")
+		return ErrCantGetCensus
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil {
@@ -52,6 +53,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	qtx := capi.sqlc.WithTx(tx)
 	currentCensus, err := qtx.CensusByID(internalCtx, int64(censusID))
 	if err != nil {
+		log.Errorw(err, "error getting census from database")
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundCensus
 		}
@@ -59,19 +61,30 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	chainID, err := qtx.ChainID(internalCtx)
 	if err != nil {
+		log.Errorw(err, "error getting chainID")
 		return ErrCantGetCensus
+	}
+	censusSize := int32(0)
+	if currentCensus.Size.Valid {
+		censusSize = currentCensus.Size.Int32
+	}
+	censusWeight := []byte{}
+	if currentCensus.Weight.Valid {
+		censusWeight = []byte(currentCensus.Weight.String)
 	}
 	res, err := json.Marshal(GetCensusResponse{
 		CensusID:   uint64(censusID),
 		StrategyID: uint64(currentCensus.StrategyID),
 		MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
 		URI:        "ipfs://" + currentCensus.Uri.String,
-		Size:       int32(currentCensus.Size),
-		Weight:     new(big.Int).SetBytes(currentCensus.Weight).String(),
+		Size:       int32(censusSize),
+		Weight:     new(big.Int).SetBytes(censusWeight).String(),
 		ChainID:    uint64(chainID),
 		Anonymous:  currentCensus.CensusType == int64(census.AnonymousCensusType),
+		Published:  currentCensus.Published,
 	})
 	if err != nil {
+		log.Errorw(err, "error encoding census")
 		return ErrEncodeCensus
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
@@ -94,112 +107,153 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	internalCtx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// begin a transaction for group sql queries
-	tx, err := capi.db.BeginTx(internalCtx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
-			log.Errorw(err, "holders transaction rollback failed")
-		}
-	}()
-	qtx := capi.sqlc.WithTx(tx)
-
-	strategyTokens, err := qtx.TokensByStrategyID(internalCtx, int64(req.StrategyID))
+	// get the tokens of the strategy provided and check them
+	strategyTokens, err := capi.sqlc.TokensByStrategyID(internalCtx, int64(req.StrategyID))
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
 			log.Errorf("no strategy found for id %d: %s", req.StrategyID, err.Error())
-			return ErrNotFoundStrategy
+			return ErrNoStrategyTokens
 		}
 		log.Errorf("error getting strategy with id %d: %s", req.StrategyID, err.Error())
-		return ErrCantGetStrategy
+		return ErrCantCreateCensus
 	}
-	// get holders associated to every strategy token, create a map to avoid
-	// duplicates and count the sum of the balances to get the weight of the
-	// census
-	censusWeight := new(big.Int)
-	strategyHolders := map[common.Address]*big.Int{}
-	for _, token := range strategyTokens {
-		holders, err := qtx.TokenHoldersByTokenID(internalCtx, token.ID)
-		if err != nil {
-			if errors.Is(sql.ErrNoRows, err) {
-				continue
-			}
-			log.Errorw(err, "error getting token holders")
-			return ErrCantGetTokenHolders.Withf("for the token with address %s",
-				common.BytesToAddress(token.ID))
-		}
-		for _, holder := range holders {
-			holderAddr := common.BytesToAddress(holder.ID)
-			holderBalance := new(big.Int).SetBytes(holder.Balance)
-			if _, exists := strategyHolders[holderAddr]; !exists {
-				strategyHolders[holderAddr] = holderBalance
-				censusWeight = new(big.Int).Add(censusWeight, holderBalance)
-			}
-		}
+	if len(strategyTokens) == 0 {
+		log.Errorf("no tokens for strategy %d", req.StrategyID)
+		return ErrNoStrategyTokens
 	}
+
 	// get the maximun current census ID to calculate the next one, if any
 	// census has been created yet, continue
-	lastCensusID, err := qtx.LastCensusID(internalCtx)
+	lastCensusID, err := capi.sqlc.LastCensusID(internalCtx)
 	if err != nil && !errors.Is(sql.ErrNoRows, err) {
 		log.Errorw(err, "error getting last census ID")
 		return ErrCantCreateCensus
 	}
-	// create a census tree and publish on IPFS
-	def := census.NewCensusDefinition(int(lastCensusID+1), int(req.StrategyID), strategyHolders, req.Anonymous)
-	newCensus, err := capi.censusDB.CreateAndPublish(def)
-	if err != nil {
-		log.Errorw(err, "error creating or publishing the census")
+	// compute the new censusId and censusType
+	newCensusID := int(lastCensusID) + 1
+	censusType := census.DefaultCensusType
+	if req.Anonymous {
+		censusType = census.AnonymousCensusType
+	}
+	// create the new census on database
+	if _, err := capi.sqlc.CreateCensus(internalCtx, queries.CreateCensusParams{
+		ID:         int64(newCensusID),
+		StrategyID: int64(req.StrategyID),
+		CensusType: int64(censusType),
+		MerkleRoot: []byte{},
+		Published:  false,
+	}); err != nil {
+		log.Errorw(err, "error saving the census on the database")
 		return ErrCantCreateCensus
 	}
-	// check if the census already exists using the merkle root of the generated
-	// census
-	existingCensus, err := qtx.CensusByMerkleRoot(internalCtx, newCensus.RootHash)
-	if err == nil {
-		// encoding the result and response it
-		res, err := json.Marshal(CreateCensusResponse{
-			CensusID: uint64(existingCensus.ID),
+
+	// create and publish census merkle tree in background
+	go func(db *sql.DB, q *queries.Queries, cID int, tokens []queries.TokensByStrategyIDRow) {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		// begin a transaction for group sql queries
+		tx, err := db.BeginTx(bgCtx, nil)
+		if err != nil {
+			log.Errorw(err, "error starting database")
+			return
+		}
+		defer func() {
+			if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+				log.Errorw(err, "holders transaction rollback failed")
+			}
+		}()
+		qtx := q.WithTx(tx)
+
+		// get holders associated to every strategy token, create a map to avoid
+		// duplicates and count the sum of the balances to get the weight of the
+		// census
+		censusWeight := new(big.Int)
+		strategyHolders := map[common.Address]*big.Int{}
+		for _, token := range tokens {
+			holders, err := qtx.TokenHoldersByTokenID(bgCtx, token.ID)
+			if err != nil {
+				if errors.Is(sql.ErrNoRows, err) {
+					continue
+				}
+				log.Errorf("error getting token holders of %s: %v", common.BytesToAddress(token.ID), err)
+				return
+			}
+			for _, holder := range holders {
+				holderAddr := common.BytesToAddress(holder.ID)
+				holderBalance := new(big.Int).SetBytes(holder.Balance)
+				if _, exists := strategyHolders[holderAddr]; !exists {
+					strategyHolders[holderAddr] = holderBalance
+					censusWeight = new(big.Int).Add(censusWeight, holderBalance)
+				}
+			}
+		}
+
+		// create a census tree and publish on IPFS
+		def := census.NewCensusDefinition(cID, int(req.StrategyID), strategyHolders, req.Anonymous)
+		newCensus, err := capi.censusDB.CreateAndPublish(def)
+		if err != nil {
+			log.Errorw(err, "error creating or publishing the census")
+			return
+		}
+		// check if the census already exists using the merkle root of the generated
+		// census
+		_, err = qtx.CensusByMerkleRoot(bgCtx, newCensus.RootHash)
+		if err == nil {
+			log.Info("existing")
+			if _, err := qtx.DeleteCensus(bgCtx, int64(cID)); err != nil {
+				log.Errorw(err, "census already exists, error deleting new redundant census")
+			}
+			if err := tx.Commit(); err != nil {
+				log.Errorw(err, "error commiting the census deletion on the database")
+				return
+			}
+			return
+		}
+		if err != nil && !errors.Is(sql.ErrNoRows, err) {
+			log.Errorw(err, "error checking if the generated census already exists")
+			return
+		}
+		// save the new census in the SQL database
+		sqlURI := new(sql.NullString)
+		if err := sqlURI.Scan(newCensus.URI); err != nil {
+			log.Errorw(err, "error saving the census on the database")
+			return
+		}
+		sqlCensusSize := sql.NullInt32{}
+		if err := sqlCensusSize.Scan(int64(len(strategyHolders))); err != nil {
+			log.Errorw(err, "error encoding census size")
+			return
+		}
+		sqlCensusWeight := sql.NullString{}
+		if err := sqlCensusWeight.Scan(censusWeight.String()); err != nil {
+			log.Errorw(err, "error encoding census size")
+			return
+		}
+		_, err = qtx.UpdateCensus(bgCtx, queries.UpdateCensusParams{
+			ID:         int64(newCensus.ID),
+			MerkleRoot: newCensus.RootHash,
+			Uri:        *sqlURI,
+			Size:       sqlCensusSize,
+			Weight:     sqlCensusWeight,
+			Published:  true,
 		})
 		if err != nil {
-			log.Error("error marshalling holders")
-			return ErrEncodeStrategyHolders
+			log.Errorw(err, "error saving the census on the database")
+			return
 		}
-		return ctx.Send(res, api.HTTPstatusOK)
-	}
-	if err != nil && !errors.Is(sql.ErrNoRows, err) {
-		log.Errorw(err, "error checking if the generated census already exists")
-		return ErrCantCreateCensus
-	}
-	// save the new census in the SQL database
-	sqlURI := new(sql.NullString)
-	if err := sqlURI.Scan(newCensus.URI); err != nil {
-		log.Errorw(err, "error saving the census on the database")
-		return ErrCantCreateCensus
-	}
-	_, err = qtx.CreateCensus(internalCtx, queries.CreateCensusParams{
-		ID:         int64(newCensus.ID),
-		StrategyID: int64(req.StrategyID),
-		MerkleRoot: newCensus.RootHash,
-		Uri:        *sqlURI,
-		Size:       int64(len(strategyHolders)),
-		Weight:     censusWeight.Bytes(),
-		CensusType: int64(def.Type),
-	})
-	if err != nil {
-		log.Errorw(err, "error saving the census on the database")
-		return ErrCantCreateCensus
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
+		if err := tx.Commit(); err != nil {
+			log.Errorw(err, "error commiting the census on the database")
+			return
+		}
+	}(capi.db, capi.sqlc, newCensusID, strategyTokens)
+
 	// encoding the result and response it
 	res, err := json.Marshal(CreateCensusResponse{
-		CensusID: uint64(newCensus.ID),
+		CensusID: uint64(newCensusID),
 	})
 	if err != nil {
-		log.Error("error marshalling holders")
-		return ErrEncodeStrategyHolders
+		log.Error("error marshalling census")
+		return ErrEncodeCensus
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

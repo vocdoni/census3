@@ -26,9 +26,10 @@ type Censuse struct {
 	StrategyID int64
 	MerkleRoot annotations.Hash
 	Uri        sql.NullString
-	Size       int64
-	Weight     []byte
+	Size       sql.NullInt32
+	Weight     sql.NullString
 	CensusType int64
+	Published  bool
 }
 
 type Holder struct {

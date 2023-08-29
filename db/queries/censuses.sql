@@ -54,10 +54,11 @@ INSERT INTO censuses (
     uri,
     size, 
     weight,
-    census_type
+    census_type,
+    published
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?
 );
 
 -- name: DeleteCensus :execresult
@@ -66,9 +67,11 @@ WHERE id = ?;
 
 -- name: UpdateCensus :execresult
 UPDATE censuses
-SET strategy_id = sqlc.arg(strategy_id),
-    merkle_root = sqlc.arg(merkle_root),
-    uri = sqlc.arg(uri)
+SET merkle_root = sqlc.arg(merkle_root),
+    uri = sqlc.arg(uri),
+    size = sqlc.arg(size),
+    weight = sqlc.arg(weight),
+    published = sqlc.arg(published)
 WHERE id = sqlc.arg(id);
 
 -- name: CreateCensusBlock :execresult

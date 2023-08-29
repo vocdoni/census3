@@ -66,6 +66,7 @@ type GetCensusResponse struct {
 	Weight     string `json:"weight"`
 	ChainID    uint64 `json:"chainId"`
 	Anonymous  bool   `json:"anonymous"`
+	Published  bool   `json:"published"`
 }
 
 type GetCensusesResponse struct {

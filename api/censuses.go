@@ -24,15 +24,15 @@ func (capi *census3API) initCensusHandlers() error {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/census", "POST",
-		api.MethodAccessTypePublic, capi.lunchCensusCreation); err != nil {
+		api.MethodAccessTypePublic, capi.launchCensusCreation); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/census/strategy/{strategyID}", "GET",
-		api.MethodAccessTypePublic, capi.getStrategyCensuses); err != nil {
+	if err := capi.endpoint.RegisterMethod("/census/queue/{queueID}", "GET",
+		api.MethodAccessTypePublic, capi.getEnqueueCensus); err != nil {
 		return err
 	}
-	return capi.endpoint.RegisterMethod("/census/queue/{queueID}", "GET",
-		api.MethodAccessTypePublic, capi.getEnqueueCensus)
+	return capi.endpoint.RegisterMethod("/census/strategy/{strategyID}", "GET",
+		api.MethodAccessTypePublic, capi.getStrategyCensuses)
 }
 
 // getCensus handler responses with the information regarding of the census
@@ -94,14 +94,11 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
-// lunchCensusCreation handler creates a census tree based on the token
-// holders of the tokens that are included in the given strategy. It recovers
-// all the required information from the database, and then creates and publish
-// the census merkle tree on IPFS. Then saves the resulting information of the
-// census tree in the database and returns its ID.
-//
-// TODO: This handler is costly, specially for big censuses. It should be refactored to be a background task.
-func (capi *census3API) lunchCensusCreation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+// launchCensusCreation handler parses the census creation request, enqueues it
+// and starts the creation process, then returns the queue identifier of that
+// process to support tracking it. When the process ends updates the queue item
+// with the resulting status or error into the queue.
+func (capi *census3API) launchCensusCreation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// decode request
 	req := &CreateCensusResquest{}
 	if err := json.Unmarshal(msg.Data, req); err != nil {
@@ -120,7 +117,6 @@ func (capi *census3API) lunchCensusCreation(msg *api.APIdata, ctx *httprouter.HT
 			log.Errorf("error updating census queue process with error")
 		}
 	}(req)
-
 	// encoding the result and response it
 	res, err := json.Marshal(CreateCensusResponse{
 		QueueID: queueID,
@@ -132,6 +128,11 @@ func (capi *census3API) lunchCensusCreation(msg *api.APIdata, ctx *httprouter.HT
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// createAndPublishCensus method creates a census tree based on the token
+// holders of the tokens that are included in the given strategy. It recovers
+// all the required information from the database, and then creates and publish
+// the census merkle tree on IPFS. Then saves the resulting information of the
+// census tree in the database.
 func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID string) error {
 	bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -243,37 +244,11 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID st
 	return nil
 }
 
-// getStrategyCensuses function handler returns the censuses that had been
-// generated with the strategy identified by the ID provided.
-func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// get strategy ID
-	strategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
-	if err != nil {
-		return ErrMalformedCensusID
-	}
-	// get censuses by this strategy ID
-	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	rows, err := capi.sqlc.CensusByStrategyID(internalCtx, int64(strategyID))
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNotFoundCensus
-		}
-		return ErrCantGetCensus
-	}
-	// parse and encode response
-	censuses := GetCensusesResponse{Censuses: []uint64{}}
-	for _, censusInfo := range rows {
-		censuses.Censuses = append(censuses.Censuses, uint64(censusInfo.ID))
-	}
-	res, err := json.Marshal(censuses)
-	if err != nil {
-		log.Errorw(ErrEncodeCensuses, err.Error())
-		return ErrEncodeCensuses
-	}
-	return ctx.Send(res, api.HTTPstatusOK)
-}
-
+// getEnqueueCensus handler returns the current status of the queue item
+// identified by the ID provided. If it not exists it returns that the census
+// is not found. Else if the census exists and has been successfully created, it
+// will be included into the response. If not, the response only will include
+// if it is done or not and the resulting error.
 func (capi *census3API) getEnqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	queueID := ctx.URLParam("queueID")
 	if queueID == "" {
@@ -332,6 +307,37 @@ func (capi *census3API) getEnqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPC
 	if err != nil {
 		log.Errorw(ErrEncodeQueueItem, err.Error())
 		return ErrEncodeQueueItem
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// getStrategyCensuses function handler returns the censuses that had been
+// generated with the strategy identified by the ID provided.
+func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get strategy ID
+	strategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
+	if err != nil {
+		return ErrMalformedCensusID
+	}
+	// get censuses by this strategy ID
+	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	rows, err := capi.sqlc.CensusByStrategyID(internalCtx, int64(strategyID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFoundCensus
+		}
+		return ErrCantGetCensus
+	}
+	// parse and encode response
+	censuses := GetCensusesResponse{Censuses: []uint64{}}
+	for _, censusInfo := range rows {
+		censuses.Censuses = append(censuses.Censuses, uint64(censusInfo.ID))
+	}
+	res, err := json.Marshal(censuses)
+	if err != nil {
+		log.Errorw(ErrEncodeCensuses, err.Error())
+		return ErrEncodeCensuses
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

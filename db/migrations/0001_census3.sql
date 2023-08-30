@@ -42,7 +42,7 @@ CREATE TABLE censuses (
     size INTEGER,
     weight BLOB,
     census_type INTEGER NOT NULL,
-    published BOOLEAN NOT NULL,
+    queue_id TEXT NOT NULL,
     FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE,
     UNIQUE(id, merkle_root)
 );

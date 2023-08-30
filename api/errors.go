@@ -57,6 +57,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("no tokens found for the strategy provided"),
 	}
+	ErrMalformedCensusQueueID = apirest.APIerror{
+		Code:       4010,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed queue ID"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
@@ -161,5 +166,10 @@ var (
 		Code:       5020,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error counting census size"),
+	}
+	ErrEncodeQueueItem = apirest.APIerror{
+		Code:       5021,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error encoding census queue item"),
 	}
 )

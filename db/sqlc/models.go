@@ -29,7 +29,7 @@ type Censuse struct {
 	Size       sql.NullInt32
 	Weight     sql.NullString
 	CensusType int64
-	Published  bool
+	QueueID    string
 }
 
 type Holder struct {

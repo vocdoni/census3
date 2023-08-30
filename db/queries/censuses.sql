@@ -16,6 +16,11 @@ SELECT * FROM censuses
 WHERE merkle_root = ?
 LIMIT 1;
 
+-- name: CensusByQueueID :one
+SELECT * FROM censuses
+WHERE queue_id = ?
+LIMIT 1;
+
 -- name: CensusesByStrategyIDAndBlockID :many
 SELECT c.* FROM censuses c
 JOIN census_blocks cb ON c.id = cb.census_id
@@ -55,7 +60,7 @@ INSERT INTO censuses (
     size, 
     weight,
     census_type,
-    published
+    queue_id
 )
 VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?
@@ -70,8 +75,7 @@ UPDATE censuses
 SET merkle_root = sqlc.arg(merkle_root),
     uri = sqlc.arg(uri),
     size = sqlc.arg(size),
-    weight = sqlc.arg(weight),
-    published = sqlc.arg(published)
+    weight = sqlc.arg(weight)
 WHERE id = sqlc.arg(id);
 
 -- name: CreateCensusBlock :execresult

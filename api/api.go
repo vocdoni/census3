@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/queue"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -30,14 +31,16 @@ type census3API struct {
 	sqlc     *queries.Queries
 	endpoint *api.API
 	censusDB *census.CensusDB
+	queue    *queue.BackgroundQueue
 }
 
 func Init(db *sql.DB, q *queries.Queries, conf Census3APIConf) error {
 	newAPI := &census3API{
-		conf: conf,
-		web3: conf.Web3URI,
-		db:   db,
-		sqlc: q,
+		conf:  conf,
+		web3:  conf.Web3URI,
+		db:    db,
+		sqlc:  q,
+		queue: queue.NewBackgroundQueue(),
 	}
 	// get the current chainID
 	chainID, err := newAPI.setupChainID()

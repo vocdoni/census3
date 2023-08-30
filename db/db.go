@@ -23,10 +23,14 @@ func Init(dataDir string) (*sql.DB, *queries.Queries, error) {
 		}
 	}
 	// open database file
-	database, err := sql.Open("sqlite3", dbFile)
+	fileURI := fmt.Sprintf("file:%s?cache=shared", dbFile)
+	database, err := sql.Open("sqlite3", fileURI)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error opening database: %w", err)
 	}
+	// trying to fix "database is locked" issue according to the official
+	// mattn/go-sqlite3 docs: https://github.com/mattn/go-sqlite3/#faq
+	database.SetMaxOpenConns(1)
 	// get census3 goose migrations and setup for sqlite3
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		return nil, nil, fmt.Errorf("error setting up driver for sqlite: %w", err)

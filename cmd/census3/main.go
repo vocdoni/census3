@@ -28,19 +28,19 @@ func main() {
 	flag.Parse()
 	log.Init(*logLevel, "stdout", nil)
 
-	db, q, err := db.Init(*dataDir)
+	database, q, err := db.Init(*dataDir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the holder scanner
-	hc, err := service.NewHoldersScanner(db, q, *url)
+	hc, err := service.NewHoldersScanner(database, q, *url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the API
-	err = api.Init(db, q, api.Census3APIConf{
+	err = api.Init(database, q, api.Census3APIConf{
 		Hostname: "0.0.0.0",
 		Port:     *port,
 		DataDir:  *dataDir,
@@ -60,6 +60,12 @@ func main() {
 	log.Warnf("received SIGTERM, exiting at %s", time.Now().Format(time.RFC850))
 	cancel()
 	log.Infof("waiting for routines to end gracefully...")
+	// closing database
+	go func() {
+		if err := database.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 	time.Sleep(5 * time.Second)
 	os.Exit(0)
 }

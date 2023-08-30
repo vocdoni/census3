@@ -54,7 +54,7 @@ type CreateCensusResquest struct {
 }
 
 type CreateCensusResponse struct {
-	QueueID string `json:"queue_id"`
+	QueueID string `json:"queueId"`
 }
 
 type GetCensusResponse struct {

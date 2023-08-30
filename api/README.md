@@ -286,7 +286,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 
 ```json
 {
-    "censusId": 12
+    "queueId": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
 
@@ -295,8 +295,6 @@ Request the creation of a new census with the strategy provided for the `blockNu
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed strategy ID, it must be a integer` | 4002 | 
-| 404 | `no strategy found with the ID provided` | 4005 | 
-| 500 | `error creating the census tree on the census database` | 5001 | 
 | 500 | `error encoding strategy holders` | 5014 | 
 
 ### GET `/census/{censusId}`
@@ -325,3 +323,29 @@ Returns the information of the snapshots related to the provided ID.
 | 404 | `census not found` | 4006 | 
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census` | 5017 | 
+
+### GET `/census/queue/{queueId}`
+Returns the information of the census that are in the creation queue.
+
+- 📥 response:
+```json
+{
+  "queue_item": {
+    "done": true,
+    "error": {
+        "code": 0,
+        "err": "error message or null"
+    },
+    "census": { /* <same_get_census_response> */ }
+  }
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed queue ID` | 4010 | 
+| 404 | `census not found` | 4006 | 
+| 500 | `error getting census information` | 5009 | 
+| 500 | `error encoding census queue item` | 5021 | 

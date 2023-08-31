@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 
 	"go.vocdoni.io/dvote/httprouter/apirest"
 )
@@ -20,7 +21,7 @@ var (
 	ErrMalformedStrategyID = apirest.APIerror{
 		Code:       4002,
 		HTTPstatus: apirest.HTTPstatusBadRequest,
-		Err:        fmt.Errorf("malformed strategy ID, it must be a integer"),
+		Err:        fmt.Errorf("malformed strategy ID, it must be an integer"),
 	}
 	ErrNotFoundToken = apirest.APIerror{
 		Code:       4003,
@@ -52,13 +53,18 @@ var (
 		HTTPstatus: apirest.HTTPstatusNoContent,
 		Err:        fmt.Errorf("no strategy found"),
 	}
-	ErrNoStrategyTokens = apirest.APIerror{
+	ErrTokenAlreadyExists = apirest.APIerror{
 		Code:       4009,
+		HTTPstatus: http.StatusConflict,
+		Err:        fmt.Errorf("token already created"),
+	}
+	ErrNoStrategyTokens = apirest.APIerror{
+		Code:       4010,
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("no tokens found for the strategy provided"),
 	}
 	ErrMalformedCensusQueueID = apirest.APIerror{
-		Code:       4010,
+		Code:       4011,
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("malformed queue ID"),
 	}
@@ -167,8 +173,13 @@ var (
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error counting census size"),
 	}
-	ErrEncodeQueueItem = apirest.APIerror{
+	ErrCantGetLastBlockNumber = apirest.APIerror{
 		Code:       5021,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error getting last block number from web3 endpoint"),
+	}
+	ErrEncodeQueueItem = apirest.APIerror{
+		Code:       5022,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error encoding census queue item"),
 	}

@@ -77,9 +77,10 @@ Triggers a new scan for the provided token, starting from the defined block.
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed token information` | 4000 | 
+| 409 | `token already created` | 4009 | 
 | 500 | `the token cannot be created` | 5000 | 
 | 500 | `error getting token information` | 5004 | 
-| 500 | `error initialising web3 client` | 5018 | 
+| 500 | `error initialising web3 client` | 5019 | 
 
 ### GET `/token/{tokenID}`
 Returns the information about the token referenced by the provided ID.
@@ -114,6 +115,7 @@ Returns the information about the token referenced by the provided ID.
 | 404 | `no token found` | 4003 |
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error initialising web3 client` | 5018 | 
+| 500 | `error getting last block number from web3 endpoint` | 5021 | 
 | 500 | `error encoding tokens` | 5011 | 
 
 **MVP Warn**: If `defaultStrategy` is `0`, no strategy (neither the dummy strategy) is associated to the given token.
@@ -265,7 +267,7 @@ Returns a list of censusID for the strategy provided.
 | 204 | `-` | 4007 |
 | 404 | `census not found` | 4006 | 
 | 500 | `error getting census information` | 5009 | 
-| 500 | `error encoding cenuses` | 5018 |
+| 500 | `error encoding censuses` | 5018 |
 
 ## Censuses
 
@@ -294,7 +296,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 400 | `malformed strategy ID, it must be a integer` | 4002 | 
+| 400 | `malformed strategy ID, it must be an integer` | 4002 | 
 | 500 | `error encoding strategy holders` | 5014 | 
 
 ### GET `/census/{censusId}`
@@ -330,14 +332,12 @@ Returns the information of the census that are in the creation queue.
 - 📥 response:
 ```json
 {
-  "queue_item": {
     "done": true,
     "error": {
         "code": 0,
         "err": "error message or null"
     },
     "census": { /* <same_get_census_response> */ }
-  }
 }
 ```
 
@@ -348,4 +348,4 @@ Returns the information of the census that are in the creation queue.
 | 400 | `malformed queue ID` | 4010 | 
 | 404 | `census not found` | 4006 | 
 | 500 | `error getting census information` | 5009 | 
-| 500 | `error encoding census queue item` | 5021 | 
+| 500 | `error encoding census queue item` | 5022 | 

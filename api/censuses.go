@@ -305,7 +305,7 @@ func (capi *census3API) getEnqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPC
 		capi.queue.Dequeue(queueID)
 	}
 	// encode item response and send it
-	res, err := json.Marshal(map[string]any{"queue_item": queueItem})
+	res, err := json.Marshal(queueItem)
 	if err != nil {
 		log.Errorw(ErrEncodeQueueItem, err.Error())
 		return ErrEncodeQueueItem

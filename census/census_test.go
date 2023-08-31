@@ -107,7 +107,7 @@ func Test_save(t *testing.T) {
 	}()
 
 	def := NewCensusDefinition(0, 0, map[common.Address]*big.Int{}, false)
-	_, err = cdb.treeDB.Get([]byte(censusDBKey(def.ID)))
+	_, err = cdb.treeDB.ReadTx().Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNotNil)
 
 	bdef := bytes.Buffer{}
@@ -115,7 +115,7 @@ func Test_save(t *testing.T) {
 	c.Assert(encoder.Encode(def), qt.IsNil)
 
 	c.Assert(cdb.save(def), qt.IsNil)
-	res, err := cdb.treeDB.Get([]byte(censusDBKey(def.ID)))
+	res, err := cdb.treeDB.ReadTx().Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNil)
 	c.Assert(res, qt.ContentEquals, bdef.Bytes())
 }
@@ -164,10 +164,10 @@ func Test_delete(t *testing.T) {
 	def := NewCensusDefinition(0, 0, map[common.Address]*big.Int{}, false)
 	c.Assert(cdb.save(def), qt.IsNil)
 
-	_, err = cdb.treeDB.Get([]byte(censusDBKey(def.ID)))
+	_, err = cdb.treeDB.ReadTx().Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNil)
 	c.Assert(cdb.delete(def), qt.IsNil)
 
-	_, err = cdb.treeDB.Get([]byte(censusDBKey(def.ID)))
+	_, err = cdb.treeDB.ReadTx().Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNotNil)
 }

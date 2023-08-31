@@ -301,6 +301,8 @@ func (capi *census3API) getEnqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPC
 			ChainID:    uint64(chainID),
 			Anonymous:  currentCensus.CensusType == int64(census.AnonymousCensusType),
 		}
+		// remove the item from the queue
+		capi.queue.Dequeue(queueID)
 	}
 	// encode item response and send it
 	res, err := json.Marshal(map[string]any{"queue_item": queueItem})

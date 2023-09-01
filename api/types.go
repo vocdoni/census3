@@ -90,7 +90,7 @@ type GetStrategyResponse struct {
 }
 
 type QueueItemResponse struct {
-	Done   bool              `json:"done"`
-	Error  error             `json:"error"`
-	Census GetCensusResponse `json:"census"`
+	Done   bool               `json:"done"`
+	Error  error              `json:"error"`
+	Census *GetCensusResponse `json:"census,omitempty"`
 }

@@ -68,6 +68,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("malformed queue ID"),
 	}
+	ErrCensusAlreadyExists = apirest.APIerror{
+		Code:       4012,
+		HTTPstatus: http.StatusConflict,
+		Err:        fmt.Errorf("census already exists"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,

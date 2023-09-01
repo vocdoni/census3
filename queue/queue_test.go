@@ -27,19 +27,19 @@ func TestUpdateDone(t *testing.T) {
 	q := NewBackgroundQueue()
 
 	id := q.Enqueue()
-	done, err, exists := q.Done(id)
+	exists, done, _, err := q.Done(id)
 	c.Assert(exists, qt.IsTrue)
 	c.Assert(err, qt.IsNil)
 	c.Assert(done, qt.IsFalse)
 
-	c.Assert(q.Update(id, true, fmt.Errorf("test error")), qt.IsTrue)
-	done, err, exists = q.Done(id)
+	c.Assert(q.Update(id, true, nil, fmt.Errorf("test error")), qt.IsTrue)
+	exists, done, _, err = q.Done(id)
 	c.Assert(exists, qt.IsTrue)
 	c.Assert(err, qt.IsNotNil)
 	c.Assert(done, qt.IsTrue)
 
 	c.Assert(q.Dequeue(id), qt.IsTrue)
-	done, err, exists = q.Done(id)
+	exists, done, _, err = q.Done(id)
 	c.Assert(exists, qt.IsFalse)
 	c.Assert(err, qt.IsNil)
 	c.Assert(done, qt.IsFalse)

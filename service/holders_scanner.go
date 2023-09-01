@@ -310,7 +310,6 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 		// get token information from the database
 		tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
 		if err != nil {
-			fmt.Errorf("EY")
 			return false, err
 		}
 		ttype := state.TokenType(tokenInfo.TypeID)

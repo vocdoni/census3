@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,7 +26,7 @@ func main() {
 	logLevel := flag.String("logLevel", "info", "log level (debug, info, warn, error)")
 	port := flag.Int("port", 7788, "HTTP port for the API")
 	connectKey := flag.String("connectKey", "", "connect group key for IPFS connect")
-	web3Providers := flag.StringArray("web3Providers", []string{}, "the list of URL's of available web3 providers")
+	listOfWeb3Providers := flag.String("web3Providers", "", "the list of URL's of available web3 providers (separated with commas)")
 	flag.Parse()
 	log.Init(*logLevel, "stdout", nil)
 
@@ -34,7 +35,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	w3p, err := state.CheckWeb3Providers(*web3Providers)
+	web3Providers := strings.Split(*listOfWeb3Providers, ",")
+	w3p, err := state.CheckWeb3Providers(web3Providers)
 	if err != nil {
 		log.Fatal(err)
 	}

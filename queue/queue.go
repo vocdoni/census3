@@ -8,21 +8,21 @@ import (
 
 const QueueIDLen = 20
 
+type QueueItem struct {
+	done bool
+	err  error
+	data map[string]any
+}
+
 type BackgroundQueue struct {
 	mtx       *sync.Mutex
-	processes map[string]struct {
-		done bool
-		err  error
-	}
+	processes map[string]QueueItem
 }
 
 func NewBackgroundQueue() *BackgroundQueue {
 	return &BackgroundQueue{
-		mtx: &sync.Mutex{},
-		processes: make(map[string]struct {
-			done bool
-			err  error
-		}),
+		mtx:       &sync.Mutex{},
+		processes: make(map[string]QueueItem),
 	}
 }
 
@@ -31,10 +31,11 @@ func (q *BackgroundQueue) Enqueue() string {
 	defer q.mtx.Unlock()
 
 	id := util.RandomHex(QueueIDLen)
-	q.processes[id] = struct {
-		done bool
-		err  error
-	}{done: false, err: nil}
+	q.processes[id] = QueueItem{
+		done: false,
+		err:  nil,
+		data: make(map[string]any),
+	}
 	return id
 }
 
@@ -49,26 +50,23 @@ func (q *BackgroundQueue) Dequeue(id string) bool {
 	return true
 }
 
-func (q *BackgroundQueue) Update(id string, done bool, err error) bool {
+func (q *BackgroundQueue) Update(id string, done bool, data map[string]any, err error) bool {
 	q.mtx.Lock()
 	defer q.mtx.Unlock()
 
 	if _, ok := q.processes[id]; !ok {
 		return false
 	}
-	q.processes[id] = struct {
-		done bool
-		err  error
-	}{done, err}
+	q.processes[id] = QueueItem{done: done, err: err, data: data}
 	return true
 }
 
-func (q *BackgroundQueue) Done(id string) (bool, error, bool) {
+func (q *BackgroundQueue) Done(id string) (bool, bool, map[string]any, error) {
 	q.mtx.Lock()
 	defer q.mtx.Unlock()
 
 	if p, ok := q.processes[id]; ok {
-		return p.done, p.err, true
+		return true, p.done, p.data, p.err
 	}
-	return false, nil, false
+	return false, false, nil, nil
 }

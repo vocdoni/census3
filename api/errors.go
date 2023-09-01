@@ -173,4 +173,9 @@ var (
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error getting last block number from web3 endpoint"),
 	}
+	ErrEncodeAPIInfo = apirest.APIerror{
+		Code:       5023,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error encoding API info"),
+	}
 )

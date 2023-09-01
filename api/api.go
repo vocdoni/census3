@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"encoding/json"
 
 	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
@@ -52,6 +53,9 @@ func Init(db *sql.DB, q *queries.Queries, conf Census3APIConf) error {
 		return err
 	}
 	// init handlers
+	if err := newAPI.initAPIHandlers(); err != nil {
+		return err
+	}
 	if err := newAPI.initTokenHandlers(); err != nil {
 		return err
 	}
@@ -66,4 +70,25 @@ func Init(db *sql.DB, q *queries.Queries, conf Census3APIConf) error {
 		return err
 	}
 	return nil
+}
+
+func (capi *census3API) initAPIHandlers() error {
+	return capi.endpoint.RegisterMethod("/info", "GET",
+		api.MethodAccessTypePublic, capi.getAPIInfo)
+}
+
+func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	chainIDs := []int64{}
+	for chainID := range capi.w3p {
+		chainIDs = append(chainIDs, chainID)
+	}
+
+	info := map[string]any{"chainIDs": chainIDs}
+	res, err := json.Marshal(info)
+	if err != nil {
+		log.Errorw(err, "error encoding api info")
+		return ErrEncodeAPIInfo
+	}
+
+	return ctx.Send(res, api.HTTPstatusOK)
 }

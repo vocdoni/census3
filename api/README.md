@@ -1,9 +1,30 @@
 # API endpoints
 
 Endpoints:
+ - [API info](#api-info)
  - [Tokens](#tokens)
  - [Strategies](#strategies)
  - [Censuses](#censuses)
+
+## API Info
+
+### GET `/info`
+
+Show information about the API service.
+
+- 📥 response:
+
+```json
+{
+    "chainIDs": [1, 5]
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status | Message | Internal error |
+|:---:|:---|:---:|
+| 500 | `error encoding API info` | 5023 | 
 
 ## Tokens
 

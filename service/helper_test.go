@@ -64,7 +64,7 @@ func (testdb *TestDB) Close(t *testing.T) {
 }
 
 func testTokenParams(id, name, symbol string, decimals, creationBlock, totalSupply,
-	typeID uint64, synced bool,
+	typeID uint64, synced bool, chainID int64,
 ) queries.CreateTokenParams {
 	return queries.CreateTokenParams{
 		ID:            common.HexToAddress(id).Bytes(),
@@ -75,5 +75,6 @@ func testTokenParams(id, name, symbol string, decimals, creationBlock, totalSupp
 		CreationBlock: sql.NullInt32{Int32: int32(creationBlock), Valid: creationBlock != 0},
 		TypeID:        int64(typeID),
 		Synced:        synced,
+		ChainID:       chainID,
 	}
 }

@@ -92,7 +92,12 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	w3 := state.Web3{}
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := w3.Init(internalCtx, capi.web3, addr, tokenType); err != nil {
+	// get correct web3 uri provider
+	w3uri, exists := capi.w3p[req.ChainID]
+	if !exists {
+		return ErrChainIDNotSupported.With("chain ID not supported")
+	}
+	if err := w3.Init(internalCtx, w3uri, addr, tokenType); err != nil {
 		log.Errorw(ErrInitializingWeb3, err.Error())
 		return ErrInitializingWeb3
 	}
@@ -139,6 +144,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		TypeID:        int64(tokenType),
 		Synced:        false,
 		Tag:           *tag,
+		ChainID:       req.ChainID,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -194,9 +200,14 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	// calculate the current scan progress
 	tokenProgress := uint64(100)
 	if !tokenData.Synced {
+		// get correct web3 uri provider
+		w3uri, exists := capi.w3p[tokenData.ChainID]
+		if !exists {
+			return ErrChainIDNotSupported.With("chain ID not supported")
+		}
 		// get last block of the network, if something fails return progress 0
 		w3 := state.Web3{}
-		if err := w3.Init(internalCtx, capi.web3, address, state.TokenType(tokenData.TypeID)); err != nil {
+		if err := w3.Init(internalCtx, w3uri, address, state.TokenType(tokenData.TypeID)); err != nil {
 			return ErrInitializingWeb3.WithErr(err)
 		}
 		// fetch the last block header and calculate progress
@@ -232,6 +243,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		// TODO: Only for the MVP, consider to remove it
 		Tag:             tokenData.Tag.String,
 		DefaultStrategy: defaultStrategyID,
+		ChainID:         tokenData.ChainID,
 	}
 	if tokenData.CreationBlock.Valid {
 		tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int32)

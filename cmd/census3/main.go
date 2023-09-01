@@ -11,6 +11,7 @@ import (
 	"github.com/vocdoni/census3/api"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/service"
+	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -20,11 +21,11 @@ func main() {
 		panic(err)
 	}
 	home += "/.census3"
-	url := flag.String("url", "", "ethereum web3 url")
 	dataDir := flag.String("dataDir", home, "data directory for persistent storage")
 	logLevel := flag.String("logLevel", "info", "log level (debug, info, warn, error)")
 	port := flag.Int("port", 7788, "HTTP port for the API")
 	connectKey := flag.String("connectKey", "", "connect group key for IPFS connect")
+	web3Providers := flag.StringArray("web3Providers", []string{}, "the list of URL's of available web3 providers")
 	flag.Parse()
 	log.Init(*logLevel, "stdout", nil)
 
@@ -33,19 +34,25 @@ func main() {
 		log.Fatal(err)
 	}
 
+	w3p, err := state.CheckWeb3Providers(*web3Providers)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Info(w3p)
+
 	// Start the holder scanner
-	hc, err := service.NewHoldersScanner(db, q, *url)
+	hc, err := service.NewHoldersScanner(db, q, w3p)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the API
 	err = api.Init(db, q, api.Census3APIConf{
-		Hostname: "0.0.0.0",
-		Port:     *port,
-		DataDir:  *dataDir,
-		Web3URI:  *url,
-		GroupKey: *connectKey,
+		Hostname:      "0.0.0.0",
+		Port:          *port,
+		DataDir:       *dataDir,
+		Web3Providers: w3p,
+		GroupKey:      *connectKey,
 	})
 	if err != nil {
 		log.Fatal(err)

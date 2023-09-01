@@ -10,7 +10,7 @@ import (
 
 func TestTokenHoldersInit(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 0)
 	c.Assert(th.address.String(), qt.Equals, MonkeysAddress.String())
 	c.Assert(th.ctype, qt.Equals, CONTRACT_TYPE_ERC20)
 	c.Assert(th.lastBlock.Load(), qt.Equals, MonkeysCreationBlock)
@@ -19,7 +19,7 @@ func TestTokenHoldersInit(t *testing.T) {
 
 func TestHolders(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 	c.Assert(th.address.String(), qt.Equals, MonkeysAddress.String())
 	c.Assert(th.ctype, qt.Equals, CONTRACT_TYPE_ERC20)
 	c.Assert(th.lastBlock.Load(), qt.Equals, MonkeysCreationBlock)
@@ -28,7 +28,7 @@ func TestHolders(t *testing.T) {
 
 func TestAppend(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 
 	holderAddr := common.HexToAddress("0xe54d702f98E312aBA4318E3c6BDba98ab5e11012")
 	holderBalance := new(big.Int).SetUint64(16000000000000000000)
@@ -42,7 +42,7 @@ func TestAppend(t *testing.T) {
 
 func TestExists(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 
 	holderAddr := common.HexToAddress("0xe54d702f98E312aBA4318E3c6BDba98ab5e11012")
 	holderBalance := new(big.Int).SetUint64(16000000000000000000)
@@ -53,7 +53,7 @@ func TestExists(t *testing.T) {
 
 func TestDel(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 
 	holderAddr := common.HexToAddress("0xe54d702f98E312aBA4318E3c6BDba98ab5e11012")
 	holderBalance := new(big.Int).SetUint64(16000000000000000000)
@@ -70,7 +70,7 @@ func TestDel(t *testing.T) {
 
 func TestFlushHolders(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 
 	holderAddr := common.HexToAddress("0xe54d702f98E312aBA4318E3c6BDba98ab5e11012")
 	holderBalance := new(big.Int).SetUint64(16000000000000000000)
@@ -86,7 +86,7 @@ func TestFlushHolders(t *testing.T) {
 
 func TestBlockDone(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 
 	_, exists := th.blocks.Load(MonkeysCreationBlock + 500)
 	c.Assert(exists, qt.IsFalse)
@@ -99,7 +99,7 @@ func TestBlockDone(t *testing.T) {
 
 func TestHasBlock(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 
 	c.Assert(th.HasBlock(MonkeysCreationBlock), qt.IsFalse)
 	th.BlockDone(MonkeysCreationBlock)
@@ -108,7 +108,7 @@ func TestHasBlock(t *testing.T) {
 
 func TestLastBlock(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 
 	c.Assert(th.LastBlock(), qt.Equals, MonkeysCreationBlock)
 	th.BlockDone(MonkeysCreationBlock + 1)
@@ -119,7 +119,7 @@ func TestLastBlock(t *testing.T) {
 
 func TestSynced(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 
 	c.Assert(th.synced.Load(), qt.IsFalse)
 	th.Synced()
@@ -128,7 +128,7 @@ func TestSynced(t *testing.T) {
 
 func TestIsSynced(t *testing.T) {
 	c := qt.New(t)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 
 	c.Assert(th.IsSynced(), qt.IsFalse)
 	th.Synced()

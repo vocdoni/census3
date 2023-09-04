@@ -89,8 +89,8 @@ type GetStrategyResponse struct {
 	Predicate string             `json:"strategy"`
 }
 
-type QueueItemResponse struct {
+type CensusQueueResponse struct {
 	Done   bool               `json:"done"`
 	Error  error              `json:"error"`
-	Census *GetCensusResponse `json:"census,omitempty"`
+	Census *GetCensusResponse `json:"census"`
 }

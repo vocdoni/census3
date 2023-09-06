@@ -64,6 +64,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		URI:        "ipfs://" + currentCensus.Uri.String,
 		Size:       int32(currentCensus.Size),
 		Weight:     new(big.Int).SetBytes(currentCensus.Weight).String(),
+		Anonymous:  currentCensus.CensusType == int64(census.AnonymousCensusType),
 	})
 	if err != nil {
 		return ErrEncodeCensus
@@ -94,7 +95,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		return ErrCantCreateCensus
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
 			log.Errorw(err, "holders transaction rollback failed")
 		}
 	}()
@@ -141,7 +142,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		return ErrCantCreateCensus
 	}
 	// create a census tree and publish on IPFS
-	def := census.DefaultCensusDefinition(int(lastCensusID+1), int(req.StrategyID), strategyHolders)
+	def := census.NewCensusDefinition(int(lastCensusID+1), int(req.StrategyID), strategyHolders, req.Anonymous)
 	newCensus, err := capi.censusDB.CreateAndPublish(def)
 	if err != nil {
 		log.Errorw(err, "error creating or publishing the census")
@@ -178,6 +179,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		Uri:        *sqlURI,
 		Size:       int64(len(strategyHolders)),
 		Weight:     censusWeight.Bytes(),
+		CensusType: int64(def.Type),
 	})
 	if err != nil {
 		log.Errorw(err, "error saving the census on the database")

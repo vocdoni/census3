@@ -28,6 +28,7 @@ type Censuse struct {
 	Uri        sql.NullString
 	Size       int64
 	Weight     []byte
+	CensusType int64
 }
 
 type Holder struct {

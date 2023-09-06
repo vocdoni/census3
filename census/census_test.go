@@ -54,11 +54,11 @@ func TestCreateAndPublish(t *testing.T) {
 		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
-	censusDefinition := DefaultCensusDefinition(1, 1, MonkeysAddresses)
+	censusDefinition := NewCensusDefinition(1, 1, MonkeysAddresses, false)
 	publishedCensus, err := cdb.CreateAndPublish(censusDefinition)
 	c.Assert(err, qt.IsNil)
 
-	importedCensusDefinition := DefaultCensusDefinition(1, 1, nil)
+	importedCensusDefinition := NewCensusDefinition(1, 1, nil, false)
 	importedCensusDefinition, err = cdb.newTree(importedCensusDefinition)
 	c.Assert(err, qt.IsNil)
 
@@ -94,7 +94,7 @@ func Test_newTree(t *testing.T) {
 	})
 	c.Assert(err, qt.IsNotNil)
 
-	_, err = cdb.newTree(DefaultCensusDefinition(0, 0, map[common.Address]*big.Int{}))
+	_, err = cdb.newTree(NewCensusDefinition(0, 0, map[common.Address]*big.Int{}, false))
 	c.Assert(err, qt.IsNil)
 }
 
@@ -106,7 +106,7 @@ func Test_save(t *testing.T) {
 		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
-	def := DefaultCensusDefinition(0, 0, map[common.Address]*big.Int{})
+	def := NewCensusDefinition(0, 0, map[common.Address]*big.Int{}, false)
 	rtx := cdb.treeDB.ReadTx()
 	_, err = rtx.Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNotNil)
@@ -129,7 +129,7 @@ func Test_publish(t *testing.T) {
 		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
-	def, err := cdb.newTree(DefaultCensusDefinition(0, 0, MonkeysAddresses))
+	def, err := cdb.newTree(NewCensusDefinition(0, 0, MonkeysAddresses, false))
 	c.Assert(err, qt.IsNil)
 
 	keys, values := [][]byte{}, [][]byte{}
@@ -162,7 +162,7 @@ func Test_delete(t *testing.T) {
 		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
-	def := DefaultCensusDefinition(0, 0, map[common.Address]*big.Int{})
+	def := NewCensusDefinition(0, 0, map[common.Address]*big.Int{}, false)
 	c.Assert(cdb.save(def), qt.IsNil)
 
 	rtx := cdb.treeDB.ReadTx()

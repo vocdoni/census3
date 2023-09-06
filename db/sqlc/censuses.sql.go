@@ -13,7 +13,7 @@ import (
 )
 
 const censusByID = `-- name: CensusByID :one
-SELECT id, strategy_id, merkle_root, uri, size, weight FROM censuses
+SELECT id, strategy_id, merkle_root, uri, size, weight, census_type FROM censuses
 WHERE id = ?
 LIMIT 1
 `
@@ -28,12 +28,13 @@ func (q *Queries) CensusByID(ctx context.Context, id int64) (Censuse, error) {
 		&i.Uri,
 		&i.Size,
 		&i.Weight,
+		&i.CensusType,
 	)
 	return i, err
 }
 
 const censusByMerkleRoot = `-- name: CensusByMerkleRoot :one
-SELECT id, strategy_id, merkle_root, uri, size, weight FROM censuses
+SELECT id, strategy_id, merkle_root, uri, size, weight, census_type FROM censuses
 WHERE merkle_root = ?
 LIMIT 1
 `
@@ -48,12 +49,13 @@ func (q *Queries) CensusByMerkleRoot(ctx context.Context, merkleRoot annotations
 		&i.Uri,
 		&i.Size,
 		&i.Weight,
+		&i.CensusType,
 	)
 	return i, err
 }
 
 const censusByStrategyID = `-- name: CensusByStrategyID :many
-SELECT id, strategy_id, merkle_root, uri, size, weight FROM censuses
+SELECT id, strategy_id, merkle_root, uri, size, weight, census_type FROM censuses
 WHERE strategy_id = ?
 `
 
@@ -73,6 +75,7 @@ func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID int64) ([]C
 			&i.Uri,
 			&i.Size,
 			&i.Weight,
+			&i.CensusType,
 		); err != nil {
 			return nil, err
 		}
@@ -88,7 +91,7 @@ func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID int64) ([]C
 }
 
 const censusByURI = `-- name: CensusByURI :one
-SELECT id, strategy_id, merkle_root, uri, size, weight FROM censuses
+SELECT id, strategy_id, merkle_root, uri, size, weight, census_type FROM censuses
 WHERE uri = ?
 LIMIT 1
 `
@@ -103,12 +106,13 @@ func (q *Queries) CensusByURI(ctx context.Context, uri sql.NullString) (Censuse,
 		&i.Uri,
 		&i.Size,
 		&i.Weight,
+		&i.CensusType,
 	)
 	return i, err
 }
 
 const censusesByStrategyIDAndBlockID = `-- name: CensusesByStrategyIDAndBlockID :many
-SELECT c.id, c.strategy_id, c.merkle_root, c.uri, c.size, c.weight FROM censuses c
+SELECT c.id, c.strategy_id, c.merkle_root, c.uri, c.size, c.weight, c.census_type FROM censuses c
 JOIN census_blocks cb ON c.id = cb.census_id
 WHERE c.strategy_id = ? AND cb.block_id = ?
 LIMIT ? OFFSET ?
@@ -142,6 +146,7 @@ func (q *Queries) CensusesByStrategyIDAndBlockID(ctx context.Context, arg Census
 			&i.Uri,
 			&i.Size,
 			&i.Weight,
+			&i.CensusType,
 		); err != nil {
 			return nil, err
 		}
@@ -157,7 +162,7 @@ func (q *Queries) CensusesByStrategyIDAndBlockID(ctx context.Context, arg Census
 }
 
 const censusesByTokenID = `-- name: CensusesByTokenID :many
-SELECT c.id, c.strategy_id, c.merkle_root, c.uri, c.size, c.weight FROM censuses AS c
+SELECT c.id, c.strategy_id, c.merkle_root, c.uri, c.size, c.weight, c.census_type FROM censuses AS c
 JOIN strategy_tokens AS st ON c.strategy_id = st.strategy_id
 WHERE st.token_id = ?
 LIMIT ? OFFSET ?
@@ -185,6 +190,7 @@ func (q *Queries) CensusesByTokenID(ctx context.Context, arg CensusesByTokenIDPa
 			&i.Uri,
 			&i.Size,
 			&i.Weight,
+			&i.CensusType,
 		); err != nil {
 			return nil, err
 		}
@@ -200,7 +206,7 @@ func (q *Queries) CensusesByTokenID(ctx context.Context, arg CensusesByTokenIDPa
 }
 
 const censusesByTokenType = `-- name: CensusesByTokenType :many
-SELECT c.id, c.strategy_id, c.merkle_root, c.uri, c.size, c.weight FROM censuses AS c
+SELECT c.id, c.strategy_id, c.merkle_root, c.uri, c.size, c.weight, c.census_type FROM censuses AS c
 JOIN strategy_tokens AS st ON c.strategy_id = st.strategy_id
 JOIN tokens AS t ON st.token_id = t.id
 JOIN token_types AS tt ON t.type_id = tt.id
@@ -223,6 +229,7 @@ func (q *Queries) CensusesByTokenType(ctx context.Context, typeName string) ([]C
 			&i.Uri,
 			&i.Size,
 			&i.Weight,
+			&i.CensusType,
 		); err != nil {
 			return nil, err
 		}
@@ -244,10 +251,11 @@ INSERT INTO censuses (
     merkle_root,
     uri,
     size, 
-    weight
+    weight,
+    census_type
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?
 )
 `
 
@@ -258,6 +266,7 @@ type CreateCensusParams struct {
 	Uri        sql.NullString
 	Size       int64
 	Weight     []byte
+	CensusType int64
 }
 
 func (q *Queries) CreateCensus(ctx context.Context, arg CreateCensusParams) (sql.Result, error) {
@@ -268,6 +277,7 @@ func (q *Queries) CreateCensus(ctx context.Context, arg CreateCensusParams) (sql
 		arg.Uri,
 		arg.Size,
 		arg.Weight,
+		arg.CensusType,
 	)
 }
 
@@ -328,7 +338,7 @@ func (q *Queries) LastCensusID(ctx context.Context) (int64, error) {
 }
 
 const listCensuses = `-- name: ListCensuses :many
-SELECT id, strategy_id, merkle_root, uri, size, weight FROM censuses
+SELECT id, strategy_id, merkle_root, uri, size, weight, census_type FROM censuses
 ORDER BY id
 `
 
@@ -348,6 +358,7 @@ func (q *Queries) ListCensuses(ctx context.Context) ([]Censuse, error) {
 			&i.Uri,
 			&i.Size,
 			&i.Weight,
+			&i.CensusType,
 		); err != nil {
 			return nil, err
 		}

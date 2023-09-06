@@ -53,6 +53,7 @@ type TokenHoldersResponse struct {
 type CreateCensusResquest struct {
 	StrategyID  uint64 `json:"strategyId"`
 	BlockNumber uint64 `json:"blockNumber"`
+	Anonymous   bool   `json:"anonymous"`
 }
 
 type CreateCensusResponse struct {
@@ -66,7 +67,7 @@ type GetCensusResponse struct {
 	URI        string `json:"uri"`
 	Size       int32  `json:"size"`
 	Weight     string `json:"weight"`
-	// ChainID    uint64 `json:"chainId"`
+	Anonymous  bool   `json:"anonymous"`
 }
 
 type GetCensusesResponse struct {

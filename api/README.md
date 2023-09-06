@@ -300,7 +300,8 @@ Request the creation of a new census with the strategy provided for the `blockNu
 ```json
 {
     "strategyId": 1,
-    "blockNumber": 123456
+    "blockNumber": 123456,
+    "anonymous": false
 }
 ```
 
@@ -333,7 +334,8 @@ Returns the information of the snapshots related to the provided ID.
     "uri": "ipfs://Qma....",
     "size": 1000,
     "weight": "200000000000000000000",
-    "chainId": 1
+    "chainId": 1,
+    "anonymous": true
 }
 ```
 

@@ -35,10 +35,6 @@ type Holder struct {
 	ID annotations.Address
 }
 
-type Metadatum struct {
-	Chainid int64
-}
-
 type Strategy struct {
 	ID        int64
 	Predicate string
@@ -61,6 +57,7 @@ type Token struct {
 	TypeID        int64
 	Synced        bool
 	Tag           sql.NullString
+	ChainID       int64
 }
 
 type TokenHolder struct {

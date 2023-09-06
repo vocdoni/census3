@@ -58,6 +58,11 @@ var (
 		HTTPstatus: http.StatusConflict,
 		Err:        fmt.Errorf("token already created"),
 	}
+	ErrChainIDNotSupported = apirest.APIerror{
+		Code:       4013,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("chain ID provided not supported"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
@@ -167,5 +172,10 @@ var (
 		Code:       5021,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error getting last block number from web3 endpoint"),
+	}
+	ErrEncodeAPIInfo = apirest.APIerror{
+		Code:       5023,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error encoding API info"),
 	}
 )

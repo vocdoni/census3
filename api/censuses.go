@@ -57,10 +57,6 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		}
 		return ErrCantGetCensus
 	}
-	chainID, err := qtx.ChainID(internalCtx)
-	if err != nil {
-		return ErrCantGetCensus
-	}
 	res, err := json.Marshal(GetCensusResponse{
 		CensusID:   uint64(censusID),
 		StrategyID: uint64(currentCensus.StrategyID),
@@ -68,7 +64,6 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		URI:        "ipfs://" + currentCensus.Uri.String,
 		Size:       int32(currentCensus.Size),
 		Weight:     new(big.Int).SetBytes(currentCensus.Weight).String(),
-		ChainID:    uint64(chainID),
 		Anonymous:  currentCensus.CensusType == int64(census.AnonymousCensusType),
 	})
 	if err != nil {

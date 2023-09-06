@@ -1,8 +1,4 @@
 -- +goose Up
-CREATE TABLE metadata (
-    chainID INTEGER PRIMARY KEY
-);
-
 CREATE TABLE strategies (
     id INTEGER PRIMARY KEY,
     predicate TEXT NOT NULL
@@ -30,6 +26,8 @@ CREATE TABLE tokens (
     type_id INTEGER NOT NULL,
     synced BOOLEAN NOT NULL,
     tag TEXT,
+    chain_id INTEGER NOT NULL,
+    UNIQUE (id, chain_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_tokens_type_id ON tokens(type_id);

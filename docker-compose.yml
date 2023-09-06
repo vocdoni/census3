@@ -10,7 +10,7 @@ services:
     volumes:
       - census3:/app/data
     command:
-      - "--url=${WEB3_PROVIDER}"
+      - "--web3Providers=${WEB3_PROVIDERS}"
       - "--port=${PORT}"
       - "--logLevel=${LOGLEVEL}"
       - "--connectKey=${CONNECT_KEY}"

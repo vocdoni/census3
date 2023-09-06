@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/log"
@@ -31,16 +32,15 @@ type HoldersScanner struct {
 	web3      string
 	tokens    map[common.Address]*state.TokenHolders
 	mutex     sync.RWMutex
-	db        *sql.DB
-	sqlc      *queries.Queries
+	db        *db.DB
 	lastBlock uint64
 }
 
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
-func NewHoldersScanner(db *sql.DB, q *queries.Queries, w3uri string) (*HoldersScanner, error) {
-	if db == nil || q == nil {
+func NewHoldersScanner(db *db.DB, w3uri string) (*HoldersScanner, error) {
+	if db == nil {
 		return nil, ErrNoDB
 	}
 	// create an empty scanner
@@ -48,12 +48,11 @@ func NewHoldersScanner(db *sql.DB, q *queries.Queries, w3uri string) (*HoldersSc
 		tokens: make(map[common.Address]*state.TokenHolders),
 		web3:   w3uri,
 		db:     db,
-		sqlc:   q,
 	}
 	// get latest analyzed block
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	lastBlock, err := s.sqlc.LastBlock(ctx)
+	lastBlock, err := s.db.QueriesRO.LastBlock(ctx)
 	if err == nil {
 		s.lastBlock = uint64(lastBlock)
 	}
@@ -120,7 +119,7 @@ func (s *HoldersScanner) tokenAddresses() (map[common.Address]bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// get tokens from the database
-	tokens, err := s.sqlc.ListTokens(ctx)
+	tokens, err := s.db.QueriesRO.ListTokens(ctx)
 	// if error raises and is no rows error return nil results, if it is not
 	// return the error.
 	if err != nil {
@@ -149,14 +148,14 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// begin a transaction for group sql queries
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.db.RW.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		_ = tx.Rollback()
 	}()
-	qtx := s.sqlc.WithTx(tx)
+	qtx := s.db.QueriesRW.WithTx(tx)
 	if exists, err := qtx.ExistsToken(ctx, th.Address().Bytes()); err != nil {
 		return fmt.Errorf("error checking if token exists: %w", err)
 	} else if !exists {
@@ -303,13 +302,13 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 	if !ok {
 		log.Infof("initializing contract %s", addr.Hex())
 		// get token information from the database
-		tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
+		tokenInfo, err := s.db.QueriesRO.TokenByID(ctx, addr.Bytes())
 		if err != nil {
 			return false, err
 		}
 		ttype := state.TokenType(tokenInfo.TypeID)
 		tokenLastBlock := uint64(tokenInfo.CreationBlock.Int32)
-		if blockNumber, err := s.sqlc.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
+		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
 			tokenLastBlock = uint64(blockNumber)
 		}
 		th = new(state.TokenHolders).Init(addr, ttype, tokenLastBlock)
@@ -363,7 +362,7 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	// get the token type
-	tokenInfo, err := s.sqlc.TokenByID(ctx, addr.Bytes())
+	tokenInfo, err := s.db.QueriesRO.TokenByID(ctx, addr.Bytes())
 	if err != nil {
 		return fmt.Errorf("error getting token from database: %w", err)
 	}
@@ -383,7 +382,7 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 		return fmt.Errorf("error getting token creation block value: %w", err)
 	}
 	// save the creation block into the database
-	_, err = s.sqlc.UpdateTokenCreationBlock(ctx,
+	_, err = s.db.QueriesRW.UpdateTokenCreationBlock(ctx,
 		queries.UpdateTokenCreationBlockParams{
 			ID:            addr.Bytes(),
 			CreationBlock: *dbCreationBlock,

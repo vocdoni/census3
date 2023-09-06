@@ -28,19 +28,19 @@ func main() {
 	flag.Parse()
 	log.Init(*logLevel, "stdout", nil)
 
-	database, q, err := db.Init(*dataDir)
+	database, err := db.Init(*dataDir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the holder scanner
-	hc, err := service.NewHoldersScanner(database, q, *url)
+	hc, err := service.NewHoldersScanner(database, *url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Start the API
-	err = api.Init(database, q, api.Census3APIConf{
+	err = api.Init(database, api.Census3APIConf{
 		Hostname: "0.0.0.0",
 		Port:     *port,
 		DataDir:  *dataDir,

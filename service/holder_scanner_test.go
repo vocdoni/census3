@@ -22,24 +22,24 @@ func TestNewHolderScanner(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
+	hs, err := NewHoldersScanner(testdb.db, web3uri)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(0))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = testdb.queries.CreateBlock(ctx, queries.CreateBlockParams{
+	_, err = testdb.db.QueriesRW.CreateBlock(ctx, queries.CreateBlockParams{
 		ID:        1000,
 		Timestamp: "test",
 		RootHash:  []byte("test"),
 	})
 	c.Assert(err, qt.IsNil)
 
-	hs, err = NewHoldersScanner(testdb.db, testdb.queries, web3uri)
+	hs, err = NewHoldersScanner(testdb.db, web3uri)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(1000))
 
-	_, err = NewHoldersScanner(nil, nil, web3uri)
+	_, err = NewHoldersScanner(nil, web3uri)
 	c.Assert(err, qt.IsNotNil)
 }
 
@@ -52,7 +52,7 @@ func TestHolderScannerStart(t *testing.T) {
 	defer testdb.Close(t)
 
 	twg.Add(1)
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
+	hs, err := NewHoldersScanner(testdb.db, web3uri)
 	c.Assert(err, qt.IsNil)
 	go func() {
 		hs.Start(ctx)
@@ -69,7 +69,7 @@ func Test_tokenAddresses(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
+	hs, err := NewHoldersScanner(testdb.db, web3uri)
 	c.Assert(err, qt.IsNil)
 
 	res, err := hs.tokenAddresses()
@@ -78,7 +78,7 @@ func Test_tokenAddresses(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = testdb.queries.CreateToken(ctx, testTokenParams("0x1", "test0",
+	_, err = testdb.db.QueriesRW.CreateToken(ctx, testTokenParams("0x1", "test0",
 		"test0", MonkeysDecimals, 0, MonkeysTotalSupply.Uint64(),
 		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
@@ -87,7 +87,7 @@ func Test_tokenAddresses(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 	c.Assert(res[common.HexToAddress("0x1")], qt.IsFalse)
 
-	_, err = testdb.queries.CreateToken(ctx, testTokenParams("0x2", "test2",
+	_, err = testdb.db.QueriesRW.CreateToken(ctx, testTokenParams("0x2", "test2",
 		"test3", MonkeysDecimals, 10, MonkeysTotalSupply.Uint64(),
 		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
@@ -103,13 +103,13 @@ func Test_saveHolders(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, "http://google.com")
+	hs, err := NewHoldersScanner(testdb.db, "http://google.com")
 	c.Assert(err, qt.IsNil)
 
 	th := new(state.TokenHolders).Init(MonkeysAddress, state.CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
 	// no registered token
 	c.Assert(hs.saveHolders(th), qt.ErrorIs, ErrTokenNotExists)
-	_, err = testdb.queries.CreateToken(context.Background(), testTokenParams(
+	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals,
 		MonkeysCreationBlock, MonkeysTotalSupply.Uint64(),
 		uint64(state.CONTRACT_TYPE_ERC20), false))
@@ -124,13 +124,13 @@ func Test_saveHolders(t *testing.T) {
 	// check wrong web3
 	c.Assert(hs.saveHolders(th), qt.IsNotNil)
 	// check new block created
-	_, err = testdb.queries.BlockByID(context.Background(), int64(MonkeysCreationBlock))
+	_, err = testdb.db.QueriesRW.BlockByID(context.Background(), int64(MonkeysCreationBlock))
 	c.Assert(err, qt.ErrorIs, sql.ErrNoRows)
 	// check good web3
 	hs.web3 = web3uri
 	c.Assert(hs.saveHolders(th), qt.IsNil)
 	// check new holders
-	res, err := testdb.queries.TokenHolderByTokenIDAndHolderID(context.Background(),
+	res, err := testdb.db.QueriesRW.TokenHolderByTokenIDAndHolderID(context.Background(),
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),
@@ -140,7 +140,7 @@ func Test_saveHolders(t *testing.T) {
 	// check update holders
 	th.Append(holderAddr, holderBalance)
 	c.Assert(hs.saveHolders(th), qt.IsNil)
-	res, err = testdb.queries.TokenHolderByTokenIDAndHolderID(context.Background(),
+	res, err = testdb.db.QueriesRW.TokenHolderByTokenIDAndHolderID(context.Background(),
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),
@@ -151,7 +151,7 @@ func Test_saveHolders(t *testing.T) {
 	// check delete holders
 	th.Append(holderAddr, big.NewInt(-24))
 	c.Assert(hs.saveHolders(th), qt.IsNil)
-	_, err = testdb.queries.TokenHolderByTokenIDAndHolderID(context.Background(),
+	_, err = testdb.db.QueriesRW.TokenHolderByTokenIDAndHolderID(context.Background(),
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),
@@ -165,7 +165,7 @@ func Test_scanHolders(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
+	hs, err := NewHoldersScanner(testdb.db, web3uri)
 	c.Assert(err, qt.IsNil)
 
 	// token does not exists
@@ -174,7 +174,7 @@ func Test_scanHolders(t *testing.T) {
 	_, err = hs.scanHolders(ctx1, MonkeysAddress)
 	c.Assert(err, qt.IsNotNil)
 
-	_, err = testdb.queries.CreateToken(context.Background(), testTokenParams(
+	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals, MonkeysCreationBlock, 10,
 		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
@@ -184,7 +184,7 @@ func Test_scanHolders(t *testing.T) {
 	_, err = hs.scanHolders(ctx2, MonkeysAddress)
 	c.Assert(err, qt.IsNil)
 
-	res, err := testdb.queries.TokenHoldersByTokenID(context.Background(), MonkeysAddress.Bytes())
+	res, err := testdb.db.QueriesRW.TokenHoldersByTokenID(context.Background(), MonkeysAddress.Bytes())
 	c.Assert(err, qt.IsNil)
 	for _, holder := range res {
 		balance, ok := MonkeysHolders[common.BytesToAddress(holder.ID)]
@@ -199,18 +199,18 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, testdb.queries, web3uri)
+	hs, err := NewHoldersScanner(testdb.db, web3uri)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress), qt.IsNotNil)
 
-	_, err = testdb.queries.CreateToken(context.Background(), testTokenParams(
+	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals,
 		MonkeysCreationBlock, MonkeysTotalSupply.Uint64(),
 		uint64(state.CONTRACT_TYPE_ERC20), false))
 	c.Assert(err, qt.IsNil)
 
 	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress), qt.IsNil)
-	token, err := testdb.queries.TokenByID(context.Background(), MonkeysAddress.Bytes())
+	token, err := testdb.db.QueriesRW.TokenByID(context.Background(), MonkeysAddress.Bytes())
 	c.Assert(err, qt.IsNil)
 	c.Assert(uint64(token.CreationBlock.Int32), qt.Equals, MonkeysCreationBlock)
 }

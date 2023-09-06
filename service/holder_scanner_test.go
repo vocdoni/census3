@@ -22,7 +22,10 @@ func TestNewHolderScanner(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, web3uri)
+	w3p, err := state.CheckWeb3Providers([]string{web3uri})
+	c.Assert(err, qt.IsNil)
+
+	hs, err := NewHoldersScanner(testdb.db, w3p)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(0))
 
@@ -35,11 +38,11 @@ func TestNewHolderScanner(t *testing.T) {
 	})
 	c.Assert(err, qt.IsNil)
 
-	hs, err = NewHoldersScanner(testdb.db, web3uri)
+	hs, err = NewHoldersScanner(testdb.db, w3p)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(1000))
 
-	_, err = NewHoldersScanner(nil, web3uri)
+	_, err = NewHoldersScanner(nil, w3p)
 	c.Assert(err, qt.IsNotNil)
 }
 
@@ -47,12 +50,15 @@ func TestHolderScannerStart(t *testing.T) {
 	c := qt.New(t)
 	twg := sync.WaitGroup{}
 
+	w3p, err := state.CheckWeb3Providers([]string{web3uri})
+	c.Assert(err, qt.IsNil)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
 	twg.Add(1)
-	hs, err := NewHoldersScanner(testdb.db, web3uri)
+	hs, err := NewHoldersScanner(testdb.db, w3p)
 	c.Assert(err, qt.IsNil)
 	go func() {
 		hs.Start(ctx)
@@ -69,7 +75,10 @@ func Test_tokenAddresses(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, web3uri)
+	w3p, err := state.CheckWeb3Providers([]string{web3uri})
+	c.Assert(err, qt.IsNil)
+
+	hs, err := NewHoldersScanner(testdb.db, w3p)
 	c.Assert(err, qt.IsNil)
 
 	res, err := hs.tokenAddresses()
@@ -80,7 +89,7 @@ func Test_tokenAddresses(t *testing.T) {
 	defer cancel()
 	_, err = testdb.db.QueriesRW.CreateToken(ctx, testTokenParams("0x1", "test0",
 		"test0", MonkeysDecimals, 0, MonkeysTotalSupply.Uint64(),
-		uint64(state.CONTRACT_TYPE_ERC20), false))
+		uint64(state.CONTRACT_TYPE_ERC20), false, 5))
 	c.Assert(err, qt.IsNil)
 
 	res, err = hs.tokenAddresses()
@@ -89,7 +98,7 @@ func Test_tokenAddresses(t *testing.T) {
 
 	_, err = testdb.db.QueriesRW.CreateToken(ctx, testTokenParams("0x2", "test2",
 		"test3", MonkeysDecimals, 10, MonkeysTotalSupply.Uint64(),
-		uint64(state.CONTRACT_TYPE_ERC20), false))
+		uint64(state.CONTRACT_TYPE_ERC20), false, 5))
 	c.Assert(err, qt.IsNil)
 
 	res, err = hs.tokenAddresses()
@@ -103,16 +112,19 @@ func Test_saveHolders(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, "http://google.com")
+	w3p, err := state.CheckWeb3Providers([]string{web3uri})
 	c.Assert(err, qt.IsNil)
 
-	th := new(state.TokenHolders).Init(MonkeysAddress, state.CONTRACT_TYPE_ERC20, MonkeysCreationBlock)
+	hs, err := NewHoldersScanner(testdb.db, w3p)
+	c.Assert(err, qt.IsNil)
+
+	th := new(state.TokenHolders).Init(MonkeysAddress, state.CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
 	// no registered token
 	c.Assert(hs.saveHolders(th), qt.ErrorIs, ErrTokenNotExists)
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals,
 		MonkeysCreationBlock, MonkeysTotalSupply.Uint64(),
-		uint64(state.CONTRACT_TYPE_ERC20), false))
+		uint64(state.CONTRACT_TYPE_ERC20), false, 5))
 	c.Assert(err, qt.IsNil)
 	// check no new holders
 	c.Assert(hs.saveHolders(th), qt.IsNil)
@@ -121,13 +133,7 @@ func Test_saveHolders(t *testing.T) {
 	holderBalance := new(big.Int).SetUint64(12)
 	th.Append(holderAddr, holderBalance)
 	th.BlockDone(MonkeysCreationBlock)
-	// check wrong web3
-	c.Assert(hs.saveHolders(th), qt.IsNotNil)
-	// check new block created
-	_, err = testdb.db.QueriesRW.BlockByID(context.Background(), int64(MonkeysCreationBlock))
-	c.Assert(err, qt.ErrorIs, sql.ErrNoRows)
-	// check good web3
-	hs.web3 = web3uri
+	// check web3
 	c.Assert(hs.saveHolders(th), qt.IsNil)
 	// check new holders
 	res, err := testdb.db.QueriesRW.TokenHolderByTokenIDAndHolderID(context.Background(),
@@ -165,7 +171,10 @@ func Test_scanHolders(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, web3uri)
+	w3p, err := state.CheckWeb3Providers([]string{web3uri})
+	c.Assert(err, qt.IsNil)
+
+	hs, err := NewHoldersScanner(testdb.db, w3p)
 	c.Assert(err, qt.IsNil)
 
 	// token does not exists
@@ -176,7 +185,7 @@ func Test_scanHolders(t *testing.T) {
 
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals, MonkeysCreationBlock, 10,
-		uint64(state.CONTRACT_TYPE_ERC20), false))
+		uint64(state.CONTRACT_TYPE_ERC20), false, 5))
 	c.Assert(err, qt.IsNil)
 	// token exists and the scanner gets the holders
 	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -199,14 +208,17 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, web3uri)
+	w3p, err := state.CheckWeb3Providers([]string{web3uri})
+	c.Assert(err, qt.IsNil)
+
+	hs, err := NewHoldersScanner(testdb.db, w3p)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress), qt.IsNotNil)
 
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysDecimals,
 		MonkeysCreationBlock, MonkeysTotalSupply.Uint64(),
-		uint64(state.CONTRACT_TYPE_ERC20), false))
+		uint64(state.CONTRACT_TYPE_ERC20), false, 5))
 	c.Assert(err, qt.IsNil)
 
 	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress), qt.IsNil)

@@ -24,9 +24,13 @@ import (
 )
 
 const (
-	censusDBprefix    = "cs_"
-	defaultMaxLevels  = censustree.DefaultMaxLevels
-	defaultCensusType = models.Census_ARBO_BLAKE2B
+	censusDBprefix   = "cs_"
+	defaultMaxLevels = censustree.DefaultMaxLevels
+)
+
+const (
+	DefaultCensusType   = models.Census_ARBO_BLAKE2B
+	AnonymousCensusType = models.Census_ARBO_POSEIDON
 )
 
 var (
@@ -52,18 +56,22 @@ type CensusDefinition struct {
 	tree       *censustree.Tree
 }
 
-// DefaultCensusDefinition function returns a populated census definition with
+// NewCensusDefinition function returns a populated census definition with
 // the default values for some parameters and the supplied values for the rest.
-func DefaultCensusDefinition(id, strategyID int, holders map[common.Address]*big.Int) *CensusDefinition {
-	return &CensusDefinition{
+func NewCensusDefinition(id, strategyID int, holders map[common.Address]*big.Int, anonymous bool) *CensusDefinition {
+	def := &CensusDefinition{
 		ID:         id,
 		StrategyID: strategyID,
-		Type:       defaultCensusType,
+		Type:       DefaultCensusType,
 		URI:        "",
 		AuthToken:  nil,
 		MaxLevels:  defaultMaxLevels,
 		Holders:    holders,
 	}
+	if anonymous {
+		def.Type = AnonymousCensusType
+	}
+	return def
 }
 
 type PublishedCensus struct {

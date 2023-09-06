@@ -1,9 +1,10 @@
 package api
 
 type CreateTokenRequest struct {
-	ID   string `json:"id"`
-	Type string `json:"type"`
-	Tag  string `json:"tag"`
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Tag     string `json:"tag"`
+	ChainID int64  `json:"chainID"`
 }
 
 type GetTokenStatusResponse struct {
@@ -24,6 +25,7 @@ type GetTokenResponse struct {
 	Size            uint32                  `json:"size"`
 	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
 	Tag             string                  `json:"tag,omitempty"`
+	ChainID         int64                   `json:"chainID"`
 }
 
 type GetTokensItem struct {
@@ -33,6 +35,7 @@ type GetTokensItem struct {
 	Name       string `json:"name"`
 	Symbol     string `json:"symbol"`
 	Tag        string `json:"tag,omitempty"`
+	ChainID    int    `json:"chainID"`
 }
 
 type GetTokensResponse struct {
@@ -50,6 +53,7 @@ type TokenHoldersResponse struct {
 type CreateCensusResquest struct {
 	StrategyID  uint64 `json:"strategyId"`
 	BlockNumber uint64 `json:"blockNumber"`
+	Anonymous   bool   `json:"anonymous"`
 }
 
 type CreateCensusResponse struct {
@@ -63,7 +67,7 @@ type GetCensusResponse struct {
 	URI        string `json:"uri"`
 	Size       int32  `json:"size"`
 	Weight     string `json:"weight"`
-	ChainID    uint64 `json:"chainId"`
+	Anonymous  bool   `json:"anonymous"`
 }
 
 type GetCensusesResponse struct {

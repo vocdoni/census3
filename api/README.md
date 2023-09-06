@@ -1,9 +1,30 @@
 # API endpoints
 
 Endpoints:
+ - [API info](#api-info)
  - [Tokens](#tokens)
  - [Strategies](#strategies)
  - [Censuses](#censuses)
+
+## API Info
+
+### GET `/info`
+
+Show information about the API service.
+
+- 📥 response:
+
+```json
+{
+    "chainIDs": [1, 5]
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status | Message | Internal error |
+|:---:|:---|:---:|
+| 500 | `error encoding API info` | 5023 | 
 
 ## Tokens
 
@@ -279,7 +300,8 @@ Request the creation of a new census with the strategy provided for the `blockNu
 ```json
 {
     "strategyId": 1,
-    "blockNumber": 123456
+    "blockNumber": 123456,
+    "anonymous": false
 }
 ```
 
@@ -312,7 +334,8 @@ Returns the information of the snapshots related to the provided ID.
     "uri": "ipfs://Qma....",
     "size": 1000,
     "weight": "200000000000000000000",
-    "chainId": 1
+    "chainId": 1,
+    "anonymous": true
 }
 ```
 

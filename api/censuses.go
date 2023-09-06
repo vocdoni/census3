@@ -40,7 +40,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// begin a transaction for group sql queries
-	tx, err := capi.db.BeginTx(internalCtx, nil)
+	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
 	if err != nil {
 		return ErrCantGetCensus
 	}
@@ -49,16 +49,12 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			log.Errorw(err, "holders transaction rollback failed")
 		}
 	}()
-	qtx := capi.sqlc.WithTx(tx)
+	qtx := capi.db.QueriesRO.WithTx(tx)
 	currentCensus, err := qtx.CensusByID(internalCtx, int64(censusID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundCensus
 		}
-		return ErrCantGetCensus
-	}
-	chainID, err := qtx.ChainID(internalCtx)
-	if err != nil {
 		return ErrCantGetCensus
 	}
 	res, err := json.Marshal(GetCensusResponse{
@@ -68,7 +64,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		URI:        "ipfs://" + currentCensus.Uri.String,
 		Size:       int32(currentCensus.Size),
 		Weight:     new(big.Int).SetBytes(currentCensus.Weight).String(),
-		ChainID:    uint64(chainID),
+		Anonymous:  currentCensus.CensusType == int64(census.AnonymousCensusType),
 	})
 	if err != nil {
 		return ErrEncodeCensus
@@ -94,16 +90,16 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 	defer cancel()
 
 	// begin a transaction for group sql queries
-	tx, err := capi.db.BeginTx(internalCtx, nil)
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
 		return ErrCantCreateCensus
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
 			log.Errorw(err, "holders transaction rollback failed")
 		}
 	}()
-	qtx := capi.sqlc.WithTx(tx)
+	qtx := capi.db.QueriesRW.WithTx(tx)
 
 	strategyTokens, err := qtx.TokensByStrategyID(internalCtx, int64(req.StrategyID))
 	if err != nil {
@@ -146,7 +142,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		return ErrCantCreateCensus
 	}
 	// create a census tree and publish on IPFS
-	def := census.DefaultCensusDefinition(int(lastCensusID+1), int(req.StrategyID), strategyHolders)
+	def := census.NewCensusDefinition(int(lastCensusID+1), int(req.StrategyID), strategyHolders, req.Anonymous)
 	newCensus, err := capi.censusDB.CreateAndPublish(def)
 	if err != nil {
 		log.Errorw(err, "error creating or publishing the census")
@@ -183,6 +179,7 @@ func (capi *census3API) createAndPublishCensus(msg *api.APIdata, ctx *httprouter
 		Uri:        *sqlURI,
 		Size:       int64(len(strategyHolders)),
 		Weight:     censusWeight.Bytes(),
+		CensusType: int64(def.Type),
 	})
 	if err != nil {
 		log.Errorw(err, "error saving the census on the database")
@@ -213,7 +210,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 	// get censuses by this strategy ID
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	rows, err := capi.sqlc.CensusByStrategyID(internalCtx, int64(strategyID))
+	rows, err := capi.db.QueriesRO.CensusByStrategyID(internalCtx, int64(strategyID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundCensus

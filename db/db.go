@@ -34,7 +34,7 @@ func (db *DB) Close() error {
 	return db.RO.Close()
 }
 
-// Init function starts a datbase using the data path provided as argument. It
+// Init function starts a database using the data path provided as argument. It
 // opens two different connections, one for read only, and another for read and
 // write, with different configurations, optimized for each use case.
 func Init(dataDir string) (*DB, error) {

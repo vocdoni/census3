@@ -343,9 +343,10 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 		default:
 			log.Debugw("analyzing blocks",
 				"address", th.Address().Hex(),
-				"type", th.Type(),
+				"type", th.Type().String(),
 				"from", fromBlockNumber,
 				"to", fromBlockNumber+blocks,
+				"chainID", th.ChainID,
 			)
 
 			// get transfer logs for the following n blocks

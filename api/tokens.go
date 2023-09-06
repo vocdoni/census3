@@ -42,7 +42,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	defer cancel()
 	// TODO: Support for pagination
 	// get tokens from the database
-	rows, err := capi.sqlc.ListTokens(internalCtx)
+	rows, err := capi.db.QueriesRO.ListTokens(internalCtx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoTokens
@@ -92,7 +92,12 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	w3 := state.Web3{}
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := w3.Init(internalCtx, capi.web3, addr, tokenType); err != nil {
+	// get correct web3 uri provider
+	w3uri, exists := capi.w3p[req.ChainID]
+	if !exists {
+		return ErrChainIDNotSupported.With("chain ID not supported")
+	}
+	if err := w3.Init(internalCtx, w3uri, addr, tokenType); err != nil {
 		log.Errorw(ErrInitializingWeb3, err.Error())
 		return ErrInitializingWeb3
 	}
@@ -129,7 +134,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 			return ErrCantGetToken
 		}
 	}
-	_, err = capi.sqlc.CreateToken(internalCtx, queries.CreateTokenParams{
+	_, err = capi.db.QueriesRW.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
 		Name:          *name,
 		Symbol:        *symbol,
@@ -139,6 +144,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		TypeID:        int64(tokenType),
 		Synced:        false,
 		Tag:           *tag,
+		ChainID:       req.ChainID,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -162,7 +168,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	address := common.HexToAddress(ctx.URLParam("tokenID"))
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	tokenData, err := capi.sqlc.TokenByID(internalCtx, address.Bytes())
+	tokenData, err := capi.db.QueriesRO.TokenByID(internalCtx, address.Bytes())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			log.Errorw(ErrNotFoundToken, err.Error())
@@ -172,7 +178,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		return ErrCantGetToken
 	}
 	// TODO: Only for the MVP, consider to remove it
-	tokenStrategies, err := capi.sqlc.StrategiesByTokenID(internalCtx, tokenData.ID)
+	tokenStrategies, err := capi.db.QueriesRO.StrategiesByTokenID(internalCtx, tokenData.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Errorw(ErrCantGetToken, err.Error())
 		return ErrCantGetToken
@@ -182,7 +188,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		defaultStrategyID = uint64(tokenStrategies[0].ID)
 	}
 	// get last block with token information
-	atBlock, err := capi.sqlc.LastBlockByTokenID(internalCtx, address.Bytes())
+	atBlock, err := capi.db.QueriesRO.LastBlockByTokenID(internalCtx, address.Bytes())
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			log.Errorw(ErrCantGetToken, err.Error())
@@ -194,9 +200,14 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	// calculate the current scan progress
 	tokenProgress := uint64(100)
 	if !tokenData.Synced {
+		// get correct web3 uri provider
+		w3uri, exists := capi.w3p[tokenData.ChainID]
+		if !exists {
+			return ErrChainIDNotSupported.With("chain ID not supported")
+		}
 		// get last block of the network, if something fails return progress 0
 		w3 := state.Web3{}
-		if err := w3.Init(internalCtx, capi.web3, address, state.TokenType(tokenData.TypeID)); err != nil {
+		if err := w3.Init(internalCtx, w3uri, address, state.TokenType(tokenData.TypeID)); err != nil {
 			return ErrInitializingWeb3.WithErr(err)
 		}
 		// fetch the last block header and calculate progress
@@ -210,7 +221,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	// get token holders count
 	countHoldersCtx, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel2()
-	holders, err := capi.sqlc.CountTokenHoldersByTokenID(countHoldersCtx, address.Bytes())
+	holders, err := capi.db.QueriesRO.CountTokenHoldersByTokenID(countHoldersCtx, address.Bytes())
 	if err != nil {
 		return ErrCantGetTokenCount
 	}
@@ -232,6 +243,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		// TODO: Only for the MVP, consider to remove it
 		Tag:             tokenData.Tag.String,
 		DefaultStrategy: defaultStrategyID,
+		ChainID:         tokenData.ChainID,
 	}
 	if tokenData.CreationBlock.Valid {
 		tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int32)

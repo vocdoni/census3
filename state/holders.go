@@ -23,18 +23,20 @@ type TokenHolders struct {
 	blocks    sync.Map
 	lastBlock atomic.Uint64
 	synced    atomic.Bool
+	ChainID   int64
 }
 
 // Init function fills the given TokenHolders struct with the address and type
 // given, also checks the block number provided as done. It returns the
 // TokenHolders struct updated.
-func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block uint64) *TokenHolders {
+func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block uint64, chainID int64) *TokenHolders {
 	h.address = addr
 	h.ctype = ctype
 	h.holders = sync.Map{}
 	h.blocks = sync.Map{}
 	h.lastBlock.Store(block)
 	h.synced.Store(false)
+	h.ChainID = chainID
 	return h
 }
 

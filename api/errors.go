@@ -73,6 +73,11 @@ var (
 		HTTPstatus: http.StatusConflict,
 		Err:        fmt.Errorf("census already exists"),
 	}
+	ErrChainIDNotSupported = apirest.APIerror{
+		Code:       4013,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("chain ID provided not supported"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
@@ -187,5 +192,10 @@ var (
 		Code:       5022,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error encoding census queue item"),
+	}
+	ErrEncodeAPIInfo = apirest.APIerror{
+		Code:       5023,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error encoding API info"),
 	}
 )

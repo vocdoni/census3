@@ -22,10 +22,11 @@ INSERT INTO tokens (
     creation_block,
     type_id,
     synced,
-    tag
+    tag,
+    chain_id
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 `
 
@@ -39,6 +40,7 @@ type CreateTokenParams struct {
 	TypeID        int64
 	Synced        bool
 	Tag           sql.NullString
+	ChainID       int64
 }
 
 func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.Result, error) {
@@ -52,6 +54,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.R
 		arg.TypeID,
 		arg.Synced,
 		arg.Tag,
+		arg.ChainID,
 	)
 }
 
@@ -79,7 +82,7 @@ func (q *Queries) ExistsToken(ctx context.Context, id annotations.Address) (bool
 }
 
 const listTokens = `-- name: ListTokens :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag, chain_id FROM tokens
 ORDER BY type_id, name
 `
 
@@ -102,6 +105,7 @@ func (q *Queries) ListTokens(ctx context.Context) ([]Token, error) {
 			&i.TypeID,
 			&i.Synced,
 			&i.Tag,
+			&i.ChainID,
 		); err != nil {
 			return nil, err
 		}
@@ -117,7 +121,7 @@ func (q *Queries) ListTokens(ctx context.Context) ([]Token, error) {
 }
 
 const tokenByID = `-- name: TokenByID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag, chain_id FROM tokens
 WHERE id = ?
 LIMIT 1
 `
@@ -135,12 +139,13 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 		&i.TypeID,
 		&i.Synced,
 		&i.Tag,
+		&i.ChainID,
 	)
 	return i, err
 }
 
 const tokenByName = `-- name: TokenByName :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag, chain_id FROM tokens
 WHERE name = ?
 LIMIT 1
 `
@@ -158,12 +163,13 @@ func (q *Queries) TokenByName(ctx context.Context, name sql.NullString) (Token, 
 		&i.TypeID,
 		&i.Synced,
 		&i.Tag,
+		&i.ChainID,
 	)
 	return i, err
 }
 
 const tokenBySymbol = `-- name: TokenBySymbol :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag, chain_id FROM tokens
 WHERE symbol = ?
 LIMIT 1
 `
@@ -181,12 +187,13 @@ func (q *Queries) TokenBySymbol(ctx context.Context, symbol sql.NullString) (Tok
 		&i.TypeID,
 		&i.Synced,
 		&i.Tag,
+		&i.ChainID,
 	)
 	return i, err
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tag, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM tokens t
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tag, t.chain_id, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
@@ -202,6 +209,7 @@ type TokensByStrategyIDRow struct {
 	TypeID        int64
 	Synced        bool
 	Tag           sql.NullString
+	ChainID       int64
 	StrategyID    int64
 	TokenID       []byte
 	MinBalance    []byte
@@ -227,6 +235,7 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID int64) ([]T
 			&i.TypeID,
 			&i.Synced,
 			&i.Tag,
+			&i.ChainID,
 			&i.StrategyID,
 			&i.TokenID,
 			&i.MinBalance,
@@ -246,7 +255,7 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID int64) ([]T
 }
 
 const tokensByType = `-- name: TokensByType :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tag, chain_id FROM tokens
 WHERE type_id = ?
 ORDER BY name
 `
@@ -270,6 +279,7 @@ func (q *Queries) TokensByType(ctx context.Context, typeID int64) ([]Token, erro
 			&i.TypeID,
 			&i.Synced,
 			&i.Tag,
+			&i.ChainID,
 		); err != nil {
 			return nil, err
 		}

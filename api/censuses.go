@@ -61,10 +61,6 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		}
 		return ErrCantGetCensus.WithErr(err)
 	}
-	chainID, err := qtx.ChainID(internalCtx)
-	if err != nil {
-		return ErrCantGetCensus.WithErr(err)
-	}
 	censusSize := int32(0)
 	if currentCensus.Size.Valid {
 		censusSize = currentCensus.Size.Int32
@@ -78,9 +74,8 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		StrategyID: uint64(currentCensus.StrategyID),
 		MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
 		URI:        "ipfs://" + currentCensus.Uri.String,
-		Size:       int32(censusSize),
+		Size:       censusSize,
 		Weight:     new(big.Int).SetBytes(censusWeight).String(),
-		ChainID:    uint64(chainID),
 		Anonymous:  currentCensus.CensusType == int64(census.AnonymousCensusType),
 	})
 	if err != nil {
@@ -267,17 +262,12 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 		defer cancel()
 		censusID, ok := data["censusID"].(int)
 		if !ok {
-			log.Errorf("no census id registered on queue item: %v", err)
+			log.Errorf("no census id registered on queue item")
 			return ErrCantGetCensus
 		}
 
 		// get the census from the database by queue_id
 		currentCensus, err := capi.sqlc.CensusByID(internalCtx, int64(censusID))
-		if err != nil {
-			return ErrCantGetCensus.WithErr(err)
-		}
-		// get current chain id
-		chainID, err := capi.sqlc.ChainID(internalCtx)
 		if err != nil {
 			return ErrCantGetCensus.WithErr(err)
 		}
@@ -298,7 +288,6 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 			URI:        "ipfs://" + currentCensus.Uri.String,
 			Size:       censusSize,
 			Weight:     new(big.Int).SetBytes(censusWeight).String(),
-			ChainID:    uint64(chainID),
 			Anonymous:  currentCensus.CensusType == int64(census.AnonymousCensusType),
 		}
 		// remove the item from the queue

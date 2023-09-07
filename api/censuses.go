@@ -39,18 +39,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// begin a transaction for group sql queries
-	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
-	if err != nil {
-		return ErrCantGetCensus
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil {
-			log.Errorw(err, "holders transaction rollback failed")
-		}
-	}()
-	qtx := capi.db.QueriesRO.WithTx(tx)
-	currentCensus, err := qtx.CensusByID(internalCtx, int64(censusID))
+	currentCensus, err := capi.db.QueriesRO.CensusByID(internalCtx, int64(censusID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundCensus

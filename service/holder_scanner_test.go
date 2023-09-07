@@ -136,7 +136,7 @@ func Test_saveHolders(t *testing.T) {
 	// check web3
 	c.Assert(hs.saveHolders(th), qt.IsNil)
 	// check new holders
-	res, err := testdb.db.QueriesRW.TokenHolderByTokenIDAndHolderID(context.Background(),
+	res, err := testdb.db.QueriesRO.TokenHolderByTokenIDAndHolderID(context.Background(),
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),
@@ -146,7 +146,7 @@ func Test_saveHolders(t *testing.T) {
 	// check update holders
 	th.Append(holderAddr, holderBalance)
 	c.Assert(hs.saveHolders(th), qt.IsNil)
-	res, err = testdb.db.QueriesRW.TokenHolderByTokenIDAndHolderID(context.Background(),
+	res, err = testdb.db.QueriesRO.TokenHolderByTokenIDAndHolderID(context.Background(),
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),
@@ -157,7 +157,7 @@ func Test_saveHolders(t *testing.T) {
 	// check delete holders
 	th.Append(holderAddr, big.NewInt(-24))
 	c.Assert(hs.saveHolders(th), qt.IsNil)
-	_, err = testdb.db.QueriesRW.TokenHolderByTokenIDAndHolderID(context.Background(),
+	_, err = testdb.db.QueriesRO.TokenHolderByTokenIDAndHolderID(context.Background(),
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),

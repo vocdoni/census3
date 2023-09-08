@@ -17,15 +17,15 @@ import (
 )
 
 func (capi *census3API) initStrategiesHandlers() error {
-	if err := capi.endpoint.RegisterMethod("/strategy/", "GET",
+	if err := capi.endpoint.RegisterMethod("/strategies", "GET",
 		api.MethodAccessTypePublic, capi.getStrategies); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategy/{strategyID}", "GET",
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}", "GET",
 		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
 		return err
 	}
-	return capi.endpoint.RegisterMethod("/strategy/token/{tokenID}", "GET",
+	return capi.endpoint.RegisterMethod("/strategies/token/{tokenID}", "GET",
 		api.MethodAccessTypePublic, capi.getTokenStrategies)
 }
 

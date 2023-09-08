@@ -28,7 +28,7 @@ Show information about the API service.
 
 ## Tokens
 
-### GET `/token`
+### GET `/tokens`
 List of already added tokens.
 
 - 📥 response:
@@ -58,7 +58,7 @@ List of already added tokens.
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error encoding tokens` | 5011 | 
 
-### GET `/token/types`
+### GET `/tokens/types`
 List the supported token types.
 
 - 📥 response:
@@ -78,7 +78,7 @@ List the supported token types.
 |:---:|:---|:---:|
 | 500 | `error encoding supported tokens types` | 5012 | 
 
-### POST `/token`
+### POST `/tokens`
 Triggers a new scan for the provided token, starting from the defined block.
 
 - 📤 request:
@@ -103,7 +103,7 @@ Triggers a new scan for the provided token, starting from the defined block.
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error initialising web3 client` | 5018 | 
 
-### GET `/token/{tokenID}`
+### GET `/tokens/{tokenID}`
 Returns the information about the token referenced by the provided ID.
 
 - 📥 response:
@@ -143,7 +143,7 @@ Returns the information about the token referenced by the provided ID.
 
 ## Strategies
 
-### POST `/strategy`
+### POST `/strategies`
 Stores a new strategy based on the defined combination of tokens provided, these tokens must be registered previously.
 
 - 📤 request:
@@ -190,7 +190,7 @@ Stores a new strategy based on the defined combination of tokens provided, these
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
-### GET `/strategy`
+### GET `/strategies`
 Returns the ID's list of the strategies registered.
 
 - 📥 response:
@@ -209,7 +209,7 @@ Returns the ID's list of the strategies registered.
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
-### GET `/strategy/{strategyId}`
+### GET `/strategies/{strategyId}`
 Returns the information of the strategy related to the provided ID.
 
 - 📥 response:
@@ -251,7 +251,7 @@ Returns the information of the strategy related to the provided ID.
 | 500 | `error getting strategy information` | 5007 | 
 | 500 | `error encoding strategy` | 5015 | 
 
-### GET `/strategy/token/{tokenID}`
+### GET `/strategies/token/{tokenID}`
 Returns ID's of the already created strategies including the `tokenAddress` provided.
 
 - 📥 response:
@@ -292,7 +292,7 @@ Returns a list of censusID for the strategy provided.
 
 ## Censuses
 
-### POST `/census`
+### POST `/censuses`
 Request the creation of a new census with the strategy provided for the `blockNumber` provided and returns the census ID.
      
 - 📤 request:
@@ -322,7 +322,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 | 500 | `error creating the census tree on the census database` | 5001 | 
 | 500 | `error encoding strategy holders` | 5014 | 
 
-### GET `/census/{censusId}`
+### GET `/censuses/{censusId}`
 Returns the information of the snapshots related to the provided ID.
 
 - 📥 response:

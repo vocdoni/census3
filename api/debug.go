@@ -16,11 +16,11 @@ import (
 
 // TODO: Only for the MVP, remove it.
 func (capi *census3API) initDebugHandlers() error {
-	if err := capi.endpoint.RegisterMethod("/debug/token/{address}/holders", "GET",
+	if err := capi.endpoint.RegisterMethod("/debug/tokens/{address}/holders", "GET",
 		api.MethodAccessTypePublic, capi.getTokenHolders); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/debug/token/{address}/holders/count", "GET",
+	if err := capi.endpoint.RegisterMethod("/debug/tokens/{address}/holders/count", "GET",
 		api.MethodAccessTypePublic, capi.countHolders); err != nil {
 		return err
 	}

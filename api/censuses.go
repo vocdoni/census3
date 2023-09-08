@@ -18,15 +18,15 @@ import (
 )
 
 func (capi *census3API) initCensusHandlers() error {
-	if err := capi.endpoint.RegisterMethod("/census/{censusID}", "GET",
+	if err := capi.endpoint.RegisterMethod("/censuses/{censusID}", "GET",
 		api.MethodAccessTypePublic, capi.getCensus); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/census", "POST",
+	if err := capi.endpoint.RegisterMethod("/censuses", "POST",
 		api.MethodAccessTypePublic, capi.createAndPublishCensus); err != nil {
 		return err
 	}
-	return capi.endpoint.RegisterMethod("/census/strategy/{strategyID}", "GET",
+	return capi.endpoint.RegisterMethod("/censuses/strategy/{strategyID}", "GET",
 		api.MethodAccessTypePublic, capi.getStrategyCensuses)
 }
 

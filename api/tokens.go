@@ -18,19 +18,19 @@ import (
 )
 
 func (capi *census3API) initTokenHandlers() error {
-	if err := capi.endpoint.RegisterMethod("/token", "GET",
+	if err := capi.endpoint.RegisterMethod("/tokens", "GET",
 		api.MethodAccessTypePublic, capi.getTokens); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/token", "POST",
+	if err := capi.endpoint.RegisterMethod("/tokens", "POST",
 		api.MethodAccessTypePublic, capi.createToken); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/token/{tokenID}", "GET",
+	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}", "GET",
 		api.MethodAccessTypePublic, capi.getToken); err != nil {
 		return err
 	}
-	return capi.endpoint.RegisterMethod("/token/types", "GET",
+	return capi.endpoint.RegisterMethod("/tokens/types", "GET",
 		api.MethodAccessTypePublic, capi.getTokenTypes)
 }
 

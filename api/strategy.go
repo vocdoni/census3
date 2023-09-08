@@ -36,7 +36,7 @@ func (capi *census3API) initStrategiesHandlers() error {
 func (capi *census3API) createDummyStrategy(tokenID []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	res, err := capi.sqlc.CreateStategy(ctx, "test")
+	res, err := capi.db.QueriesRW.CreateStategy(ctx, "test")
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (capi *census3API) createDummyStrategy(tokenID []byte) error {
 	if err != nil {
 		return err
 	}
-	_, err = capi.sqlc.CreateStrategyToken(ctx, queries.CreateStrategyTokenParams{
+	_, err = capi.db.QueriesRW.CreateStrategyToken(ctx, queries.CreateStrategyTokenParams{
 		StrategyID: strategyID,
 		TokenID:    tokenID,
 		MinBalance: big.NewInt(0).Bytes(),
@@ -61,7 +61,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 	defer cancel()
 	// TODO: Support for pagination
 	// get strategies from the database
-	rows, err := capi.sqlc.ListStrategies(internalCtx)
+	rows, err := capi.db.QueriesRO.ListStrategies(internalCtx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoStrategies.WithErr(err)
@@ -96,7 +96,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// get strategy from the database
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	strategyData, err := capi.sqlc.StrategyByID(internalCtx, int64(strategyID))
+	strategyData, err := capi.db.QueriesRO.StrategyByID(internalCtx, int64(strategyID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundStrategy.WithErr(err)
@@ -110,7 +110,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Tokens:    []GetStrategyToken{},
 	}
 	// get information of the strategy related tokens
-	tokensData, err := capi.sqlc.TokensByStrategyID(internalCtx, strategyData.ID)
+	tokensData, err := capi.db.QueriesRO.TokensByStrategyID(internalCtx, strategyData.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ErrCantGetTokens.WithErr(err)
 	}
@@ -140,7 +140,7 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	// get strategies associated to the token provided
-	rows, err := capi.sqlc.StrategiesByTokenID(internalCtx, common.HexToAddress(tokenID).Bytes())
+	rows, err := capi.db.QueriesRO.StrategiesByTokenID(internalCtx, common.HexToAddress(tokenID).Bytes())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoStrategies.WithErr(err)

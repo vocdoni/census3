@@ -43,18 +43,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// begin a transaction for group sql queries
-	tx, err := capi.db.BeginTx(internalCtx, nil)
-	if err != nil {
-		return ErrCantGetCensus.WithErr(err)
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil {
-			log.Errorw(err, "holders transaction rollback failed")
-		}
-	}()
-	qtx := capi.sqlc.WithTx(tx)
-	currentCensus, err := qtx.CensusByID(internalCtx, int64(censusID))
+	currentCensus, err := capi.db.QueriesRO.CensusByID(internalCtx, int64(censusID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundCensus.WithErr(err)
@@ -128,7 +117,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID st
 	bgCtx, cancel := context.WithTimeout(context.Background(), censusCreationTimeout)
 	defer cancel()
 	// begin a transaction for group sql queries
-	tx, err := capi.db.BeginTx(bgCtx, nil)
+	tx, err := capi.db.RW.BeginTx(bgCtx, nil)
 	if err != nil {
 		return -1, ErrCantCreateCensus.WithErr(err)
 	}
@@ -137,8 +126,8 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID st
 			log.Errorw(err, "holders transaction rollback failed")
 		}
 	}()
-	qtx := capi.sqlc.WithTx(tx)
-	// get the tokens of the strategy provided and check them
+	qtx := capi.db.QueriesRW.WithTx(tx)
+
 	strategyTokens, err := qtx.TokensByStrategyID(bgCtx, int64(req.StrategyID))
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
@@ -267,7 +256,7 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 		}
 
 		// get the census from the database by queue_id
-		currentCensus, err := capi.sqlc.CensusByID(internalCtx, int64(censusID))
+		currentCensus, err := capi.db.QueriesRO.CensusByID(internalCtx, int64(censusID))
 		if err != nil {
 			return ErrCantGetCensus.WithErr(err)
 		}
@@ -312,7 +301,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 	// get censuses by this strategy ID
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	rows, err := capi.sqlc.CensusByStrategyID(internalCtx, int64(strategyID))
+	rows, err := capi.db.QueriesRO.CensusByStrategyID(internalCtx, int64(strategyID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundCensus.WithErr(err)

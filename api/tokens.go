@@ -42,7 +42,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	defer cancel()
 	// TODO: Support for pagination
 	// get tokens from the database
-	rows, err := capi.sqlc.ListTokens(internalCtx)
+	rows, err := capi.db.QueriesRO.ListTokens(internalCtx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoTokens.WithErr(err)
@@ -128,7 +128,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 			return ErrCantGetToken.WithErr(err)
 		}
 	}
-	_, err = capi.sqlc.CreateToken(internalCtx, queries.CreateTokenParams{
+	_, err = capi.db.QueriesRW.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
 		Name:          *name,
 		Symbol:        *symbol,
@@ -161,7 +161,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	address := common.HexToAddress(ctx.URLParam("tokenID"))
 	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	tokenData, err := capi.sqlc.TokenByID(internalCtx, address.Bytes())
+	tokenData, err := capi.db.QueriesRO.TokenByID(internalCtx, address.Bytes())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundToken.WithErr(err)
@@ -169,7 +169,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		return ErrCantGetToken.WithErr(err)
 	}
 	// TODO: Only for the MVP, consider to remove it
-	tokenStrategies, err := capi.sqlc.StrategiesByTokenID(internalCtx, tokenData.ID)
+	tokenStrategies, err := capi.db.QueriesRO.StrategiesByTokenID(internalCtx, tokenData.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ErrCantGetToken.WithErr(err)
 	}
@@ -178,7 +178,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		defaultStrategyID = uint64(tokenStrategies[0].ID)
 	}
 	// get last block with token information
-	atBlock, err := capi.sqlc.LastBlockByTokenID(internalCtx, address.Bytes())
+	atBlock, err := capi.db.QueriesRO.LastBlockByTokenID(internalCtx, address.Bytes())
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return ErrCantGetToken.WithErr(err)
@@ -210,7 +210,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	// get token holders count
 	countHoldersCtx, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel2()
-	holders, err := capi.sqlc.CountTokenHoldersByTokenID(countHoldersCtx, address.Bytes())
+	holders, err := capi.db.QueriesRO.CountTokenHoldersByTokenID(countHoldersCtx, address.Bytes())
 	if err != nil {
 		return ErrCantGetTokenCount.WithErr(err)
 	}

@@ -28,13 +28,16 @@ func main() {
 	connectKey := flag.String("connectKey", "", "connect group key for IPFS connect")
 	listOfWeb3Providers := flag.String("web3Providers", "", "the list of URL's of available web3 providers (separated with commas)")
 	flag.Parse()
+
 	log.Init(*logLevel, "stdout", nil)
+	if *listOfWeb3Providers == "" {
+		log.Fatal("no web3 providers defined")
+	}
 
 	database, err := db.Init(*dataDir)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	web3Providers := strings.Split(*listOfWeb3Providers, ",")
 	w3p, err := state.CheckWeb3Providers(web3Providers)
 	if err != nil {

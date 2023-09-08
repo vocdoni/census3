@@ -9,23 +9,23 @@ readonly API_ENDPOINT="127.0.0.1:7788/api"
 create_token() {
     curl -X POST \
         --json "{\"id\": \"$CONTRACT_ADDRESS\",\"type\": \"$CONTRACT_TYPE\",\"chainID\": 1}" \
-        http://$API_ENDPOINT/token
+        http://$API_ENDPOINT/tokens
 }
 
 get_token() {
     curl -X GET \
-        http://$API_ENDPOINT/token/$CONTRACT_ADDRESS
+        http://$API_ENDPOINT/tokens/$CONTRACT_ADDRESS
 }
 
 create_census() {
     curl -X POST \
         --json "{\"strategyId\": $1,\"anonymous\": true}" \
-        http://$API_ENDPOINT/census
+        http://$API_ENDPOINT/censuses
 }
 
 get_census() {
     curl -X GET \
-        http://$API_ENDPOINT/census/queue/$1
+        http://$API_ENDPOINT/censuses/queue/$1
 }
 
 main() {

@@ -117,25 +117,25 @@ docker compose up -d
 ```sh
 curl -X POST \
       --json '{"id": "0xFE67A4450907459c3e1FFf623aA927dD4e28c67a", "type": "erc20", "chainID": 1}' \
-      http://localhost:7788/api/token
+      http://localhost:7788/api/tokens
 ```
 
 2. Wait to that the API service completes the token sync. It could take up to 10-20 minutes, even more, based on the number of holders and transactions. You can check the token sync status getting the token info:
 ```sh
 curl -X GET \
-      http://localhost:7788/api/token/0xFE67A4450907459c3e1FFf623aA927dD4e28c67a
+      http://localhost:7788/api/tokens/0xFE67A4450907459c3e1FFf623aA927dD4e28c67a
 ```
 
 3. When the API ends, and the token reaches `synced` status (`token.status.synced = true`), its time to create a new census based on the default token strategy. This strategy is created during the token registration and just contains the holders of this token. To create the census with token holders, you need to know the `token.defaultStrategy` (from token info endpoint):
 ```sh
 curl -X POST \
         --json '{"strategyId": <strategyId>, "anonymous": true}" \
-        http://localhost:7788/api/census
+        http://localhost:7788/api/censuses
 ```
 4. The last request will return a `queueId` which identifies the census creation and publication processes on the API queue. It will be completed in background. We can check if the task is done, it raised an error or was succesfully completed:
 ```sh
 curl -X GET \
-        http://localhost:7788/census/queue/<queueId>
+        http://localhost:7788/censuses/queue/<queueId>
 ```
 
 You can check and run the example using the [`example.sh` file](./example.sh):

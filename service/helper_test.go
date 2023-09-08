@@ -43,23 +43,23 @@ var (
 )
 
 type TestDB struct {
-	dir     string
-	db      *sql.DB
-	queries *queries.Queries
+	dir string
+	db  *db.DB
 }
 
 func StartTestDB(t *testing.T) *TestDB {
 	c := qt.New(t)
 
 	dir := t.TempDir()
-	db, q, err := db.Init(dir)
+	db, err := db.Init(dir)
 	c.Assert(err, qt.IsNil)
-	return &TestDB{dir, db, q}
+	return &TestDB{dir, db}
 }
 
 func (testdb *TestDB) Close(t *testing.T) {
 	c := qt.New(t)
-	c.Assert(testdb.db.Close(), qt.IsNil)
+	c.Assert(testdb.db.RW.Close(), qt.IsNil)
+	c.Assert(testdb.db.RO.Close(), qt.IsNil)
 	c.Assert(os.RemoveAll(testdb.dir), qt.IsNil)
 }
 

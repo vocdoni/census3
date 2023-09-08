@@ -87,7 +87,8 @@ Triggers a new scan for the provided token, starting from the defined block.
 {
     "id": "0x1234",
     "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
-    "tag": "testTag1,testTag2"
+    "tag": "testTag1,testTag2",
+    "chainID": 1
 }
 ```
 
@@ -123,7 +124,8 @@ Returns the information about the token referenced by the provided ID.
         "progress": 87
     },
     "defaultStrategy": 1,
-    "tag": "testTag1,testTag2"
+    "tag": "testTag1,testTag2",
+    "chainID": 1
 }
 ```
 

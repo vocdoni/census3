@@ -1,11 +1,10 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
 
 	"github.com/vocdoni/census3/census"
-	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/db"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -21,18 +20,16 @@ type Census3APIConf struct {
 
 type census3API struct {
 	conf     Census3APIConf
-	db       *sql.DB
-	sqlc     *queries.Queries
+	db       *db.DB
 	endpoint *api.API
 	censusDB *census.CensusDB
 	w3p      map[int64]string
 }
 
-func Init(db *sql.DB, q *queries.Queries, conf Census3APIConf) error {
+func Init(db *db.DB, conf Census3APIConf) error {
 	newAPI := &census3API{
 		conf: conf,
 		db:   db,
-		sqlc: q,
 		w3p:  conf.Web3Providers,
 	}
 	// get the current chainID

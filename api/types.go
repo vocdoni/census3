@@ -57,7 +57,7 @@ type CreateCensusResquest struct {
 }
 
 type CreateCensusResponse struct {
-	CensusID uint64 `json:"censusId"`
+	QueueID string `json:"queueId"`
 }
 
 type GetCensusResponse struct {
@@ -89,4 +89,10 @@ type GetStrategyResponse struct {
 	ID        uint64             `json:"id"`
 	Tokens    []GetStrategyToken `json:"tokens"`
 	Predicate string             `json:"strategy"`
+}
+
+type CensusQueueResponse struct {
+	Done   bool               `json:"done"`
+	Error  error              `json:"error"`
+	Census *GetCensusResponse `json:"census"`
 }

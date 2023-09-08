@@ -102,7 +102,7 @@ Triggers a new scan for the provided token, starting from the defined block.
 | 409 | `token already created` | 4009 | 
 | 500 | `the token cannot be created` | 5000 | 
 | 500 | `error getting token information` | 5004 | 
-| 500 | `error initialising web3 client` | 5018 | 
+| 500 | `error initialising web3 client` | 5019 | 
 
 ### GET `/token/{tokenID}`
 Returns the information about the token referenced by the provided ID.
@@ -290,7 +290,7 @@ Returns a list of censusID for the strategy provided.
 | 204 | `-` | 4007 |
 | 404 | `census not found` | 4006 | 
 | 500 | `error getting census information` | 5009 | 
-| 500 | `error encoding cenuses` | 5018 |
+| 500 | `error encoding censuses` | 5018 |
 
 ## Censuses
 
@@ -311,7 +311,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 
 ```json
 {
-    "censusId": 12
+    "queueId": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
 
@@ -319,9 +319,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 400 | `malformed strategy ID, it must be a integer` | 4002 | 
-| 404 | `no strategy found with the ID provided` | 4005 | 
-| 500 | `error creating the census tree on the census database` | 5001 | 
+| 400 | `malformed strategy ID, it must be an integer` | 4002 | 
 | 500 | `error encoding strategy holders` | 5014 | 
 
 ### GET `/census/{censusId}`
@@ -350,3 +348,27 @@ Returns the information of the snapshots related to the provided ID.
 | 404 | `census not found` | 4006 | 
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census` | 5017 | 
+
+### GET `/census/queue/{queueId}`
+Returns the information of the census that are in the creation queue.
+
+- 📥 response:
+```json
+{
+    "done": true,
+    "error": {
+        "code": 0,
+        "err": "error message or null"
+    },
+    "census": { /* <same_get_census_response> */ }
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed queue ID` | 4010 | 
+| 404 | `census not found` | 4006 | 
+| 500 | `error getting census information` | 5009 | 
+| 500 | `error encoding census queue item` | 5022 | 

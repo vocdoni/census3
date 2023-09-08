@@ -21,7 +21,7 @@ var (
 	ErrMalformedStrategyID = apirest.APIerror{
 		Code:       4002,
 		HTTPstatus: apirest.HTTPstatusBadRequest,
-		Err:        fmt.Errorf("malformed strategy ID, it must be a integer"),
+		Err:        fmt.Errorf("malformed strategy ID, it must be an integer"),
 	}
 	ErrNotFoundToken = apirest.APIerror{
 		Code:       4003,
@@ -57,6 +57,21 @@ var (
 		Code:       4009,
 		HTTPstatus: http.StatusConflict,
 		Err:        fmt.Errorf("token already created"),
+	}
+	ErrNoStrategyTokens = apirest.APIerror{
+		Code:       4010,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("no tokens found for the strategy provided"),
+	}
+	ErrMalformedCensusQueueID = apirest.APIerror{
+		Code:       4011,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed queue ID"),
+	}
+	ErrCensusAlreadyExists = apirest.APIerror{
+		Code:       4012,
+		HTTPstatus: http.StatusConflict,
+		Err:        fmt.Errorf("census already exists"),
 	}
 	ErrChainIDNotSupported = apirest.APIerror{
 		Code:       4013,
@@ -172,6 +187,11 @@ var (
 		Code:       5021,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error getting last block number from web3 endpoint"),
+	}
+	ErrEncodeQueueItem = apirest.APIerror{
+		Code:       5022,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error encoding census queue item"),
 	}
 	ErrEncodeAPIInfo = apirest.APIerror{
 		Code:       5023,

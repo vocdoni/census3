@@ -7,7 +7,6 @@ import (
 	"errors"
 	"math/big"
 	"strconv"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
@@ -34,7 +33,7 @@ func (capi *census3API) initStrategiesHandlers() error {
 //
 // TODO: Only for the MVP, remove it.
 func (capi *census3API) createDummyStrategy(tokenID []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), createDummyStrategyTimeout)
 	defer cancel()
 	res, err := capi.db.QueriesRW.CreateStategy(ctx, "test")
 	if err != nil {
@@ -57,7 +56,7 @@ func (capi *census3API) createDummyStrategy(tokenID []byte) error {
 // the database. It returns a 204 response if any strategy is registered or a
 // 500 error if something fails.
 func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	internalCtx, cancel := context.WithTimeout(context.Background(), getStrategiesTimeout)
 	defer cancel()
 	// TODO: Support for pagination
 	// get strategies from the database
@@ -94,7 +93,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrMalformedStrategyID.WithErr(err)
 	}
 	// get strategy from the database
-	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	internalCtx, cancel := context.WithTimeout(context.Background(), getStrategyTimeout)
 	defer cancel()
 	strategyData, err := capi.db.QueriesRO.StrategyByID(internalCtx, int64(strategyID))
 	if err != nil {
@@ -137,7 +136,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get the tokenID provided
 	tokenID := ctx.URLParam("tokenID")
-	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensStrategyTimeout)
 	defer cancel()
 	// get strategies associated to the token provided
 	rows, err := capi.db.QueriesRO.StrategiesByTokenID(internalCtx, common.HexToAddress(tokenID).Bytes())

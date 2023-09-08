@@ -7,7 +7,6 @@ import (
 	"errors"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
@@ -38,7 +37,7 @@ func (capi *census3API) initTokenHandlers() error {
 // database. It returns a 204 response if no tokens are registered or a 500
 // error if something fails.
 func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensTimeout)
 	defer cancel()
 	// TODO: Support for pagination
 	// get tokens from the database
@@ -88,7 +87,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// init web3 client to get the token information before register in the
 	// database
 	w3 := state.Web3{}
-	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	internalCtx, cancel := context.WithTimeout(context.Background(), createTokenTimeout)
 	defer cancel()
 	// get correct web3 uri provider
 	w3uri, exists := capi.w3p[req.ChainID]
@@ -159,7 +158,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 // fails.
 func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	address := common.HexToAddress(ctx.URLParam("tokenID"))
-	internalCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	internalCtx, cancel := context.WithTimeout(context.Background(), getTokenTimeout)
 	defer cancel()
 	tokenData, err := capi.db.QueriesRO.TokenByID(internalCtx, address.Bytes())
 	if err != nil {
@@ -208,9 +207,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	}
 
 	// get token holders count
-	countHoldersCtx, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel2()
-	holders, err := capi.db.QueriesRO.CountTokenHoldersByTokenID(countHoldersCtx, address.Bytes())
+	holders, err := capi.db.QueriesRO.CountTokenHoldersByTokenID(internalCtx, address.Bytes())
 	if err != nil {
 		return ErrCantGetTokenCount.WithErr(err)
 	}

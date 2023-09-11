@@ -125,14 +125,12 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*PublishedCensus, 
 	// encode the holders
 	holdersAddresses, holdersValues := [][]byte{}, [][]byte{}
 	for addr, balance := range def.Holders {
-		key := addr.Bytes()[:censustree.DefaultMaxKeyLen]
-		if def.Type != models.Census_ARBO_POSEIDON {
-			if key, err = def.tree.Hash(addr.Bytes()); err != nil {
-				return nil, ErrAddingHoldersToCensusTree
-			}
+		value := def.tree.BigIntToBytes(balance)
+		key, err := def.tree.Hash(addr.Bytes())
+		if err != nil {
+			return nil, ErrAddingHoldersToCensusTree
 		}
 		holdersAddresses = append(holdersAddresses, key[:censustree.DefaultMaxKeyLen])
-		value := def.tree.BigIntToBytes(balance)
 		holdersValues = append(holdersValues, value)
 	}
 	// add the holders

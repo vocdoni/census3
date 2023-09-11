@@ -82,19 +82,7 @@ CREATE TABLE strategy_tokens (
 CREATE INDEX idx_strategy_tokens_strategy_id ON strategy_tokens(strategy_id);
 CREATE INDEX idx_strategy_tokens_token_id ON strategy_tokens(token_id);
 
-CREATE TABLE census_blocks (
-    census_id INTEGER NOT NULL,
-    block_id INTEGER NOT NULL,
-    PRIMARY KEY (census_id, block_id),
-    FOREIGN KEY (census_id) REFERENCES censuses(id) ON DELETE CASCADE,
-    FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE
-);
-CREATE INDEX idx_census_blocks_census_id ON census_blocks(census_id);
-CREATE INDEX idx_census_blocks_block_id ON census_blocks(block_id);
-
 -- +goose Down
-DROP INDEX IF EXISTS idx_census_blocks_block_id;
-DROP INDEX IF EXISTS idx_census_blocks_census_id;
 DROP INDEX IF EXISTS idx_strategy_tokens_token_id;
 DROP INDEX IF EXISTS idx_strategy_tokens_strategy_id;
 DROP INDEX IF EXISTS idx_token_holders_block_id;
@@ -103,7 +91,6 @@ DROP INDEX IF EXISTS idx_token_holders_token_id;
 DROP INDEX IF EXISTS idx_censuses_strategy_id;
 DROP INDEX IF EXISTS idx_tokens_type_id;
 
-DROP TABLE IF EXISTS census_blocks;
 DROP TABLE IF EXISTS strategy_tokens;
 DROP TABLE IF EXISTS token_holders;
 DROP TABLE IF EXISTS holders;

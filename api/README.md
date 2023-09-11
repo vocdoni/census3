@@ -137,7 +137,7 @@ Returns the information about the token referenced by the provided ID.
 |:---:|:---|:---:|
 | 404 | `no token found` | 4003 |
 | 500 | `error getting token information` | 5004 | 
-| 500 | `error initialising web3 client` | 5018 | 
+| 500 | `error initialising web3 client` | 5019 | 
 | 500 | `error getting last block number from web3 endpoint` | 5021 | 
 | 500 | `error encoding tokens` | 5011 | 
 
@@ -247,7 +247,7 @@ Returns the information of the strategy related to the provided ID.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 204 | `-` | 4002 |
+| 400 | `malformed strategy ID, it must be an integer` | 4002 |
 | 404 | `no strategy found with the ID provided` | 4005 | 
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error getting strategy information` | 5007 | 

@@ -12,6 +12,14 @@ import (
 	qt "github.com/frankban/quicktest"
 )
 
+var queueDataRaceDuration time.Duration
+var queueDataRaceConsumers int
+
+func init() {
+	flag.DurationVar(&queueDataRaceDuration, "queueDataRaceDuration", 3*time.Minute, "queue data race test duration (by default test deadline or 3m)")
+	flag.IntVar(&queueDataRaceConsumers, "queueDataRaceConsumers", 100, "number of queue data race test consumers")
+}
+
 func TestEnqueueDequeue(t *testing.T) {
 	c := qt.New(t)
 
@@ -51,17 +59,19 @@ func TestUpdateDone(t *testing.T) {
 }
 
 func TestQueueDataRace(t *testing.T) {
-	nConsumers := flag.Int("consumers", 100, "number of processes consumers")
-	flag.Parse()
 	c := qt.New(t)
 	// initialize some variables to store the results of the test and a queue
 	var nProcesses int64
 	queueItemIdChan := make(chan string)
 	q := NewBackgroundQueue()
-	// set a context with the test deadline, decreaseing by 5 seconds to ensure
-	// a gap to check test results
-	deadline, ok := t.Deadline()
+	// set a context with the test deadline
+	deadline := time.Now().Add(queueDataRaceDuration)
+	maxDeadline, ok := t.Deadline()
 	c.Assert(ok, qt.IsTrue)
+	if deadline.Compare(maxDeadline) == 1 {
+		deadline = maxDeadline
+	}
+	// decreaseing by 5 seconds to ensure a gap to check test results
 	ctx, cancel := context.WithDeadline(context.Background(), deadline.Add(-5*time.Second))
 	defer cancel()
 	// launch producers
@@ -83,7 +93,7 @@ func TestQueueDataRace(t *testing.T) {
 	// create and lunch consumers
 	var asyncErrors sync.Map
 	updatersWg := new(sync.WaitGroup)
-	for i := 0; i < *nConsumers; i++ {
+	for i := 0; i < queueDataRaceConsumers; i++ {
 		updatersWg.Add(1)
 		go func() {
 			defer updatersWg.Done()
@@ -118,7 +128,7 @@ func TestQueueDataRace(t *testing.T) {
 	}
 	// create and lunch consumers
 	dequeuersWg := new(sync.WaitGroup)
-	for i := 0; i < *nConsumers; i++ {
+	for i := 0; i < queueDataRaceConsumers; i++ {
 		dequeuersWg.Add(1)
 		go func() {
 			defer dequeuersWg.Done()

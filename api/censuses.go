@@ -186,7 +186,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID st
 	// census
 	currentCensus, err := qtx.CensusByMerkleRoot(internalCtx, newCensus.RootHash)
 	if err == nil {
-		return int(currentCensus.ID), ErrCensusAlreadyExists.WithErr(err)
+		return int(currentCensus.ID), ErrCensusAlreadyExists
 	}
 	if err != nil && !errors.Is(sql.ErrNoRows, err) {
 		return -1, ErrCantCreateCensus.WithErr(err)

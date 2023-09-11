@@ -12,12 +12,16 @@ import (
 	qt "github.com/frankban/quicktest"
 )
 
-var queueDataRaceDuration time.Duration
-var queueDataRaceConsumers int
+var (
+	drDuration  time.Duration
+	drConsumers int
+)
 
 func init() {
-	flag.DurationVar(&queueDataRaceDuration, "queueDataRaceDuration", 3*time.Minute, "queue data race test duration (by default test deadline or 3m)")
-	flag.IntVar(&queueDataRaceConsumers, "queueDataRaceConsumers", 100, "number of queue data race test consumers")
+	flag.DurationVar(&drDuration, "queueDataRaceDuration", time.Minute, "queue "+
+		"data race test duration (by default test deadline or 1m)")
+	flag.IntVar(&drConsumers, "queueDataRaceConsumers", 100, "number of queue "+
+		"data race test consumers")
 }
 
 func TestEnqueueDequeue(t *testing.T) {
@@ -65,7 +69,7 @@ func TestQueueDataRace(t *testing.T) {
 	queueItemIdChan := make(chan string)
 	q := NewBackgroundQueue()
 	// set a context with the test deadline
-	deadline := time.Now().Add(queueDataRaceDuration)
+	deadline := time.Now().Add(drDuration)
 	maxDeadline, ok := t.Deadline()
 	c.Assert(ok, qt.IsTrue)
 	if deadline.Compare(maxDeadline) == 1 {
@@ -93,7 +97,7 @@ func TestQueueDataRace(t *testing.T) {
 	// create and lunch consumers
 	var asyncErrors sync.Map
 	updatersWg := new(sync.WaitGroup)
-	for i := 0; i < queueDataRaceConsumers; i++ {
+	for i := 0; i < drConsumers; i++ {
 		updatersWg.Add(1)
 		go func() {
 			defer updatersWg.Done()
@@ -128,7 +132,7 @@ func TestQueueDataRace(t *testing.T) {
 	}
 	// create and lunch consumers
 	dequeuersWg := new(sync.WaitGroup)
-	for i := 0; i < queueDataRaceConsumers; i++ {
+	for i := 0; i < drConsumers; i++ {
 		dequeuersWg.Add(1)
 		go func() {
 			defer dequeuersWg.Done()

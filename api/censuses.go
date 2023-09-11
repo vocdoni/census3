@@ -135,7 +135,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID st
 		return -1, ErrCantCreateCensus.WithErr(err)
 	}
 	if len(strategyTokens) == 0 {
-		return -1, ErrNoStrategyTokens.WithErr(err)
+		return -1, ErrNoStrategyTokens
 	}
 
 	// get the maximun current census ID to calculate the next one, if any

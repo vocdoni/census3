@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"time"
@@ -59,8 +60,8 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		censusWeight = []byte(currentCensus.Weight.String)
 	}
 	res, err := json.Marshal(GetCensusResponse{
-		CensusID:   uint64(censusID),
-		StrategyID: uint64(currentCensus.StrategyID),
+		CensusID:   uint32(censusID),
+		StrategyID: uint32(currentCensus.StrategyID),
 		MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
 		URI:        "ipfs://" + currentCensus.Uri.String,
 		Size:       censusSize,
@@ -79,7 +80,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 // with the resulting status or error into the queue.
 func (capi *census3API) launchCensusCreation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// decode request
-	req := &CreateCensusResquest{}
+	req := &CreateCensusRequest{}
 	if err := json.Unmarshal(msg.Data, req); err != nil {
 		return ErrMalformedStrategyID.WithErr(err)
 	}
@@ -108,18 +109,42 @@ func (capi *census3API) launchCensusCreation(msg *api.APIdata, ctx *httprouter.H
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// innerCensusID generates a unique identifier by concatenating the BlockNumber, StrategyID,
+// and a numerical representation of the Anonymous flag from a CreateCensusRequest struct.
+// The BlockNumber and StrategyID are concatenated as they are, and the Anonymous flag is
+// represented as 1 for true and 0 for false. This concatenated string is then converted
+// to a uint64 to create a unique identifier.
+func innerCensusID(c *CreateCensusRequest) uint64 {
+	// Convert the boolean to a uint32: 1 for true, 0 for false
+	var anonymousUint uint32
+	if c.Anonymous {
+		anonymousUint = 1
+	}
+
+	// Concatenate the three values as strings
+	concatenated := fmt.Sprintf("%d%d%d", c.BlockNumber, c.StrategyID, anonymousUint)
+
+	// Convert the concatenated string back to a uint64
+	result, err := strconv.ParseUint(concatenated, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	return result
+}
+
 // createAndPublishCensus method creates a census tree based on the token
 // holders of the tokens that are included in the given strategy. It recovers
 // all the required information from the database, and then creates and publish
 // the census merkle tree on IPFS. Then saves the resulting information of the
 // census tree in the database.
-func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID string) (int, error) {
+func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID string) (uint64, error) {
 	bgCtx, cancel := context.WithTimeout(context.Background(), censusCreationTimeout)
 	defer cancel()
 	// begin a transaction for group sql queries
 	tx, err := capi.db.RW.BeginTx(bgCtx, nil)
 	if err != nil {
-		return -1, ErrCantCreateCensus.WithErr(err)
+		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
@@ -131,22 +156,27 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID st
 	strategyTokens, err := qtx.TokensByStrategyID(bgCtx, int64(req.StrategyID))
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
-			return -1, ErrNoStrategyTokens.WithErr(err)
+			return 0, ErrNoStrategyTokens.WithErr(err)
 		}
-		return -1, ErrCantCreateCensus.WithErr(err)
+		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	if len(strategyTokens) == 0 {
-		return -1, ErrNoStrategyTokens.WithErr(err)
+		return 0, ErrNoStrategyTokens.WithErr(err)
 	}
 
-	// get the maximun current census ID to calculate the next one, if any
-	// census has been created yet, continue
-	lastCensusID, err := qtx.LastCensusID(bgCtx)
-	if err != nil && !errors.Is(sql.ErrNoRows, err) {
-		return -1, ErrCantCreateCensus.WithErr(err)
-	}
 	// compute the new censusId and censusType
-	newCensusID := int(lastCensusID) + 1
+	newCensusID := innerCensusID(req)
+
+	// check if the census already exists
+	_, err = qtx.CensusByID(bgCtx, int64(newCensusID))
+	if err != nil {
+		if !errors.Is(sql.ErrNoRows, err) {
+			return 0, ErrCantCreateCensus.WithErr(err)
+		}
+	} else {
+		return 0, ErrCensusAlreadyExists.Withf("census %d already exists", newCensusID)
+	}
+
 	censusType := census.DefaultCensusType
 	if req.Anonymous {
 		censusType = census.AnonymousCensusType
@@ -162,7 +192,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID st
 			if errors.Is(sql.ErrNoRows, err) {
 				continue
 			}
-			return -1, ErrCantGetTokenHolders.WithErr(err)
+			return 0, ErrCantGetTokenHolders.WithErr(err)
 		}
 		for _, holder := range holders {
 			holderAddr := common.BytesToAddress(holder.ID)
@@ -175,35 +205,28 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID st
 	}
 	if len(strategyHolders) == 0 {
 		log.Errorf("no holders for strategy '%d'", req.StrategyID)
-		return -1, ErrNotFoundTokenHolders.With("no holders for strategy")
+		return 0, ErrNotFoundTokenHolders.With("no holders for strategy")
 	}
+
 	// create a census tree and publish on IPFS
-	def := census.NewCensusDefinition(newCensusID, int(req.StrategyID), strategyHolders, req.Anonymous)
+	def := census.NewCensusDefinition(newCensusID, req.StrategyID, strategyHolders, req.Anonymous)
 	newCensus, err := capi.censusDB.CreateAndPublish(def)
 	if err != nil {
-		return -1, ErrCantCreateCensus.WithErr(err)
+		return 0, ErrCantCreateCensus.WithErr(err)
 	}
-	// check if the census already exists using the merkle root of the generated
-	// census
-	currentCensus, err := qtx.CensusByMerkleRoot(bgCtx, newCensus.RootHash)
-	if err == nil {
-		return int(currentCensus.ID), ErrCensusAlreadyExists.WithErr(err)
-	}
-	if err != nil && !errors.Is(sql.ErrNoRows, err) {
-		return -1, ErrCantCreateCensus.WithErr(err)
-	}
+
 	// save the new census in the SQL database
 	sqlURI := new(sql.NullString)
 	if err := sqlURI.Scan(newCensus.URI); err != nil {
-		return -1, ErrCantCreateCensus.WithErr(err)
+		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	sqlCensusSize := sql.NullInt32{}
 	if err := sqlCensusSize.Scan(int64(len(strategyHolders))); err != nil {
-		return -1, ErrCantCreateCensus.WithErr(err)
+		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	sqlCensusWeight := sql.NullString{}
 	if err := sqlCensusWeight.Scan(censusWeight.String()); err != nil {
-		return -1, ErrCantCreateCensus.WithErr(err)
+		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	_, err = qtx.CreateCensus(bgCtx, queries.CreateCensusParams{
 		ID:         int64(newCensus.ID),
@@ -216,10 +239,10 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusResquest, qID st
 		QueueID:    qID,
 	})
 	if err != nil {
-		return -1, ErrCantCreateCensus.WithErr(err)
+		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	if err := tx.Commit(); err != nil {
-		return -1, ErrCantCreateCensus.WithErr(err)
+		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	return newCensus.ID, nil
 }
@@ -271,8 +294,8 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 		}
 		// encode census
 		queueCensus.Census = &GetCensusResponse{
-			CensusID:   uint64(currentCensus.ID),
-			StrategyID: uint64(currentCensus.StrategyID),
+			CensusID:   uint32(currentCensus.ID),
+			StrategyID: uint32(currentCensus.StrategyID),
 			MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
 			URI:        "ipfs://" + currentCensus.Uri.String,
 			Size:       censusSize,
@@ -309,9 +332,9 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 		return ErrCantGetCensus.WithErr(err)
 	}
 	// parse and encode response
-	censuses := GetCensusesResponse{Censuses: []uint64{}}
+	censuses := GetCensusesResponse{Censuses: []uint32{}}
 	for _, censusInfo := range rows {
-		censuses.Censuses = append(censuses.Censuses, uint64(censusInfo.ID))
+		censuses.Censuses = append(censuses.Censuses, uint32(censusInfo.ID))
 	}
 	res, err := json.Marshal(censuses)
 	if err != nil {

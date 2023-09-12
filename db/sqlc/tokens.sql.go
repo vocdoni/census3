@@ -34,10 +34,10 @@ type CreateTokenParams struct {
 	ID            annotations.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt64
+	Decimals      int
 	TotalSupply   annotations.BigInt
-	CreationBlock sql.NullInt32
-	TypeID        int64
+	CreationBlock sql.NullInt64
+	TypeID        int
 	Synced        bool
 	Tag           sql.NullString
 	ChainID       int64
@@ -203,20 +203,20 @@ type TokensByStrategyIDRow struct {
 	ID            annotations.Address
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt64
+	Decimals      int
 	TotalSupply   annotations.BigInt
-	CreationBlock sql.NullInt32
-	TypeID        int64
+	CreationBlock sql.NullInt64
+	TypeID        int
 	Synced        bool
 	Tag           sql.NullString
 	ChainID       int64
-	StrategyID    int64
+	StrategyID    int
 	TokenID       []byte
 	MinBalance    []byte
 	MethodHash    []byte
 }
 
-func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID int64) ([]TokensByStrategyIDRow, error) {
+func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID int) ([]TokensByStrategyIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, tokensByStrategyID, strategyID)
 	if err != nil {
 		return nil, err
@@ -260,7 +260,7 @@ WHERE type_id = ?
 ORDER BY name
 `
 
-func (q *Queries) TokensByType(ctx context.Context, typeID int64) ([]Token, error) {
+func (q *Queries) TokensByType(ctx context.Context, typeID int) ([]Token, error) {
 	rows, err := q.db.QueryContext(ctx, tokensByType, typeID)
 	if err != nil {
 		return nil, err
@@ -310,10 +310,10 @@ WHERE id = ?
 type UpdateTokenParams struct {
 	Name          sql.NullString
 	Symbol        sql.NullString
-	Decimals      sql.NullInt64
+	Decimals      int
 	TotalSupply   annotations.BigInt
-	CreationBlock sql.NullInt32
-	TypeID        int64
+	CreationBlock sql.NullInt64
+	TypeID        int
 	Synced        bool
 	Tag           sql.NullString
 	ID            annotations.Address
@@ -340,7 +340,7 @@ WHERE id = ?
 `
 
 type UpdateTokenCreationBlockParams struct {
-	CreationBlock sql.NullInt32
+	CreationBlock sql.NullInt64
 	ID            annotations.Address
 }
 

@@ -93,7 +93,7 @@ func TestTokenDecimals(t *testing.T) {
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
 	decimals, err := w.TokenDecimals()
 	c.Assert(err, qt.IsNil)
-	c.Assert(uint64(decimals), qt.Equals, MonkeysDecimals)
+	c.Assert(int64(decimals), qt.Equals, MonkeysDecimals)
 }
 
 func TestTokenTotalSupply(t *testing.T) {
@@ -137,7 +137,7 @@ func TestTokenData(t *testing.T) {
 	c.Assert(data.Type, qt.Equals, CONTRACT_TYPE_ERC20)
 	c.Assert(data.Name, qt.Equals, MonkeysName)
 	c.Assert(data.Symbol, qt.Equals, MonkeysSymbol)
-	c.Assert(uint64(data.Decimals), qt.Equals, MonkeysDecimals)
+	c.Assert(int64(data.Decimals), qt.Equals, MonkeysDecimals)
 	c.Assert(data.TotalSupply.String(), qt.Equals, MonkeysTotalSupply.String())
 }
 
@@ -333,11 +333,11 @@ func Test_creationBlockInRange(t *testing.T) {
 
 	blockNumber, err := w.creationBlockInRange(ctx, 0, 10)
 	c.Assert(err, qt.IsNil)
-	c.Assert(blockNumber, qt.Equals, uint64(10))
+	c.Assert(blockNumber, qt.Equals, int64(10))
 
 	blockNumber, err = w.creationBlockInRange(ctx, 0, 1)
 	c.Assert(err, qt.IsNil)
-	c.Assert(blockNumber, qt.Equals, uint64(1))
+	c.Assert(blockNumber, qt.Equals, int64(1))
 
 	blockNumber, err = w.creationBlockInRange(ctx, 0, 9000000)
 	c.Assert(err, qt.IsNil)

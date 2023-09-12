@@ -23,10 +23,10 @@ func web3testUri() string {
 
 var (
 	MonkeysAddress        = common.HexToAddress("0xF530280176385AF31177D78BbFD5eA3f6D07488A")
-	MonkeysCreationBlock  = uint64(8901659)
+	MonkeysCreationBlock  = int64(8901659)
 	MonkeysSymbol         = "MON"
 	MonkeysName           = "Monkeys"
-	MonkeysDecimals       = uint64(18)
+	MonkeysDecimals       = 18
 	MonkeysTotalSupply, _ = new(big.Int).SetString("82000000000000000000", 10)
 	MonkeysHolders        = map[common.Address]*big.Int{
 		common.HexToAddress("0xe54d702f98E312aBA4318E3c6BDba98ab5e11012"): new(big.Int).SetUint64(16000000000000000000),
@@ -63,17 +63,16 @@ func (testdb *TestDB) Close(t *testing.T) {
 	c.Assert(os.RemoveAll(testdb.dir), qt.IsNil)
 }
 
-func testTokenParams(id, name, symbol string, decimals, creationBlock, totalSupply,
-	typeID uint64, synced bool, chainID int64,
+func testTokenParams(id, name, symbol string, creationBlock, totalSupply int64, decimals, typeID int, synced bool, chainID int64,
 ) queries.CreateTokenParams {
 	return queries.CreateTokenParams{
 		ID:            common.HexToAddress(id).Bytes(),
 		Name:          sql.NullString{String: name, Valid: name != ""},
 		Symbol:        sql.NullString{String: symbol, Valid: symbol != ""},
-		Decimals:      sql.NullInt64{Int64: int64(decimals), Valid: decimals != 0},
+		Decimals:      decimals,
 		TotalSupply:   new(big.Int).SetInt64(int64(totalSupply)).Bytes(),
-		CreationBlock: sql.NullInt32{Int32: int32(creationBlock), Valid: creationBlock != 0},
-		TypeID:        int64(typeID),
+		CreationBlock: sql.NullInt64{Int64: creationBlock, Valid: creationBlock != 0},
+		TypeID:        typeID,
 		Synced:        synced,
 		ChainID:       chainID,
 	}

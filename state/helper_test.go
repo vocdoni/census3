@@ -9,10 +9,10 @@ import (
 
 var (
 	MonkeysAddress        = common.HexToAddress("0xF530280176385AF31177D78BbFD5eA3f6D07488A")
-	MonkeysCreationBlock  = uint64(8901659)
+	MonkeysCreationBlock  = int64(8901659)
 	MonkeysSymbol         = "MON"
 	MonkeysName           = "Monkeys"
-	MonkeysDecimals       = uint64(18)
+	MonkeysDecimals       = int64(18)
 	MonkeysTotalSupply, _ = new(big.Int).SetString("82000000000000000000", 10)
 	MonkeysHolders        = map[common.Address]*big.Int{
 		common.HexToAddress("0xe54d702f98E312aBA4318E3c6BDba98ab5e11012"): new(big.Int).SetUint64(16000000000000000000),

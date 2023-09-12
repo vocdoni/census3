@@ -33,7 +33,7 @@ type HoldersScanner struct {
 	tokens    map[common.Address]*state.TokenHolders
 	mutex     sync.RWMutex
 	db        *db.DB
-	lastBlock uint64
+	lastBlock int64
 }
 
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
@@ -54,7 +54,7 @@ func NewHoldersScanner(db *db.DB, w3p map[int64]string) (*HoldersScanner, error)
 	defer cancel()
 	lastBlock, err := s.db.QueriesRO.LastBlock(ctx)
 	if err == nil {
-		s.lastBlock = uint64(lastBlock)
+		s.lastBlock = lastBlock
 	}
 	return &s, nil
 }
@@ -199,12 +199,12 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	}
 	// if the current HoldersScanner last block not exists in the database,
 	// create it
-	if _, err := qtx.BlockByID(ctx, int64(th.LastBlock())); err != nil {
+	if _, err := qtx.BlockByID(ctx, th.LastBlock()); err != nil {
 		if !errors.Is(sql.ErrNoRows, err) {
 			return err
 		}
 		_, err = qtx.CreateBlock(ctx, queries.CreateBlockParams{
-			ID:        int64(th.LastBlock()),
+			ID:        th.LastBlock(),
 			Timestamp: timestamp,
 			RootHash:  rootHash,
 		})
@@ -312,9 +312,9 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 			return false, err
 		}
 		ttype := state.TokenType(tokenInfo.TypeID)
-		tokenLastBlock := uint64(tokenInfo.CreationBlock.Int32)
+		tokenLastBlock := tokenInfo.CreationBlock.Int64
 		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
-			tokenLastBlock = uint64(blockNumber)
+			tokenLastBlock = blockNumber
 		}
 		th = new(state.TokenHolders).Init(addr, ttype, tokenLastBlock, tokenInfo.ChainID)
 		s.tokens[addr] = th
@@ -392,7 +392,7 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 	if err != nil {
 		return fmt.Errorf("error getting token creation block: %w", err)
 	}
-	dbCreationBlock := new(sql.NullInt32)
+	dbCreationBlock := new(sql.NullInt64)
 	if err := dbCreationBlock.Scan(creationBlock); err != nil {
 		return fmt.Errorf("error getting token creation block value: %w", err)
 	}

@@ -10,7 +10,11 @@ sql:
       overrides:
         # Defaults to int32 for integers, which is a bit small, use int64 instead.
         - db_type: "int"
-          go_type: "int64"
+          go_type: "int"
+          nullable: true
+        - db_type: "int"
+          go_type: "int"
+          nullable: false
         # Force these blobs to be our "bytes" types.
         - column: "tokens.id"
           go_type: "github.com/vocdoni/census3/db/annotations.Address"

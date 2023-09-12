@@ -18,7 +18,7 @@ WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) CensusByID(ctx context.Context, id int64) (Censuse, error) {
+func (q *Queries) CensusByID(ctx context.Context, id int) (Censuse, error) {
 	row := q.db.QueryRowContext(ctx, censusByID, id)
 	var i Censuse
 	err := row.Scan(
@@ -83,7 +83,7 @@ SELECT id, strategy_id, merkle_root, uri, size, weight, census_type, queue_id FR
 WHERE strategy_id = ?
 `
 
-func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID int64) ([]Censuse, error) {
+func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID int) ([]Censuse, error) {
 	rows, err := q.db.QueryContext(ctx, censusByStrategyID, strategyID)
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ LIMIT ? OFFSET ?
 `
 
 type CensusesByStrategyIDAndBlockIDParams struct {
-	StrategyID int64
+	StrategyID int
 	BlockID    int64
 	Limit      int32
 	Offset     int32
@@ -290,13 +290,13 @@ VALUES (
 `
 
 type CreateCensusParams struct {
-	ID         int64
-	StrategyID int64
+	ID         int
+	StrategyID int
 	MerkleRoot annotations.Hash
 	Uri        sql.NullString
-	Size       sql.NullInt32
+	Size       int
 	Weight     sql.NullString
-	CensusType int64
+	CensusType int
 	QueueID    string
 }
 
@@ -324,7 +324,7 @@ VALUES (
 `
 
 type CreateCensusBlockParams struct {
-	CensusID int64
+	CensusID int
 	BlockID  int64
 }
 
@@ -337,7 +337,7 @@ DELETE FROM censuses
 WHERE id = ?
 `
 
-func (q *Queries) DeleteCensus(ctx context.Context, id int64) (sql.Result, error) {
+func (q *Queries) DeleteCensus(ctx context.Context, id int) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteCensus, id)
 }
 
@@ -347,7 +347,7 @@ WHERE census_id = ? AND block_id = ?
 `
 
 type DeleteCensusBlockParams struct {
-	CensusID int64
+	CensusID int
 	BlockID  int64
 }
 
@@ -362,9 +362,9 @@ ORDER BY id DESC
 LIMIT 1
 `
 
-func (q *Queries) LastCensusID(ctx context.Context) (int64, error) {
+func (q *Queries) LastCensusID(ctx context.Context) (int, error) {
 	row := q.db.QueryRowContext(ctx, lastCensusID)
-	var id int64
+	var id int
 	err := row.Scan(&id)
 	return id, err
 }
@@ -418,9 +418,9 @@ WHERE id = ?
 type UpdateCensusParams struct {
 	MerkleRoot annotations.Hash
 	Uri        sql.NullString
-	Size       sql.NullInt32
+	Size       int
 	Weight     sql.NullString
-	ID         int64
+	ID         int
 }
 
 func (q *Queries) UpdateCensus(ctx context.Context, arg UpdateCensusParams) (sql.Result, error) {
@@ -441,7 +441,7 @@ WHERE census_id = ? AND block_id = ?
 `
 
 type UpdateCensusBlockParams struct {
-	CensusID int64
+	CensusID int
 	BlockID  int64
 }
 

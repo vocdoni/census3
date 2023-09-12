@@ -20,13 +20,13 @@ CREATE TABLE tokens (
     id BLOB PRIMARY KEY NOT NULL,
     name TEXT,
     symbol TEXT,
-    decimals BIGINT,
+    decimals INTEGER,
     total_supply BLOB,
-    creation_block INTEGER,
+    creation_block BIGINT,
     type_id INTEGER NOT NULL,
     synced BOOLEAN NOT NULL,
     tag TEXT,
-    chain_id INTEGER NOT NULL,
+    chain_id BIGINT NOT NULL,
     UNIQUE (id, chain_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );
@@ -47,7 +47,7 @@ CREATE TABLE censuses (
 CREATE INDEX idx_censuses_strategy_id ON censuses(strategy_id);
 
 CREATE TABLE blocks (
-    id INTEGER PRIMARY KEY NOT NULL,
+    id BIGINT PRIMARY KEY NOT NULL,
     timestamp TEXT NOT NULL UNIQUE,
     root_hash BLOB NOT NULL UNIQUE
 );
@@ -60,7 +60,7 @@ CREATE TABLE token_holders (
     token_id BLOB NOT NULL,
     holder_id BLOB NOT NULL,
     balance BLOB NOT NULL,
-    block_id INTEGER NOT NULL,
+    block_id BIGINT NOT NULL,
     PRIMARY KEY (token_id, holder_id, block_id),
     FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE,
     FOREIGN KEY (holder_id) REFERENCES holders(id) ON DELETE CASCADE,
@@ -84,7 +84,7 @@ CREATE INDEX idx_strategy_tokens_token_id ON strategy_tokens(token_id);
 
 CREATE TABLE census_blocks (
     census_id INTEGER NOT NULL,
-    block_id INTEGER NOT NULL,
+    block_id BIGINT NOT NULL,
     PRIMARY KEY (census_id, block_id),
     FOREIGN KEY (census_id) REFERENCES censuses(id) ON DELETE CASCADE,
     FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE

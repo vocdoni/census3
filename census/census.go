@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -239,5 +238,5 @@ func (cdb *CensusDB) delete(def *CensusDefinition) error {
 
 // censusDBKey returns the db key of the census tree in the database given a censusID.
 func censusDBKey(censusID int) string {
-	return fmt.Sprintf("%s%x", censusDBprefix, []byte(strconv.Itoa(censusID)))
+	return fmt.Sprintf("%s%x", censusDBprefix, []byte(fmt.Sprint(censusID)))
 }

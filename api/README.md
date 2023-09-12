@@ -37,12 +37,13 @@ List of already added tokens.
 {
     "tokens": [
         {
-            "id": "0x1234",
+            "ID": "0x1234",
             "name": "Wrapped Aragon Network Token",
             "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
             "startBlock": 123456,
             "symbol": "wANT",
-            "tag": "testTag1,testTag2"
+            "tag": "testTag1,testTag2",
+            "chainID": 1
         }
     ]
 }
@@ -85,7 +86,7 @@ Triggers a new scan for the provided token, starting from the defined block.
 
 ```json
 {
-    "id": "0x1234",
+    "ID": "0x1234",
     "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
     "tag": "testTag1,testTag2",
     "chainID": 1
@@ -111,7 +112,7 @@ Returns the information about the token referenced by the provided ID.
 
 ```json
 {
-    "id": "0x1324",
+    "ID": "0x1324",
     "type": "erc20",
     "decimals": 18,
     "startBlock": 123456,
@@ -154,19 +155,19 @@ Stores a new strategy based on the defined combination of tokens provided, these
     {
     "tokens": [
         {
-            "id": "0x1324",
+            "ID": "0x1324",
             "name": "wANT",
             "minBalance": "10000",
             "method": "0x8230"
         },
         {
-            "id": "0x5678",
+            "ID": "0x5678",
             "name": "USDC",
             "minBalance": "20000",
             "method": "0x3241" 
         },
         {
-            "id": "0x9da2",
+            "ID": "0x9da2",
             "name": "ANT",
             "minBalance": "1",
             "method": "0x9db1"
@@ -180,7 +181,7 @@ Stores a new strategy based on the defined combination of tokens provided, these
 
 ```json
 {
-    "strategyId": 1
+    "strategyID": 1
 }
 ```
 
@@ -211,7 +212,7 @@ Returns the ID's list of the strategies registered.
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
-### GET `/strategies/{strategyId}`
+### GET `/strategies/{strategyID}`
 Returns the information of the strategy related to the provided ID.
 
 - 📥 response:
@@ -221,19 +222,19 @@ Returns the information of the strategy related to the provided ID.
     "id": 2,
     "tokens": [
         {
-            "id": "0x1324",
+            "ID": "0x1324",
             "name": "wANT",
             "minBalance": "10000",
             "method": "0x8230" 
         },
         {
-            "id": "0x5678",
+            "ID": "0x5678",
             "name": "USDC",
             "minBalance": "20000",
             "method": "0x3241" 
         },
         {
-            "id": "0x9da2",
+            "ID": "0x9da2",
             "name": "ANT",
             "minBalance": "1",
             "method": "0x9db1" 
@@ -272,7 +273,7 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
-### GET `/census/strategy/{strategyId}`
+### GET `/census/strategy/{strategyID}`
 Returns a list of censusID for the strategy provided.
 
 - 📥 response:
@@ -301,7 +302,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 
 ```json
 {
-    "strategyId": 1,
+    "strategyID": 1,
     "blockNumber": 123456,
     "anonymous": false
 }
@@ -311,7 +312,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 
 ```json
 {
-    "queueId": "0123456789abcdef0123456789abcdef01234567"
+    "queueID": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
 
@@ -322,19 +323,19 @@ Request the creation of a new census with the strategy provided for the `blockNu
 | 400 | `malformed strategy ID, it must be an integer` | 4002 | 
 | 500 | `error encoding strategy holders` | 5014 | 
 
-### GET `/censuses/{censusId}`
+### GET `/censuses/{censusID}`
 Returns the information of the snapshots related to the provided ID.
 
 - 📥 response:
 ```json
 { 
-    "censusId": 2,
-    "strategyId": 1,
+    "censusID": 2,
+    "strategyID": 1,
     "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac",
     "uri": "ipfs://Qma....",
     "size": 1000,
     "weight": "200000000000000000000",
-    "chainId": 1,
+    "chainID": 1,
     "anonymous": true
 }
 ```
@@ -349,7 +350,7 @@ Returns the information of the snapshots related to the provided ID.
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census` | 5017 | 
 
-### GET `/census/queue/{queueId}`
+### GET `/census/queue/{queueID}`
 Returns the information of the census that are in the creation queue.
 
 - 📥 response:

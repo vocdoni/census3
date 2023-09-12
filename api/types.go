@@ -29,7 +29,7 @@ type GetTokenResponse struct {
 }
 
 type GetTokensItem struct {
-	ID         string `json:"id"`
+	ID         string `json:"ID"`
 	Type       string `json:"type"`
 	StartBlock uint64 `json:"startBlock"`
 	Name       string `json:"name"`
@@ -51,18 +51,18 @@ type TokenHoldersResponse struct {
 }
 
 type CreateCensusResquest struct {
-	StrategyID  uint64 `json:"strategyId"`
+	StrategyID  uint64 `json:"strategyID"`
 	BlockNumber uint64 `json:"blockNumber"`
 	Anonymous   bool   `json:"anonymous"`
 }
 
 type CreateCensusResponse struct {
-	QueueID string `json:"queueId"`
+	QueueID string `json:"queueID"`
 }
 
 type GetCensusResponse struct {
-	CensusID   uint64 `json:"censusId"`
-	StrategyID uint64 `json:"strategyId"`
+	CensusID   uint64 `json:"ID"`
+	StrategyID uint64 `json:"strategyID"`
 	MerkleRoot string `json:"merkleRoot"`
 	URI        string `json:"uri"`
 	Size       int32  `json:"size"`
@@ -79,14 +79,14 @@ type GetStrategiesResponse struct {
 }
 
 type GetStrategyToken struct {
-	ID         string `json:"id"`
+	ID         string `json:"ID"`
 	Name       string `json:"name"`
 	MinBalance string `json:"minBalance"`
 	Method     string `json:"method"`
 }
 
 type GetStrategyResponse struct {
-	ID        uint64             `json:"id"`
+	ID        uint64             `json:"ID"`
 	Tokens    []GetStrategyToken `json:"tokens"`
 	Predicate string             `json:"strategy"`
 }

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/big"
 	"strconv"
 	"time"
@@ -109,30 +108,6 @@ func (capi *census3API) launchCensusCreation(msg *api.APIdata, ctx *httprouter.H
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
-// innerCensusID generates a unique identifier by concatenating the BlockNumber, StrategyID,
-// and a numerical representation of the Anonymous flag from a CreateCensusRequest struct.
-// The BlockNumber and StrategyID are concatenated as they are, and the Anonymous flag is
-// represented as 1 for true and 0 for false. This concatenated string is then converted
-// to a uint64 to create a unique identifier.
-func innerCensusID(c *CreateCensusRequest) uint64 {
-	// Convert the boolean to a uint32: 1 for true, 0 for false
-	var anonymousUint uint32
-	if c.Anonymous {
-		anonymousUint = 1
-	}
-
-	// Concatenate the three values as strings
-	concatenated := fmt.Sprintf("%d%d%d", c.BlockNumber, c.StrategyID, anonymousUint)
-
-	// Convert the concatenated string back to a uint64
-	result, err := strconv.ParseUint(concatenated, 10, 64)
-	if err != nil {
-		panic(err)
-	}
-
-	return result
-}
-
 // createAndPublishCensus method creates a census tree based on the token
 // holders of the tokens that are included in the given strategy. It recovers
 // all the required information from the database, and then creates and publish
@@ -165,7 +140,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	}
 
 	// compute the new censusId and censusType
-	newCensusID := innerCensusID(req)
+	newCensusID := census.InnerCensusID(req.BlockNumber, req.StrategyID, req.Anonymous)
 
 	// check if the census already exists
 	_, err = qtx.CensusByID(bgCtx, int64(newCensusID))

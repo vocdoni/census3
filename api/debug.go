@@ -50,7 +50,7 @@ func (capi *census3API) getTokenHolders(msg *api.APIdata, ctx *httprouter.HTTPCo
 	}
 	// if no error but the results are empty, return no content
 	if len(dbHolders) == 0 {
-		log.Errorf("no holders found for address %s: %s", addr, err.Error())
+		log.Errorf("no holders found for address %s", addr)
 		return ctx.Send(nil, api.HTTPstatusNoContent)
 	}
 	// encode the response with the token holders addresses

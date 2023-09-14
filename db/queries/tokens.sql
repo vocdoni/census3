@@ -22,6 +22,11 @@ SELECT * FROM tokens
 WHERE type_id = ?
 ORDER BY name;
 
+-- name: TokensByTags :many
+SELECT * FROM tokens
+WHERE tags LIKE ?
+ORDER BY name;
+
 -- name: TokensByStrategyID :many
 SELECT t.*, st.* FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
@@ -38,7 +43,7 @@ INSERT INTO tokens (
     creation_block,
     type_id,
     synced,
-    tag,
+    tags,
     chain_id
 )
 VALUES (
@@ -54,7 +59,7 @@ SET name = sqlc.arg(name),
     creation_block = sqlc.arg(creation_block),
     type_id = sqlc.arg(type_id),
     synced = sqlc.arg(synced),
-    tag = sqlc.arg(tag)
+    tags = sqlc.arg(tags)
 WHERE id = sqlc.arg(id);
 
 -- name: UpdateTokenStatus :execresult

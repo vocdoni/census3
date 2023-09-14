@@ -42,7 +42,7 @@ List of already added tokens.
             "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
             "startBlock": 123456,
             "symbol": "wANT",
-            "tag": "testTag1,testTag2"
+            "tags": "testTag1,testTag2"
         }
     ]
 }
@@ -55,6 +55,7 @@ List of already added tokens.
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 204 | `no tokens found` | 4007 |
+| 400 | `filter provided is not correct` | 4014 |
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error encoding tokens` | 5011 | 
 
@@ -87,7 +88,7 @@ Triggers a new scan for the provided token, starting from the defined block.
 {
     "id": "0x1234",
     "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
-    "tag": "testTag1,testTag2",
+    "tags": "testTag1,testTag2",
     "chainID": 1
 }
 ```
@@ -124,7 +125,7 @@ Returns the information about the token referenced by the provided ID.
         "progress": 87
     },
     "defaultStrategy": 1,
-    "tag": "testTag1,testTag2",
+    "tags": "testTag1,testTag2",
     "chainID": 1
 }
 ```

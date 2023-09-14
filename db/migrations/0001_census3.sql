@@ -25,12 +25,13 @@ CREATE TABLE tokens (
     creation_block INTEGER,
     type_id INTEGER NOT NULL,
     synced BOOLEAN NOT NULL,
-    tag TEXT,
+    tags TEXT,
     chain_id INTEGER NOT NULL,
     UNIQUE (id, chain_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_tokens_type_id ON tokens(type_id);
+CREATE INDEX idx_tokens_tags ON tokens(tags);
 
 CREATE TABLE censuses (
     id INTEGER PRIMARY KEY,
@@ -102,6 +103,7 @@ DROP INDEX IF EXISTS idx_token_holders_holder_id;
 DROP INDEX IF EXISTS idx_token_holders_token_id;
 DROP INDEX IF EXISTS idx_censuses_strategy_id;
 DROP INDEX IF EXISTS idx_tokens_type_id;
+DROP INDEX IF EXISTS idx_tokens_tags;
 
 DROP TABLE IF EXISTS census_blocks;
 DROP TABLE IF EXISTS strategy_tokens;

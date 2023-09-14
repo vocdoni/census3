@@ -6,16 +6,33 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"math/big"
+	"path/filepath"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
 	"go.vocdoni.io/dvote/api/censusdb"
 	"go.vocdoni.io/dvote/censustree"
+	"go.vocdoni.io/dvote/data"
 	"go.vocdoni.io/dvote/data/compressor"
+	"go.vocdoni.io/dvote/db"
+	"go.vocdoni.io/dvote/db/metadb"
 	"go.vocdoni.io/proto/build/go/models"
 )
+
+func NewTestCensusDB(t *testing.T) *CensusDB {
+	testTempPath := t.TempDir()
+	database, err := metadb.New(db.TypePebble, filepath.Join(testTempPath, "censusdb"))
+	qt.Assert(t, err, qt.IsNil)
+
+	storage := new(data.DataMockTest)
+	qt.Assert(t, storage.Init(nil), qt.IsNil)
+	return &CensusDB{
+		treeDB:  database,
+		storage: storage,
+	}
+}
 
 var MonkeysAddresses = map[common.Address]*big.Int{
 	common.HexToAddress("0xe54d702f98E312aBA4318E3c6BDba98ab5e11012"): big.NewInt(16),
@@ -48,8 +65,7 @@ func TestNewCensusDB(t *testing.T) {
 
 func TestCreateAndPublish(t *testing.T) {
 	c := qt.New(t)
-	cdb, err := NewCensusDB(t.TempDir(), "")
-	c.Assert(err, qt.IsNil)
+	cdb := NewTestCensusDB(t)
 	defer func() {
 		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
@@ -81,13 +97,12 @@ func TestCreateAndPublish(t *testing.T) {
 
 func Test_newTree(t *testing.T) {
 	c := qt.New(t)
-	cdb, err := NewCensusDB(t.TempDir(), "")
-	c.Assert(err, qt.IsNil)
+	cdb := NewTestCensusDB(t)
 	defer func() {
 		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
-	_, err = cdb.newTree(&CensusDefinition{
+	_, err := cdb.newTree(&CensusDefinition{
 		ID:        1,
 		MaxLevels: defaultMaxLevels,
 		Type:      models.Census_UNKNOWN,
@@ -100,14 +115,13 @@ func Test_newTree(t *testing.T) {
 
 func Test_save(t *testing.T) {
 	c := qt.New(t)
-	cdb, err := NewCensusDB(t.TempDir(), "")
-	c.Assert(err, qt.IsNil)
+	cdb := NewTestCensusDB(t)
 	defer func() {
 		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
 
 	def := NewCensusDefinition(0, 0, map[common.Address]*big.Int{}, false)
-	_, err = cdb.treeDB.Get([]byte(censusDBKey(def.ID)))
+	_, err := cdb.treeDB.Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNotNil)
 
 	bdef := bytes.Buffer{}
@@ -122,8 +136,7 @@ func Test_save(t *testing.T) {
 
 func Test_publish(t *testing.T) {
 	c := qt.New(t)
-	cdb, err := NewCensusDB(t.TempDir(), "")
-	c.Assert(err, qt.IsNil)
+	cdb := NewTestCensusDB(t)
 	defer func() {
 		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
@@ -145,18 +158,16 @@ func Test_publish(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 	ref, err := cdb.publish(def)
 	c.Assert(err, qt.IsNil)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-	dump, err := cdb.storage.Retrieve(ctx, ref.URI, 0)
+	cid, ok := strings.CutPrefix(ref.URI, cdb.storage.URIprefix())
+	c.Assert(ok, qt.IsTrue)
+	dump, err := cdb.storage.Retrieve(context.TODO(), cid, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(dump, qt.ContentEquals, ref.Dump)
 }
 
 func Test_delete(t *testing.T) {
 	c := qt.New(t)
-	cdb, err := NewCensusDB(t.TempDir(), "")
-	c.Assert(err, qt.IsNil)
+	cdb := NewTestCensusDB(t)
 	defer func() {
 		c.Assert(cdb.storage.Stop(), qt.IsNil)
 	}()
@@ -164,7 +175,7 @@ func Test_delete(t *testing.T) {
 	def := NewCensusDefinition(0, 0, map[common.Address]*big.Int{}, false)
 	c.Assert(cdb.save(def), qt.IsNil)
 
-	_, err = cdb.treeDB.Get([]byte(censusDBKey(def.ID)))
+	_, err := cdb.treeDB.Get([]byte(censusDBKey(def.ID)))
 	c.Assert(err, qt.IsNil)
 	c.Assert(cdb.delete(def), qt.IsNil)
 

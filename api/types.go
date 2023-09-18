@@ -50,7 +50,7 @@ type TokenHoldersResponse struct {
 	Holders map[string]string `json:"holders"`
 }
 
-type CreateCensusResquest struct {
+type CreateCensusRequest struct {
 	StrategyID  uint64 `json:"strategyID"`
 	BlockNumber uint64 `json:"blockNumber"`
 	Anonymous   bool   `json:"anonymous"`
@@ -71,11 +71,11 @@ type GetCensusResponse struct {
 }
 
 type GetCensusesResponse struct {
-	Censuses []uint64 `json:"censuses"`
+	Censuses []uint32 `json:"censuses"`
 }
 
 type GetStrategiesResponse struct {
-	Strategies []uint64 `json:"strategies"`
+	Strategies []uint32 `json:"strategies"`
 }
 
 type GetStrategyToken struct {

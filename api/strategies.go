@@ -71,9 +71,9 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		return ErrNoStrategies
 	}
 	// parse and encode the strategies
-	strategies := GetStrategiesResponse{Strategies: []uint64{}}
+	strategies := GetStrategiesResponse{Strategies: []uint32{}}
 	for _, strategy := range rows {
-		strategies.Strategies = append(strategies.Strategies, uint64(strategy.ID))
+		strategies.Strategies = append(strategies.Strategies, uint32(strategy.ID))
 	}
 	res, err := json.Marshal(strategies)
 	if err != nil {
@@ -150,9 +150,9 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 		return ErrNoStrategies
 	}
 	// parse and encode strategies
-	strategies := GetStrategiesResponse{Strategies: []uint64{}}
+	strategies := GetStrategiesResponse{Strategies: []uint32{}}
 	for _, tokenStrategy := range rows {
-		strategies.Strategies = append(strategies.Strategies, uint64(tokenStrategy.ID))
+		strategies.Strategies = append(strategies.Strategies, uint32(tokenStrategy.ID))
 	}
 	res, err := json.Marshal(strategies)
 	if err != nil {

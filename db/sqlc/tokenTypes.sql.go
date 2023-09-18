@@ -24,7 +24,7 @@ DELETE FROM token_types
 WHERE id = ?
 `
 
-func (q *Queries) DeleteTokenType(ctx context.Context, id int64) (sql.Result, error) {
+func (q *Queries) DeleteTokenType(ctx context.Context, id uint64) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteTokenType, id)
 }
 
@@ -62,7 +62,7 @@ WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) TokenTypeByID(ctx context.Context, id int64) (TokenType, error) {
+func (q *Queries) TokenTypeByID(ctx context.Context, id uint64) (TokenType, error) {
 	row := q.db.QueryRowContext(ctx, tokenTypeByID, id)
 	var i TokenType
 	err := row.Scan(&i.ID, &i.TypeName)
@@ -90,7 +90,7 @@ WHERE id = ?
 
 type UpdateTokenTypeParams struct {
 	TypeName string
-	ID       int64
+	ID       uint64
 }
 
 func (q *Queries) UpdateTokenType(ctx context.Context, arg UpdateTokenTypeParams) (sql.Result, error) {

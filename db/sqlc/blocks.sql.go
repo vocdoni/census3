@@ -18,7 +18,7 @@ WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) BlockByID(ctx context.Context, id int64) (Block, error) {
+func (q *Queries) BlockByID(ctx context.Context, id uint64) (Block, error) {
 	row := q.db.QueryRowContext(ctx, blockByID, id)
 	var i Block
 	err := row.Scan(&i.ID, &i.Timestamp, &i.RootHash)
@@ -63,7 +63,7 @@ VALUES (
 `
 
 type CreateBlockParams struct {
-	ID        int64
+	ID        uint64
 	Timestamp string
 	RootHash  annotations.Hash
 }
@@ -77,7 +77,7 @@ DELETE FROM blocks
 WHERE id = ?
 `
 
-func (q *Queries) DeleteBlock(ctx context.Context, id int64) (sql.Result, error) {
+func (q *Queries) DeleteBlock(ctx context.Context, id uint64) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteBlock, id)
 }
 
@@ -87,9 +87,9 @@ ORDER BY id DESC
 LIMIT 1
 `
 
-func (q *Queries) LastBlock(ctx context.Context) (int64, error) {
+func (q *Queries) LastBlock(ctx context.Context) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, lastBlock)
-	var id int64
+	var id uint64
 	err := row.Scan(&id)
 	return id, err
 }
@@ -132,7 +132,7 @@ WHERE id = ?
 type UpdateBlockParams struct {
 	Timestamp string
 	RootHash  annotations.Hash
-	ID        int64
+	ID        uint64
 }
 
 func (q *Queries) UpdateBlock(ctx context.Context, arg UpdateBlockParams) (sql.Result, error) {

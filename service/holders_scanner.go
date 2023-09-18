@@ -29,7 +29,7 @@ var (
 // the tokens stored on the database (located on 'dataDir/dbFilename'). It
 // keeps the database updated scanning the network using the web3 endpoint.
 type HoldersScanner struct {
-	w3p       map[int64]string
+	w3p       map[uint64]string
 	tokens    map[common.Address]*state.TokenHolders
 	mutex     sync.RWMutex
 	db        *db.DB
@@ -39,7 +39,7 @@ type HoldersScanner struct {
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
-func NewHoldersScanner(db *db.DB, w3p map[int64]string) (*HoldersScanner, error) {
+func NewHoldersScanner(db *db.DB, w3p map[uint64]string) (*HoldersScanner, error) {
 	if db == nil {
 		return nil, ErrNoDB
 	}
@@ -54,7 +54,7 @@ func NewHoldersScanner(db *db.DB, w3p map[int64]string) (*HoldersScanner, error)
 	defer cancel()
 	lastBlock, err := s.db.QueriesRO.LastBlock(ctx)
 	if err == nil {
-		s.lastBlock = uint64(lastBlock)
+		s.lastBlock = lastBlock
 	}
 	return &s, nil
 }
@@ -199,12 +199,12 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	}
 	// if the current HoldersScanner last block not exists in the database,
 	// create it
-	if _, err := qtx.BlockByID(ctx, int64(th.LastBlock())); err != nil {
+	if _, err := qtx.BlockByID(ctx, th.LastBlock()); err != nil {
 		if !errors.Is(sql.ErrNoRows, err) {
 			return err
 		}
 		_, err = qtx.CreateBlock(ctx, queries.CreateBlockParams{
-			ID:        int64(th.LastBlock()),
+			ID:        th.LastBlock(),
 			Timestamp: timestamp,
 			RootHash:  rootHash,
 		})
@@ -238,7 +238,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
 				TokenID:  th.Address().Bytes(),
 				HolderID: holder.Bytes(),
-				BlockID:  int64(th.LastBlock()),
+				BlockID:  th.LastBlock(),
 				Balance:  balance.Bytes(),
 			})
 			if err != nil {
@@ -269,7 +269,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			TokenID:    th.Address().Bytes(),
 			HolderID:   holder.Bytes(),
 			BlockID:    currentTokenHolder.BlockID,
-			NewBlockID: int64(th.LastBlock()),
+			NewBlockID: th.LastBlock(),
 			Balance:    newBalance.Bytes(),
 		})
 		if err != nil {
@@ -312,9 +312,9 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 			return false, err
 		}
 		ttype := state.TokenType(tokenInfo.TypeID)
-		tokenLastBlock := uint64(tokenInfo.CreationBlock.Int32)
+		tokenLastBlock := uint64(tokenInfo.CreationBlock.Int64)
 		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
-			tokenLastBlock = uint64(blockNumber)
+			tokenLastBlock = blockNumber
 		}
 		th = new(state.TokenHolders).Init(addr, ttype, tokenLastBlock, tokenInfo.ChainID)
 		s.tokens[addr] = th
@@ -392,7 +392,7 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 	if err != nil {
 		return fmt.Errorf("error getting token creation block: %w", err)
 	}
-	dbCreationBlock := new(sql.NullInt32)
+	dbCreationBlock := new(sql.NullInt64)
 	if err := dbCreationBlock.Scan(creationBlock); err != nil {
 		return fmt.Errorf("error getting token creation block value: %w", err)
 	}

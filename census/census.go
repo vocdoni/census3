@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
+	"math"
 	"math/big"
 	"path/filepath"
 	"strconv"
@@ -239,7 +240,7 @@ func (cdb *CensusDB) delete(def *CensusDefinition) error {
 
 // censusDBKey returns the db key of the census tree in the database given a censusID.
 func censusDBKey(censusID uint64) string {
-	return fmt.Sprintf("%s%x", censusDBprefix, []byte(strconv.FormatUint(censusID, 10)))
+	return fmt.Sprintf("%s%x", censusDBprefix, []byte(fmt.Sprint(censusID)))
 }
 
 // InnerCensusID generates a unique identifier by concatenating the BlockNumber, StrategyID,
@@ -253,15 +254,15 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 	if anonymous {
 		anonymousUint = 1
 	}
-
 	// Concatenate the three values as strings
 	concatenated := fmt.Sprintf("%d%d%d", blockNumber, strategyID, anonymousUint)
-
 	// Convert the concatenated string back to a uint64
 	result, err := strconv.ParseUint(concatenated, 10, 64)
 	if err != nil {
 		panic(err)
 	}
-
+	if result > math.MaxInt64 {
+		panic(err)
+	}
 	return result
 }

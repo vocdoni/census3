@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type TokenType int
+type TokenType uint64
 
 var TokenTypeStringMap = map[TokenType]string{
 	CONTRACT_TYPE_UNKNOWN:                 "unknown",
@@ -50,11 +50,11 @@ type TokenData struct {
 	Type        TokenType
 	Name        string
 	Symbol      string
-	Decimals    uint8
+	Decimals    uint64
 	TotalSupply *big.Int
 }
 
 func (t *TokenData) String() string {
-	return fmt.Sprintf(`{"address":%s, "type":%s "name":%s,"symbol":%s,"decimals":%s,"totalSupply":%s}`,
-		t.Address, t.Type.String(), t.Name, t.Symbol, string(t.Decimals), t.TotalSupply.String())
+	return fmt.Sprintf(`{"address":%s, "type":%s "name":%s,"symbol":%s,"decimals":%d,"totalSupply":%s}`,
+		t.Address, t.Type.String(), t.Name, t.Symbol, t.Decimals, t.TotalSupply.String())
 }

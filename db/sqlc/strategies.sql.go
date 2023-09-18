@@ -32,7 +32,7 @@ VALUES (
 `
 
 type CreateStrategyTokenParams struct {
-	StrategyID int64
+	StrategyID uint64
 	TokenID    []byte
 	MinBalance []byte
 	MethodHash []byte
@@ -52,7 +52,7 @@ DELETE FROM strategies
 WHERE id = ?
 `
 
-func (q *Queries) DeleteStrategy(ctx context.Context, id int64) (sql.Result, error) {
+func (q *Queries) DeleteStrategy(ctx context.Context, id uint64) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteStrategy, id)
 }
 
@@ -62,7 +62,7 @@ WHERE strategy_id = ? AND token_id = ?
 `
 
 type DeleteStrategyTokenParams struct {
-	StrategyID int64
+	StrategyID uint64
 	TokenID    []byte
 }
 
@@ -134,7 +134,7 @@ WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) StrategyByID(ctx context.Context, id int64) (Strategy, error) {
+func (q *Queries) StrategyByID(ctx context.Context, id uint64) (Strategy, error) {
 	row := q.db.QueryRowContext(ctx, strategyByID, id)
 	var i Strategy
 	err := row.Scan(&i.ID, &i.Predicate)
@@ -162,7 +162,7 @@ LIMIT 1
 `
 
 type StrategyTokenByStrategyIDAndTokenIDParams struct {
-	StrategyID int64
+	StrategyID uint64
 	TokenID    []byte
 }
 
@@ -185,7 +185,7 @@ WHERE strategy_id = ? AND token_id = ? AND method_hash = ?
 `
 
 type StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams struct {
-	StrategyID int64
+	StrategyID uint64
 	TokenID    []byte
 	MethodHash []byte
 }
@@ -244,7 +244,7 @@ WHERE id = ?
 
 type UpdateStrategyParams struct {
 	Predicate string
-	ID        int64
+	ID        uint64
 }
 
 func (q *Queries) UpdateStrategy(ctx context.Context, arg UpdateStrategyParams) (sql.Result, error) {
@@ -261,7 +261,7 @@ WHERE strategy_id = ? AND token_id = ?
 type UpdateStrategyTokenParams struct {
 	MinBalance []byte
 	MethodHash []byte
-	StrategyID int64
+	StrategyID uint64
 	TokenID    []byte
 }
 

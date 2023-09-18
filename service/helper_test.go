@@ -63,17 +63,17 @@ func (testdb *TestDB) Close(t *testing.T) {
 	c.Assert(os.RemoveAll(testdb.dir), qt.IsNil)
 }
 
-func testTokenParams(id, name, symbol string, decimals, creationBlock, totalSupply,
-	typeID uint64, synced bool, chainID int64,
+func testTokenParams(id, name, symbol string, creationBlock, decimals, typeID uint64,
+	totalSupply int64, synced bool, chainID uint64,
 ) queries.CreateTokenParams {
 	return queries.CreateTokenParams{
 		ID:            common.HexToAddress(id).Bytes(),
 		Name:          sql.NullString{String: name, Valid: name != ""},
 		Symbol:        sql.NullString{String: symbol, Valid: symbol != ""},
-		Decimals:      sql.NullInt64{Int64: int64(decimals), Valid: decimals != 0},
+		Decimals:      decimals,
 		TotalSupply:   new(big.Int).SetInt64(int64(totalSupply)).Bytes(),
-		CreationBlock: sql.NullInt32{Int32: int32(creationBlock), Valid: creationBlock != 0},
-		TypeID:        int64(typeID),
+		CreationBlock: sql.NullInt64{Int64: int64(creationBlock), Valid: creationBlock != 0},
+		TypeID:        typeID,
 		Synced:        synced,
 		ChainID:       chainID,
 	}

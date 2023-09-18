@@ -16,7 +16,7 @@ type Census3APIConf struct {
 	Port          int
 	DataDir       string
 	GroupKey      string
-	Web3Providers map[int64]string
+	Web3Providers map[uint64]string
 }
 
 type census3API struct {
@@ -25,7 +25,7 @@ type census3API struct {
 	endpoint *api.API
 	censusDB *census.CensusDB
 	queue    *queue.BackgroundQueue
-	w3p      map[int64]string
+	w3p      map[uint64]string
 }
 
 func Init(db *db.DB, conf Census3APIConf) error {
@@ -78,7 +78,7 @@ func (capi *census3API) initAPIHandlers() error {
 }
 
 func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	chainIDs := []int64{}
+	chainIDs := []uint64{}
 	for chainID := range capi.w3p {
 		chainIDs = append(chainIDs, chainID)
 	}

@@ -9,7 +9,7 @@ import (
 
 var (
 	MonkeysAddress        = common.HexToAddress("0xF530280176385AF31177D78BbFD5eA3f6D07488A")
-	MonkeysCreationBlock  = int64(8901659)
+	MonkeysCreationBlock  = uint64(8901659)
 	MonkeysSymbol         = "MON"
 	MonkeysName           = "Monkeys"
 	MonkeysDecimals       = int64(18)

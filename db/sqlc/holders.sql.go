@@ -50,7 +50,7 @@ type CreateTokenHolderParams struct {
 	TokenID  []byte
 	HolderID []byte
 	Balance  []byte
-	BlockID  int64
+	BlockID  uint64
 }
 
 func (q *Queries) CreateTokenHolder(ctx context.Context, arg CreateTokenHolderParams) (sql.Result, error) {
@@ -105,9 +105,9 @@ ORDER BY block_id DESC
 LIMIT 1
 `
 
-func (q *Queries) LastBlockByTokenID(ctx context.Context, tokenID []byte) (int64, error) {
+func (q *Queries) LastBlockByTokenID(ctx context.Context, tokenID []byte) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, lastBlockByTokenID, tokenID)
-	var block_id int64
+	var block_id uint64
 	err := row.Scan(&block_id)
 	return block_id, err
 }
@@ -183,7 +183,7 @@ WHERE token_holders.token_id = ? AND token_holders.holder_id = ? AND token_holde
 type TokenHolderByTokenIDAndBlockIDAndHolderIDParams struct {
 	TokenID  []byte
 	HolderID []byte
-	BlockID  int64
+	BlockID  uint64
 }
 
 type TokenHolderByTokenIDAndBlockIDAndHolderIDRow struct {
@@ -215,7 +215,7 @@ type TokenHolderByTokenIDAndHolderIDRow struct {
 	TokenID  []byte
 	HolderID []byte
 	Balance  []byte
-	BlockID  int64
+	BlockID  uint64
 }
 
 func (q *Queries) TokenHolderByTokenIDAndHolderID(ctx context.Context, arg TokenHolderByTokenIDAndHolderIDParams) (TokenHolderByTokenIDAndHolderIDRow, error) {
@@ -275,7 +275,7 @@ WHERE token_holders.token_id = ? AND token_holders.block_id = ?
 
 type TokenHoldersByTokenIDAndBlockIDParams struct {
 	TokenID []byte
-	BlockID int64
+	BlockID uint64
 }
 
 func (q *Queries) TokenHoldersByTokenIDAndBlockID(ctx context.Context, arg TokenHoldersByTokenIDAndBlockIDParams) ([]annotations.Address, error) {
@@ -311,7 +311,7 @@ WHERE token_holders.token_id = ? AND token_holders.balance >= ? AND token_holder
 type TokenHoldersByTokenIDAndBlockIDAndMinBalanceParams struct {
 	TokenID []byte
 	Balance []byte
-	BlockID int64
+	BlockID uint64
 }
 
 func (q *Queries) TokenHoldersByTokenIDAndBlockIDAndMinBalance(ctx context.Context, arg TokenHoldersByTokenIDAndBlockIDAndMinBalanceParams) ([]annotations.Address, error) {
@@ -422,7 +422,7 @@ WHERE token_holders.holder_id = ? AND token_holders.block_id = ?
 
 type TokensByHolderIDAndBlockIDParams struct {
 	HolderID []byte
-	BlockID  int64
+	BlockID  uint64
 }
 
 func (q *Queries) TokensByHolderIDAndBlockID(ctx context.Context, arg TokensByHolderIDAndBlockIDParams) ([]Token, error) {
@@ -468,10 +468,10 @@ WHERE token_id = ? AND holder_id = ? AND block_id = ?
 
 type UpdateTokenHolderBalanceParams struct {
 	Balance    []byte
-	NewBlockID int64
+	NewBlockID uint64
 	TokenID    []byte
 	HolderID   []byte
-	BlockID    int64
+	BlockID    uint64
 }
 
 func (q *Queries) UpdateTokenHolderBalance(ctx context.Context, arg UpdateTokenHolderBalanceParams) (sql.Result, error) {

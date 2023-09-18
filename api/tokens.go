@@ -128,10 +128,10 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		ID:            info.Address.Bytes(),
 		Name:          *name,
 		Symbol:        *symbol,
-		Decimals:      int(info.Decimals),
+		Decimals:      info.Decimals,
 		TotalSupply:   totalSupply.Bytes(),
 		CreationBlock: *creationBlock,
-		TypeID:        int(tokenType),
+		TypeID:        uint64(tokenType),
 		Synced:        false,
 		Tag:           *tag,
 		ChainID:       req.ChainID,
@@ -169,7 +169,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ErrCantGetToken.WithErr(err)
 	}
-	defaultStrategyID := 0
+	defaultStrategyID := uint64(0)
 	if len(tokenStrategies) > 0 {
 		defaultStrategyID = tokenStrategies[0].ID
 	}
@@ -216,7 +216,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		ID:          address.String(),
 		Type:        state.TokenType(int(tokenData.TypeID)).String(),
 		Decimals:    tokenData.Decimals,
-		Size:        int(holders),
+		Size:        uint64(holders),
 		Name:        tokenData.Name.String,
 		Symbol:      tokenData.Symbol.String,
 		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply).String(),
@@ -231,7 +231,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		ChainID:         tokenData.ChainID,
 	}
 	if tokenData.CreationBlock.Valid {
-		tokenResponse.StartBlock = tokenData.CreationBlock.Int64
+		tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int64)
 	}
 	res, err := json.Marshal(tokenResponse)
 	if err != nil {

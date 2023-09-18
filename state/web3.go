@@ -206,9 +206,11 @@ func (w *Web3) TokenData() (*TokenData, error) {
 		return nil, ErrTokenData
 	}
 
-	if td.Decimals, err = w.TokenDecimals(); err != nil {
+	decimals, err := w.TokenDecimals()
+	if err != nil {
 		return nil, ErrTokenData
 	}
+	td.Decimals = uint64(decimals)
 
 	if td.TotalSupply, err = w.TokenTotalSupply(); err != nil {
 		return nil, ErrTokenData
@@ -289,12 +291,12 @@ func (w *Web3) BlockRootHash(ctx context.Context, blockNumber uint) ([]byte, err
 
 // LatestBlockNumber function return the number of the latest block of the
 // current web3 client network
-func (w *Web3) LatestBlockNumber(ctx context.Context) (int64, error) {
+func (w *Web3) LatestBlockNumber(ctx context.Context) (uint64, error) {
 	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
-	return lastBlockHeader.Number.Int64(), nil
+	return lastBlockHeader.Number.Uint64(), nil
 }
 
 // UpdateTokenHolders function checks the transfer logs of the given contract
@@ -302,7 +304,7 @@ func (w *Web3) LatestBlockNumber(ctx context.Context) (int64, error) {
 // addresses (candidates to holders) and their balances from the given block
 // number to the latest block number and submit the results using
 // Web3.submitTokenHolders function.
-func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (int64, error) {
+func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64, error) {
 	// fetch the last block header
 	lastBlockNumber, err := w.LatestBlockNumber(ctx)
 	if err != nil {
@@ -330,7 +332,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (int64,
 	// address with a positive balance at the end of logs review. It requires
 	// take into account the countability of the candidates' balances.
 	logCount := 0
-	newBlocksMap := make(map[int64]bool)
+	newBlocksMap := make(map[uint64]bool)
 	holdersCandidates := HoldersCandidates{}
 	startTime := time.Now()
 	for fromBlockNumber < toBlock {
@@ -369,10 +371,10 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (int64,
 				continue
 			}
 			logCount += len(logs)
-			blocksToSave := make(map[int64]bool)
+			blocksToSave := make(map[uint64]bool)
 			// iterate over the logs and update the token holders state
 			for _, currentLog := range logs {
-				currentLogBlockNumber := int64(currentLog.BlockNumber)
+				currentLogBlockNumber := currentLog.BlockNumber
 				// If the current log block number is already scanned proceed to
 				// the next iteration.
 				if _, ok := newBlocksMap[currentLogBlockNumber]; !ok {
@@ -421,7 +423,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (int64,
 // getTransferLogs function queries to the web3 endpoint for the transfer logs
 // of the token provided, that are included in the range of blocks defined by
 // the from block number provided to the following number of blocks given.
-func (w *Web3) transferLogs(fromBlock, nblocks int64) ([]types.Log, error) {
+func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
 	// create the filter query
 	query := eth.FilterQuery{
 		Addresses: []common.Address{w.contractAddress},
@@ -588,7 +590,7 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 // commitTokenHolders function checks each candidate to token holder provided,
 // and removes any with a zero balance before store them. It also checks the
 // balances of the current holders, deleting those with no funds.
-func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates, blockNumber int64) error {
+func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates, blockNumber uint64) error {
 	// remove null address from candidates
 	delete(candidates, common.HexToAddress(NULL_ADDRESS))
 	// delete holder candidates without funds
@@ -603,17 +605,17 @@ func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates
 // ContractCreationBlock function calculates the block number where the
 // current was created. It tries to calculate it using the first block (0) and
 // the current last block.
-func (w *Web3) ContractCreationBlock(ctx context.Context) (int64, error) {
+func (w *Web3) ContractCreationBlock(ctx context.Context) (uint64, error) {
 	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
-	return w.creationBlockInRange(ctx, 0, lastBlockHeader.Number.Int64())
+	return w.creationBlockInRange(ctx, 0, lastBlockHeader.Number.Uint64())
 }
 
 // creationBlockInRange function finds the block number of a contract between
 // the bounds provided as start and end blocks.
-func (w *Web3) creationBlockInRange(ctx context.Context, start, end int64) (int64, error) {
+func (w *Web3) creationBlockInRange(ctx context.Context, start, end uint64) (uint64, error) {
 	// if both block numbers are equal, return its value as birthblock
 	if start == end {
 		return start, nil
@@ -636,8 +638,8 @@ func (w *Web3) creationBlockInRange(ctx context.Context, start, end int64) (int6
 
 // SourceCodeLenAt function returns the length of the current contract bytecode
 // at the block number provided.
-func (w *Web3) SourceCodeLenAt(ctx context.Context, atBlockNumber int64) (int, error) {
-	blockNumber := new(big.Int).SetInt64(atBlockNumber)
+func (w *Web3) SourceCodeLenAt(ctx context.Context, atBlockNumber uint64) (int, error) {
+	blockNumber := new(big.Int).SetUint64(atBlockNumber)
 	sourceCode, err := w.client.CodeAt(ctx, w.contractAddress, blockNumber)
 	return len(sourceCode), err
 }

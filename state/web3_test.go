@@ -211,7 +211,7 @@ func TestLatestBlockNumber(t *testing.T) {
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
 	blockNumber, err := w.LatestBlockNumber(ctx)
 	c.Assert(err, qt.IsNil)
-	c.Assert(blockNumber > MonkeysCreationBlock, qt.IsTrue)
+	c.Assert(uint64(blockNumber) > MonkeysCreationBlock, qt.IsTrue)
 }
 
 func TestUpdateTokenHolders(t *testing.T) {
@@ -333,11 +333,11 @@ func Test_creationBlockInRange(t *testing.T) {
 
 	blockNumber, err := w.creationBlockInRange(ctx, 0, 10)
 	c.Assert(err, qt.IsNil)
-	c.Assert(blockNumber, qt.Equals, int64(10))
+	c.Assert(blockNumber, qt.Equals, uint64(10))
 
 	blockNumber, err = w.creationBlockInRange(ctx, 0, 1)
 	c.Assert(err, qt.IsNil)
-	c.Assert(blockNumber, qt.Equals, int64(1))
+	c.Assert(blockNumber, qt.Equals, uint64(1))
 
 	blockNumber, err = w.creationBlockInRange(ctx, 0, 9000000)
 	c.Assert(err, qt.IsNil)

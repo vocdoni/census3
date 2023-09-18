@@ -29,17 +29,17 @@ var (
 // the tokens stored on the database (located on 'dataDir/dbFilename'). It
 // keeps the database updated scanning the network using the web3 endpoint.
 type HoldersScanner struct {
-	w3p       map[int64]string
+	w3p       map[uint64]string
 	tokens    map[common.Address]*state.TokenHolders
 	mutex     sync.RWMutex
 	db        *db.DB
-	lastBlock int64
+	lastBlock uint64
 }
 
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
-func NewHoldersScanner(db *db.DB, w3p map[int64]string) (*HoldersScanner, error) {
+func NewHoldersScanner(db *db.DB, w3p map[uint64]string) (*HoldersScanner, error) {
 	if db == nil {
 		return nil, ErrNoDB
 	}
@@ -238,7 +238,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
 				TokenID:  th.Address().Bytes(),
 				HolderID: holder.Bytes(),
-				BlockID:  int64(th.LastBlock()),
+				BlockID:  th.LastBlock(),
 				Balance:  balance.Bytes(),
 			})
 			if err != nil {
@@ -269,7 +269,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			TokenID:    th.Address().Bytes(),
 			HolderID:   holder.Bytes(),
 			BlockID:    currentTokenHolder.BlockID,
-			NewBlockID: int64(th.LastBlock()),
+			NewBlockID: th.LastBlock(),
 			Balance:    newBalance.Bytes(),
 		})
 		if err != nil {
@@ -312,7 +312,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 			return false, err
 		}
 		ttype := state.TokenType(tokenInfo.TypeID)
-		tokenLastBlock := tokenInfo.CreationBlock.Int64
+		tokenLastBlock := uint64(tokenInfo.CreationBlock.Int64)
 		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
 			tokenLastBlock = blockNumber
 		}

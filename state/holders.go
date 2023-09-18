@@ -21,15 +21,15 @@ type TokenHolders struct {
 	ctype     TokenType
 	holders   sync.Map
 	blocks    sync.Map
-	lastBlock atomic.Int64
+	lastBlock atomic.Uint64
 	synced    atomic.Bool
-	ChainID   int64
+	ChainID   uint64
 }
 
 // Init function fills the given TokenHolders struct with the address and type
 // given, also checks the block number provided as done. It returns the
 // TokenHolders struct updated.
-func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block int64, chainID int64) *TokenHolders {
+func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block, chainID uint64) *TokenHolders {
 	h.address = addr
 	h.ctype = ctype
 	h.holders = sync.Map{}
@@ -100,7 +100,7 @@ func (h *TokenHolders) FlushHolders() {
 // BlockDone function checks the block number provided as checked appending it
 // to the given TokenHolders list of blocks. If it is greater than the current
 // TokenHolders block number, it will be updated.
-func (h *TokenHolders) BlockDone(blockNumber int64) {
+func (h *TokenHolders) BlockDone(blockNumber uint64) {
 	h.blocks.Store(blockNumber, true)
 	h.synced.Store(false)
 	h.lastBlock.CompareAndSwap(h.lastBlock.Load(), blockNumber)
@@ -108,14 +108,14 @@ func (h *TokenHolders) BlockDone(blockNumber int64) {
 
 // HasBlock function returns if the provided block number has already checked by
 // the given TokenHolders.
-func (h *TokenHolders) HasBlock(blockNumber int64) bool {
+func (h *TokenHolders) HasBlock(blockNumber uint64) bool {
 	_, exists := h.blocks.Load(blockNumber)
 	return exists
 }
 
 // LastBlock function returns the number of latest block registered.
-func (h *TokenHolders) LastBlock() int64 {
-	return int64(h.lastBlock.Load())
+func (h *TokenHolders) LastBlock() uint64 {
+	return h.lastBlock.Load()
 }
 
 // Synced function marks the current TokenHolders struct as synced with the

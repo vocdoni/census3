@@ -50,9 +50,9 @@ type TokenHoldersResponse struct {
 	Holders map[string]string `json:"holders"`
 }
 
-type CreateCensusResquest struct {
-	StrategyID  uint64 `json:"strategyId"`
-	BlockNumber uint64 `json:"blockNumber"`
+type CreateCensusRequest struct {
+	StrategyID  uint32 `json:"strategyId"`
+	BlockNumber uint32 `json:"blockNumber"`
 	Anonymous   bool   `json:"anonymous"`
 }
 
@@ -61,8 +61,8 @@ type CreateCensusResponse struct {
 }
 
 type GetCensusResponse struct {
-	CensusID   uint64 `json:"censusId"`
-	StrategyID uint64 `json:"strategyId"`
+	CensusID   uint32 `json:"censusId"`
+	StrategyID uint32 `json:"strategyId"`
 	MerkleRoot string `json:"merkleRoot"`
 	URI        string `json:"uri"`
 	Size       int32  `json:"size"`
@@ -71,11 +71,11 @@ type GetCensusResponse struct {
 }
 
 type GetCensusesResponse struct {
-	Censuses []uint64 `json:"censuses"`
+	Censuses []uint32 `json:"censuses"`
 }
 
 type GetStrategiesResponse struct {
-	Strategies []uint64 `json:"strategies"`
+	Strategies []uint32 `json:"strategies"`
 }
 
 type GetStrategyToken struct {

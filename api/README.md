@@ -100,6 +100,7 @@ Triggers a new scan for the provided token, starting from the defined block.
 |:---:|:---|:---:|
 | 400 | `malformed token information` | 4000 | 
 | 409 | `token already created` | 4009 | 
+| 400 | `chain ID provided not supported` | 4013 | 
 | 500 | `the token cannot be created` | 5000 | 
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error initialising web3 client` | 5019 | 

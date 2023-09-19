@@ -74,7 +74,6 @@ CREATE TABLE strategy_tokens (
     strategy_id INTEGER NOT NULL,
     token_id BLOB NOT NULL,
     min_balance BLOB NOT NULL,
-    method_hash BLOB NOT NULL,
     PRIMARY KEY (strategy_id, token_id),
     FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE,
     FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE

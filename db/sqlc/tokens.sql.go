@@ -193,7 +193,7 @@ func (q *Queries) TokenBySymbol(ctx context.Context, symbol sql.NullString) (Tok
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM tokens t
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, st.strategy_id, st.token_id, st.min_balance FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
@@ -213,7 +213,6 @@ type TokensByStrategyIDRow struct {
 	StrategyID    uint64
 	TokenID       []byte
 	MinBalance    []byte
-	MethodHash    []byte
 }
 
 func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]TokensByStrategyIDRow, error) {
@@ -239,7 +238,6 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]
 			&i.StrategyID,
 			&i.TokenID,
 			&i.MinBalance,
-			&i.MethodHash,
 		); err != nil {
 			return nil, err
 		}

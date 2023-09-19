@@ -160,20 +160,17 @@ Stores a new strategy based on the defined combination of tokens provided, these
         {
             "ID": "0x1324",
             "name": "wANT",
-            "minBalance": "10000",
-            "method": "0x8230"
+            "minBalance": "10000"
         },
         {
             "ID": "0x5678",
             "name": "USDC",
-            "minBalance": "20000",
-            "method": "0x3241" 
+            "minBalance": "20000"
         },
         {
             "ID": "0x9da2",
             "name": "ANT",
-            "minBalance": "1",
-            "method": "0x9db1"
+            "minBalance": "1"
         }
     ],
     "strategy": "(wANT OR ANT) AND USDC"
@@ -227,20 +224,17 @@ Returns the information of the strategy related to the provided ID.
         {
             "ID": "0x1324",
             "name": "wANT",
-            "minBalance": "10000",
-            "method": "0x8230" 
+            "minBalance": "10000"
         },
         {
             "ID": "0x5678",
             "name": "USDC",
-            "minBalance": "20000",
-            "method": "0x3241" 
+            "minBalance": "20000"
         },
         {
             "ID": "0x9da2",
             "name": "ANT",
-            "minBalance": "1",
-            "method": "0x9db1" 
+            "minBalance": "1"
         }
     ],
     "strategy": "(wANT OR ANT) AND USDC"

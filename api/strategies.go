@@ -55,7 +55,6 @@ func (capi *census3API) createDummyStrategy(tokenID []byte) error {
 		StrategyID: uint64(strategyID),
 		TokenID:    tokenID,
 		MinBalance: big.NewInt(0).Bytes(),
-		MethodHash: []byte("test"),
 	})
 	return err
 }
@@ -128,7 +127,6 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 			ID:         common.BytesToAddress(tokenData.ID).String(),
 			Name:       tokenData.Name.String,
 			MinBalance: new(big.Int).SetBytes(tokenData.MinBalance).String(),
-			Method:     common.Bytes2Hex(tokenData.MethodHash),
 		})
 	}
 	res, err := json.Marshal(strategy)

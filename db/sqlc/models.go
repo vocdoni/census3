@@ -40,7 +40,6 @@ type StrategyToken struct {
 	StrategyID uint64
 	TokenID    []byte
 	MinBalance []byte
-	MethodHash []byte
 }
 
 type Token struct {

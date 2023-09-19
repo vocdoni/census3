@@ -35,17 +35,15 @@ WHERE id = ?;
 INSERT INTO strategy_tokens (
     strategy_id,
     token_id,
-    min_balance,
-    method_hash
+    min_balance
 )
 VALUES (
-    ?, ?, ?, ?
+    ?, ?, ?
 );
 
 -- name: UpdateStrategyToken :execresult
 UPDATE strategy_tokens
-SET min_balance = sqlc.arg(min_balance),
-    method_hash = sqlc.arg(method_hash)
+SET min_balance = sqlc.arg(min_balance)
 WHERE strategy_id = sqlc.arg(strategy_id) AND token_id = sqlc.arg(token_id);
 
 -- name: DeleteStrategyToken :execresult
@@ -66,4 +64,4 @@ LIMIT 1;
 -- name: StrategyTokenByStrategyIDAndTokenIDAndMethodHash :one
 SELECT *
 FROM strategy_tokens
-WHERE strategy_id = ? AND token_id = ? AND method_hash = ?;
+WHERE strategy_id = ? AND token_id = ?;

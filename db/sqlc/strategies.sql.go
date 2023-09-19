@@ -23,11 +23,10 @@ const createStrategyToken = `-- name: CreateStrategyToken :execresult
 INSERT INTO strategy_tokens (
     strategy_id,
     token_id,
-    min_balance,
-    method_hash
+    min_balance
 )
 VALUES (
-    ?, ?, ?, ?
+    ?, ?, ?
 )
 `
 
@@ -35,16 +34,10 @@ type CreateStrategyTokenParams struct {
 	StrategyID uint64
 	TokenID    []byte
 	MinBalance []byte
-	MethodHash []byte
 }
 
 func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTokenParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createStrategyToken,
-		arg.StrategyID,
-		arg.TokenID,
-		arg.MinBalance,
-		arg.MethodHash,
-	)
+	return q.db.ExecContext(ctx, createStrategyToken, arg.StrategyID, arg.TokenID, arg.MinBalance)
 }
 
 const deleteStrategy = `-- name: DeleteStrategy :execresult
@@ -155,7 +148,7 @@ func (q *Queries) StrategyByPredicate(ctx context.Context, predicate string) (St
 }
 
 const strategyTokenByStrategyIDAndTokenID = `-- name: StrategyTokenByStrategyIDAndTokenID :one
-SELECT strategy_id, token_id, min_balance, method_hash
+SELECT strategy_id, token_id, min_balance
 FROM strategy_tokens
 WHERE strategy_id = ? AND token_id = ?
 LIMIT 1
@@ -169,41 +162,30 @@ type StrategyTokenByStrategyIDAndTokenIDParams struct {
 func (q *Queries) StrategyTokenByStrategyIDAndTokenID(ctx context.Context, arg StrategyTokenByStrategyIDAndTokenIDParams) (StrategyToken, error) {
 	row := q.db.QueryRowContext(ctx, strategyTokenByStrategyIDAndTokenID, arg.StrategyID, arg.TokenID)
 	var i StrategyToken
-	err := row.Scan(
-		&i.StrategyID,
-		&i.TokenID,
-		&i.MinBalance,
-		&i.MethodHash,
-	)
+	err := row.Scan(&i.StrategyID, &i.TokenID, &i.MinBalance)
 	return i, err
 }
 
 const strategyTokenByStrategyIDAndTokenIDAndMethodHash = `-- name: StrategyTokenByStrategyIDAndTokenIDAndMethodHash :one
-SELECT strategy_id, token_id, min_balance, method_hash
+SELECT strategy_id, token_id, min_balance
 FROM strategy_tokens
-WHERE strategy_id = ? AND token_id = ? AND method_hash = ?
+WHERE strategy_id = ? AND token_id = ?
 `
 
 type StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams struct {
 	StrategyID uint64
 	TokenID    []byte
-	MethodHash []byte
 }
 
 func (q *Queries) StrategyTokenByStrategyIDAndTokenIDAndMethodHash(ctx context.Context, arg StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams) (StrategyToken, error) {
-	row := q.db.QueryRowContext(ctx, strategyTokenByStrategyIDAndTokenIDAndMethodHash, arg.StrategyID, arg.TokenID, arg.MethodHash)
+	row := q.db.QueryRowContext(ctx, strategyTokenByStrategyIDAndTokenIDAndMethodHash, arg.StrategyID, arg.TokenID)
 	var i StrategyToken
-	err := row.Scan(
-		&i.StrategyID,
-		&i.TokenID,
-		&i.MinBalance,
-		&i.MethodHash,
-	)
+	err := row.Scan(&i.StrategyID, &i.TokenID, &i.MinBalance)
 	return i, err
 }
 
 const strategyTokens = `-- name: StrategyTokens :many
-SELECT strategy_id, token_id, min_balance, method_hash
+SELECT strategy_id, token_id, min_balance
 FROM strategy_tokens
 ORDER BY strategy_id, token_id
 `
@@ -217,12 +199,7 @@ func (q *Queries) StrategyTokens(ctx context.Context) ([]StrategyToken, error) {
 	var items []StrategyToken
 	for rows.Next() {
 		var i StrategyToken
-		if err := rows.Scan(
-			&i.StrategyID,
-			&i.TokenID,
-			&i.MinBalance,
-			&i.MethodHash,
-		); err != nil {
+		if err := rows.Scan(&i.StrategyID, &i.TokenID, &i.MinBalance); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -253,23 +230,16 @@ func (q *Queries) UpdateStrategy(ctx context.Context, arg UpdateStrategyParams) 
 
 const updateStrategyToken = `-- name: UpdateStrategyToken :execresult
 UPDATE strategy_tokens
-SET min_balance = ?,
-    method_hash = ?
+SET min_balance = ?
 WHERE strategy_id = ? AND token_id = ?
 `
 
 type UpdateStrategyTokenParams struct {
 	MinBalance []byte
-	MethodHash []byte
 	StrategyID uint64
 	TokenID    []byte
 }
 
 func (q *Queries) UpdateStrategyToken(ctx context.Context, arg UpdateStrategyTokenParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateStrategyToken,
-		arg.MinBalance,
-		arg.MethodHash,
-		arg.StrategyID,
-		arg.TokenID,
-	)
+	return q.db.ExecContext(ctx, updateStrategyToken, arg.MinBalance, arg.StrategyID, arg.TokenID)
 }

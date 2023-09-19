@@ -25,7 +25,7 @@ CREATE TABLE tokens (
     creation_block BIGINT,
     type_id INTEGER NOT NULL,
     synced BOOLEAN NOT NULL,
-    tag TEXT,
+    tags TEXT,
     chain_id INTEGER NOT NULL,
     UNIQUE (id, chain_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE

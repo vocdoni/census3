@@ -59,7 +59,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			Type:       state.TokenType(int(tokenData.TypeID)).String(),
 			Name:       tokenData.Name.String,
 			StartBlock: tokenData.CreationBlock.Int64,
-			Tag:        tokenData.Tag.String,
+			Tags:       tokenData.Tags.String,
 			Symbol:     tokenData.Symbol.String,
 			ChainID:    tokenData.ChainID,
 		}
@@ -108,7 +108,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		symbol        = new(sql.NullString)
 		creationBlock = new(sql.NullInt64)
 		totalSupply   = new(big.Int)
-		tag           = new(sql.NullString)
+		tags          = new(sql.NullString)
 	)
 	if err := name.Scan(info.Name); err != nil {
 		return ErrCantGetToken.WithErr(err)
@@ -119,8 +119,8 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	if info.TotalSupply != nil {
 		totalSupply = info.TotalSupply
 	}
-	if req.Tag != "" {
-		if err := tag.Scan(req.Tag); err != nil {
+	if req.Tags != "" {
+		if err := tags.Scan(req.Tags); err != nil {
 			return ErrCantGetToken.WithErr(err)
 		}
 	}
@@ -133,7 +133,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		CreationBlock: *creationBlock,
 		TypeID:        uint64(tokenType),
 		Synced:        false,
-		Tag:           *tag,
+		Tags:          *tags,
 		ChainID:       req.ChainID,
 	})
 	if err != nil {
@@ -223,7 +223,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 			Synced:   tokenData.Synced,
 			Progress: tokenProgress,
 		},
-		Tag: tokenData.Tag.String,
+		Tags: tokenData.Tags.String,
 		// TODO: Only for the MVP, consider to remove it
 		DefaultStrategy: defaultStrategyID,
 		ChainID:         tokenData.ChainID,

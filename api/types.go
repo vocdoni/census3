@@ -3,7 +3,7 @@ package api
 type CreateTokenRequest struct {
 	ID      string `json:"ID"`
 	Type    string `json:"type"`
-	Tag     string `json:"tag"`
+	Tags    string `json:"tags"`
 	ChainID uint64 `json:"chainID"`
 }
 
@@ -24,7 +24,7 @@ type GetTokenResponse struct {
 	Status          *GetTokenStatusResponse `json:"status"`
 	Size            uint64                  `json:"size"`
 	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
-	Tag             string                  `json:"tag,omitempty"`
+	Tags            string                  `json:"tags,omitempty"`
 	ChainID         uint64                  `json:"chainID"`
 }
 
@@ -34,7 +34,7 @@ type GetTokensItem struct {
 	StartBlock int64  `json:"startBlock"`
 	Name       string `json:"name"`
 	Symbol     string `json:"symbol"`
-	Tag        string `json:"tag,omitempty"`
+	Tags       string `json:"tags,omitempty"`
 	ChainID    uint64 `json:"chainID"`
 }
 

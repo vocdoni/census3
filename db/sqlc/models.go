@@ -52,7 +52,7 @@ type Token struct {
 	CreationBlock sql.NullInt64
 	TypeID        uint64
 	Synced        bool
-	Tag           sql.NullString
+	Tags          sql.NullString
 	ChainID       uint64
 }
 

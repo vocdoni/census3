@@ -42,14 +42,14 @@ List of already added tokens.
             "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
             "startBlock": 123456,
             "symbol": "wANT",
-            "tag": "testTag1,testTag2",
+            "tags": "testTag1,testTag2",
             "chainID": 1
         }
     ]
 }
 ```
 
-> If `tag` is empty, it will be ommited.
+> If `tags` is empty, it will be ommited.
 
 - ⚠️ errors:
 
@@ -88,12 +88,12 @@ Triggers a new scan for the provided token, starting from the defined block.
 {
     "ID": "0x1234",
     "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
-    "tag": "testTag1,testTag2",
+    "tags": "testTag1,testTag2",
     "chainID": 1
 }
 ```
 
-> `tag` attribute is *optional*.
+> `tags` attribute is *optional*.
 
 - ⚠️ errors:
 
@@ -126,12 +126,12 @@ Returns the information about the token referenced by the provided ID.
         "progress": 87
     },
     "defaultStrategy": 1,
-    "tag": "testTag1,testTag2",
+    "tags": "testTag1,testTag2",
     "chainID": 1
 }
 ```
 
-> If `tag` is empty, it will be ommited.
+> If `tags` is empty, it will be ommited.
 
 - ⚠️ errors:
 
@@ -318,7 +318,6 @@ Returns the information of the snapshots related to the provided ID.
     "uri": "ipfs://Qma....",
     "size": 1000,
     "weight": "200000000000000000000",
-    "chainID": 1,
     "anonymous": true
 }
 ```

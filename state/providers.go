@@ -8,12 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func CheckWeb3Providers(providersURIs []string) (map[int64]string, error) {
+func CheckWeb3Providers(providersURIs []string) (map[uint64]string, error) {
 	if len(providersURIs) == 0 {
 		return nil, fmt.Errorf("no URIs provided")
 	}
 
-	providers := make(map[int64]string)
+	providers := make(map[uint64]string)
 	for _, uri := range providersURIs {
 		cli, err := ethclient.Dial(uri)
 		if err != nil {
@@ -27,7 +27,7 @@ func CheckWeb3Providers(providersURIs []string) (map[int64]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error getting the chainID from the web3 provider '%s': %w", uri, err)
 		}
-		providers[chainID.Int64()] = uri
+		providers[uint64(chainID.Int64())] = uri
 	}
 	return providers, nil
 }

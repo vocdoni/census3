@@ -18,7 +18,7 @@ WHERE id = ?
 LIMIT 1
 `
 
-func (q *Queries) CensusByID(ctx context.Context, id int64) (Censuse, error) {
+func (q *Queries) CensusByID(ctx context.Context, id uint64) (Censuse, error) {
 	row := q.db.QueryRowContext(ctx, censusByID, id)
 	var i Censuse
 	err := row.Scan(
@@ -83,7 +83,7 @@ SELECT id, strategy_id, merkle_root, uri, size, weight, census_type, queue_id FR
 WHERE strategy_id = ?
 `
 
-func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID int64) ([]Censuse, error) {
+func (q *Queries) CensusByStrategyID(ctx context.Context, strategyID uint64) ([]Censuse, error) {
 	rows, err := q.db.QueryContext(ctx, censusByStrategyID, strategyID)
 	if err != nil {
 		return nil, err
@@ -135,57 +135,6 @@ func (q *Queries) CensusByURI(ctx context.Context, uri sql.NullString) (Censuse,
 		&i.QueueID,
 	)
 	return i, err
-}
-
-const censusesByStrategyIDAndBlockID = `-- name: CensusesByStrategyIDAndBlockID :many
-SELECT c.id, c.strategy_id, c.merkle_root, c.uri, c.size, c.weight, c.census_type, c.queue_id FROM censuses c
-JOIN census_blocks cb ON c.id = cb.census_id
-WHERE c.strategy_id = ? AND cb.block_id = ?
-LIMIT ? OFFSET ?
-`
-
-type CensusesByStrategyIDAndBlockIDParams struct {
-	StrategyID int64
-	BlockID    int64
-	Limit      int32
-	Offset     int32
-}
-
-func (q *Queries) CensusesByStrategyIDAndBlockID(ctx context.Context, arg CensusesByStrategyIDAndBlockIDParams) ([]Censuse, error) {
-	rows, err := q.db.QueryContext(ctx, censusesByStrategyIDAndBlockID,
-		arg.StrategyID,
-		arg.BlockID,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Censuse
-	for rows.Next() {
-		var i Censuse
-		if err := rows.Scan(
-			&i.ID,
-			&i.StrategyID,
-			&i.MerkleRoot,
-			&i.Uri,
-			&i.Size,
-			&i.Weight,
-			&i.CensusType,
-			&i.QueueID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const censusesByTokenID = `-- name: CensusesByTokenID :many
@@ -290,13 +239,13 @@ VALUES (
 `
 
 type CreateCensusParams struct {
-	ID         int64
-	StrategyID int64
+	ID         uint64
+	StrategyID uint64
 	MerkleRoot annotations.Hash
 	Uri        sql.NullString
-	Size       sql.NullInt32
+	Size       uint64
 	Weight     sql.NullString
-	CensusType int64
+	CensusType uint64
 	QueueID    string
 }
 
@@ -313,46 +262,13 @@ func (q *Queries) CreateCensus(ctx context.Context, arg CreateCensusParams) (sql
 	)
 }
 
-const createCensusBlock = `-- name: CreateCensusBlock :execresult
-INSERT INTO census_blocks (
-    census_id,
-    block_id
-)
-VALUES (
-    ?, ?
-)
-`
-
-type CreateCensusBlockParams struct {
-	CensusID int64
-	BlockID  int64
-}
-
-func (q *Queries) CreateCensusBlock(ctx context.Context, arg CreateCensusBlockParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createCensusBlock, arg.CensusID, arg.BlockID)
-}
-
 const deleteCensus = `-- name: DeleteCensus :execresult
 DELETE FROM censuses
 WHERE id = ?
 `
 
-func (q *Queries) DeleteCensus(ctx context.Context, id int64) (sql.Result, error) {
+func (q *Queries) DeleteCensus(ctx context.Context, id uint64) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteCensus, id)
-}
-
-const deleteCensusBlock = `-- name: DeleteCensusBlock :execresult
-DELETE FROM census_blocks
-WHERE census_id = ? AND block_id = ?
-`
-
-type DeleteCensusBlockParams struct {
-	CensusID int64
-	BlockID  int64
-}
-
-func (q *Queries) DeleteCensusBlock(ctx context.Context, arg DeleteCensusBlockParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteCensusBlock, arg.CensusID, arg.BlockID)
 }
 
 const lastCensusID = `-- name: LastCensusID :one
@@ -362,9 +278,9 @@ ORDER BY id DESC
 LIMIT 1
 `
 
-func (q *Queries) LastCensusID(ctx context.Context) (int64, error) {
+func (q *Queries) LastCensusID(ctx context.Context) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, lastCensusID)
-	var id int64
+	var id uint64
 	err := row.Scan(&id)
 	return id, err
 }
@@ -418,9 +334,9 @@ WHERE id = ?
 type UpdateCensusParams struct {
 	MerkleRoot annotations.Hash
 	Uri        sql.NullString
-	Size       sql.NullInt32
+	Size       uint64
 	Weight     sql.NullString
-	ID         int64
+	ID         uint64
 }
 
 func (q *Queries) UpdateCensus(ctx context.Context, arg UpdateCensusParams) (sql.Result, error) {
@@ -430,26 +346,5 @@ func (q *Queries) UpdateCensus(ctx context.Context, arg UpdateCensusParams) (sql
 		arg.Size,
 		arg.Weight,
 		arg.ID,
-	)
-}
-
-const updateCensusBlock = `-- name: UpdateCensusBlock :execresult
-UPDATE census_blocks
-SET census_id = ?,
-    block_id = ?
-WHERE census_id = ? AND block_id = ?
-`
-
-type UpdateCensusBlockParams struct {
-	CensusID int64
-	BlockID  int64
-}
-
-func (q *Queries) UpdateCensusBlock(ctx context.Context, arg UpdateCensusBlockParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateCensusBlock,
-		arg.CensusID,
-		arg.BlockID,
-		arg.CensusID,
-		arg.BlockID,
 	)
 }

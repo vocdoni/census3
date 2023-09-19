@@ -181,7 +181,7 @@ var (
 	ErrCantGetTokenCount = apirest.APIerror{
 		Code:       5020,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
-		Err:        fmt.Errorf("error counting census size"),
+		Err:        fmt.Errorf("error getting number of token holders"),
 	}
 	ErrCantGetLastBlockNumber = apirest.APIerror{
 		Code:       5021,

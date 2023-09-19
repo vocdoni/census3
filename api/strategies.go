@@ -7,7 +7,6 @@ import (
 	"errors"
 	"math/big"
 	"strconv"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
@@ -16,15 +15,15 @@ import (
 )
 
 func (capi *census3API) initStrategiesHandlers() error {
-	if err := capi.endpoint.RegisterMethod("/strategy/", "GET",
+	if err := capi.endpoint.RegisterMethod("/strategies", "GET",
 		api.MethodAccessTypePublic, capi.getStrategies); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategy/{strategyID}", "GET",
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}", "GET",
 		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
 		return err
 	}
-	return capi.endpoint.RegisterMethod("/strategy/token/{tokenID}", "GET",
+	return capi.endpoint.RegisterMethod("/strategies/token/{tokenID}", "GET",
 		api.MethodAccessTypePublic, capi.getTokenStrategies)
 }
 
@@ -34,7 +33,7 @@ func (capi *census3API) initStrategiesHandlers() error {
 //
 // TODO: Only for the MVP, remove it.
 func (capi *census3API) createDummyStrategy(tokenID []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), createDummyStrategyTimeout)
 	defer cancel()
 	res, err := capi.db.QueriesRW.CreateStategy(ctx, "test")
 	if err != nil {
@@ -45,7 +44,7 @@ func (capi *census3API) createDummyStrategy(tokenID []byte) error {
 		return err
 	}
 	_, err = capi.db.QueriesRW.CreateStrategyToken(ctx, queries.CreateStrategyTokenParams{
-		StrategyID: strategyID,
+		StrategyID: uint64(strategyID),
 		TokenID:    tokenID,
 		MinBalance: big.NewInt(0).Bytes(),
 		MethodHash: []byte("test"),
@@ -57,7 +56,7 @@ func (capi *census3API) createDummyStrategy(tokenID []byte) error {
 // the database. It returns a 204 response if any strategy is registered or a
 // 500 error if something fails.
 func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	internalCtx, cancel := context.WithTimeout(context.Background(), getStrategiesTimeout)
 	defer cancel()
 	// TODO: Support for pagination
 	// get strategies from the database
@@ -72,9 +71,9 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		return ErrNoStrategies
 	}
 	// parse and encode the strategies
-	strategies := GetStrategiesResponse{Strategies: []uint32{}}
+	strategies := GetStrategiesResponse{Strategies: []uint64{}}
 	for _, strategy := range rows {
-		strategies.Strategies = append(strategies.Strategies, uint32(strategy.ID))
+		strategies.Strategies = append(strategies.Strategies, strategy.ID)
 	}
 	res, err := json.Marshal(strategies)
 	if err != nil {
@@ -89,14 +88,15 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 // something fails.
 func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get provided strategyID
-	strategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
+	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
 	if err != nil {
 		return ErrMalformedStrategyID.WithErr(err)
 	}
+	strategyID := uint64(iStrategyID)
 	// get strategy from the database
-	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	internalCtx, cancel := context.WithTimeout(context.Background(), getStrategyTimeout)
 	defer cancel()
-	strategyData, err := capi.db.QueriesRO.StrategyByID(internalCtx, int64(strategyID))
+	strategyData, err := capi.db.QueriesRO.StrategyByID(internalCtx, strategyID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundStrategy.WithErr(err)
@@ -105,7 +105,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	// parse strategy information
 	strategy := GetStrategyResponse{
-		ID:        uint64(strategyData.ID),
+		ID:        strategyData.ID,
 		Predicate: strategyData.Predicate,
 		Tokens:    []GetStrategyToken{},
 	}
@@ -137,7 +137,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get the tokenID provided
 	tokenID := ctx.URLParam("tokenID")
-	internalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensStrategyTimeout)
 	defer cancel()
 	// get strategies associated to the token provided
 	rows, err := capi.db.QueriesRO.StrategiesByTokenID(internalCtx, common.HexToAddress(tokenID).Bytes())
@@ -151,9 +151,9 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 		return ErrNoStrategies
 	}
 	// parse and encode strategies
-	strategies := GetStrategiesResponse{Strategies: []uint32{}}
+	strategies := GetStrategiesResponse{Strategies: []uint64{}}
 	for _, tokenStrategy := range rows {
-		strategies.Strategies = append(strategies.Strategies, uint32(tokenStrategy.ID))
+		strategies.Strategies = append(strategies.Strategies, tokenStrategy.ID)
 	}
 	res, err := json.Marshal(strategies)
 	if err != nil {

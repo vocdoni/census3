@@ -28,7 +28,7 @@ Show information about the API service.
 
 ## Tokens
 
-### GET `/token`
+### GET `/tokens`
 List of already added tokens.
 
 - 📥 response:
@@ -37,18 +37,19 @@ List of already added tokens.
 {
     "tokens": [
         {
-            "id": "0x1234",
+            "ID": "0x1234",
             "name": "Wrapped Aragon Network Token",
             "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
             "startBlock": 123456,
             "symbol": "wANT",
-            "tag": "testTag1,testTag2"
+            "tags": "testTag1,testTag2",
+            "chainID": 1
         }
     ]
 }
 ```
 
-> If `tag` is empty, it will be ommited.
+> If `tags` is empty, it will be ommited.
 
 - ⚠️ errors:
 
@@ -58,7 +59,7 @@ List of already added tokens.
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error encoding tokens` | 5011 | 
 
-### GET `/token/types`
+### GET `/tokens/types`
 List the supported token types.
 
 - 📥 response:
@@ -78,21 +79,21 @@ List the supported token types.
 |:---:|:---|:---:|
 | 500 | `error encoding supported tokens types` | 5012 | 
 
-### POST `/token`
+### POST `/tokens`
 Triggers a new scan for the provided token, starting from the defined block.
 
 - 📤 request:
 
 ```json
 {
-    "id": "0x1234",
+    "ID": "0x1234",
     "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
-    "tag": "testTag1,testTag2",
+    "tags": "testTag1,testTag2",
     "chainID": 1
 }
 ```
 
-> `tag` attribute is *optional*.
+> `tags` attribute is *optional*.
 
 - ⚠️ errors:
 
@@ -105,14 +106,14 @@ Triggers a new scan for the provided token, starting from the defined block.
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error initialising web3 client` | 5019 | 
 
-### GET `/token/{tokenID}`
+### GET `/tokens/{tokenID}`
 Returns the information about the token referenced by the provided ID.
 
 - 📥 response:
 
 ```json
 {
-    "id": "0x1324",
+    "ID": "0x1324",
     "type": "erc20",
     "decimals": 18,
     "startBlock": 123456,
@@ -125,12 +126,12 @@ Returns the information about the token referenced by the provided ID.
         "progress": 87
     },
     "defaultStrategy": 1,
-    "tag": "testTag1,testTag2",
+    "tags": "testTag1,testTag2",
     "chainID": 1
 }
 ```
 
-> If `tag` is empty, it will be ommited.
+> If `tags` is empty, it will be ommited.
 
 - ⚠️ errors:
 
@@ -138,15 +139,17 @@ Returns the information about the token referenced by the provided ID.
 |:---:|:---|:---:|
 | 404 | `no token found` | 4003 |
 | 500 | `error getting token information` | 5004 | 
-| 500 | `error initialising web3 client` | 5018 | 
+| 500 | `error encoding token` | 5010 | 
+| 500 | `chain ID provided not supported` | 5013 | 
+| 500 | `error initialising web3 client` | 5019 | 
+| 500 | `error getting number of token holders` | 5020 | 
 | 500 | `error getting last block number from web3 endpoint` | 5021 | 
-| 500 | `error encoding tokens` | 5011 | 
 
 **MVP Warn**: If `defaultStrategy` is `0`, no strategy (neither the dummy strategy) is associated to the given token.
 
 ## Strategies
 
-### POST `/strategy`
+### POST `/strategies`
 Stores a new strategy based on the defined combination of tokens provided, these tokens must be registered previously.
 
 - 📤 request:
@@ -155,19 +158,19 @@ Stores a new strategy based on the defined combination of tokens provided, these
     {
     "tokens": [
         {
-            "id": "0x1324",
+            "ID": "0x1324",
             "name": "wANT",
             "minBalance": "10000",
             "method": "0x8230"
         },
         {
-            "id": "0x5678",
+            "ID": "0x5678",
             "name": "USDC",
             "minBalance": "20000",
             "method": "0x3241" 
         },
         {
-            "id": "0x9da2",
+            "ID": "0x9da2",
             "name": "ANT",
             "minBalance": "1",
             "method": "0x9db1"
@@ -181,7 +184,7 @@ Stores a new strategy based on the defined combination of tokens provided, these
 
 ```json
 {
-    "strategyId": 1
+    "strategyID": 1
 }
 ```
 
@@ -193,7 +196,7 @@ Stores a new strategy based on the defined combination of tokens provided, these
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
-### GET `/strategy`
+### GET `/strategies`
 Returns the ID's list of the strategies registered.
 
 - 📥 response:
@@ -212,7 +215,7 @@ Returns the ID's list of the strategies registered.
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
-### GET `/strategy/{strategyId}`
+### GET `/strategies/{strategyID}`
 Returns the information of the strategy related to the provided ID.
 
 - 📥 response:
@@ -222,19 +225,19 @@ Returns the information of the strategy related to the provided ID.
     "id": 2,
     "tokens": [
         {
-            "id": "0x1324",
+            "ID": "0x1324",
             "name": "wANT",
             "minBalance": "10000",
             "method": "0x8230" 
         },
         {
-            "id": "0x5678",
+            "ID": "0x5678",
             "name": "USDC",
             "minBalance": "20000",
             "method": "0x3241" 
         },
         {
-            "id": "0x9da2",
+            "ID": "0x9da2",
             "name": "ANT",
             "minBalance": "1",
             "method": "0x9db1" 
@@ -248,13 +251,13 @@ Returns the information of the strategy related to the provided ID.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 204 | `-` | 4002 |
+| 400 | `malformed strategy ID, it must be an integer` | 4002 |
 | 404 | `no strategy found with the ID provided` | 4005 | 
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error getting strategy information` | 5007 | 
 | 500 | `error encoding strategy` | 5015 | 
 
-### GET `/strategy/token/{tokenID}`
+### GET `/strategies/token/{tokenID}`
 Returns ID's of the already created strategies including the `tokenAddress` provided.
 
 - 📥 response:
@@ -273,36 +276,16 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
-### GET `/census/strategy/{strategyId}`
-Returns a list of censusID for the strategy provided.
-
-- 📥 response:
-
-```json
-{
-    "censuses": [ 3, 5 ]
-}
-```
-
-- ⚠️ errors:
-
-| HTTP Status  | Message | Internal error |
-|:---:|:---|:---:|
-| 204 | `-` | 4007 |
-| 404 | `census not found` | 4006 | 
-| 500 | `error getting census information` | 5009 | 
-| 500 | `error encoding censuses` | 5018 |
-
 ## Censuses
 
-### POST `/census`
+### POST `/censuses`
 Request the creation of a new census with the strategy provided for the `blockNumber` provided and returns the census ID.
      
 - 📤 request:
 
 ```json
 {
-    "strategyId": 1,
+    "strategyID": 1,
     "blockNumber": 123456,
     "anonymous": false
 }
@@ -312,7 +295,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 
 ```json
 {
-    "queueId": "0123456789abcdef0123456789abcdef01234567"
+    "queueID": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
 
@@ -321,21 +304,20 @@ Request the creation of a new census with the strategy provided for the `blockNu
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed strategy ID, it must be an integer` | 4002 | 
-| 500 | `error encoding strategy holders` | 5014 | 
+| 500 | `error encoding census` | 5017 | 
 
-### GET `/census/{censusId}`
+### GET `/censuses/{censusID}`
 Returns the information of the snapshots related to the provided ID.
 
 - 📥 response:
 ```json
 { 
-    "censusId": 2,
-    "strategyId": 1,
+    "censusID": 2,
+    "strategyID": 1,
     "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac",
     "uri": "ipfs://Qma....",
     "size": 1000,
     "weight": "200000000000000000000",
-    "chainId": 1,
     "anonymous": true
 }
 ```
@@ -344,13 +326,12 @@ Returns the information of the snapshots related to the provided ID.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 204 | `-` | 4007 |
 | 400 | `malformed census ID, it must be a integer` | 4001 | 
 | 404 | `census not found` | 4006 | 
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census` | 5017 | 
 
-### GET `/census/queue/{queueId}`
+### GET `/census/queue/{queueID}`
 Returns the information of the census that are in the creation queue.
 
 - 📥 response:
@@ -369,7 +350,28 @@ Returns the information of the census that are in the creation queue.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 400 | `malformed queue ID` | 4010 | 
 | 404 | `census not found` | 4006 | 
+| 400 | `malformed queue ID` | 4011 | 
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census queue item` | 5022 | 
+
+### GET `/census/strategy/{strategyID}`
+Returns a list of censusID for the strategy provided.
+
+- 📥 response:
+
+```json
+{
+    "censuses": [ 3, 5 ]
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 204 | `-` | 4007 |
+| 400 | `malformed census ID, it must be a integer` | 4001 | 
+| 404 | `census not found` | 4006 | 
+| 500 | `error getting census information` | 5009 | 
+| 500 | `error encoding censuses` | 5018 |

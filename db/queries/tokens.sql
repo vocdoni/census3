@@ -38,7 +38,7 @@ INSERT INTO tokens (
     creation_block,
     type_id,
     synced,
-    tag,
+    tags,
     chain_id
 )
 VALUES (
@@ -54,7 +54,7 @@ SET name = sqlc.arg(name),
     creation_block = sqlc.arg(creation_block),
     type_id = sqlc.arg(type_id),
     synced = sqlc.arg(synced),
-    tag = sqlc.arg(tag)
+    tags = sqlc.arg(tags)
 WHERE id = sqlc.arg(id);
 
 -- name: UpdateTokenStatus :execresult

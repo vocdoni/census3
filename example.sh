@@ -8,24 +8,24 @@ readonly API_ENDPOINT="127.0.0.1:7788/api"
 
 create_token() {
     curl -X POST \
-        --json "{\"id\": \"$CONTRACT_ADDRESS\",\"type\": \"$CONTRACT_TYPE\",\"chainID\": 1}" \
-        http://$API_ENDPOINT/token
+        --json "{\"ID\": \"$CONTRACT_ADDRESS\",\"type\": \"$CONTRACT_TYPE\",\"chainID\": 1}" \
+        http://$API_ENDPOINT/tokens
 }
 
 get_token() {
     curl -X GET \
-        http://$API_ENDPOINT/token/$CONTRACT_ADDRESS
+        http://$API_ENDPOINT/tokens/$CONTRACT_ADDRESS
 }
 
 create_census() {
     curl -X POST \
-        --json "{\"strategyId\": $1,\"anonymous\": true}" \
-        http://$API_ENDPOINT/census
+        --json "{\"strategyID\": $1,\"anonymous\": true}" \
+        http://$API_ENDPOINT/censuses
 }
 
 get_census() {
     curl -X GET \
-        http://$API_ENDPOINT/census/queue/$1
+        http://$API_ENDPOINT/censuses/queue/$1
 }
 
 main() {
@@ -33,21 +33,21 @@ main() {
     echo "-> creating token..."
     create_token
     # wait to be synced (can be checked getting token info)
-    echo "-> created, waiting 4m to token scan"
-    sleep 240
+    echo "-> created, waiting 2m to token scan"
+    sleep 120
     # get token info after some scan and store the 'defaultStrategy' id.
     echo "-> getting token info..."
     get_token
     # create the census with the token 'defaultStrategy' id and store the 
     # resulting 'queueId'.
-    echo "-> enter the strategyId:"
-    read strategyId
+    echo "-> enter the strategyID:"
+    read strategyID
     echo "-> creating census..."
-    create_census $strategyId
-    echo "-> waiting 1m to census publication"
-    sleep 60
+    create_census $strategyID
+    echo "-> waiting 30s to census publication"
+    sleep 30
     # get the enqueue census creation process with the 'queueId'
-    echo "-> enter the enqueue census:"
+    echo "-> enter the enqueue census ID:"
     read queueId
     get_census $queueId
 }

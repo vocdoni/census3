@@ -137,57 +137,6 @@ func (q *Queries) CensusByURI(ctx context.Context, uri sql.NullString) (Censuse,
 	return i, err
 }
 
-const censusesByStrategyIDAndBlockID = `-- name: CensusesByStrategyIDAndBlockID :many
-SELECT c.id, c.strategy_id, c.merkle_root, c.uri, c.size, c.weight, c.census_type, c.queue_id FROM censuses c
-JOIN census_blocks cb ON c.id = cb.census_id
-WHERE c.strategy_id = ? AND cb.block_id = ?
-LIMIT ? OFFSET ?
-`
-
-type CensusesByStrategyIDAndBlockIDParams struct {
-	StrategyID uint64
-	BlockID    uint64
-	Limit      int32
-	Offset     int32
-}
-
-func (q *Queries) CensusesByStrategyIDAndBlockID(ctx context.Context, arg CensusesByStrategyIDAndBlockIDParams) ([]Censuse, error) {
-	rows, err := q.db.QueryContext(ctx, censusesByStrategyIDAndBlockID,
-		arg.StrategyID,
-		arg.BlockID,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Censuse
-	for rows.Next() {
-		var i Censuse
-		if err := rows.Scan(
-			&i.ID,
-			&i.StrategyID,
-			&i.MerkleRoot,
-			&i.Uri,
-			&i.Size,
-			&i.Weight,
-			&i.CensusType,
-			&i.QueueID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const censusesByTokenID = `-- name: CensusesByTokenID :many
 SELECT c.id, c.strategy_id, c.merkle_root, c.uri, c.size, c.weight, c.census_type, c.queue_id FROM censuses AS c
 JOIN strategy_tokens AS st ON c.strategy_id = st.strategy_id
@@ -313,25 +262,6 @@ func (q *Queries) CreateCensus(ctx context.Context, arg CreateCensusParams) (sql
 	)
 }
 
-const createCensusBlock = `-- name: CreateCensusBlock :execresult
-INSERT INTO census_blocks (
-    census_id,
-    block_id
-)
-VALUES (
-    ?, ?
-)
-`
-
-type CreateCensusBlockParams struct {
-	CensusID uint64
-	BlockID  uint64
-}
-
-func (q *Queries) CreateCensusBlock(ctx context.Context, arg CreateCensusBlockParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createCensusBlock, arg.CensusID, arg.BlockID)
-}
-
 const deleteCensus = `-- name: DeleteCensus :execresult
 DELETE FROM censuses
 WHERE id = ?
@@ -339,20 +269,6 @@ WHERE id = ?
 
 func (q *Queries) DeleteCensus(ctx context.Context, id uint64) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteCensus, id)
-}
-
-const deleteCensusBlock = `-- name: DeleteCensusBlock :execresult
-DELETE FROM census_blocks
-WHERE census_id = ? AND block_id = ?
-`
-
-type DeleteCensusBlockParams struct {
-	CensusID uint64
-	BlockID  uint64
-}
-
-func (q *Queries) DeleteCensusBlock(ctx context.Context, arg DeleteCensusBlockParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteCensusBlock, arg.CensusID, arg.BlockID)
 }
 
 const lastCensusID = `-- name: LastCensusID :one
@@ -430,26 +346,5 @@ func (q *Queries) UpdateCensus(ctx context.Context, arg UpdateCensusParams) (sql
 		arg.Size,
 		arg.Weight,
 		arg.ID,
-	)
-}
-
-const updateCensusBlock = `-- name: UpdateCensusBlock :execresult
-UPDATE census_blocks
-SET census_id = ?,
-    block_id = ?
-WHERE census_id = ? AND block_id = ?
-`
-
-type UpdateCensusBlockParams struct {
-	CensusID uint64
-	BlockID  uint64
-}
-
-func (q *Queries) UpdateCensusBlock(ctx context.Context, arg UpdateCensusBlockParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateCensusBlock,
-		arg.CensusID,
-		arg.BlockID,
-		arg.CensusID,
-		arg.BlockID,
 	)
 }

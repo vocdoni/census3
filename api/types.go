@@ -1,9 +1,9 @@
 package api
 
 type CreateTokenRequest struct {
-	ID      string `json:"id"`
+	ID      string `json:"ID"`
 	Type    string `json:"type"`
-	Tag     string `json:"tag"`
+	Tags    string `json:"tags"`
 	ChainID uint64 `json:"chainID"`
 }
 
@@ -14,7 +14,7 @@ type GetTokenStatusResponse struct {
 }
 
 type GetTokenResponse struct {
-	ID              string                  `json:"id"`
+	ID              string                  `json:"ID"`
 	Type            string                  `json:"type"`
 	Decimals        uint64                  `json:"decimals"`
 	StartBlock      uint64                  `json:"startBlock"`
@@ -24,17 +24,17 @@ type GetTokenResponse struct {
 	Status          *GetTokenStatusResponse `json:"status"`
 	Size            uint64                  `json:"size"`
 	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
-	Tag             string                  `json:"tag,omitempty"`
+	Tags            string                  `json:"tags,omitempty"`
 	ChainID         uint64                  `json:"chainID"`
 }
 
 type GetTokensItem struct {
-	ID         string `json:"id"`
+	ID         string `json:"ID"`
 	Type       string `json:"type"`
 	StartBlock int64  `json:"startBlock"`
 	Name       string `json:"name"`
 	Symbol     string `json:"symbol"`
-	Tag        string `json:"tag,omitempty"`
+	Tags       string `json:"tags,omitempty"`
 	ChainID    uint64 `json:"chainID"`
 }
 
@@ -51,18 +51,18 @@ type TokenHoldersResponse struct {
 }
 
 type CreateCensusRequest struct {
-	StrategyID  uint64 `json:"strategyId"`
+	StrategyID  uint64 `json:"strategyID"`
 	BlockNumber uint64 `json:"blockNumber"`
 	Anonymous   bool   `json:"anonymous"`
 }
 
 type CreateCensusResponse struct {
-	QueueID string `json:"queueId"`
+	QueueID string `json:"queueID"`
 }
 
 type GetCensusResponse struct {
-	CensusID   uint64 `json:"censusId"`
-	StrategyID uint64 `json:"strategyId"`
+	CensusID   uint64 `json:"ID"`
+	StrategyID uint64 `json:"strategyID"`
 	MerkleRoot string `json:"merkleRoot"`
 	URI        string `json:"uri"`
 	Size       uint64 `json:"size"`
@@ -79,14 +79,14 @@ type GetStrategiesResponse struct {
 }
 
 type GetStrategyToken struct {
-	ID         string `json:"id"`
+	ID         string `json:"ID"`
 	Name       string `json:"name"`
 	MinBalance string `json:"minBalance"`
 	Method     string `json:"method"`
 }
 
 type GetStrategyResponse struct {
-	ID        uint64             `json:"id"`
+	ID        uint64             `json:"ID"`
 	Tokens    []GetStrategyToken `json:"tokens"`
 	Predicate string             `json:"strategy"`
 }

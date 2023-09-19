@@ -249,10 +249,8 @@ func censusDBKey(censusID uint64) string {
 // represented as 1 for true and 0 for false. This concatenated string is then converted
 // to a uint64 to create a unique identifier.
 func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
-	// Force this to ensurte that can be stored in an int64 max but store into a uint64
-
 	// Convert the boolean to a uint32: 1 for true, 0 for false
-	var anonymousUint uint32
+	var anonymousUint uint64
 	if anonymous {
 		anonymousUint = 1
 	}

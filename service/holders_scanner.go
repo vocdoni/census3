@@ -356,8 +356,8 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 			return th.IsSynced(), s.saveHolders(th)
 		}
 		// if unexpected error raises, log it as error and return it.
-		log.Error("warning scanning contract", "token", th.Address().Hex(),
-			"block", th.LastBlock(), "error", err)
+		log.Errorw(fmt.Errorf("warning scanning contract: %v", err),
+			fmt.Sprintf("token=%s block%d", th.Address().Hex(), th.LastBlock()))
 		return th.IsSynced(), err
 	}
 	// save TokesHolders state into the database before exit of the function

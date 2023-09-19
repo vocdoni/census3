@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 )
@@ -20,6 +21,17 @@ type Token struct {
 	Type    TokenType
 	Literal string
 	Childs  *Group
+}
+
+// MarshalJSON method helps to encode the current token into a JSON with just
+// the important information, discarding internal information.
+func (t *Token) MarshalJSON() ([]byte, error) {
+	if t.IsLiteral() {
+		// if it is a literal token include just the token symbol
+		return json.Marshal(map[string]any{"literal": t.Literal})
+	}
+	// if it is a group token, include just the child tokens
+	return json.Marshal(map[string]any{"childs": t.Childs})
 }
 
 // IsLiteral method returns if the current token is a literal token (or a group
@@ -121,7 +133,6 @@ func NewGroupToken(group *Group) *Token {
 	if group == nil {
 		group = NewEmptyGroup(0)
 	}
-
 	return &Token{
 		Literal: fmt.Sprint(group.ID),
 		Childs:  group,
@@ -149,6 +160,18 @@ func NewEmptyGroup(level int) *Group {
 		Level:  level,
 		Tokens: make(map[string]*Token),
 	}
+}
+
+// MarshalJSON method helps to encode the current group into a JSON with just
+// the important information, discarding internal information.
+func (g *Group) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"operator": g.Operator,
+		"tokens": []*Token{
+			g.Tokens[g.firstToken],
+			g.Tokens[g.secondToken],
+		},
+	})
 }
 
 // AddToken method assign the token provided to the current group. If the group

@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/lexer"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 )
@@ -23,8 +24,15 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
 		return err
 	}
-	return capi.endpoint.RegisterMethod("/strategies/token/{tokenID}", "GET",
-		api.MethodAccessTypePublic, capi.getTokenStrategies)
+	if err := capi.endpoint.RegisterMethod("/strategies/token/{tokenID}", "GET",
+		api.MethodAccessTypePublic, capi.getTokenStrategies); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/strategies/predicate/parse", "POST",
+		api.MethodAccessTypePublic, capi.validateStrategyPredicate); err != nil {
+		return err
+	}
+	return nil
 }
 
 // createDummyStrategy creates the default strategy for a given token. This
@@ -158,6 +166,30 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 	res, err := json.Marshal(strategies)
 	if err != nil {
 		return ErrEncodeStrategies.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// validateStrategyPredicate function handler returns if the provided strategy
+// predicate is valid and well-formatted. If the predicate is valid the handler
+// returns a parsed version of the predicate as a JSON.
+func (capi *census3API) validateStrategyPredicate(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	req := CreateStrategyRequest{}
+	if err := json.Unmarshal(msg.Data, &req); err != nil {
+		return ErrMalformedStrategy.WithErr(err)
+	}
+	if req.Predicate == "" {
+		return ErrMalformedStrategy.With("no predicate provided")
+	}
+
+	lx := lexer.NewLexer(lexer.ValidOperatorsTags)
+	resultingToken, err := lx.Parse(req.Predicate)
+	if err != nil {
+		return ErrInvalidStrategyPredicate.WithErr(err)
+	}
+	res, err := json.Marshal(map[string]any{"result": resultingToken})
+	if err != nil {
+		return ErrEncodeValidPredicate.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

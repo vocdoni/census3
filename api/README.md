@@ -276,6 +276,55 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
+### POST `/strategies/predicate/validate`
+Returns if the provided strategy predicate is valid and well-formatted. If the predicate is valid the handler returns a parsed version of the predicate as a JSON.
+
+- 📤 request:
+
+```json
+{
+    "predicate": "DAI AND (ANT OR ETH)"
+}
+```
+
+- 📥 response:
+
+```json
+{
+    "result": {
+        "childs": {
+            "operator": "AND",
+            "tokens": [
+                {
+                    "literal": "DAI"
+                },
+                {
+                    "childs": {
+                        "operator": "OR",
+                        "tokens": [
+                            {
+                                "literal": "ANT"
+                            },
+                            {
+                                "literal": "ETH"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed strategy provided` | 4014 |
+| 400 | `the predicate provided is not valid` | 4015 | 
+| 500 | `error encoding validated strategy predicate` | 5024 | 
+
 ## Censuses
 
 ### POST `/censuses`

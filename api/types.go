@@ -96,3 +96,9 @@ type CensusQueueResponse struct {
 	Error  error              `json:"error"`
 	Census *GetCensusResponse `json:"census"`
 }
+
+type CreateStrategyRequest struct {
+	Name        string            `json:"name"`
+	Predicate   string            `json:"predicate"`
+	MinBalances map[string]string `json:"minBalances"`
+}

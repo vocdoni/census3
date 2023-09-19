@@ -223,8 +223,8 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 			Synced:   tokenData.Synced,
 			Progress: tokenProgress,
 		},
+		Tag: tokenData.Tag.String,
 		// TODO: Only for the MVP, consider to remove it
-		Tag:             tokenData.Tag.String,
 		DefaultStrategy: defaultStrategyID,
 		ChainID:         tokenData.ChainID,
 	}

@@ -139,9 +139,11 @@ Returns the information about the token referenced by the provided ID.
 |:---:|:---|:---:|
 | 404 | `no token found` | 4003 |
 | 500 | `error getting token information` | 5004 | 
+| 500 | `error encoding token` | 5010 | 
+| 500 | `chain ID provided not supported` | 5013 | 
 | 500 | `error initialising web3 client` | 5019 | 
+| 500 | `error getting number of token holders` | 5020 | 
 | 500 | `error getting last block number from web3 endpoint` | 5021 | 
-| 500 | `error encoding tokens` | 5011 | 
 
 **MVP Warn**: If `defaultStrategy` is `0`, no strategy (neither the dummy strategy) is associated to the given token.
 
@@ -274,26 +276,6 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
-### GET `/census/strategy/{strategyID}`
-Returns a list of censusID for the strategy provided.
-
-- 📥 response:
-
-```json
-{
-    "censuses": [ 3, 5 ]
-}
-```
-
-- ⚠️ errors:
-
-| HTTP Status  | Message | Internal error |
-|:---:|:---|:---:|
-| 204 | `-` | 4007 |
-| 404 | `census not found` | 4006 | 
-| 500 | `error getting census information` | 5009 | 
-| 500 | `error encoding censuses` | 5018 |
-
 ## Censuses
 
 ### POST `/censuses`
@@ -322,7 +304,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed strategy ID, it must be an integer` | 4002 | 
-| 500 | `error encoding strategy holders` | 5014 | 
+| 500 | `error encoding census` | 5017 | 
 
 ### GET `/censuses/{censusID}`
 Returns the information of the snapshots related to the provided ID.
@@ -345,7 +327,6 @@ Returns the information of the snapshots related to the provided ID.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 204 | `-` | 4007 |
 | 400 | `malformed census ID, it must be a integer` | 4001 | 
 | 404 | `census not found` | 4006 | 
 | 500 | `error getting census information` | 5009 | 
@@ -370,7 +351,28 @@ Returns the information of the census that are in the creation queue.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 400 | `malformed queue ID` | 4010 | 
 | 404 | `census not found` | 4006 | 
+| 400 | `malformed queue ID` | 4011 | 
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census queue item` | 5022 | 
+
+### GET `/census/strategy/{strategyID}`
+Returns a list of censusID for the strategy provided.
+
+- 📥 response:
+
+```json
+{
+    "censuses": [ 3, 5 ]
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 204 | `-` | 4007 |
+| 400 | `malformed census ID, it must be a integer` | 4001 | 
+| 404 | `census not found` | 4006 | 
+| 500 | `error getting census information` | 5009 | 
+| 500 | `error encoding censuses` | 5018 |

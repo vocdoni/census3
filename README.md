@@ -40,16 +40,16 @@ The service suports the following list of token types:
 A strategy is a definition of a group of previously created tokens and how their scanned holders must be combined to create a census.
 * Must support combinations of tokens which contains:
   * A operator, which is a function associated with a tag (e.g. `AND`) that are used to combine token holders and define how to combine them.
-  * Two token tags (e.g. `'BTC'`), that identifies the token holders to combine.
-  * Must have the following format: `'<token_tag>' <operator> '<token_tag>'`, e.g. `'BTC' OR 'ETH'`.
-* Must support groups of combinations, e.g. `'USDC' AND ('ETH' OR ('BTC' AND 'DAI'))`
+  * Two token symbols (e.g. `BTC`), that identifies the token holders to combine.
+  * Must have the following format: `<token_symbol> <operator> <token_symbol>`, e.g. `BTC OR ETH`.
+* Must support groups of combinations, e.g. `USDC AND (ETH OR (BTC AND DAI))`
 
 ---
 
 ## Documentation
 
 1. [How to run the Census3 servive](#how-to-run-the-census3-api-service)
-2. [Basic example]()
+2. [Basic example](#basic-example)
 3. [API definition](#api-defintion)
 
 
@@ -85,7 +85,7 @@ Example:
 
 #### Using Docker
 
-1. Create your config file using the [`.env` file](.env) as a template and save it the root.
+1. Create your config file using the [`.env` file](example.env) as a template and save it the root.
 ```sh
 # A web3 endpoint provider
 WEB3_PROVIDERS=https://rpc-endoint.example1.com,https://rpc-endoint.example2.com
@@ -116,7 +116,7 @@ docker compose up -d
 
 ```sh
 curl -X POST \
-      --json '{"id": "0xFE67A4450907459c3e1FFf623aA927dD4e28c67a", "type": "erc20", "chainID": 1}' \
+      --json '{"ID": "0xFE67A4450907459c3e1FFf623aA927dD4e28c67a", "type": "erc20", "chainID": 1}' \
       http://localhost:7788/api/tokens
 ```
 
@@ -129,7 +129,7 @@ curl -X GET \
 3. When the API ends, and the token reaches `synced` status (`token.status.synced = true`), its time to create a new census based on the default token strategy. This strategy is created during the token registration and just contains the holders of this token. To create the census with token holders, you need to know the `token.defaultStrategy` (from token info endpoint):
 ```sh
 curl -X POST \
-        --json '{"strategyId": <strategyId>, "anonymous": true}" \
+        --json '{"strategyID": <strategyId>, "anonymous": true}" \
         http://localhost:7788/api/censuses
 ```
 4. The last request will return a `queueId` which identifies the census creation and publication processes on the API queue. It will be completed in background. We can check if the task is done, it raised an error or was succesfully completed:

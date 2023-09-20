@@ -62,6 +62,7 @@ type TokenHolder struct {
 	HolderID []byte
 	Balance  []byte
 	BlockID  uint64
+	ChainID  uint64
 }
 
 type TokenType struct {

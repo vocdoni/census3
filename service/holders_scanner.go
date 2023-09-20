@@ -240,6 +240,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 				HolderID: holder.Bytes(),
 				BlockID:  th.LastBlock(),
 				Balance:  balance.Bytes(),
+				ChainID:  th.ChainID,
 			})
 			if err != nil {
 				return err
@@ -271,6 +272,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			BlockID:    currentTokenHolder.BlockID,
 			NewBlockID: th.LastBlock(),
 			Balance:    newBalance.Bytes(),
+			ChainID:    th.ChainID,
 		})
 		if err != nil {
 			return fmt.Errorf("error updating token holder: %w", err)

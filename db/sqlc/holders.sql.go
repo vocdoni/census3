@@ -12,6 +12,41 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 )
 
+const commonHoldersByTokenIDAndChainID = `-- name: CommonHoldersByTokenIDAndChainID :many
+SELECT holders.id, token_holders.balance
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ?
+`
+
+type CommonHoldersByTokenIDAndChainIDRow struct {
+	ID      annotations.Address
+	Balance []byte
+}
+
+func (q *Queries) CommonHoldersByTokenIDAndChainID(ctx context.Context, tokenID []byte) ([]CommonHoldersByTokenIDAndChainIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, commonHoldersByTokenIDAndChainID, tokenID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CommonHoldersByTokenIDAndChainIDRow
+	for rows.Next() {
+		var i CommonHoldersByTokenIDAndChainIDRow
+		if err := rows.Scan(&i.ID, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countTokenHoldersByTokenID = `-- name: CountTokenHoldersByTokenID :one
 SELECT COUNT(holder_id) 
 FROM token_holders
@@ -39,10 +74,11 @@ INSERT INTO token_holders (
     token_id,
     holder_id,
     balance,
-    block_id
+    block_id,
+    chain_id
 )
 VALUES (
-    ?, ?, ?, ?
+    ?, ?, ?, ?, ?
 )
 `
 
@@ -51,6 +87,7 @@ type CreateTokenHolderParams struct {
 	HolderID []byte
 	Balance  []byte
 	BlockID  uint64
+	ChainID  uint64
 }
 
 func (q *Queries) CreateTokenHolder(ctx context.Context, arg CreateTokenHolderParams) (sql.Result, error) {
@@ -59,6 +96,7 @@ func (q *Queries) CreateTokenHolder(ctx context.Context, arg CreateTokenHolderPa
 		arg.HolderID,
 		arg.Balance,
 		arg.BlockID,
+		arg.ChainID,
 	)
 }
 
@@ -141,7 +179,7 @@ func (q *Queries) ListHolders(ctx context.Context) ([]annotations.Address, error
 }
 
 const listTokenHolders = `-- name: ListTokenHolders :many
-SELECT token_id, holder_id, balance, block_id FROM token_holders
+SELECT token_id, holder_id, balance, block_id, chain_id FROM token_holders
 ORDER BY token_id, holder_id, block_id
 `
 
@@ -159,6 +197,7 @@ func (q *Queries) ListTokenHolders(ctx context.Context) ([]TokenHolder, error) {
 			&i.HolderID,
 			&i.Balance,
 			&i.BlockID,
+			&i.ChainID,
 		); err != nil {
 			return nil, err
 		}
@@ -199,7 +238,7 @@ func (q *Queries) TokenHolderByTokenIDAndBlockIDAndHolderID(ctx context.Context,
 }
 
 const tokenHolderByTokenIDAndHolderID = `-- name: TokenHolderByTokenIDAndHolderID :one
-SELECT holders.id, token_holders.token_id, token_holders.holder_id, token_holders.balance, token_holders.block_id
+SELECT holders.id, token_holders.token_id, token_holders.holder_id, token_holders.balance, token_holders.block_id, token_holders.chain_id
 FROM holders
 JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ? AND token_holders.holder_id = ?
@@ -216,6 +255,7 @@ type TokenHolderByTokenIDAndHolderIDRow struct {
 	HolderID []byte
 	Balance  []byte
 	BlockID  uint64
+	ChainID  uint64
 }
 
 func (q *Queries) TokenHolderByTokenIDAndHolderID(ctx context.Context, arg TokenHolderByTokenIDAndHolderIDParams) (TokenHolderByTokenIDAndHolderIDRow, error) {
@@ -227,6 +267,7 @@ func (q *Queries) TokenHolderByTokenIDAndHolderID(ctx context.Context, arg Token
 		&i.HolderID,
 		&i.Balance,
 		&i.BlockID,
+		&i.ChainID,
 	)
 	return i, err
 }
@@ -463,7 +504,10 @@ const updateTokenHolderBalance = `-- name: UpdateTokenHolderBalance :execresult
 UPDATE token_holders
 SET balance = ?,
     block_id = ?
-WHERE token_id = ? AND holder_id = ? AND block_id = ?
+WHERE token_id = ? 
+AND holder_id = ? 
+AND block_id = ?
+AND chain_id = ?
 `
 
 type UpdateTokenHolderBalanceParams struct {
@@ -472,6 +516,7 @@ type UpdateTokenHolderBalanceParams struct {
 	TokenID    []byte
 	HolderID   []byte
 	BlockID    uint64
+	ChainID    uint64
 }
 
 func (q *Queries) UpdateTokenHolderBalance(ctx context.Context, arg UpdateTokenHolderBalanceParams) (sql.Result, error) {
@@ -481,5 +526,6 @@ func (q *Queries) UpdateTokenHolderBalance(ctx context.Context, arg UpdateTokenH
 		arg.TokenID,
 		arg.HolderID,
 		arg.BlockID,
+		arg.ChainID,
 	)
 }

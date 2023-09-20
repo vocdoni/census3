@@ -151,7 +151,7 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 	}
 	response, err := json.Marshal(map[string]any{"strategyID": strategyID})
 	if err != nil {
-		ErrEncodeStrategy.WithErr(err)
+		return ErrEncodeStrategy.WithErr(err)
 	}
 	return ctx.Send(response, api.HTTPstatusOK)
 }

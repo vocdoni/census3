@@ -18,7 +18,7 @@ INSERT INTO token_types (type_name) VALUES ('nation3');
 INSERT INTO token_types (type_name) VALUES ('want');
 
 CREATE TABLE tokens (
-    id BLOB PRIMARY KEY NOT NULL,
+    id BLOB NOT NULL,
     name TEXT,
     symbol TEXT,
     decimals INTEGER,
@@ -28,7 +28,7 @@ CREATE TABLE tokens (
     synced BOOLEAN NOT NULL,
     tags TEXT,
     chain_id INTEGER NOT NULL,
-    UNIQUE (id, chain_id),
+    PRIMARY KEY (id, chain_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_tokens_type_id ON tokens(type_id);
@@ -62,7 +62,8 @@ CREATE TABLE token_holders (
     holder_id BLOB NOT NULL,
     balance BLOB NOT NULL,
     block_id INTEGER NOT NULL,
-    PRIMARY KEY (token_id, holder_id, block_id),
+    chain_id INTEGER NOT NULL,
+    PRIMARY KEY (token_id, holder_id, block_id, chain_id),
     FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE,
     FOREIGN KEY (holder_id) REFERENCES holders(id) ON DELETE CASCADE,
     FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE

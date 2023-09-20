@@ -1,5 +1,15 @@
 package api
 
+type SupportedChain struct {
+	ChainID   uint64 `json:"chainID"`
+	ShortName string `json:"shortName"`
+	Name      string `json:"name"`
+}
+
+type APIInfo struct {
+	SupportedChains []SupportedChain `json:"supportedChains"`
+}
+
 type CreateTokenRequest struct {
 	ID      string `json:"ID"`
 	Type    string `json:"type"`

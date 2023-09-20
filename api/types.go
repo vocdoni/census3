@@ -74,31 +74,31 @@ type GetCensusesResponse struct {
 	Censuses []uint64 `json:"censuses"`
 }
 
-type GetStrategiesResponse struct {
-	Strategies []uint64 `json:"strategies"`
-}
-
-type GetStrategyToken struct {
-	ID         string `json:"ID"`
-	Name       string `json:"name"`
-	MinBalance string `json:"minBalance"`
-	Method     string `json:"method"`
-}
-
-type GetStrategyResponse struct {
-	ID        uint64             `json:"ID"`
-	Tokens    []GetStrategyToken `json:"tokens"`
-	Predicate string             `json:"strategy"`
-}
-
 type CensusQueueResponse struct {
 	Done   bool               `json:"done"`
 	Error  error              `json:"error"`
 	Census *GetCensusResponse `json:"census"`
 }
 
+type StrategyToken struct {
+	ID         string `json:"ID"`
+	ChainID    uint64 `json:"chainID"`
+	MinBalance string `json:"minBalance"`
+}
+
 type CreateStrategyRequest struct {
-	Name        string            `json:"name"`
-	Predicate   string            `json:"predicate"`
-	MinBalances map[string]string `json:"minBalances"`
+	Alias     string                    `json:"alias"`
+	Predicate string                    `json:"predicate"`
+	Tokens    map[string]*StrategyToken `json:"tokens"`
+}
+
+type GetStrategyResponse struct {
+	ID        uint64                    `json:"ID"`
+	Alias     string                    `json:"alias"`
+	Predicate string                    `json:"predicate"`
+	Tokens    map[string]*StrategyToken `json:"tokens"`
+}
+
+type GetStrategiesResponse struct {
+	Strategies []uint64 `json:"strategies"`
 }

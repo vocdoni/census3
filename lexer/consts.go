@@ -7,6 +7,8 @@ const (
 	bStartGroup = byte(40)
 	bEndGroup   = byte(41)
 	// str constants characters
+	scape      = string(bScape)
+	space      = string(bSpace)
 	startGroup = string(bStartGroup)
 	endGroup   = string(bEndGroup)
 	// others

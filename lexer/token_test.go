@@ -110,3 +110,11 @@ func TestGroup(t *testing.T) {
 		c.Assert(group.ID, qt.Not(qt.Equals), altGroup.ID)
 	})
 }
+
+func TestScapeTokenSymbol(t *testing.T) {
+	c := qt.New(t)
+
+	symbol := "A (B)"
+	expected := "A\\ \\(B\\)"
+	c.Assert(ScapeTokenSymbol(symbol), qt.Equals, expected)
+}

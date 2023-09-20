@@ -33,12 +33,14 @@ type Holder struct {
 
 type Strategy struct {
 	ID        uint64
+	Alias     string
 	Predicate string
 }
 
 type StrategyToken struct {
 	StrategyID uint64
 	TokenID    []byte
+	ChainID    uint64
 	MinBalance []byte
 }
 

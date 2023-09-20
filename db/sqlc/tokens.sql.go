@@ -81,6 +81,25 @@ func (q *Queries) ExistsToken(ctx context.Context, id annotations.Address) (bool
 	return exists, err
 }
 
+const existsTokenByChainID = `-- name: ExistsTokenByChainID :one
+SELECT EXISTS 
+    (SELECT id 
+    FROM tokens
+    WHERE id = ? AND chain_id = ?)
+`
+
+type ExistsTokenByChainIDParams struct {
+	ID      annotations.Address
+	ChainID uint64
+}
+
+func (q *Queries) ExistsTokenByChainID(ctx context.Context, arg ExistsTokenByChainIDParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, existsTokenByChainID, arg.ID, arg.ChainID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listTokens = `-- name: ListTokens :many
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
 ORDER BY type_id, name
@@ -193,7 +212,7 @@ func (q *Queries) TokenBySymbol(ctx context.Context, symbol sql.NullString) (Tok
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, st.strategy_id, st.token_id, st.min_balance FROM tokens t
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, st.strategy_id, st.token_id, st.chain_id, st.min_balance FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
@@ -212,6 +231,7 @@ type TokensByStrategyIDRow struct {
 	ChainID       uint64
 	StrategyID    uint64
 	TokenID       []byte
+	ChainID_2     uint64
 	MinBalance    []byte
 }
 
@@ -237,6 +257,7 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]
 			&i.ChainID,
 			&i.StrategyID,
 			&i.TokenID,
+			&i.ChainID_2,
 			&i.MinBalance,
 		); err != nil {
 			return nil, err

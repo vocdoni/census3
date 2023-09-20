@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
@@ -124,7 +126,18 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 			return ErrCantGetToken.WithErr(err)
 		}
 	}
-	_, err = capi.db.QueriesRW.CreateToken(internalCtx, queries.CreateTokenParams{
+	// init db transaction
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "create strategy transaction rollback failed")
+		}
+	}()
+	qtx := capi.db.QueriesRW.WithTx(tx)
+	_, err = qtx.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
 		Name:          *name,
 		Symbol:        *symbol,
@@ -142,9 +155,29 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		}
 		return ErrCantCreateToken.WithErr(err)
 	}
-	// TODO: Only for the MVP, consider to remove it
-	if err := capi.createDummyStrategy(info.Address.Bytes()); err != nil {
-		log.Warn(err, "error creating dummy strategy for this token")
+	// create a default strategy to support censuses over the holders of this
+	// single token
+	res, err := qtx.CreateStategy(internalCtx, queries.CreateStategyParams{
+		Alias:     fmt.Sprintf("default %s strategy", info.Symbol),
+		Predicate: lexer.ScapeTokenSymbol(info.Symbol),
+	})
+	if err != nil {
+		return err
+	}
+	strategyID, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+	if _, err := qtx.CreateStrategyToken(internalCtx, queries.CreateStrategyTokenParams{
+		StrategyID: uint64(strategyID),
+		TokenID:    info.Address.Bytes(),
+		ChainID:    req.ChainID,
+		MinBalance: big.NewInt(0).Bytes(),
+	}); err != nil {
+		return ErrCantGetToken.WithErr(err)
+	}
+	if err := tx.Commit(); err != nil {
+		return ErrCantGetToken.WithErr(err)
 	}
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }

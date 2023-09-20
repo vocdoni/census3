@@ -149,50 +149,6 @@ Returns the information about the token referenced by the provided ID.
 
 ## Strategies
 
-### POST `/strategies`
-Stores a new strategy based on the defined combination of tokens provided, these tokens must be registered previously.
-
-- 📤 request:
-
-```json
-    {
-    "tokens": [
-        {
-            "ID": "0x1324",
-            "name": "wANT",
-            "minBalance": "10000"
-        },
-        {
-            "ID": "0x5678",
-            "name": "USDC",
-            "minBalance": "20000"
-        },
-        {
-            "ID": "0x9da2",
-            "name": "ANT",
-            "minBalance": "1"
-        }
-    ],
-    "strategy": "(wANT OR ANT) AND USDC"
-    }
-```
-
-- 📥 response:
-
-```json
-{
-    "strategyID": 1
-}
-```
-
-- ⚠️ errors:
-
-| HTTP Status  | Message | Internal error |
-|:---:|:---|:---:|
-| 204 | `-` | 4008 |
-| 500 | `error getting strategies information` | 5008 | 
-| 500 | `error encoding strategies` | 5016 | 
-
 ### GET `/strategies`
 Returns the ID's list of the strategies registered.
 
@@ -212,32 +168,39 @@ Returns the ID's list of the strategies registered.
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
-### GET `/strategies/{strategyID}`
-Returns the information of the strategy related to the provided ID.
+### POST `/strategies`
+Stores a new strategy based on the defined combination of tokens provided, these tokens must be registered previously.
+
+- 📤 request:
+
+```json
+    {
+        "alias": "test_strategy",
+        "predicate": "(wANT OR ANT) AND USDC",
+        "tokens": {
+            "wANT": {
+                "ID": "0x1324",
+                "chainID": 1,
+                "minBalance": "10000"
+            },
+            "ANT": {
+                "ID": "0x1324",
+                "chainID": 5,
+            },
+            "USDC": {
+                "ID": "0x1324",
+                "chainID": 1,
+                "minBalance": "50"
+            },
+        }
+    }
+```
 
 - 📥 response:
 
 ```json
 {
-    "id": 2,
-    "tokens": [
-        {
-            "ID": "0x1324",
-            "name": "wANT",
-            "minBalance": "10000"
-        },
-        {
-            "ID": "0x5678",
-            "name": "USDC",
-            "minBalance": "20000"
-        },
-        {
-            "ID": "0x9da2",
-            "name": "ANT",
-            "minBalance": "1"
-        }
-    ],
-    "strategy": "(wANT OR ANT) AND USDC"
+    "strategyID": 1
 }
 ```
 
@@ -245,11 +208,51 @@ Returns the information of the strategy related to the provided ID.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 400 | `malformed strategy ID, it must be an integer` | 4002 |
-| 404 | `no strategy found with the ID provided` | 4005 | 
+| 404 | `no token found` | 4003 | 
+| 400 | `malformed strategy provided` | 4014 |
+| 400 | `the predicate provided is not valid` | 4015 | 
+| 400 | `the predicate includes tokens that are not included in the request` | 4016 | 
+| 500 | `error encoding strategy info` | 5015 | 
+| 500 | `error creating strategy` | 5025 | 
+
+
+### GET `/strategies/{strategyID}`
+Returns the information of the strategy related to the provided ID.
+
+- 📥 response:
+
+```json
+{
+    "ID": 1,
+    "alias": "strategy_alias",
+    "predicate": "MON AND (ANT OR USDC)",
+    "tokens": {
+        "MON": {
+            "ID": "0x1234",
+            "chainID": 5
+        },
+        "ANT": {
+            "ID": "0x1234",
+            "chainID": 1,
+            "minBalance": "1"
+        },
+        "USDC": {
+            "ID": "0x1234",
+            "chainID": 1,
+        }
+    }
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed strategy ID, it must be an integer` | 4002 | 
+| 404 | `no strategy found with the ID provided` | 405 |
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error getting strategy information` | 5007 | 
-| 500 | `error encoding strategy` | 5015 | 
+| 500 | `error encoding strategy info` | 5015 | 
 
 ### GET `/strategies/token/{tokenID}`
 Returns ID's of the already created strategies including the `tokenAddress` provided.

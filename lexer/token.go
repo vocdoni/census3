@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strings"
 )
 
 // TokenType custom type defines the Token type attribute.
@@ -199,4 +200,10 @@ func (g *Group) AddToken(t *Token) error {
 // that it has an operator and two tokens (first and second one).
 func (g *Group) Complete() bool {
 	return g.Operator != "" && g.firstToken != "" && g.secondToken != "" && len(g.Tokens) == 2
+}
+
+func ScapeTokenSymbol(symbol string) string {
+	symbol = strings.ReplaceAll(symbol, space, scape+space)
+	symbol = strings.ReplaceAll(symbol, startGroup, scape+startGroup)
+	return strings.ReplaceAll(symbol, endGroup, scape+endGroup)
 }

@@ -19,8 +19,8 @@ WHERE st.token_id = ?
 ORDER BY s.id;
 
 -- name: CreateStategy :execresult
-INSERT INTO strategies (predicate)
-VALUES (?);
+INSERT INTO strategies (alias, predicate)
+VALUES (?, ?);
 
 -- name: UpdateStrategy :execresult
 UPDATE strategies
@@ -35,10 +35,11 @@ WHERE id = ?;
 INSERT INTO strategy_tokens (
     strategy_id,
     token_id,
+    chain_id,
     min_balance
 )
 VALUES (
-    ?, ?, ?
+    ?, ?, ?, ?
 );
 
 -- name: UpdateStrategyToken :execresult

@@ -13,11 +13,16 @@ import (
 	"github.com/vocdoni/census3/lexer"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
+	"go.vocdoni.io/dvote/log"
 )
 
 func (capi *census3API) initStrategiesHandlers() error {
 	if err := capi.endpoint.RegisterMethod("/strategies", "GET",
 		api.MethodAccessTypePublic, capi.getStrategies); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/strategies", "POST",
+		api.MethodAccessTypePublic, capi.createStrategy); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}", "GET",
@@ -33,30 +38,6 @@ func (capi *census3API) initStrategiesHandlers() error {
 		return err
 	}
 	return nil
-}
-
-// createDummyStrategy creates the default strategy for a given token. This
-// basic strategy only includes the holders of the given token which have a
-// balance positive balance (holder_balance > 0).
-//
-// TODO: Only for the MVP, remove it.
-func (capi *census3API) createDummyStrategy(tokenID []byte) error {
-	ctx, cancel := context.WithTimeout(context.Background(), createDummyStrategyTimeout)
-	defer cancel()
-	res, err := capi.db.QueriesRW.CreateStategy(ctx, "test")
-	if err != nil {
-		return err
-	}
-	strategyID, err := res.LastInsertId()
-	if err != nil {
-		return err
-	}
-	_, err = capi.db.QueriesRW.CreateStrategyToken(ctx, queries.CreateStrategyTokenParams{
-		StrategyID: uint64(strategyID),
-		TokenID:    tokenID,
-		MinBalance: big.NewInt(0).Bytes(),
-	})
-	return err
 }
 
 // getStrategies function handler returns the current registered strategies from
@@ -89,6 +70,92 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	internalCtx, cancel := context.WithTimeout(context.Background(), createDummyStrategyTimeout)
+	defer cancel()
+
+	req := CreateStrategyRequest{}
+	if err := json.Unmarshal(msg.Data, &req); err != nil {
+		return ErrMalformedStrategy.WithErr(err)
+	}
+	if req.Predicate == "" || req.Alias == "" {
+		return ErrMalformedStrategy.With("no predicate or alias provided")
+	}
+	// check predicate
+	lx := lexer.NewLexer(lexer.ValidOperatorsTags)
+	validatedPredicate, err := lx.Parse(req.Predicate)
+	if err != nil {
+		return ErrInvalidStrategyPredicate.WithErr(err)
+	}
+	// init db transaction
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "create strategy transaction rollback failed")
+		}
+	}()
+	qtx := capi.db.QueriesRW.WithTx(tx)
+	// create the strategy to get the ID and then create the strategy tokens
+	// with it
+	result, err := qtx.CreateStategy(internalCtx, queries.CreateStategyParams{
+		Alias:     req.Alias,
+		Predicate: req.Predicate,
+	})
+	if err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	strategyID, err := result.LastInsertId()
+	if err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	// iterate over the token symbols included in the predicate
+	for _, symbol := range validatedPredicate.AllLiterals() {
+		// check if the request includes the token information
+		tokenData, ok := req.Tokens[symbol]
+		if !ok {
+			return ErrNoEnoughtStrategyTokens.Withf("undefined ID and chainID for symbol %s", symbol)
+		}
+		// check if the token exists in the database
+		exists, err := qtx.ExistsTokenByChainID(internalCtx, queries.ExistsTokenByChainIDParams{
+			ID:      common.HexToAddress(tokenData.ID).Bytes(),
+			ChainID: tokenData.ChainID,
+		})
+		if err != nil {
+			return ErrCantCreateStrategy.WithErr(err)
+		}
+		if !exists {
+			return ErrNotFoundToken.Withf("the token with symbol %s not found", symbol)
+		}
+		// decode the min balance for the current token if it is provided,
+		// if not use zero
+		minBalance := new(big.Int)
+		if tokenData.MinBalance != "" {
+			if _, ok := minBalance.SetString(tokenData.MinBalance, 10); !ok {
+				return ErrEncodeStrategy.Withf("error with %s minBalance", symbol)
+			}
+		}
+		// create the strategy_token in the database
+		if _, err := qtx.CreateStrategyToken(internalCtx, queries.CreateStrategyTokenParams{
+			StrategyID: uint64(strategyID),
+			TokenID:    common.HexToAddress(tokenData.ID).Bytes(),
+			MinBalance: minBalance.Bytes(),
+		}); err != nil {
+			return ErrCantCreateStrategy.WithErr(err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	response, err := json.Marshal(map[string]any{"strategyID": strategyID})
+	if err != nil {
+		ErrEncodeStrategy.WithErr(err)
+	}
+	return ctx.Send(response, api.HTTPstatusOK)
+}
+
 // getStrategy function handler return the information of the strategy
 // indetified by the ID provided. It returns a 400 error if the provided ID is
 // wrong or empty, a 404 error if the strategy is not found or a 500 error if
@@ -113,8 +180,9 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// parse strategy information
 	strategy := GetStrategyResponse{
 		ID:        strategyData.ID,
+		Alias:     strategyData.Alias,
 		Predicate: strategyData.Predicate,
-		Tokens:    []GetStrategyToken{},
+		Tokens:    map[string]*StrategyToken{},
 	}
 	// get information of the strategy related tokens
 	tokensData, err := capi.db.QueriesRO.TokensByStrategyID(internalCtx, strategyData.ID)
@@ -123,11 +191,11 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	// parse and encode tokens information
 	for _, tokenData := range tokensData {
-		strategy.Tokens = append(strategy.Tokens, GetStrategyToken{
+		strategy.Tokens[tokenData.Symbol.String] = &StrategyToken{
 			ID:         common.BytesToAddress(tokenData.ID).String(),
-			Name:       tokenData.Name.String,
 			MinBalance: new(big.Int).SetBytes(tokenData.MinBalance).String(),
-		})
+			ChainID:    tokenData.ChainID,
+		}
 	}
 	res, err := json.Marshal(strategy)
 	if err != nil {

@@ -1,6 +1,7 @@
 -- +goose Up
 CREATE TABLE strategies (
     id INTEGER PRIMARY KEY,
+    alias TEXT NOT NULL,
     predicate TEXT NOT NULL
 );
 
@@ -73,6 +74,7 @@ CREATE INDEX idx_token_holders_block_id ON token_holders(block_id);
 CREATE TABLE strategy_tokens (
     strategy_id INTEGER NOT NULL,
     token_id BLOB NOT NULL,
+    chain_id INTEGER NOT NULL,
     min_balance BLOB NOT NULL,
     PRIMARY KEY (strategy_id, token_id),
     FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE,

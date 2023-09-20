@@ -11,33 +11,45 @@ import (
 )
 
 const createStategy = `-- name: CreateStategy :execresult
-INSERT INTO strategies (predicate)
-VALUES (?)
+INSERT INTO strategies (alias, predicate)
+VALUES (?, ?)
 `
 
-func (q *Queries) CreateStategy(ctx context.Context, predicate string) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createStategy, predicate)
+type CreateStategyParams struct {
+	Alias     string
+	Predicate string
+}
+
+func (q *Queries) CreateStategy(ctx context.Context, arg CreateStategyParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, createStategy, arg.Alias, arg.Predicate)
 }
 
 const createStrategyToken = `-- name: CreateStrategyToken :execresult
 INSERT INTO strategy_tokens (
     strategy_id,
     token_id,
+    chain_id,
     min_balance
 )
 VALUES (
-    ?, ?, ?
+    ?, ?, ?, ?
 )
 `
 
 type CreateStrategyTokenParams struct {
 	StrategyID uint64
 	TokenID    []byte
+	ChainID    uint64
 	MinBalance []byte
 }
 
 func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTokenParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createStrategyToken, arg.StrategyID, arg.TokenID, arg.MinBalance)
+	return q.db.ExecContext(ctx, createStrategyToken,
+		arg.StrategyID,
+		arg.TokenID,
+		arg.ChainID,
+		arg.MinBalance,
+	)
 }
 
 const deleteStrategy = `-- name: DeleteStrategy :execresult
@@ -64,7 +76,7 @@ func (q *Queries) DeleteStrategyToken(ctx context.Context, arg DeleteStrategyTok
 }
 
 const listStrategies = `-- name: ListStrategies :many
-SELECT id, predicate FROM strategies
+SELECT id, alias, predicate FROM strategies
 ORDER BY id
 `
 
@@ -77,7 +89,7 @@ func (q *Queries) ListStrategies(ctx context.Context) ([]Strategy, error) {
 	var items []Strategy
 	for rows.Next() {
 		var i Strategy
-		if err := rows.Scan(&i.ID, &i.Predicate); err != nil {
+		if err := rows.Scan(&i.ID, &i.Alias, &i.Predicate); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -92,7 +104,7 @@ func (q *Queries) ListStrategies(ctx context.Context) ([]Strategy, error) {
 }
 
 const strategiesByTokenID = `-- name: StrategiesByTokenID :many
-SELECT s.id, s.predicate FROM strategies s
+SELECT s.id, s.alias, s.predicate FROM strategies s
 JOIN strategy_tokens st ON st.strategy_id = s.id
 WHERE st.token_id = ?
 ORDER BY s.id
@@ -107,7 +119,7 @@ func (q *Queries) StrategiesByTokenID(ctx context.Context, tokenID []byte) ([]St
 	var items []Strategy
 	for rows.Next() {
 		var i Strategy
-		if err := rows.Scan(&i.ID, &i.Predicate); err != nil {
+		if err := rows.Scan(&i.ID, &i.Alias, &i.Predicate); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -122,7 +134,7 @@ func (q *Queries) StrategiesByTokenID(ctx context.Context, tokenID []byte) ([]St
 }
 
 const strategyByID = `-- name: StrategyByID :one
-SELECT id, predicate FROM strategies
+SELECT id, alias, predicate FROM strategies
 WHERE id = ?
 LIMIT 1
 `
@@ -130,12 +142,12 @@ LIMIT 1
 func (q *Queries) StrategyByID(ctx context.Context, id uint64) (Strategy, error) {
 	row := q.db.QueryRowContext(ctx, strategyByID, id)
 	var i Strategy
-	err := row.Scan(&i.ID, &i.Predicate)
+	err := row.Scan(&i.ID, &i.Alias, &i.Predicate)
 	return i, err
 }
 
 const strategyByPredicate = `-- name: StrategyByPredicate :one
-SELECT id, predicate FROM strategies
+SELECT id, alias, predicate FROM strategies
 WHERE predicate = ?
 LIMIT 1
 `
@@ -143,12 +155,12 @@ LIMIT 1
 func (q *Queries) StrategyByPredicate(ctx context.Context, predicate string) (Strategy, error) {
 	row := q.db.QueryRowContext(ctx, strategyByPredicate, predicate)
 	var i Strategy
-	err := row.Scan(&i.ID, &i.Predicate)
+	err := row.Scan(&i.ID, &i.Alias, &i.Predicate)
 	return i, err
 }
 
 const strategyTokenByStrategyIDAndTokenID = `-- name: StrategyTokenByStrategyIDAndTokenID :one
-SELECT strategy_id, token_id, min_balance
+SELECT strategy_id, token_id, chain_id, min_balance
 FROM strategy_tokens
 WHERE strategy_id = ? AND token_id = ?
 LIMIT 1
@@ -162,12 +174,17 @@ type StrategyTokenByStrategyIDAndTokenIDParams struct {
 func (q *Queries) StrategyTokenByStrategyIDAndTokenID(ctx context.Context, arg StrategyTokenByStrategyIDAndTokenIDParams) (StrategyToken, error) {
 	row := q.db.QueryRowContext(ctx, strategyTokenByStrategyIDAndTokenID, arg.StrategyID, arg.TokenID)
 	var i StrategyToken
-	err := row.Scan(&i.StrategyID, &i.TokenID, &i.MinBalance)
+	err := row.Scan(
+		&i.StrategyID,
+		&i.TokenID,
+		&i.ChainID,
+		&i.MinBalance,
+	)
 	return i, err
 }
 
 const strategyTokenByStrategyIDAndTokenIDAndMethodHash = `-- name: StrategyTokenByStrategyIDAndTokenIDAndMethodHash :one
-SELECT strategy_id, token_id, min_balance
+SELECT strategy_id, token_id, chain_id, min_balance
 FROM strategy_tokens
 WHERE strategy_id = ? AND token_id = ?
 `
@@ -180,12 +197,17 @@ type StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams struct {
 func (q *Queries) StrategyTokenByStrategyIDAndTokenIDAndMethodHash(ctx context.Context, arg StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams) (StrategyToken, error) {
 	row := q.db.QueryRowContext(ctx, strategyTokenByStrategyIDAndTokenIDAndMethodHash, arg.StrategyID, arg.TokenID)
 	var i StrategyToken
-	err := row.Scan(&i.StrategyID, &i.TokenID, &i.MinBalance)
+	err := row.Scan(
+		&i.StrategyID,
+		&i.TokenID,
+		&i.ChainID,
+		&i.MinBalance,
+	)
 	return i, err
 }
 
 const strategyTokens = `-- name: StrategyTokens :many
-SELECT strategy_id, token_id, min_balance
+SELECT strategy_id, token_id, chain_id, min_balance
 FROM strategy_tokens
 ORDER BY strategy_id, token_id
 `
@@ -199,7 +221,12 @@ func (q *Queries) StrategyTokens(ctx context.Context) ([]StrategyToken, error) {
 	var items []StrategyToken
 	for rows.Next() {
 		var i StrategyToken
-		if err := rows.Scan(&i.StrategyID, &i.TokenID, &i.MinBalance); err != nil {
+		if err := rows.Scan(
+			&i.StrategyID,
+			&i.TokenID,
+			&i.ChainID,
+			&i.MinBalance,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

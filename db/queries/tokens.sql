@@ -75,4 +75,10 @@ WHERE id = ?;
 SELECT EXISTS 
     (SELECT id 
     FROM tokens
-    WHERE id = ?)
+    WHERE id = ?);
+
+-- name: ExistsTokenByChainID :one
+SELECT EXISTS 
+    (SELECT id 
+    FROM tokens
+    WHERE id = ? AND chain_id = ?);

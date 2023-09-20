@@ -1,6 +1,13 @@
 package state
 
+import "time"
+
 const timeLayout = "2006-01-02T15:04:05Z07:00"
+
+const (
+	shortNameSourceUri        = "https://chainid.network/chains_mini.json"
+	checkWeb3ProvidersTimeout = time.Second * 10
+)
 
 const (
 	// OTHER CONSTANTS

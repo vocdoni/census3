@@ -91,11 +91,11 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	internalCtx, cancel := context.WithTimeout(context.Background(), createTokenTimeout)
 	defer cancel()
 	// get correct web3 uri provider
-	w3uri, exists := capi.w3p[req.ChainID]
+	w3URI, exists := capi.w3p.URIByChainID(req.ChainID)
 	if !exists {
 		return ErrChainIDNotSupported.With("chain ID not supported")
 	}
-	if err := w3.Init(internalCtx, w3uri, addr, tokenType); err != nil {
+	if err := w3.Init(internalCtx, w3URI, addr, tokenType); err != nil {
 		log.Errorw(ErrInitializingWeb3, err.Error())
 		return ErrInitializingWeb3.WithErr(err)
 	}
@@ -186,13 +186,13 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	tokenProgress := 100
 	if !tokenData.Synced {
 		// get correct web3 uri provider
-		w3uri, exists := capi.w3p[tokenData.ChainID]
+		w3URI, exists := capi.w3p.URIByChainID(tokenData.ChainID)
 		if !exists {
 			return ErrChainIDNotSupported.With("chain ID not supported")
 		}
 		// get last block of the network, if something fails return progress 0
 		w3 := state.Web3{}
-		if err := w3.Init(internalCtx, w3uri, address, state.TokenType(tokenData.TypeID)); err != nil {
+		if err := w3.Init(internalCtx, w3URI, address, state.TokenType(tokenData.TypeID)); err != nil {
 			return ErrInitializingWeb3.WithErr(err)
 		}
 		// fetch the last block header and calculate progress

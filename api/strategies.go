@@ -82,7 +82,7 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 		return ErrMalformedStrategy.With("no predicate or alias provided")
 	}
 	// check predicate
-	lx := lexer.NewLexer(lexer.ValidOperatorsTags)
+	lx := lexer.NewLexer(ValidOperatorsTags)
 	validatedPredicate, err := lx.Parse(req.Predicate)
 	if err != nil {
 		return ErrInvalidStrategyPredicate.WithErr(err)
@@ -248,7 +248,7 @@ func (capi *census3API) validateStrategyPredicate(msg *api.APIdata, ctx *httprou
 		return ErrMalformedStrategy.With("no predicate provided")
 	}
 
-	lx := lexer.NewLexer(lexer.ValidOperatorsTags)
+	lx := lexer.NewLexer(ValidOperatorsTags)
 	resultingToken, err := lx.Parse(req.Predicate)
 	if err != nil {
 		return ErrInvalidStrategyPredicate.WithErr(err)

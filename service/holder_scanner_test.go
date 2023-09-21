@@ -139,6 +139,7 @@ func Test_saveHolders(t *testing.T) {
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),
+			ChainID:  th.ChainID,
 		})
 	c.Assert(err, qt.IsNil)
 	c.Assert([]byte(res.Balance), qt.ContentEquals, holderBalance.Bytes())
@@ -149,6 +150,7 @@ func Test_saveHolders(t *testing.T) {
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),
+			ChainID:  th.ChainID,
 		})
 	c.Assert(err, qt.IsNil)
 	resBalance := new(big.Int).SetBytes(res.Balance)

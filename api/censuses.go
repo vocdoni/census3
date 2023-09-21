@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/lexer"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -124,17 +125,87 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	}()
 	qtx := capi.db.QueriesRW.WithTx(tx)
 
-	strategyTokens, err := qtx.TokensByStrategyID(internalCtx, req.StrategyID)
+	strategy, err := qtx.StrategyByID(internalCtx, req.StrategyID)
 	if err != nil {
 		if errors.Is(sql.ErrNoRows, err) {
-			return 0, ErrNoStrategyTokens.WithErr(err)
+			return 0, ErrNotFoundStrategy.WithErr(err)
 		}
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
-	if len(strategyTokens) == 0 {
-		return 0, ErrNoStrategyTokens.WithErr(err)
+	if strategy.Predicate == "" {
+		return 0, ErrInvalidStrategyPredicate.With("empty predicate")
 	}
-
+	// init some variables to get computed in the following steps
+	censusWeight := new(big.Int)
+	strategyHolders := map[common.Address]*big.Int{}
+	// parse the predicate
+	lx := lexer.NewLexer(ValidOperatorsTags)
+	validPredicate, err := lx.Parse(strategy.Predicate)
+	if err != nil {
+		return 0, ErrInvalidStrategyPredicate.WithErr(err)
+	}
+	// if the current predicate is a literal, just query about its holders. If
+	// it is a complex predicate, create a evaluator and evaluate the predicate
+	if validPredicate.IsLiteral() {
+		// get the strategy holders from the database
+		holders, err := qtx.TokenHoldersByStrategyID(internalCtx, req.StrategyID)
+		if err != nil {
+			if errors.Is(sql.ErrNoRows, err) {
+				return 0, ErrNoStrategyHolders.WithErr(err)
+			}
+			return 0, ErrCantCreateCensus.WithErr(err)
+		}
+		if len(holders) == 0 {
+			return 0, ErrNoStrategyHolders
+		}
+		// parse holders addresses and balances
+		for _, holder := range holders {
+			holderAddr := common.BytesToAddress(holder.HolderID)
+			holderBalance := new(big.Int).SetBytes(holder.Balance)
+			if _, exists := strategyHolders[holderAddr]; !exists {
+				strategyHolders[holderAddr] = holderBalance
+				censusWeight = new(big.Int).Add(censusWeight, holderBalance)
+			}
+		}
+	} else {
+		// get strategy tokens from the database
+		strategyTokens, err := qtx.TokensByStrategyID(internalCtx, req.StrategyID)
+		if err != nil {
+			if errors.Is(sql.ErrNoRows, err) {
+				return 0, ErrNoStrategyTokens.WithErr(err)
+			}
+			return 0, ErrCantCreateCensus.WithErr(err)
+		}
+		if len(strategyTokens) == 0 {
+			return 0, ErrNoStrategyTokens
+		}
+		// parse token information
+		tokensInfo := map[string]*StrategyToken{}
+		for _, token := range strategyTokens {
+			tokensInfo[token.Symbol.String] = &StrategyToken{
+				ID:         common.BytesToAddress(token.ID).String(),
+				ChainID:    token.ChainID,
+				MinBalance: new(big.Int).SetBytes(token.MinBalance).String(),
+			}
+		}
+		// init the operators and the predicate evaluator
+		operators := InitOperators(capi.db.QueriesRO, tokensInfo)
+		eval := lexer.NewEval[[]string](operators.Map())
+		// execute the evaluation of the predicate
+		res, err := eval.EvalToken(validPredicate)
+		if err != nil {
+			return 0, ErrEvalStrategyPredicate.WithErr(err)
+		}
+		// parse the evaluation results
+		for _, strAddress := range res {
+			strategyHolders[common.HexToAddress(strAddress)] = big.NewInt(1)
+			censusWeight = new(big.Int).Add(censusWeight, big.NewInt(1))
+		}
+	}
+	// if no holders found, return an error
+	if len(strategyHolders) == 0 {
+		return 0, ErrNotFoundTokenHolders.With("no holders for strategy")
+	}
 	// compute the new censusId and censusType
 	newCensusID := census.InnerCensusID(req.BlockNumber, req.StrategyID, req.Anonymous)
 	// check if the census already exists
@@ -146,45 +217,17 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	} else {
 		return 0, ErrCensusAlreadyExists.Withf("census %d already exists", newCensusID)
 	}
-
+	// check the censusType
 	censusType := census.DefaultCensusType
 	if req.Anonymous {
 		censusType = census.AnonymousCensusType
 	}
-	// get holders associated to every strategy token, create a map to avoid
-	// duplicates and count the sum of the balances to get the weight of the
-	// census
-	censusWeight := new(big.Int)
-	strategyHolders := map[common.Address]*big.Int{}
-	for _, token := range strategyTokens {
-		holders, err := qtx.TokenHoldersByTokenID(internalCtx, token.ID)
-		if err != nil {
-			if errors.Is(sql.ErrNoRows, err) {
-				continue
-			}
-			return 0, ErrCantGetTokenHolders.WithErr(err)
-		}
-		for _, holder := range holders {
-			holderAddr := common.BytesToAddress(holder.ID)
-			holderBalance := new(big.Int).SetBytes(holder.Balance)
-			if _, exists := strategyHolders[holderAddr]; !exists {
-				strategyHolders[holderAddr] = holderBalance
-				censusWeight = new(big.Int).Add(censusWeight, holderBalance)
-			}
-		}
-	}
-	if len(strategyHolders) == 0 {
-		log.Errorf("no holders for strategy '%d'", req.StrategyID)
-		return 0, ErrNotFoundTokenHolders.With("no holders for strategy")
-	}
-
 	// create a census tree and publish on IPFS
 	def := census.NewCensusDefinition(newCensusID, req.StrategyID, strategyHolders, req.Anonymous)
 	newCensus, err := capi.censusDB.CreateAndPublish(def)
 	if err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
-
 	// save the new census in the SQL database
 	sqlURI := &sql.NullString{}
 	if err := sqlURI.Scan(newCensus.URI); err != nil {

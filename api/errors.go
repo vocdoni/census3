@@ -93,6 +93,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("the predicate includes tokens that are not included in the request"),
 	}
+	ErrNoStrategyHolders = apirest.APIerror{
+		Code:       4017,
+		HTTPstatus: apirest.HTTPstatusNoContent,
+		Err:        fmt.Errorf("strategy has not registered holders"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
@@ -222,5 +227,10 @@ var (
 		Code:       5025,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error creating strategy"),
+	}
+	ErrEvalStrategyPredicate = apirest.APIerror{
+		Code:       5026,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error evaluating strategy predicate"),
 	}
 )

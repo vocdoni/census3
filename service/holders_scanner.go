@@ -224,6 +224,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			queries.TokenHolderByTokenIDAndHolderIDParams{
 				TokenID:  th.Address().Bytes(),
 				HolderID: holder.Bytes(),
+				ChainID:  th.ChainID,
 			})
 		if err != nil {
 			// return the error if fails and the error is not 'no rows' err

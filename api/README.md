@@ -422,6 +422,21 @@ Returns the information of the census that are in the creation queue.
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census queue item` | 5022 | 
 
+- ⚠️ possible error values inside the body:
+
+<small>The request could response `OK 200` and at the same time includes an error because it is an error of the enqueued process and not of the request processing).</small>
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 404 | `no token holders found` | 4004 |
+| 404 | `no strategy found with the ID provided` | 4005 |
+| 400 | `no tokens found for the strategy provided` | 4010 |
+| 409 | `census already exists` | 4012 |
+| 400 | `the predicate provided is not valid` | 4015 |
+| 204 | `strategy has not registered holders` | 4017 |
+| 500 | `error creating the census tree on the census database` | 5001 |
+| 500 | `error evaluating strategy predicate` | 5026 |
+
 ### GET `/census/strategy/{strategyID}`
 Returns a list of censusID for the strategy provided.
 

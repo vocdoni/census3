@@ -144,7 +144,9 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 			return 0, ErrCantCreateCensus.WithErr(err)
 		}
 	} else {
-		return 0, ErrCensusAlreadyExists.Withf("census %d already exists", newCensusID)
+		// return the censusID to get the census information if it already
+		// exists
+		return newCensusID, ErrCensusAlreadyExists
 	}
 
 	censusType := census.DefaultCensusType

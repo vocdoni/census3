@@ -81,7 +81,7 @@ type GetCensusResponse struct {
 }
 
 type GetCensusesResponse struct {
-	Censuses []uint64 `json:"censuses"`
+	Censuses []*GetCensusResponse `json:"censuses"`
 }
 
 type CensusQueueResponse struct {

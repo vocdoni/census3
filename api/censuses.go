@@ -337,9 +337,23 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 		return ErrCantGetCensus.WithErr(err)
 	}
 	// parse and encode response
-	censuses := GetCensusesResponse{Censuses: []uint64{}}
+	censuses := GetCensusesResponse{Censuses: []*GetCensusResponse{}}
 	for _, censusInfo := range rows {
-		censuses.Censuses = append(censuses.Censuses, censusInfo.ID)
+		// get values for optional parameters
+		censusWeight := []byte{}
+		if censusInfo.Weight.Valid {
+			censusWeight = []byte(censusInfo.Weight.String)
+		}
+
+		censuses.Censuses = append(censuses.Censuses, &GetCensusResponse{
+			CensusID:   censusInfo.ID,
+			StrategyID: censusInfo.StrategyID,
+			MerkleRoot: common.Bytes2Hex(censusInfo.MerkleRoot),
+			URI:        "ipfs://" + censusInfo.Uri.String,
+			Size:       censusInfo.Size,
+			Weight:     new(big.Int).SetBytes(censusWeight).String(),
+			Anonymous:  censusInfo.CensusType == uint64(census.AnonymousCensusType),
+		})
 	}
 	res, err := json.Marshal(censuses)
 	if err != nil {

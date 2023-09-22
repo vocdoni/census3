@@ -530,7 +530,17 @@ Returns a list of censusID for the strategy provided.
 
 ```json
 {
-    "censuses": [ 3, 5 ]
+    "censuses": [ 
+        { 
+            "censusID": 1,
+            "strategyID": 1,
+            "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac",
+            "uri": "ipfs://Qma....",
+            "size": 1000,
+            "weight": "200000000000000000000",
+            "anonymous": true
+        }
+    ]
 }
 ```
 

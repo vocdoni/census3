@@ -233,4 +233,9 @@ var (
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error evaluating strategy predicate"),
 	}
+	ErrEncodeStrategyPredicateOperators = apirest.APIerror{
+		Code:       5027,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error encoding supported strategy predicate operators"),
+	}
 )

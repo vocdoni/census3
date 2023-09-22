@@ -429,6 +429,32 @@ Returns if the provided strategy predicate is valid and well-formatted. If the p
 | 400 | `the predicate provided is not valid` | 4015 | 
 | 500 | `error encoding validated strategy predicate` | 5024 | 
 
+### GET `/strategies/predicate/operators`
+Returns the list of supported operators to build strategy predicates.
+
+- 📥 response:
+
+```json
+{
+    "operators": [
+        {
+            "description": "logical operator that returns the common token holders between symbols with fixed balance to 1",
+            "tag": "AND"
+        },
+        {
+            "description": "logical operator that returns the token holders of both symbols with fixed balance to 1",
+            "tag": "OR"
+        }
+    ]
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 500 | `error encoding supported strategy predicate operators` | 5027 | 
+
 ## Censuses
 
 ### POST `/censuses`

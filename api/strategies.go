@@ -38,6 +38,10 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.validateStrategyPredicate); err != nil {
 		return err
 	}
+	if err := capi.endpoint.RegisterMethod("/strategies/predicate/operators", "GET",
+		api.MethodAccessTypePublic, capi.supportedStrategyPredicateOperators); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -302,6 +306,18 @@ func (capi *census3API) validateStrategyPredicate(msg *api.APIdata, ctx *httprou
 	res, err := json.Marshal(map[string]any{"result": resultingToken})
 	if err != nil {
 		return ErrEncodeValidPredicate.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// supportedStrategyPredicateOperators function handler returns the information
+// of the current supported operators to build strategy predicates.
+func (capi *census3API) supportedStrategyPredicateOperators(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	res, err := json.Marshal(map[string]any{
+		"operators": strategyoperators.ValidOperators,
+	})
+	if err != nil {
+		return ErrEncodeStrategyPredicateOperators.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

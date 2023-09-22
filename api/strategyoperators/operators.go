@@ -21,6 +21,18 @@ const (
 // ValidOperatorsTags variable contains the supported operator tags
 var ValidOperatorsTags = []string{ANDTag, ORTag}
 
+// ValidOperators variable contains the information of the supported operators
+var ValidOperators = []map[string]string{
+	{
+		"tag":         ANDTag,
+		"description": "logical operator that returns the common token holders between symbols with fixed balance to 1",
+	},
+	{
+		"tag":         ORTag,
+		"description": "logical operator that returns the token holders of both symbols with fixed balance to 1",
+	},
+}
+
 type TokenInformation struct {
 	ID         string
 	ChainID    uint64

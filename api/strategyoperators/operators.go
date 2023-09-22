@@ -56,6 +56,15 @@ func InitOperators(db *queries.Queries, info map[string]*TokenInformation) *Stra
 	}
 }
 
+// Map method return the current operators in a map, associated with theirs
+// operator tag.
+func (op *StrategyOperators) Map() []*lexer.Operator[map[string]string] {
+	return []*lexer.Operator[map[string]string]{
+		{Tag: ANDTag, Fn: op.AND},
+		{Tag: ORTag, Fn: op.OR},
+	}
+}
+
 // tokenInfoBySymbol method checks if the current token information includes
 // the information related to the token identified by the symbol provided. It
 // also decodes the address of the token and the min balance (by default 0). If
@@ -79,7 +88,7 @@ func (op *StrategyOperators) tokenInfoBySymbol(symbol string) (common.Address, u
 // the list of holders provided in each iteration. Like any definition of
 // lexer.Operator, it receives an lexer.Iterarion struct, which helps to get
 // both tokens symbols or the results of previous iterations.
-func (op *StrategyOperators) AND(iter *lexer.Iteration[[]string]) ([]string, error) {
+func (op *StrategyOperators) AND(iter *lexer.Iteration[map[string]string]) (map[string]string, error) {
 	interalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	// get information about the current operation
@@ -111,9 +120,9 @@ func (op *StrategyOperators) AND(iter *lexer.Iteration[[]string]) ([]string, err
 				symbolA, chainIDA, symbolB, chainIDB)
 		}
 		// decode the results and return them
-		res := []string{}
+		res := map[string]string{}
 		for _, r := range rows {
-			res = append(res, common.BytesToAddress(r).String())
+			res[common.BytesToAddress(r).String()] = "1"
 		}
 		return res, nil
 	}
@@ -136,9 +145,9 @@ func (op *StrategyOperators) AND(iter *lexer.Iteration[[]string]) ([]string, err
 			return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbolA, chainID)
 		}
 		// decode the resulting addresses
-		dataA = []string{}
+		dataA = map[string]string{}
 		for _, r := range rows {
-			dataA = append(dataA, common.BytesToAddress(r).String())
+			dataA[common.BytesToAddress(r).String()] = "1"
 		}
 	}
 	// if the dataB is empty (does not contains results of previous operarion),
@@ -160,17 +169,17 @@ func (op *StrategyOperators) AND(iter *lexer.Iteration[[]string]) ([]string, err
 			return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbolB, chainID)
 		}
 		// decode the resulting addresses
-		dataB = []string{}
+		dataB = map[string]string{}
 		for _, r := range rows {
-			dataB = append(dataB, common.BytesToAddress(r).String())
+			dataB[common.BytesToAddress(r).String()] = "1"
 		}
 	}
 	// when both data sources are filled, do the intersection of both lists.
-	res := []string{}
-	for _, addressA := range dataA {
-		for _, addressB := range dataB {
+	res := map[string]string{}
+	for addressA, value := range dataA {
+		for addressB := range dataB {
 			if addressA == addressB {
-				res = append(res, addressA)
+				res[addressA] = value
 				break
 			}
 		}
@@ -182,7 +191,7 @@ func (op *StrategyOperators) AND(iter *lexer.Iteration[[]string]) ([]string, err
 // both lists of holders provided in each iteration. Like any definition of
 // lexer.Operator, it receives an lexer.Iterarion struct, which helps to get
 // both tokens symbols or the results of previous iterations.
-func (op *StrategyOperators) OR(iter *lexer.Iteration[[]string]) ([]string, error) {
+func (op *StrategyOperators) OR(iter *lexer.Iteration[map[string]string]) (map[string]string, error) {
 	interalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	// get information about the current operation
@@ -214,9 +223,9 @@ func (op *StrategyOperators) OR(iter *lexer.Iteration[[]string]) ([]string, erro
 				symbolA, chainIDA, symbolB, chainIDB)
 		}
 		// decode the results and return them
-		res := []string{}
+		res := map[string]string{}
 		for _, r := range rows {
-			res = append(res, common.BytesToAddress(r).String())
+			res[common.BytesToAddress(r).String()] = "1"
 		}
 		return res, nil
 	}
@@ -239,9 +248,9 @@ func (op *StrategyOperators) OR(iter *lexer.Iteration[[]string]) ([]string, erro
 			return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbolA, chainID)
 		}
 		// decode the resulting addresses
-		dataA = []string{}
+		dataA := map[string]string{}
 		for _, r := range rows {
-			dataA = append(dataA, common.BytesToAddress(r).String())
+			dataA[common.BytesToAddress(r).String()] = "1"
 		}
 	}
 	// if the dataB is empty (does not contains results of previous operarion),
@@ -263,28 +272,17 @@ func (op *StrategyOperators) OR(iter *lexer.Iteration[[]string]) ([]string, erro
 			return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbolB, chainID)
 		}
 		// decode the resulting addresses
-		dataB = []string{}
+		dataB := map[string]string{}
 		for _, r := range rows {
-			dataB = append(dataB, common.BytesToAddress(r).String())
+			dataB[common.BytesToAddress(r).String()] = "1"
 		}
 	}
 	// when both data sources are filled, do the union of both lists.
-	res := append([]string{}, dataA...)
-	for _, addressA := range dataA {
-		for _, addressB := range dataB {
-			if addressA != addressB {
-				res = append(res, addressB)
-			}
+	res := dataA
+	for addressB, value := range dataB {
+		if _, ok := dataA[addressB]; !ok {
+			res[addressB] = value
 		}
 	}
 	return res, nil
-}
-
-// Map method return the current operators in a map, associated with theirs
-// operator tag.
-func (op *StrategyOperators) Map() []*lexer.Operator[[]string] {
-	return []*lexer.Operator[[]string]{
-		{Tag: ANDTag, Fn: op.AND},
-		{Tag: ORTag, Fn: op.OR},
-	}
 }

@@ -185,16 +185,20 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		}
 		// init the operators and the predicate evaluator
 		operators := strategyoperators.InitOperators(capi.db.QueriesRO, tokensInfo)
-		eval := lexer.NewEval[[]string](operators.Map())
+		eval := lexer.NewEval[map[string]string](operators.Map())
 		// execute the evaluation of the predicate
 		res, err := eval.EvalToken(validPredicate)
 		if err != nil {
 			return 0, ErrEvalStrategyPredicate.WithErr(err)
 		}
 		// parse the evaluation results
-		for _, strAddress := range res {
-			strategyHolders[common.HexToAddress(strAddress)] = big.NewInt(1)
-			censusWeight = new(big.Int).Add(censusWeight, big.NewInt(1))
+		for strAddress, strValue := range res {
+			value, ok := new(big.Int).SetString(strValue, 10)
+			if !ok {
+				return 0, ErrCantCreateCensus.With("error decoding calculated balance")
+			}
+			strategyHolders[common.HexToAddress(strAddress)] = value
+			censusWeight = new(big.Int).Add(censusWeight, value)
 		}
 	}
 	// if no holders found, return an error
@@ -287,16 +291,18 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 			log.Errorf("no census id registered on queue item")
 			return ErrCantGetCensus
 		}
-
 		// get the census from the database by queue_id
 		currentCensus, err := capi.db.QueriesRO.CensusByID(internalCtx, censusID)
 		if err != nil {
 			return ErrCantGetCensus.WithErr(err)
 		}
 		// get values for optional parameters
-		censusWeight := []byte{}
-		if currentCensus.Weight.Valid {
-			censusWeight = []byte(currentCensus.Weight.String)
+		if !currentCensus.Weight.Valid {
+			return ErrCantGetCensus.With("invalid census weight")
+		}
+		censusWeight, ok := new(big.Int).SetString(currentCensus.Weight.String, 10)
+		if !ok {
+			return ErrCantGetCensus.With("invalid census weight")
 		}
 		// encode census
 		queueCensus.Census = &GetCensusResponse{
@@ -305,7 +311,7 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 			MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
 			URI:        "ipfs://" + currentCensus.Uri.String,
 			Size:       currentCensus.Size,
-			Weight:     new(big.Int).SetBytes(censusWeight).String(),
+			Weight:     censusWeight.String(),
 			Anonymous:  currentCensus.CensusType == uint64(census.AnonymousCensusType),
 		}
 		// remove the item from the queue
@@ -341,9 +347,12 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 	censuses := GetCensusesResponse{Censuses: []*GetCensusResponse{}}
 	for _, censusInfo := range rows {
 		// get values for optional parameters
-		censusWeight := []byte{}
-		if censusInfo.Weight.Valid {
-			censusWeight = []byte(censusInfo.Weight.String)
+		if !censusInfo.Weight.Valid {
+			return ErrCantGetCensus.With("invalid census weight")
+		}
+		censusWeight, ok := new(big.Int).SetString(censusInfo.Weight.String, 10)
+		if !ok {
+			return ErrCantGetCensus.With("invalid census weight")
 		}
 
 		censuses.Censuses = append(censuses.Censuses, &GetCensusResponse{
@@ -352,7 +361,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 			MerkleRoot: common.Bytes2Hex(censusInfo.MerkleRoot),
 			URI:        "ipfs://" + censusInfo.Uri.String,
 			Size:       censusInfo.Size,
-			Weight:     new(big.Int).SetBytes(censusWeight).String(),
+			Weight:     censusWeight.String(),
 			Anonymous:  censusInfo.CensusType == uint64(census.AnonymousCensusType),
 		})
 	}

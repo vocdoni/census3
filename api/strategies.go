@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vocdoni/census3/api/strategyoperators"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
 	"go.vocdoni.io/dvote/httprouter"
@@ -104,7 +105,7 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 		return ErrMalformedStrategy.With("no predicate or alias provided")
 	}
 	// check predicate
-	lx := lexer.NewLexer(ValidOperatorsTags)
+	lx := lexer.NewLexer(strategyoperators.ValidOperatorsTags)
 	validatedPredicate, err := lx.Parse(req.Predicate)
 	if err != nil {
 		return ErrInvalidStrategyPredicate.WithErr(err)
@@ -293,7 +294,7 @@ func (capi *census3API) validateStrategyPredicate(msg *api.APIdata, ctx *httprou
 		return ErrMalformedStrategy.With("no predicate provided")
 	}
 
-	lx := lexer.NewLexer(ValidOperatorsTags)
+	lx := lexer.NewLexer(strategyoperators.ValidOperatorsTags)
 	resultingToken, err := lx.Parse(req.Predicate)
 	if err != nil {
 		return ErrInvalidStrategyPredicate.WithErr(err)

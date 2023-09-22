@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vocdoni/census3/api/strategyoperators"
 	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
@@ -139,7 +140,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	censusWeight := new(big.Int)
 	strategyHolders := map[common.Address]*big.Int{}
 	// parse the predicate
-	lx := lexer.NewLexer(ValidOperatorsTags)
+	lx := lexer.NewLexer(strategyoperators.ValidOperatorsTags)
 	validPredicate, err := lx.Parse(strategy.Predicate)
 	if err != nil {
 		return 0, ErrInvalidStrategyPredicate.WithErr(err)
@@ -174,16 +175,16 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 			return 0, ErrCantCreateCensus.WithErr(err)
 		}
 		// parse token information
-		tokensInfo := map[string]*StrategyToken{}
+		tokensInfo := map[string]*strategyoperators.TokenInformation{}
 		for _, token := range strategyTokens {
-			tokensInfo[token.Symbol.String] = &StrategyToken{
+			tokensInfo[token.Symbol.String] = &strategyoperators.TokenInformation{
 				ID:         common.BytesToAddress(token.ID).String(),
 				ChainID:    token.ChainID,
 				MinBalance: new(big.Int).SetBytes(token.MinBalance).String(),
 			}
 		}
 		// init the operators and the predicate evaluator
-		operators := InitOperators(capi.db.QueriesRO, tokensInfo)
+		operators := strategyoperators.InitOperators(capi.db.QueriesRO, tokensInfo)
 		eval := lexer.NewEval[[]string](operators.Map())
 		// execute the evaluation of the predicate
 		res, err := eval.EvalToken(validPredicate)

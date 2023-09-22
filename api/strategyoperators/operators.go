@@ -1,4 +1,4 @@
-package api
+package strategyoperators
 
 import (
 	"context"
@@ -21,17 +21,23 @@ const (
 // ValidOperatorsTags variable contains the supported operator tags
 var ValidOperatorsTags = []string{ANDTag, ORTag}
 
+type TokenInformation struct {
+	ID         string
+	ChainID    uint64
+	MinBalance string
+}
+
 // StrategyOperators struct represents a custom set of predicate operators
 // associated with a SQL database as data source. It brings access to SQL data
 // inside the lexer evaluator operators.
 type StrategyOperators struct {
 	db         *queries.Queries
-	tokensInfo map[string]*StrategyToken
+	tokensInfo map[string]*TokenInformation
 }
 
 // InitOperators function creates a new StrategyOperators struct with the db
 // instance and info about tokens provided.
-func InitOperators(db *queries.Queries, info map[string]*StrategyToken) *StrategyOperators {
+func InitOperators(db *queries.Queries, info map[string]*TokenInformation) *StrategyOperators {
 	return &StrategyOperators{
 		db:         db,
 		tokensInfo: info,
@@ -250,7 +256,7 @@ func (op *StrategyOperators) OR(iter *lexer.Iteration[[]string]) ([]string, erro
 			dataB = append(dataB, common.BytesToAddress(r).String())
 		}
 	}
-	// when both data sources are filled, do the intersection of both lists.
+	// when both data sources are filled, do the union of both lists.
 	res := append([]string{}, dataA...)
 	for _, addressA := range dataA {
 		for _, addressB := range dataB {

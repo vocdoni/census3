@@ -101,7 +101,9 @@ List the supported token types.
 | 500 | `error encoding supported tokens types` | 5012 | 
 
 ### POST `/tokens`
-Triggers a new scan for the provided token, starting from the defined block.
+Triggers a new scan for the provided token, starting from the defined block. 
+
+**Important**: When a token is created, the API also creates a simple strategy with just the holders of that token, which is assigned to it as `defaultStrategy`.
 
 - 📤 request:
 
@@ -166,8 +168,6 @@ Returns the information about the token referenced by the provided ID.
 | 500 | `error getting number of token holders` | 5020 | 
 | 500 | `error getting last block number from web3 endpoint` | 5021 | 
 
-**MVP Warn**: If `defaultStrategy` is `0`, no strategy (neither the dummy strategy) is associated to the given token.
-
 ## Strategies
 
 ### GET `/strategies`
@@ -177,7 +177,61 @@ Returns the ID's list of the strategies registered.
 
 ```json
 {
-    "strategies": [ 1, 3 ]
+    "strategies": [
+        {
+            "ID": 1,
+            "alias": "default MON strategy",
+            "predicate": "MON",
+            "tokens": {
+                "MON": {
+                    "ID": "0x1234",
+                    "chainID": 5
+                }
+            }
+        },
+        {
+            "ID": 2,
+            "alias": "default ANT strategy",
+            "predicate": "ANT",
+            "tokens": {
+                "ANT": {
+                    "ID": "0x1234",
+                    "chainID": 1
+                }
+            }
+        },
+        {
+            "ID": 3,
+            "alias": "default USDC strategy",
+            "predicate": "USDC",
+            "tokens": {
+                "USDC": {
+                    "ID": "0x1234",
+                    "chainID": 1
+                }
+            }
+        },
+        {
+            "ID": 4,
+            "alias": "strategy_alias",
+            "predicate": "MON AND (ANT OR USDC)",
+            "tokens": {
+                "MON": {
+                    "ID": "0x1234",
+                    "chainID": 5
+                },
+                "ANT": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                    "minBalance": "1"
+                },
+                "USDC": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                }
+            }
+        }
+    ]
 }
 ```
 
@@ -244,7 +298,7 @@ Returns the information of the strategy related to the provided ID.
 
 ```json
 {
-    "ID": 1,
+    "ID": 4,
     "alias": "strategy_alias",
     "predicate": "MON AND (ANT OR USDC)",
     "tokens": {
@@ -282,7 +336,39 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
 
 ```json
 {
-    "strategies": [ 2, 8 ]
+    "strategies": [
+        {
+            "ID": 1,
+            "alias": "default MON strategy",
+            "predicate": "MON",
+            "tokens": {
+                "MON": {
+                    "ID": "0x1234",
+                    "chainID": 5
+                }
+            }
+        },
+        {
+            "ID": 4,
+            "alias": "strategy_alias",
+            "predicate": "MON AND (ANT OR USDC)",
+            "tokens": {
+                "MON": {
+                    "ID": "0x1234",
+                    "chainID": 5
+                },
+                "ANT": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                    "minBalance": "1"
+                },
+                "USDC": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                }
+            }
+        }
+    ]
 }
 ```
 

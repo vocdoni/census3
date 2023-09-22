@@ -110,5 +110,5 @@ type GetStrategyResponse struct {
 }
 
 type GetStrategiesResponse struct {
-	Strategies []uint64 `json:"strategies"`
+	Strategies []*GetStrategyResponse `json:"strategies"`
 }

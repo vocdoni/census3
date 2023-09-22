@@ -56,6 +56,13 @@ SELECT *
 FROM strategy_tokens
 ORDER BY strategy_id, token_id;
 
+-- name: StrategyTokensByStrategyID :many
+SELECT st.*, t.symbol
+FROM strategy_tokens st
+JOIN tokens t ON t.ID = st.token_id
+WHERE strategy_id = ?
+ORDER BY strategy_id, token_id;
+
 -- name: StrategyTokenByStrategyIDAndTokenID :one 
 SELECT *
 FROM strategy_tokens

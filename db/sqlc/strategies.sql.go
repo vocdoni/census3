@@ -240,6 +240,51 @@ func (q *Queries) StrategyTokens(ctx context.Context) ([]StrategyToken, error) {
 	return items, nil
 }
 
+const strategyTokensByStrategyID = `-- name: StrategyTokensByStrategyID :many
+SELECT st.strategy_id, st.token_id, st.chain_id, st.min_balance, t.symbol
+FROM strategy_tokens st
+JOIN tokens t ON t.ID = st.token_id
+WHERE strategy_id = ?
+ORDER BY strategy_id, token_id
+`
+
+type StrategyTokensByStrategyIDRow struct {
+	StrategyID uint64
+	TokenID    []byte
+	ChainID    uint64
+	MinBalance []byte
+	Symbol     sql.NullString
+}
+
+func (q *Queries) StrategyTokensByStrategyID(ctx context.Context, strategyID uint64) ([]StrategyTokensByStrategyIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, strategyTokensByStrategyID, strategyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StrategyTokensByStrategyIDRow
+	for rows.Next() {
+		var i StrategyTokensByStrategyIDRow
+		if err := rows.Scan(
+			&i.StrategyID,
+			&i.TokenID,
+			&i.ChainID,
+			&i.MinBalance,
+			&i.Symbol,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateStrategy = `-- name: UpdateStrategy :execresult
 UPDATE strategies
 SET predicate = ?

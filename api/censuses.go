@@ -155,9 +155,6 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 			}
 			return 0, ErrCantCreateCensus.WithErr(err)
 		}
-		if len(holders) == 0 {
-			return 0, ErrNoStrategyHolders
-		}
 		// parse holders addresses and balances
 		for _, holder := range holders {
 			holderAddr := common.BytesToAddress(holder.HolderID)
@@ -175,9 +172,6 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 				return 0, ErrNoStrategyTokens.WithErr(err)
 			}
 			return 0, ErrCantCreateCensus.WithErr(err)
-		}
-		if len(strategyTokens) == 0 {
-			return 0, ErrNoStrategyTokens
 		}
 		// parse token information
 		tokensInfo := map[string]*StrategyToken{}

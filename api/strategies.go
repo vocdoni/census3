@@ -46,22 +46,44 @@ func (capi *census3API) initStrategiesHandlers() error {
 func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	internalCtx, cancel := context.WithTimeout(context.Background(), getStrategiesTimeout)
 	defer cancel()
-	// TODO: Support for pagination
-	// get strategies from the database
-	rows, err := capi.db.QueriesRO.ListStrategies(internalCtx)
+	// create db transaction
+	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetStrategies.WithErr(err)
+	}
+	qtx := capi.db.QueriesRO.WithTx(tx)
+	// get strategies associated to the token provided
+	rows, err := qtx.ListStrategies(internalCtx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoStrategies.WithErr(err)
 		}
 		return ErrCantGetStrategies.WithErr(err)
 	}
-	if len(rows) == 0 {
-		return ErrNoStrategies
-	}
-	// parse and encode the strategies
-	strategies := GetStrategiesResponse{Strategies: []uint64{}}
+	// parse and encode strategies
+	strategies := GetStrategiesResponse{Strategies: []*GetStrategyResponse{}}
 	for _, strategy := range rows {
-		strategies.Strategies = append(strategies.Strategies, strategy.ID)
+		strategyResponse := &GetStrategyResponse{
+			ID:        strategy.ID,
+			Alias:     strategy.Alias,
+			Predicate: strategy.Predicate,
+			Tokens:    make(map[string]*StrategyToken),
+		}
+		strategyTokens, err := qtx.StrategyTokensByStrategyID(internalCtx, strategy.ID)
+		if err != nil {
+			return ErrCantGetStrategies.WithErr(err)
+		}
+		for _, strategyToken := range strategyTokens {
+			if !strategyToken.Symbol.Valid {
+				return ErrCantGetStrategies.With("invalid token symbol")
+			}
+			strategyResponse.Tokens[strategyToken.Symbol.String] = &StrategyToken{
+				ID:         common.BytesToAddress(strategyToken.TokenID).String(),
+				ChainID:    strategyToken.ChainID,
+				MinBalance: new(big.Int).SetBytes(strategyToken.MinBalance).String(),
+			}
+		}
+		strategies.Strategies = append(strategies.Strategies, strategyResponse)
 	}
 	res, err := json.Marshal(strategies)
 	if err != nil {
@@ -209,25 +231,48 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 // if the provided ID is wrong or empty, a 204 response if the token has not any
 // associated strategy or a 500 error if something fails.
 func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// get the tokenID provided
-	tokenID := ctx.URLParam("tokenID")
 	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensStrategyTimeout)
 	defer cancel()
+	// get the tokenID provided
+	tokenID := ctx.URLParam("tokenID")
+	// create db transaction
+	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetStrategies.WithErr(err)
+	}
+	qtx := capi.db.QueriesRO.WithTx(tx)
 	// get strategies associated to the token provided
-	rows, err := capi.db.QueriesRO.StrategiesByTokenID(internalCtx, common.HexToAddress(tokenID).Bytes())
+	rows, err := qtx.StrategiesByTokenID(internalCtx, common.HexToAddress(tokenID).Bytes())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoStrategies.WithErr(err)
 		}
 		return ErrCantGetStrategies.WithErr(err)
 	}
-	if len(rows) == 0 {
-		return ErrNoStrategies
-	}
 	// parse and encode strategies
-	strategies := GetStrategiesResponse{Strategies: []uint64{}}
-	for _, tokenStrategy := range rows {
-		strategies.Strategies = append(strategies.Strategies, tokenStrategy.ID)
+	strategies := GetStrategiesResponse{Strategies: []*GetStrategyResponse{}}
+	for _, strategy := range rows {
+		strategyResponse := &GetStrategyResponse{
+			ID:        strategy.ID,
+			Alias:     strategy.Alias,
+			Predicate: strategy.Predicate,
+			Tokens:    make(map[string]*StrategyToken),
+		}
+		strategyTokens, err := qtx.StrategyTokensByStrategyID(internalCtx, strategy.ID)
+		if err != nil {
+			return ErrCantGetStrategies.WithErr(err)
+		}
+		for _, strategyToken := range strategyTokens {
+			if !strategyToken.Symbol.Valid {
+				return ErrCantGetStrategies.With("invalid token symbol")
+			}
+			strategyResponse.Tokens[strategyToken.Symbol.String] = &StrategyToken{
+				ID:         common.BytesToAddress(strategyToken.TokenID).String(),
+				ChainID:    strategyToken.ChainID,
+				MinBalance: new(big.Int).SetBytes(strategyToken.MinBalance).String(),
+			}
+		}
+		strategies.Strategies = append(strategies.Strategies, strategyResponse)
 	}
 	res, err := json.Marshal(strategies)
 	if err != nil {

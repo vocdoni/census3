@@ -1,23 +1,6 @@
--- name: ListHolders :many
-SELECT * FROM holders
-ORDER BY id;
-
--- name: HolderByID :one
-SELECT * FROM holders
-WHERE id = ?
-LIMIT 1;
-
 -- name: CreateHolder :execresult
 INSERT INTO holders (id)
 VALUES (?);
-
--- name: DeleteHolder :execresult
-DELETE FROM holders
-WHERE id = ?;
-
--- name: ListTokenHolders :many
-SELECT * FROM token_holders
-ORDER BY token_id, holder_id, block_id;
 
 -- name: TokensByHolderID :many
 SELECT tokens.*
@@ -25,35 +8,11 @@ FROM Tokens
 JOIN token_holders ON tokens.id = token_holders.token_id
 WHERE token_holders.holder_id = ?;
 
--- name: TokensByHolderIDAndBlockID :many
-SELECT tokens.*
-FROM Tokens
-JOIN token_holders ON tokens.id = token_holders.token_id
-WHERE token_holders.holder_id = ? AND token_holders.block_id = ?;
-
 -- name: TokenHoldersByTokenID :many
 SELECT holders.*, token_holders.balance
 FROM holders
 JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ?;
-
--- name: TokenHoldersByTokenIDAndBlockID :many
-SELECT holders.*
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? AND token_holders.block_id = ?;
-
--- name: TokenHoldersByTokenIDAndMinBalance :many
-SELECT holders.*
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? AND token_holders.balance >= ?;
-
--- name: TokenHoldersByTokenIDAndBlockIDAndMinBalance :many
-SELECT holders.*
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? AND token_holders.balance >= ? AND token_holders.block_id = ?;
 
 -- name: TokenHolderByTokenIDAndHolderID :one
 SELECT holders.*, token_holders.*
@@ -62,12 +21,6 @@ JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ? 
 AND token_holders.chain_id = ?
 AND token_holders.holder_id = ?;
-
--- name: TokenHolderByTokenIDAndBlockIDAndHolderID :one
-SELECT holders.*, token_holders.balance
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? AND token_holders.holder_id = ? AND token_holders.block_id = ?;
 
 -- name: LastBlockByTokenID :one
 SELECT block_id 

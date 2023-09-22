@@ -25,32 +25,6 @@ func (q *Queries) BlockByID(ctx context.Context, id uint64) (Block, error) {
 	return i, err
 }
 
-const blockByRootHash = `-- name: BlockByRootHash :one
-SELECT id, timestamp, root_hash FROM blocks
-WHERE root_hash = ?
-LIMIT 1
-`
-
-func (q *Queries) BlockByRootHash(ctx context.Context, rootHash annotations.Hash) (Block, error) {
-	row := q.db.QueryRowContext(ctx, blockByRootHash, rootHash)
-	var i Block
-	err := row.Scan(&i.ID, &i.Timestamp, &i.RootHash)
-	return i, err
-}
-
-const blockByTimestamp = `-- name: BlockByTimestamp :one
-SELECT id, timestamp, root_hash FROM blocks
-WHERE timestamp = ?
-LIMIT 1
-`
-
-func (q *Queries) BlockByTimestamp(ctx context.Context, timestamp string) (Block, error) {
-	row := q.db.QueryRowContext(ctx, blockByTimestamp, timestamp)
-	var i Block
-	err := row.Scan(&i.ID, &i.Timestamp, &i.RootHash)
-	return i, err
-}
-
 const createBlock = `-- name: CreateBlock :execresult
 INSERT INTO blocks (
     id,
@@ -72,15 +46,6 @@ func (q *Queries) CreateBlock(ctx context.Context, arg CreateBlockParams) (sql.R
 	return q.db.ExecContext(ctx, createBlock, arg.ID, arg.Timestamp, arg.RootHash)
 }
 
-const deleteBlock = `-- name: DeleteBlock :execresult
-DELETE FROM blocks
-WHERE id = ?
-`
-
-func (q *Queries) DeleteBlock(ctx context.Context, id uint64) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteBlock, id)
-}
-
 const lastBlock = `-- name: LastBlock :one
 SELECT id FROM blocks 
 ORDER BY id DESC 
@@ -92,49 +57,4 @@ func (q *Queries) LastBlock(ctx context.Context) (uint64, error) {
 	var id uint64
 	err := row.Scan(&id)
 	return id, err
-}
-
-const listBlocks = `-- name: ListBlocks :many
-SELECT id, timestamp, root_hash FROM blocks
-ORDER BY id
-`
-
-func (q *Queries) ListBlocks(ctx context.Context) ([]Block, error) {
-	rows, err := q.db.QueryContext(ctx, listBlocks)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Block
-	for rows.Next() {
-		var i Block
-		if err := rows.Scan(&i.ID, &i.Timestamp, &i.RootHash); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateBlock = `-- name: UpdateBlock :execresult
-UPDATE blocks
-SET timestamp = ?,
-    root_hash = ?
-WHERE id = ?
-`
-
-type UpdateBlockParams struct {
-	Timestamp string
-	RootHash  annotations.Hash
-	ID        uint64
-}
-
-func (q *Queries) UpdateBlock(ctx context.Context, arg UpdateBlockParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateBlock, arg.Timestamp, arg.RootHash, arg.ID)
 }

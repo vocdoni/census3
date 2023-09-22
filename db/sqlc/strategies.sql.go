@@ -52,29 +52,6 @@ func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTok
 	)
 }
 
-const deleteStrategy = `-- name: DeleteStrategy :execresult
-DELETE FROM strategies
-WHERE id = ?
-`
-
-func (q *Queries) DeleteStrategy(ctx context.Context, id uint64) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteStrategy, id)
-}
-
-const deleteStrategyToken = `-- name: DeleteStrategyToken :execresult
-DELETE FROM strategy_tokens
-WHERE strategy_id = ? AND token_id = ?
-`
-
-type DeleteStrategyTokenParams struct {
-	StrategyID uint64
-	TokenID    []byte
-}
-
-func (q *Queries) DeleteStrategyToken(ctx context.Context, arg DeleteStrategyTokenParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteStrategyToken, arg.StrategyID, arg.TokenID)
-}
-
 const listStrategies = `-- name: ListStrategies :many
 SELECT id, alias, predicate FROM strategies
 ORDER BY id
@@ -143,66 +120,6 @@ func (q *Queries) StrategyByID(ctx context.Context, id uint64) (Strategy, error)
 	row := q.db.QueryRowContext(ctx, strategyByID, id)
 	var i Strategy
 	err := row.Scan(&i.ID, &i.Alias, &i.Predicate)
-	return i, err
-}
-
-const strategyByPredicate = `-- name: StrategyByPredicate :one
-SELECT id, alias, predicate FROM strategies
-WHERE predicate = ?
-LIMIT 1
-`
-
-func (q *Queries) StrategyByPredicate(ctx context.Context, predicate string) (Strategy, error) {
-	row := q.db.QueryRowContext(ctx, strategyByPredicate, predicate)
-	var i Strategy
-	err := row.Scan(&i.ID, &i.Alias, &i.Predicate)
-	return i, err
-}
-
-const strategyTokenByStrategyIDAndTokenID = `-- name: StrategyTokenByStrategyIDAndTokenID :one
-SELECT strategy_id, token_id, chain_id, min_balance
-FROM strategy_tokens
-WHERE strategy_id = ? AND token_id = ?
-LIMIT 1
-`
-
-type StrategyTokenByStrategyIDAndTokenIDParams struct {
-	StrategyID uint64
-	TokenID    []byte
-}
-
-func (q *Queries) StrategyTokenByStrategyIDAndTokenID(ctx context.Context, arg StrategyTokenByStrategyIDAndTokenIDParams) (StrategyToken, error) {
-	row := q.db.QueryRowContext(ctx, strategyTokenByStrategyIDAndTokenID, arg.StrategyID, arg.TokenID)
-	var i StrategyToken
-	err := row.Scan(
-		&i.StrategyID,
-		&i.TokenID,
-		&i.ChainID,
-		&i.MinBalance,
-	)
-	return i, err
-}
-
-const strategyTokenByStrategyIDAndTokenIDAndMethodHash = `-- name: StrategyTokenByStrategyIDAndTokenIDAndMethodHash :one
-SELECT strategy_id, token_id, chain_id, min_balance
-FROM strategy_tokens
-WHERE strategy_id = ? AND token_id = ?
-`
-
-type StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams struct {
-	StrategyID uint64
-	TokenID    []byte
-}
-
-func (q *Queries) StrategyTokenByStrategyIDAndTokenIDAndMethodHash(ctx context.Context, arg StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams) (StrategyToken, error) {
-	row := q.db.QueryRowContext(ctx, strategyTokenByStrategyIDAndTokenIDAndMethodHash, arg.StrategyID, arg.TokenID)
-	var i StrategyToken
-	err := row.Scan(
-		&i.StrategyID,
-		&i.TokenID,
-		&i.ChainID,
-		&i.MinBalance,
-	)
 	return i, err
 }
 
@@ -283,35 +200,4 @@ func (q *Queries) StrategyTokensByStrategyID(ctx context.Context, strategyID uin
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateStrategy = `-- name: UpdateStrategy :execresult
-UPDATE strategies
-SET predicate = ?
-WHERE id = ?
-`
-
-type UpdateStrategyParams struct {
-	Predicate string
-	ID        uint64
-}
-
-func (q *Queries) UpdateStrategy(ctx context.Context, arg UpdateStrategyParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateStrategy, arg.Predicate, arg.ID)
-}
-
-const updateStrategyToken = `-- name: UpdateStrategyToken :execresult
-UPDATE strategy_tokens
-SET min_balance = ?
-WHERE strategy_id = ? AND token_id = ?
-`
-
-type UpdateStrategyTokenParams struct {
-	MinBalance []byte
-	StrategyID uint64
-	TokenID    []byte
-}
-
-func (q *Queries) UpdateStrategyToken(ctx context.Context, arg UpdateStrategyTokenParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateStrategyToken, arg.MinBalance, arg.StrategyID, arg.TokenID)
 }

@@ -58,15 +58,6 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.R
 	)
 }
 
-const deleteToken = `-- name: DeleteToken :execresult
-DELETE FROM tokens
-WHERE id = ?
-`
-
-func (q *Queries) DeleteToken(ctx context.Context, id annotations.Address) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteToken, id)
-}
-
 const existsToken = `-- name: ExistsToken :one
 SELECT EXISTS 
     (SELECT id 
@@ -163,54 +154,6 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 	return i, err
 }
 
-const tokenByName = `-- name: TokenByName :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
-WHERE name = ?
-LIMIT 1
-`
-
-func (q *Queries) TokenByName(ctx context.Context, name sql.NullString) (Token, error) {
-	row := q.db.QueryRowContext(ctx, tokenByName, name)
-	var i Token
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Symbol,
-		&i.Decimals,
-		&i.TotalSupply,
-		&i.CreationBlock,
-		&i.TypeID,
-		&i.Synced,
-		&i.Tags,
-		&i.ChainID,
-	)
-	return i, err
-}
-
-const tokenBySymbol = `-- name: TokenBySymbol :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
-WHERE symbol = ?
-LIMIT 1
-`
-
-func (q *Queries) TokenBySymbol(ctx context.Context, symbol sql.NullString) (Token, error) {
-	row := q.db.QueryRowContext(ctx, tokenBySymbol, symbol)
-	var i Token
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Symbol,
-		&i.Decimals,
-		&i.TotalSupply,
-		&i.CreationBlock,
-		&i.TypeID,
-		&i.Synced,
-		&i.Tags,
-		&i.ChainID,
-	)
-	return i, err
-}
-
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
 SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, st.strategy_id, st.token_id, st.chain_id, st.min_balance FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
@@ -273,85 +216,6 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]
 	return items, nil
 }
 
-const tokensByType = `-- name: TokensByType :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
-WHERE type_id = ?
-ORDER BY name
-`
-
-func (q *Queries) TokensByType(ctx context.Context, typeID uint64) ([]Token, error) {
-	rows, err := q.db.QueryContext(ctx, tokensByType, typeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Token
-	for rows.Next() {
-		var i Token
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Symbol,
-			&i.Decimals,
-			&i.TotalSupply,
-			&i.CreationBlock,
-			&i.TypeID,
-			&i.Synced,
-			&i.Tags,
-			&i.ChainID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateToken = `-- name: UpdateToken :execresult
-UPDATE tokens
-SET name = ?,
-    symbol = ?,
-    decimals = ?,
-    total_supply = ?,
-    creation_block = ?,
-    type_id = ?,
-    synced = ?,
-    tags = ?
-WHERE id = ?
-`
-
-type UpdateTokenParams struct {
-	Name          sql.NullString
-	Symbol        sql.NullString
-	Decimals      uint64
-	TotalSupply   annotations.BigInt
-	CreationBlock sql.NullInt64
-	TypeID        uint64
-	Synced        bool
-	Tags          sql.NullString
-	ID            annotations.Address
-}
-
-func (q *Queries) UpdateToken(ctx context.Context, arg UpdateTokenParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateToken,
-		arg.Name,
-		arg.Symbol,
-		arg.Decimals,
-		arg.TotalSupply,
-		arg.CreationBlock,
-		arg.TypeID,
-		arg.Synced,
-		arg.Tags,
-		arg.ID,
-	)
-}
-
 const updateTokenCreationBlock = `-- name: UpdateTokenCreationBlock :execresult
 UPDATE tokens
 SET creation_block = ?
@@ -368,6 +232,7 @@ func (q *Queries) UpdateTokenCreationBlock(ctx context.Context, arg UpdateTokenC
 }
 
 const updateTokenStatus = `-- name: UpdateTokenStatus :execresult
+
 UPDATE tokens
 SET synced = ?
 WHERE id = ?
@@ -378,6 +243,19 @@ type UpdateTokenStatusParams struct {
 	ID     annotations.Address
 }
 
+// -- name: UpdateToken :execresult
+// UPDATE tokens
+// SET name = sqlc.arg(name),
+//
+//	symbol = sqlc.arg(symbol),
+//	decimals = sqlc.arg(decimals),
+//	total_supply = sqlc.arg(total_supply),
+//	creation_block = sqlc.arg(creation_block),
+//	type_id = sqlc.arg(type_id),
+//	synced = sqlc.arg(synced),
+//	tags = sqlc.arg(tags)
+//
+// WHERE id = sqlc.arg(id);
 func (q *Queries) UpdateTokenStatus(ctx context.Context, arg UpdateTokenStatusParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, updateTokenStatus, arg.Synced, arg.ID)
 }

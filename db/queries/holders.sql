@@ -60,7 +60,7 @@ DELETE FROM token_holders
 WHERE token_id = ? AND holder_id = ?;
 
 -- name: TokenHoldersByTokenIDAndChainIDAndMinBalance :many
-SELECT token_holders.holder_id
+SELECT token_holders.holder_id, token_holders.balance
 FROM token_holders
 WHERE token_holders.token_id = ? 
     AND token_holders.chain_id = ?
@@ -73,28 +73,52 @@ JOIN strategy_tokens ON strategy_tokens.token_id = token_holders.token_id
 WHERE strategy_tokens.strategy_id = ?
     AND token_holders.balance >= strategy_tokens.min_balance;
 
--- name: AndQueryHolders :many
-SELECT th1.holder_id
-FROM token_holders th1
-WHERE th1.token_id = sqlc.arg(token_id_a) 
-    AND th1.chain_id = sqlc.arg(chain_id_a)
-    AND th1.balance >= sqlc.arg(min_balance_a)
-INTERSECT
-SELECT th2.holder_id
-FROM token_holders th2
-WHERE th2.token_id = sqlc.arg(token_id_b) 
-    AND th2.chain_id = sqlc.arg(chain_id_b)
-    AND th2.balance >= sqlc.arg(min_balance_b);
+-- name: ANDOperator :many
+;WITH holders_a as (
+    SELECT th.holder_id, th.balance
+    FROM token_holders th
+    WHERE th.token_id = sqlc.arg(token_id_a) 
+        AND th.chain_id = sqlc.arg(chain_id_a)
+        AND th.balance >= sqlc.arg(min_balance_a)
+),
+holders_b as (
+    SELECT th.holder_id, th.balance
+    FROM token_holders th
+    WHERE th.token_id = sqlc.arg(token_id_b) 
+        AND th.chain_id = sqlc.arg(chain_id_b)
+        AND th.balance >= sqlc.arg(min_balance_b)
+)
+SELECT holders_a.holder_id, holders_a.balance as balance_a, holders_b.balance as balance_b
+FROM holders_a
+INNER JOIN holders_b ON holders_a.holder_id = holders_b.holder_id;
 
--- name: OrQueryHolders :many
-SELECT th1.holder_id
-FROM token_holders th1
-WHERE th1.token_id = sqlc.arg(token_id_a) 
-    AND th1.chain_id = sqlc.arg(chain_id_a)
-    AND th1.balance >= sqlc.arg(min_balance_a)
-UNION
-SELECT th2.holder_id
-FROM token_holders th2
-WHERE th2.token_id = sqlc.arg(token_id_b) 
-    AND th2.chain_id = sqlc.arg(chain_id_b)
-    AND th2.balance >= sqlc.arg(min_balance_b);
+-- name: OROperator :many
+SELECT holder_ids.holder_id, a.balance AS balance_a, b.balance AS balance_b
+FROM (
+    SELECT th.holder_id
+    FROM token_holders th
+    WHERE (
+        th.token_id = sqlc.arg(token_id_a) 
+        AND th.chain_id = sqlc.arg(chain_id_a)
+        AND th.balance >= sqlc.arg(min_balance_a)
+    ) OR (
+        th.token_id = sqlc.arg(token_id_b) 
+        AND th.chain_id = sqlc.arg(chain_id_b)
+        AND th.balance >= sqlc.arg(min_balance_b)
+    )
+) as holder_ids
+LEFT JOIN (
+    SELECT th_b.holder_id, th_b.balance
+    FROM token_holders th_b
+    WHERE th_b.token_id = sqlc.arg(token_id_a) 
+        AND th_b.chain_id = sqlc.arg(chain_id_a)
+        AND th_b.balance >= sqlc.arg(min_balance_a)
+) AS a ON holder_ids.holder_id = a.holder_id
+LEFT JOIN (
+    SELECT th_a.holder_id, th_a.balance
+    FROM token_holders th_a
+    WHERE th_a.token_id = sqlc.arg(token_id_b) 
+        AND th_a.chain_id = sqlc.arg(chain_id_b)
+        AND th_a.balance >= sqlc.arg(min_balance_b)
+) AS b ON holder_ids.holder_id = b.holder_id
+GROUP BY holder_ids.holder_id;

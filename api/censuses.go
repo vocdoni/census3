@@ -181,23 +181,20 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 				ID:         common.BytesToAddress(token.ID).String(),
 				ChainID:    token.ChainID,
 				MinBalance: new(big.Int).SetBytes(token.MinBalance).String(),
+				Decimals:   token.Decimals,
 			}
 		}
 		// init the operators and the predicate evaluator
 		operators := strategyoperators.InitOperators(capi.db.QueriesRO, tokensInfo)
-		eval := lexer.NewEval[map[string]string](operators.Map())
+		eval := lexer.NewEval[*strategyoperators.StrategyIteration](operators.Map())
 		// execute the evaluation of the predicate
 		res, err := eval.EvalToken(validPredicate)
 		if err != nil {
 			return 0, ErrEvalStrategyPredicate.WithErr(err)
 		}
 		// parse the evaluation results
-		for strAddress, strValue := range res {
-			value, ok := new(big.Int).SetString(strValue, 10)
-			if !ok {
-				return 0, ErrCantCreateCensus.With("error decoding calculated balance")
-			}
-			strategyHolders[common.HexToAddress(strAddress)] = value
+		for address, value := range res.Data {
+			strategyHolders[common.HexToAddress(address)] = value
 			censusWeight = new(big.Int).Add(censusWeight, value)
 		}
 	}

@@ -232,7 +232,6 @@ func (q *Queries) UpdateTokenCreationBlock(ctx context.Context, arg UpdateTokenC
 }
 
 const updateTokenStatus = `-- name: UpdateTokenStatus :execresult
-
 UPDATE tokens
 SET synced = ?
 WHERE id = ?
@@ -243,19 +242,6 @@ type UpdateTokenStatusParams struct {
 	ID     annotations.Address
 }
 
-// -- name: UpdateToken :execresult
-// UPDATE tokens
-// SET name = sqlc.arg(name),
-//
-//	symbol = sqlc.arg(symbol),
-//	decimals = sqlc.arg(decimals),
-//	total_supply = sqlc.arg(total_supply),
-//	creation_block = sqlc.arg(creation_block),
-//	type_id = sqlc.arg(type_id),
-//	synced = sqlc.arg(synced),
-//	tags = sqlc.arg(tags)
-//
-// WHERE id = sqlc.arg(id);
 func (q *Queries) UpdateTokenStatus(ctx context.Context, arg UpdateTokenStatusParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, updateTokenStatus, arg.Synced, arg.ID)
 }

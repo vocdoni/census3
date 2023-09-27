@@ -9,86 +9,120 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
+	"go.vocdoni.io/dvote/log"
 )
 
-const (
-	// ANDTag constant contains the string that identifies the AND operator
-	ANDTag = "AND"
-	// ORTag constant contains the string that identifies the OR operator
-	ORTag = "OR"
-)
-
-// ValidOperatorsTags variable contains the supported operator tags
-var ValidOperatorsTags = []string{ANDTag, ORTag}
-
-// ValidOperators variable contains the information of the supported operators
-var ValidOperators = []map[string]string{
-	{
-		"tag":         ANDTag,
-		"description": "logical operator that returns the common token holders between symbols with fixed balance to 1",
-	},
-	{
-		"tag":         ORTag,
-		"description": "logical operator that returns the token holders of both symbols with fixed balance to 1",
-	},
-}
-
-type TokenInformation struct {
-	ID         string
-	ChainID    uint64
-	MinBalance string
-}
-
-// StrategyOperators struct represents a custom set of predicate operators
-// associated with a SQL database as data source. It brings access to SQL data
-// inside the lexer evaluator operators.
-type StrategyOperators struct {
-	db         *queries.Queries
-	tokensInfo map[string]*TokenInformation
-}
-
-// InitOperators function creates a new StrategyOperators struct with the db
-// instance and info about tokens provided.
-func InitOperators(db *queries.Queries, info map[string]*TokenInformation) *StrategyOperators {
-	return &StrategyOperators{
-		db:         db,
-		tokensInfo: info,
-	}
-}
-
-// Map method return the current operators in a map, associated with theirs
-// operator tag.
-func (op *StrategyOperators) Map() []*lexer.Operator[map[string]string] {
-	return []*lexer.Operator[map[string]string]{
-		{Tag: ANDTag, Fn: op.AND},
-		{Tag: ORTag, Fn: op.OR},
-	}
-}
-
-// tokenInfoBySymbol method checks if the current token information includes
-// the information related to the token identified by the symbol provided. It
-// also decodes the address of the token and the min balance (by default 0). If
-// it does not contains any related token information or the decoding process
-// fails, returns an error.
-func (op *StrategyOperators) tokenInfoBySymbol(symbol string) (common.Address, uint64, *big.Int, error) {
-	tokenInfo, ok := op.tokensInfo[symbol]
-	if !ok {
-		return common.Address{}, 0, nil, fmt.Errorf("token symbol not found: %s", symbol)
-	}
-	minBalance := new(big.Int)
-	if tokenInfo.MinBalance != "" {
-		if _, ok := minBalance.SetString(tokenInfo.MinBalance, 10); !ok {
-			return common.Address{}, 0, nil, fmt.Errorf("error decoding min balance for %s", symbol)
+// AND method returns a AND operator function that can be used in a strategy
+// evaluation. The AND operator returns the common token holders between symbols
+// database information or previous operations results. It applies a fixed
+// balance to 1 to indicate the membership.
+func (op *StrategyOperators) AND() func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+	return func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+		data, decimals, err := op.andOperator(iter)
+		if err != nil {
+			return nil, err
 		}
+		return &StrategyIteration{
+			decimals: decimals,
+			Data:     membershipCombinator(data),
+		}, nil
 	}
-	return common.HexToAddress(tokenInfo.ID), tokenInfo.ChainID, minBalance, nil
 }
 
-// AND method defines the AND operator, which returns the common items between
-// the list of holders provided in each iteration. Like any definition of
-// lexer.Operator, it receives an lexer.Iterarion struct, which helps to get
-// both tokens symbols or the results of previous iterations.
-func (op *StrategyOperators) AND(iter *lexer.Iteration[map[string]string]) (map[string]string, error) {
+// AND_SUM method returns a AND operator function that can be used in a
+// strategy evaluation. The AND operator returns the common token holders
+// between symbols database information or previous operations results. It
+// applies sum between holder balances on both tokens, normalized them to
+// the max number of decimals.
+func (op *StrategyOperators) AND_SUM() func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+	return func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+		data, decimals, err := op.andOperator(iter)
+		if err != nil {
+			return nil, err
+		}
+		return &StrategyIteration{
+			decimals: decimals,
+			Data:     sumBalancesCombinator(data),
+		}, nil
+	}
+}
+
+// AND_MUL method returns a AND operator function that can be used in a
+// strategy evaluation. The AND operator returns the common token holders
+// between symbols database information or previous operations results. It
+// applies multiplication between holder balances on both tokens, normalized
+// them to the max number of decimals.
+func (op *StrategyOperators) AND_MUL() func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+	return func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+		data, decimals, err := op.andOperator(iter)
+		if err != nil {
+			return nil, err
+		}
+		return &StrategyIteration{
+			decimals: decimals,
+			Data:     mulBalancesCombinator(data, decimals, true),
+		}, nil
+	}
+}
+
+// ON method returns a ON operator function that can be used in a strategy
+// evaluation. The ON operator returns the common and not common token holders
+// between symbols database information or previous operations results. It
+// applies a fixed balance to 1 to indicate the membership.
+func (op *StrategyOperators) OR() func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+	return func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+		data, decimals, err := op.orOperator(iter)
+		if err != nil {
+			return nil, err
+		}
+		return &StrategyIteration{
+			decimals: decimals,
+			Data:     membershipCombinator(data),
+		}, nil
+	}
+}
+
+// ON method returns a ON operator function that can be used in a strategy
+// evaluation. The ON operator returns the common and not common token holders
+// between symbols database information or previous operations results. It
+// applies sum between holder balances on both tokens, normalized them to
+// the max number of decimals.
+func (op *StrategyOperators) OR_SUM() func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+	return func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+		data, decimals, err := op.orOperator(iter)
+		if err != nil {
+			return nil, err
+		}
+		return &StrategyIteration{
+			decimals: decimals,
+			Data:     sumBalancesCombinator(data),
+		}, nil
+	}
+}
+
+// ON method returns a ON operator function that can be used in a strategy
+// evaluation. The ON operator returns the common and not common token holders
+// between symbols database information or previous operations results. It
+// applies multiplication between holder balances on both tokens, normalized
+// them to the max number of decimals.
+func (op *StrategyOperators) OR_MUL() func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+	return func(iter *lexer.Iteration[*StrategyIteration]) (*StrategyIteration, error) {
+		data, decimals, err := op.orOperator(iter)
+		if err != nil {
+			return nil, err
+		}
+		return &StrategyIteration{
+			decimals: decimals,
+			Data:     mulBalancesCombinator(data, decimals, false),
+		}, nil
+	}
+}
+
+// andOperator method returns the common token holders between symbols from the
+// token information in the database or previous operations results. It applies
+// a balance normalization to the max number of decimals and also returns the
+// max number of decimals.
+func (op *StrategyOperators) andOperator(iter *lexer.Iteration[*StrategyIteration]) (map[string][2]*big.Int, uint64, error) {
 	interalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	// get information about the current operation
@@ -96,193 +130,268 @@ func (op *StrategyOperators) AND(iter *lexer.Iteration[map[string]string]) (map[
 	symbolB, dataB := iter.B()
 	// no results for any component from previous operation, so get both data
 	// from the database using an AND SQL query
-	if len(dataA) == 0 && len(dataB) == 0 {
-		// get both tokens information by their symbols
-		addressA, chainIDA, minBalanceA, err := op.tokenInfoBySymbol(symbolA)
+	if dataA == nil && dataB == nil {
+		data, err := op.andHoldersDBOperator(interalCtx, symbolA, symbolB)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-		addressB, chainIDB, minBalanceB, err := op.tokenInfoBySymbol(symbolB)
-		if err != nil {
-			return nil, err
+		// get tokens decimals
+		aDecimals, ok := op.decimalsBySymbol(symbolA)
+		if !ok {
+			return nil, 0, fmt.Errorf("token decimals not found: %s", symbolA)
 		}
-		// run the AND query
-		rows, err := op.db.AndQueryHolders(interalCtx, queries.AndQueryHoldersParams{
-			TokenIDA:    addressA.Bytes(),
-			ChainIDA:    chainIDA,
-			TokenIDB:    addressB.Bytes(),
-			ChainIDB:    chainIDB,
-			MinBalanceA: minBalanceA.Bytes(),
-			MinBalanceB: minBalanceB.Bytes(),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("error getting holders of tokens %s (chainID: %d) and %s (chainID: %d)",
-				symbolA, chainIDA, symbolB, chainIDB)
+		bDecimals, ok := op.decimalsBySymbol(symbolB)
+		if !ok {
+			return nil, 0, fmt.Errorf("token decimals not found: %s", symbolA)
 		}
-		// decode the results and return them
-		res := map[string]string{}
-		for _, r := range rows {
-			res[common.BytesToAddress(r).String()] = "1"
+		// normalize balances and get the comma places moved
+		data, commaPlaces, ok := op.normalizeHolderBalances(data, aDecimals, bDecimals)
+		if !ok {
+			return nil, 0, fmt.Errorf("error normalizing balances of %s and %s", symbolA, symbolB)
 		}
-		return res, nil
+		return data, commaPlaces, nil
 	}
+	aDecimals, bDecimals := uint64(0), uint64(0)
 	// if the dataA is empty (does not contains results of previous operarion),
 	// fill its data with the records of the database
-	if len(dataA) == 0 {
-		// get token information by its symbol
-		address, chainID, minBalance, err := op.tokenInfoBySymbol(symbolA)
-		if err != nil {
-			return nil, err
+	if dataA == nil {
+		// get holders by token symbol
+		var err error
+		if dataA.Data, err = op.holdersBySymbol(interalCtx, symbolA); err != nil {
+			return nil, 0, err
 		}
-		// get token filtered information from the database
-		rows, err := op.db.TokenHoldersByTokenIDAndChainIDAndMinBalance(interalCtx,
-			queries.TokenHoldersByTokenIDAndChainIDAndMinBalanceParams{
-				TokenID: address.Bytes(),
-				ChainID: chainID,
-				Balance: minBalance.Bytes(),
-			})
-		if err != nil {
-			return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbolA, chainID)
+		// get token decimals
+		var ok bool
+		aDecimals, ok = op.decimalsBySymbol(symbolA)
+		if !ok {
+			return nil, 0, fmt.Errorf("token decimals not found: %s", symbolA)
 		}
-		// decode the resulting addresses
-		dataA = map[string]string{}
-		for _, r := range rows {
-			dataA[common.BytesToAddress(r).String()] = "1"
-		}
+	} else {
+		aDecimals = dataA.decimals
 	}
 	// if the dataB is empty (does not contains results of previous operarion),
 	// fill its data with the records of the database
-	if len(dataB) == 0 {
-		// get token information by its symbol
-		address, chainID, minBalance, err := op.tokenInfoBySymbol(symbolB)
-		if err != nil {
-			return nil, err
+	if dataB == nil {
+		// get holders by token symbol
+		var err error
+		if dataB.Data, err = op.holdersBySymbol(interalCtx, symbolB); err != nil {
+			return nil, 0, err
 		}
-		// get token filtered information from the database
-		rows, err := op.db.TokenHoldersByTokenIDAndChainIDAndMinBalance(interalCtx,
-			queries.TokenHoldersByTokenIDAndChainIDAndMinBalanceParams{
-				TokenID: address.Bytes(),
-				ChainID: chainID,
-				Balance: minBalance.Bytes(),
-			})
-		if err != nil {
-			return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbolB, chainID)
+		// get token decimals
+		var ok bool
+		bDecimals, ok = op.decimalsBySymbol(symbolB)
+		if !ok {
+			return nil, 0, fmt.Errorf("token decimals not found: %s", symbolB)
 		}
-		// decode the resulting addresses
-		dataB = map[string]string{}
-		for _, r := range rows {
-			dataB[common.BytesToAddress(r).String()] = "1"
-		}
+	} else {
+		bDecimals = dataB.decimals
 	}
 	// when both data sources are filled, do the intersection of both lists.
-	res := map[string]string{}
-	for addressA, value := range dataA {
-		for addressB := range dataB {
+	data := make(map[string][2]*big.Int)
+	for addressA, balanceA := range dataA.Data {
+		for addressB, balanceB := range dataB.Data {
 			if addressA == addressB {
-				res[addressA] = value
+				data[addressA] = [2]*big.Int{balanceA, balanceB}
 				break
 			}
 		}
 	}
-	return res, nil
+	// normalize balances and get the comma places moved
+	data, commaPlaces, ok := op.normalizeHolderBalances(data, aDecimals, bDecimals)
+	if !ok {
+		return nil, 0, fmt.Errorf("error normalizing balances of %s and %s", symbolA, symbolB)
+	}
+	return data, commaPlaces, nil
 }
 
-// OR method defines the OR operator, which returns a list with the items of
-// both lists of holders provided in each iteration. Like any definition of
-// lexer.Operator, it receives an lexer.Iterarion struct, which helps to get
-// both tokens symbols or the results of previous iterations.
-func (op *StrategyOperators) OR(iter *lexer.Iteration[map[string]string]) (map[string]string, error) {
+// orOperator method returns the common and not common token holders between
+// symbols from the token information in the database or previous operations results. It
+// applies a balance normalization to the max number of decimals and also
+// returns the max number of decimals.
+func (op *StrategyOperators) orOperator(iter *lexer.Iteration[*StrategyIteration]) (map[string][2]*big.Int, uint64, error) {
 	interalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	// get information about the current operation
 	symbolA, dataA := iter.A()
 	symbolB, dataB := iter.B()
+	log.Infow("or", "a", symbolA, "b", symbolB, "dataA", dataA, "dataB", dataB)
 	// no results for any component from previous operation, so get both data
 	// from the database using an OR SQL query
-	if len(dataA) == 0 && len(dataB) == 0 {
-		// get both tokens information by their symbols
-		addressA, chainIDA, minBalanceA, err := op.tokenInfoBySymbol(symbolA)
+	if dataA == nil && dataB == nil {
+		data, err := op.orHoldersDBOperator(interalCtx, symbolA, symbolB)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-		addressB, chainIDB, minBalanceB, err := op.tokenInfoBySymbol(symbolB)
-		if err != nil {
-			return nil, err
+		// get tokens decimals
+		aDecimals, ok := op.decimalsBySymbol(symbolA)
+		if !ok {
+			return nil, 0, fmt.Errorf("token decimals not found: %s", symbolA)
 		}
-		// run the OR query
-		rows, err := op.db.OrQueryHolders(interalCtx, queries.OrQueryHoldersParams{
-			TokenIDA:    addressA.Bytes(),
-			ChainIDA:    chainIDA,
-			TokenIDB:    addressB.Bytes(),
-			ChainIDB:    chainIDB,
-			MinBalanceA: minBalanceA.Bytes(),
-			MinBalanceB: minBalanceB.Bytes(),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("error getting holders of tokens %s (chainID: %d) and %s (chainID: %d)",
-				symbolA, chainIDA, symbolB, chainIDB)
+		bDecimals, ok := op.decimalsBySymbol(symbolB)
+		if !ok {
+			return nil, 0, fmt.Errorf("token decimals not found: %s", symbolA)
 		}
-		// decode the results and return them
-		res := map[string]string{}
-		for _, r := range rows {
-			res[common.BytesToAddress(r).String()] = "1"
+		// normalize balances and get the comma places moved
+		data, commaPlaces, ok := op.normalizeHolderBalances(data, aDecimals, bDecimals)
+		if !ok {
+			return nil, 0, fmt.Errorf("error normalizing balances of %s and %s", symbolA, symbolB)
 		}
-		return res, nil
+		return data, commaPlaces, nil
 	}
+	aDecimals, bDecimals := uint64(0), uint64(0)
 	// if the dataA is empty (does not contains results of previous operarion),
 	// fill its data with the records of the database
-	if len(dataA) == 0 {
-		// get token information by its symbol
-		address, chainID, minBalance, err := op.tokenInfoBySymbol(symbolA)
-		if err != nil {
-			return nil, err
+	if dataA == nil {
+		// get holders by token symbol
+		var err error
+		if dataA.Data, err = op.holdersBySymbol(interalCtx, symbolA); err != nil {
+			return nil, 0, err
 		}
-		// get token filtered information from the database
-		rows, err := op.db.TokenHoldersByTokenIDAndChainIDAndMinBalance(interalCtx,
-			queries.TokenHoldersByTokenIDAndChainIDAndMinBalanceParams{
-				TokenID: address.Bytes(),
-				ChainID: chainID,
-				Balance: minBalance.Bytes(),
-			})
-		if err != nil {
-			return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbolA, chainID)
+		// get token decimals
+		var ok bool
+		aDecimals, ok = op.decimalsBySymbol(symbolA)
+		if !ok {
+			return nil, 0, fmt.Errorf("token decimals not found: %s", symbolA)
 		}
-		// decode the resulting addresses
-		dataA := map[string]string{}
-		for _, r := range rows {
-			dataA[common.BytesToAddress(r).String()] = "1"
-		}
+	} else {
+		aDecimals = dataA.decimals
 	}
 	// if the dataB is empty (does not contains results of previous operarion),
 	// fill its data with the records of the database
-	if len(dataB) == 0 {
-		// get token information by its symbol
-		address, chainID, minBalance, err := op.tokenInfoBySymbol(symbolB)
-		if err != nil {
-			return nil, err
+	if dataB == nil {
+		// get holders by token symbol
+		var err error
+		if dataB.Data, err = op.holdersBySymbol(interalCtx, symbolB); err != nil {
+			return nil, 0, err
 		}
-		// get token filtered information from the database
-		rows, err := op.db.TokenHoldersByTokenIDAndChainIDAndMinBalance(interalCtx,
-			queries.TokenHoldersByTokenIDAndChainIDAndMinBalanceParams{
-				TokenID: address.Bytes(),
-				ChainID: chainID,
-				Balance: minBalance.Bytes(),
-			})
-		if err != nil {
-			return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbolB, chainID)
+		// get token decimals
+		var ok bool
+		bDecimals, ok = op.decimalsBySymbol(symbolB)
+		if !ok {
+			return nil, 0, fmt.Errorf("token decimals not found: %s", symbolB)
 		}
-		// decode the resulting addresses
-		dataB := map[string]string{}
-		for _, r := range rows {
-			dataB[common.BytesToAddress(r).String()] = "1"
+	} else {
+		bDecimals = dataB.decimals
+	}
+	// when both data sources are filled, do the intersection of both lists.
+	data := make(map[string][2]*big.Int)
+	for addressA, balanceA := range dataA.Data {
+		data[addressA] = [2]*big.Int{balanceA, nil}
+	}
+	for addressB, balanceB := range dataB.Data {
+		if balanceA, ok := dataA.Data[addressB]; ok {
+			data[addressB] = [2]*big.Int{balanceA, balanceB}
+			continue
+		}
+		data[addressB] = [2]*big.Int{nil, balanceB}
+	}
+	// normalize balances and get the comma places moved
+	data, commaPlaces, ok := op.normalizeHolderBalances(data, aDecimals, bDecimals)
+	if !ok {
+		return nil, 0, fmt.Errorf("error normalizing balances of %s and %s", symbolA, symbolB)
+	}
+	return data, commaPlaces, nil
+}
+
+// normalizeHolderBalances method normalizes the balances for a holder
+// balances map. It also returns the comma places moved to normalize the
+// balances. If the token decimals are not found, returns false.
+func (op *StrategyOperators) normalizeHolderBalances(
+	data map[string][2]*big.Int,
+	aDecimals, bDecimals uint64,
+) (map[string][2]*big.Int, uint64, bool) {
+	// normalize balances and get the comma places moved
+	var commaPlaces uint64
+	for address, balances := range data {
+		var nBalanceA, nBalanceB *big.Int
+		nBalanceA, nBalanceB, commaPlaces = normalize(balances[0], balances[1], aDecimals, bDecimals)
+		data[address] = [2]*big.Int{nBalanceA, nBalanceB}
+	}
+	return data, commaPlaces, true
+}
+
+// addHoldersDBOperator method queries to the database for the holders
+// associated to the symbols provided. It calls to tokenInfoBySymbol first to
+// get the token information by this symbol, and then queries the database. To
+// get the common holders between tokens, it uses an AND SQL query operator,
+// filetered by the minimun balances and chain id associated to each token. It
+// returns a map with the holders addresses as keys and the balances of both
+// tokens as values.
+func (op *StrategyOperators) andHoldersDBOperator(ctx context.Context,
+	symbolA, symbolB string,
+) (map[string][2]*big.Int, error) {
+	// get both tokens information by their symbols
+	addressA, chainIDA, minBalanceA, err := op.tokenInfoBySymbol(symbolA)
+	if err != nil {
+		return nil, err
+	}
+	addressB, chainIDB, minBalanceB, err := op.tokenInfoBySymbol(symbolB)
+	if err != nil {
+		return nil, err
+	}
+	// run the AND query
+	rows, err := op.db.ANDOperator(ctx, queries.ANDOperatorParams{
+		TokenIDA:    addressA.Bytes(),
+		ChainIDA:    chainIDA,
+		TokenIDB:    addressB.Bytes(),
+		ChainIDB:    chainIDB,
+		MinBalanceA: minBalanceA.Bytes(),
+		MinBalanceB: minBalanceB.Bytes(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error getting holders of tokens %s (chainID: %d) and %s (chainID: %d)",
+			symbolA, chainIDA, symbolB, chainIDB)
+	}
+	// decode the results and return them
+	data := make(map[string][2]*big.Int)
+	for _, r := range rows {
+		data[common.BytesToAddress(r.HolderID).String()] = [2]*big.Int{
+			new(big.Int).SetBytes(r.BalanceA),
+			new(big.Int).SetBytes(r.BalanceB),
 		}
 	}
-	// when both data sources are filled, do the union of both lists.
-	res := dataA
-	for addressB, value := range dataB {
-		if _, ok := dataA[addressB]; !ok {
-			res[addressB] = value
+	return data, nil
+}
+
+// addHoldersDBOperator method queries to the database for the holders
+// associated to the symbols provided. It calls to tokenInfoBySymbol first to
+// get the token information by this symbol, and then queries the database. To
+// get the holders of both tokens, it uses an OR SQL query operator, filetered
+// by the minimun balances and chain id associated to each token. It returns a
+// map with the holders addresses as keys and the balances of both tokens as
+// values.
+func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
+	symbolA, symbolB string,
+) (map[string][2]*big.Int, error) {
+	// get both tokens information by their symbols
+	addressA, chainIDA, minBalanceA, err := op.tokenInfoBySymbol(symbolA)
+	if err != nil {
+		return nil, err
+	}
+	addressB, chainIDB, minBalanceB, err := op.tokenInfoBySymbol(symbolB)
+	if err != nil {
+		return nil, err
+	}
+	// run the AND query
+	rows, err := op.db.OROperator(ctx, queries.OROperatorParams{
+		TokenIDA:    addressA.Bytes(),
+		ChainIDA:    chainIDA,
+		TokenIDB:    addressB.Bytes(),
+		ChainIDB:    chainIDB,
+		MinBalanceA: minBalanceA.Bytes(),
+		MinBalanceB: minBalanceB.Bytes(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error getting holders of tokens %s (chainID: %d) and %s (chainID: %d)",
+			symbolA, chainIDA, symbolB, chainIDB)
+	}
+	// decode the results and return them
+	data := make(map[string][2]*big.Int)
+	for _, r := range rows {
+		data[common.BytesToAddress(r.HolderID).String()] = [2]*big.Int{
+			new(big.Int).SetBytes(r.BalanceA),
+			new(big.Int).SetBytes(r.BalanceB),
 		}
 	}
-	return res, nil
+	return data, nil
 }

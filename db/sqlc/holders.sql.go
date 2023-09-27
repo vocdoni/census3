@@ -144,6 +144,29 @@ func (q *Queries) DeleteTokenHolder(ctx context.Context, arg DeleteTokenHolderPa
 	return q.db.ExecContext(ctx, deleteTokenHolder, arg.TokenID, arg.HolderID)
 }
 
+const existTokenHolder = `-- name: ExistTokenHolder :one
+SELECT EXISTS (
+    SELECT holder_id 
+    FROM token_holders
+    WHERE token_id = ? 
+        AND holder_id = ?
+        AND chain_id = ?
+)
+`
+
+type ExistTokenHolderParams struct {
+	TokenID  []byte
+	HolderID []byte
+	ChainID  uint64
+}
+
+func (q *Queries) ExistTokenHolder(ctx context.Context, arg ExistTokenHolderParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, existTokenHolder, arg.TokenID, arg.HolderID, arg.ChainID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const lastBlockByTokenID = `-- name: LastBlockByTokenID :one
 SELECT block_id 
 FROM token_holders

@@ -98,6 +98,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusNoContent,
 		Err:        fmt.Errorf("strategy has not registered holders"),
 	}
+	ErrMalformedChainID = apirest.APIerror{
+		Code:       4018,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed chain ID"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,

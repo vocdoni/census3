@@ -34,28 +34,34 @@ var ValidOperatorsTags = []string{
 // ValidOperators variable contains the information of the supported operators
 var ValidOperators = []map[string]string{
 	{
-		"tag":         ANDTag,
-		"description": "logical operator that returns the common token holders between symbols with fixed balance to 1",
+		"tag": ANDTag,
+		"description": "logical operator that returns the common token " +
+			"holders between symbols with fixed balance to 1",
 	},
 	{
-		"tag":         ANDSUMTag,
-		"description": "logical operator that returns the common token holders between symbols with the sum of their balances on both tokens",
+		"tag": ANDSUMTag,
+		"description": "logical operator that returns the common token holders " +
+			"between symbols with the sum of their balances on both tokens",
 	},
 	{
-		"tag":         ANDMULTag,
-		"description": "logical operator that returns the common token holders between symbols with the multiplication of their balances on both tokens",
+		"tag": ANDMULTag,
+		"description": "logical operator that returns the common token holders " +
+			"between symbols with the multiplication of their balances on both tokens",
 	},
 	{
-		"tag":         ORTag,
-		"description": "logical operator that returns the token holders of both symbols with fixed balance to 1",
+		"tag": ORTag,
+		"description": "logical operator that returns the token holders of " +
+			"both symbols with fixed balance to 1",
 	},
 	{
-		"tag":         ORSUMTag,
-		"description": "logical operator that returns the token holders of both symbols with the sum of their balances on both tokens",
+		"tag": ORSUMTag,
+		"description": "logical operator that returns the token holders of " +
+			"both symbols with the sum of their balances on both tokens",
 	},
 	{
-		"tag":         ORMULTag,
-		"description": "logical operator that returns the token holders of both symbols with the multiplication of their balances on both tokens",
+		"tag": ORMULTag,
+		"description": "logical operator that returns the token holders of " +
+			"both symbols with the multiplication of their balances on both tokens",
 	},
 }
 

@@ -510,7 +510,7 @@ Returns the information of the snapshots related to the provided ID.
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census` | 5017 | 
 
-### GET `/census/queue/{queueID}`
+### GET `/censuses/queue/{queueID}`
 Returns the information of the census that are in the creation queue.
 
 - 📥 response:
@@ -549,7 +549,7 @@ Returns the information of the census that are in the creation queue.
 | 500 | `error creating the census tree on the census database` | 5001 |
 | 500 | `error evaluating strategy predicate` | 5026 |
 
-### GET `/census/strategy/{strategyID}`
+### GET `/censuses/strategy/{strategyID}`
 Returns a list of censusID for the strategy provided.
 
 - 📥 response:

@@ -22,6 +22,15 @@ WHERE token_holders.token_id = ?
 AND token_holders.chain_id = ?
 AND token_holders.holder_id = ?;
 
+-- name: ExistTokenHolder :one
+SELECT EXISTS (
+    SELECT holder_id 
+    FROM token_holders
+    WHERE token_id = ? 
+        AND holder_id = ?
+        AND chain_id = ?
+);
+
 -- name: LastBlockByTokenID :one
 SELECT block_id 
 FROM token_holders

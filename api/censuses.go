@@ -16,6 +16,7 @@ import (
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
+	"go.vocdoni.io/dvote/types"
 )
 
 func (capi *census3API) initCensusHandlers() error {
@@ -59,7 +60,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	res, err := json.Marshal(GetCensusResponse{
 		CensusID:   censusID,
 		StrategyID: currentCensus.StrategyID,
-		MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
+		MerkleRoot: types.HexBytes(currentCensus.MerkleRoot),
 		URI:        "ipfs://" + currentCensus.Uri.String,
 		Size:       currentCensus.Size,
 		Weight:     new(big.Int).SetBytes(censusWeight).String(),
@@ -305,7 +306,7 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 		queueCensus.Census = &GetCensusResponse{
 			CensusID:   currentCensus.ID,
 			StrategyID: currentCensus.StrategyID,
-			MerkleRoot: common.Bytes2Hex(currentCensus.MerkleRoot),
+			MerkleRoot: types.HexBytes(currentCensus.MerkleRoot),
 			URI:        "ipfs://" + currentCensus.Uri.String,
 			Size:       currentCensus.Size,
 			Weight:     censusWeight.String(),
@@ -355,7 +356,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 		censuses.Censuses = append(censuses.Censuses, &GetCensusResponse{
 			CensusID:   censusInfo.ID,
 			StrategyID: censusInfo.StrategyID,
-			MerkleRoot: common.Bytes2Hex(censusInfo.MerkleRoot),
+			MerkleRoot: types.HexBytes(censusInfo.MerkleRoot),
 			URI:        "ipfs://" + censusInfo.Uri.String,
 			Size:       censusInfo.Size,
 			Weight:     censusWeight.String(),

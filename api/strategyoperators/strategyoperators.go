@@ -65,6 +65,8 @@ var ValidOperators = []map[string]string{
 	},
 }
 
+// TokenInformation struct represents the information of a token that is used
+// by strategy operators in a predicate evaluation.
 type TokenInformation struct {
 	ID         string
 	ChainID    uint64
@@ -72,6 +74,10 @@ type TokenInformation struct {
 	Decimals   uint64
 }
 
+// StrategyIteration struct represents the data that is passed to the operators
+// in every iteration of the evaluation process. It contains the data of the
+// token holders of the current symbol or previous iterarion result and number
+// the decimals of the balances.
 type StrategyIteration struct {
 	decimals uint64
 	Data     map[string]*big.Int
@@ -126,6 +132,15 @@ func (op *StrategyOperators) tokenInfoBySymbol(symbol string) (common.Address, u
 	return common.HexToAddress(tokenInfo.ID), tokenInfo.ChainID, minBalance, nil
 }
 
+// decimalsBySymbol method returns the decimals of the token identified by the
+// symbol provided. If the token information does not exists, returns false.
+func (op *StrategyOperators) decimalsBySymbol(symbol string) (uint64, bool) {
+	if info, ok := op.tokensInfo[symbol]; ok {
+		return info.Decimals, true
+	}
+	return 0, false
+}
+
 // holdersBySymbol method queries to the database for the holders associated to
 // the symbol provided. It calls to tokenInfoBySymbol first to get the token
 // information by this symbol, and then queries the database.
@@ -145,19 +160,13 @@ func (op *StrategyOperators) holdersBySymbol(ctx context.Context, symbol string)
 	if err != nil {
 		return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbol, chainID)
 	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("no holders for the token %s on chainID %d", symbol, chainID)
+	}
 	// decode the resulting addresses
 	data := map[string]*big.Int{}
 	for _, r := range rows {
 		data[common.BytesToAddress(r.HolderID).String()] = new(big.Int).SetBytes(r.Balance)
 	}
 	return data, nil
-}
-
-// decimalsBySymbol method returns the decimals of the token identified by the
-// symbol provided. If the token information does not exists, returns false.
-func (op *StrategyOperators) decimalsBySymbol(symbol string) (uint64, bool) {
-	if info, ok := op.tokensInfo[symbol]; ok {
-		return info.Decimals, true
-	}
-	return 0, false
 }

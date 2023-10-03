@@ -155,6 +155,7 @@ func (op *StrategyOperators) andOperator(iter *lexer.Iteration[*StrategyIteratio
 	// if the dataA is empty (does not contains results of previous operarion),
 	// fill its data with the records of the database
 	if dataA == nil {
+		dataA = &StrategyIteration{}
 		// get holders by token symbol
 		var err error
 		if dataA.Data, err = op.holdersBySymbol(interalCtx, symbolA); err != nil {
@@ -172,6 +173,7 @@ func (op *StrategyOperators) andOperator(iter *lexer.Iteration[*StrategyIteratio
 	// if the dataB is empty (does not contains results of previous operarion),
 	// fill its data with the records of the database
 	if dataB == nil {
+		dataB = &StrategyIteration{}
 		// get holders by token symbol
 		var err error
 		if dataB.Data, err = op.holdersBySymbol(interalCtx, symbolB); err != nil {
@@ -242,6 +244,7 @@ func (op *StrategyOperators) orOperator(iter *lexer.Iteration[*StrategyIteration
 	// if the dataA is empty (does not contains results of previous operarion),
 	// fill its data with the records of the database
 	if dataA == nil {
+		dataA = &StrategyIteration{}
 		// get holders by token symbol
 		var err error
 		if dataA.Data, err = op.holdersBySymbol(interalCtx, symbolA); err != nil {
@@ -259,6 +262,7 @@ func (op *StrategyOperators) orOperator(iter *lexer.Iteration[*StrategyIteration
 	// if the dataB is empty (does not contains results of previous operarion),
 	// fill its data with the records of the database
 	if dataB == nil {
+		dataB = &StrategyIteration{}
 		// get holders by token symbol
 		var err error
 		if dataB.Data, err = op.holdersBySymbol(interalCtx, symbolB); err != nil {
@@ -342,6 +346,10 @@ func (op *StrategyOperators) andHoldersDBOperator(ctx context.Context,
 		return nil, fmt.Errorf("error getting holders of tokens %s (chainID: %d) and %s (chainID: %d)",
 			symbolA, chainIDA, symbolB, chainIDB)
 	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("no holders of tokens %s (chainID: %d) and %s (chainID: %d)",
+			symbolA, chainIDA, symbolB, chainIDB)
+	}
 	// decode the results and return them
 	data := make(map[string][2]*big.Int)
 	for _, r := range rows {
@@ -383,6 +391,10 @@ func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error getting holders of tokens %s (chainID: %d) and %s (chainID: %d)",
+			symbolA, chainIDA, symbolB, chainIDB)
+	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("no holders of tokens %s (chainID: %d) and %s (chainID: %d)",
 			symbolA, chainIDA, symbolB, chainIDB)
 	}
 	// decode the results and return them

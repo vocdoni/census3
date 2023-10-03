@@ -12,6 +12,15 @@ type Iteration[T any] struct {
 	values [2]T
 }
 
+// MockIteration function returns a mocked Iteration with just the token symbols
+// provided.
+func MockIteration[T any](a, b string, aT, bT T) *Iteration[T] {
+	return &Iteration[T]{
+		tokens: [2]string{a, b},
+		values: [2]T{aT, bT},
+	}
+}
+
 // A method return the tag and the current of the first component of the
 // operation of the current iteration. It helps to implement Operator's
 // providing an API to work with results of previous operations but olso with

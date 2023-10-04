@@ -13,6 +13,7 @@ import (
 	want "github.com/vocdoni/census3/contracts/aragon/want"
 	erc1155 "github.com/vocdoni/census3/contracts/erc/erc1155"
 	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
+	erc20Votes "github.com/vocdoni/census3/contracts/erc/erc20votes"
 	erc721 "github.com/vocdoni/census3/contracts/erc/erc721"
 	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
 	venation "github.com/vocdoni/census3/contracts/nation3/vestedToken"
@@ -59,7 +60,8 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string,
 		CONTRACT_TYPE_ERC1155,
 		CONTRACT_TYPE_ERC777,
 		CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
-		CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+		CONTRACT_TYPE_CUSTOM_ARAGON_WANT,
+		CONTRACT_TYPE_ERC20_VOTES:
 		w.contractType = contractType
 	default:
 		return ErrUnknownTokenType
@@ -89,6 +91,8 @@ func (w *Web3) NewContract() (interface{}, error) {
 		return venation.NewNation3VestedTokenContract(w.contractAddress, w.client)
 	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		return want.NewAragonWrappedANTTokenContract(w.contractAddress, w.client)
+	case CONTRACT_TYPE_ERC20_VOTES:
+		return erc20Votes.NewERC20VotesContract(w.contractAddress, w.client)
 	default:
 		return nil, ErrUnknownTokenType
 	}
@@ -114,6 +118,9 @@ func (w *Web3) TokenName() (string, error) {
 	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
 		return caller.Name(nil)
+	case CONTRACT_TYPE_ERC20_VOTES:
+		caller := w.contract.(*erc20Votes.ERC20VotesContract).ERC20VotesContractCaller
+		return caller.Name(nil)
 	}
 	return "", ErrUnknownTokenType
 }
@@ -137,6 +144,9 @@ func (w *Web3) TokenSymbol() (string, error) {
 		return caller.Symbol(nil)
 	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
+		return caller.Symbol(nil)
+	case CONTRACT_TYPE_ERC20_VOTES:
+		caller := w.contract.(*erc20Votes.ERC20VotesContract).ERC20VotesContractCaller
 		return caller.Symbol(nil)
 	}
 	return "", ErrUnknownTokenType
@@ -165,6 +175,9 @@ func (w *Web3) TokenDecimals() (uint8, error) {
 	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
 		return caller.Decimals(nil)
+	case CONTRACT_TYPE_ERC20_VOTES:
+		caller := w.contract.(*erc20Votes.ERC20VotesContract).ERC20VotesContractCaller
+		return caller.Decimals(nil)
 	}
 	return 0, ErrUnknownTokenType
 }
@@ -187,6 +200,9 @@ func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 		return caller.TotalSupply(nil)
 	case CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
 		caller := w.contract.(*want.AragonWrappedANTTokenContract).AragonWrappedANTTokenContractCaller
+		return caller.TotalSupply(nil)
+	case CONTRACT_TYPE_ERC20_VOTES:
+		caller := w.contract.(*erc20Votes.ERC20VotesContract).ERC20VotesContractCaller
 		return caller.TotalSupply(nil)
 	}
 	return nil, ErrUnknownTokenType
@@ -265,6 +281,9 @@ func (w *Web3) TokenBalanceOf(tokenHolderAddress common.Address, args ...interfa
 		case 1:
 			return caller.BalanceOfAt(nil, tokenHolderAddress, big.NewInt(int64(args[1].(uint64))))
 		}
+	case CONTRACT_TYPE_ERC20_VOTES:
+		caller := w.contract.(*erc20Votes.ERC20VotesContract).ERC20VotesContractCaller
+		return caller.GetVotes(nil, tokenHolderAddress)
 	}
 	return nil, ErrUnknownTokenType
 }
@@ -455,6 +474,8 @@ func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
 				common.HexToHash(LOG_TOPIC_WANT_WITHDRAWAL),
 			},
 		}
+	case CONTRACT_TYPE_ERC20_VOTES:
+		query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20VOTES_DELEGATE)}}
 	default:
 		return nil, ErrUnknownTokenType
 	}
@@ -583,6 +604,13 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 				hc[logData.Entity] = new(big.Int).Neg(logData.Amount)
 			}
 		}
+	case CONTRACT_TYPE_ERC20_VOTES:
+		filter := w.contract.(*erc20Votes.ERC20VotesContract).ERC20VotesContractFilterer
+		logData, err := filter.ParseDelegateVotesChanged(currentLog)
+		if err != nil {
+			return hc, err
+		}
+		hc[logData.Delegate] = logData.NewVotes
 	}
 	return hc, nil
 }

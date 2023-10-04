@@ -12,6 +12,7 @@ type TokenType uint64
 var TokenTypeStringMap = map[TokenType]string{
 	CONTRACT_TYPE_UNKNOWN:                 "unknown",
 	CONTRACT_TYPE_ERC20:                   "erc20",
+	CONTRACT_TYPE_ERC20_VOTES:             "erc20votes",
 	CONTRACT_TYPE_ERC721_BURNED:           "erc721burned",
 	CONTRACT_TYPE_ERC1155:                 "erc1155",
 	CONTRACT_TYPE_ERC777:                  "erc777",
@@ -29,6 +30,7 @@ var TokenTypeIntMap = map[string]TokenType{
 	"nation3":      CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
 	"want":         CONTRACT_TYPE_CUSTOM_ARAGON_WANT,
 	"erc721burned": CONTRACT_TYPE_ERC721_BURNED,
+	"erc20votes":   CONTRACT_TYPE_ERC20_VOTES,
 }
 
 func (c TokenType) String() string {

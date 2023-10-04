@@ -15,6 +15,7 @@ INSERT INTO token_types (type_name) VALUES ('erc1155');
 INSERT INTO token_types (type_name) VALUES ('erc777');
 INSERT INTO token_types (type_name) VALUES ('nation3');
 INSERT INTO token_types (type_name) VALUES ('want');
+INSERT INTO token_types (type_name) VALUES ('erc20votes');
 
 CREATE TABLE tokens (
     id BLOB PRIMARY KEY NOT NULL,

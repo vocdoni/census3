@@ -75,7 +75,6 @@ func (capi *census3API) initAPIHandlers() error {
 }
 
 func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-
 	info := &APIInfo{
 		SupportedChains: []SupportedChain{},
 	}

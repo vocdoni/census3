@@ -605,12 +605,31 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 			}
 		}
 	case CONTRACT_TYPE_ERC20_VOTES:
-		filter := w.contract.(*erc20Votes.ERC20VotesContract).ERC20VotesContractFilterer
-		logData, err := filter.ParseDelegateVotesChanged(currentLog)
-		if err != nil {
-			return hc, err
+		switch currentLog.Topics[0] {
+		case common.HexToHash(LOG_TOPIC_ERC20_TRANSFER):
+			filter := w.contract.(*erc20Votes.ERC20VotesContract).ERC20VotesContractFilterer
+			logData, err := filter.ParseTransfer(currentLog)
+			if err != nil {
+				return hc, err
+			}
+			if toBalance, exists := hc[logData.To]; exists {
+				hc[logData.To] = new(big.Int).Add(toBalance, logData.Value)
+			} else {
+				hc[logData.To] = logData.Value
+			}
+			if fromBalance, exists := hc[logData.From]; exists {
+				hc[logData.From] = new(big.Int).Sub(fromBalance, logData.Value)
+			} else {
+				hc[logData.From] = new(big.Int).Neg(logData.Value)
+			}
+		case common.HexToHash(LOG_TOPIC_ERC20VOTES_DELEGATE):
+			filter := w.contract.(*erc20Votes.ERC20VotesContract).ERC20VotesContractFilterer
+			logData, err := filter.ParseDelegateVotesChanged(currentLog)
+			if err != nil {
+				return hc, err
+			}
+			hc[logData.Delegate] = logData.NewVotes
 		}
-		hc[logData.Delegate] = logData.NewVotes
 	}
 	return hc, nil
 }

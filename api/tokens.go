@@ -1,11 +1,13 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -37,11 +39,39 @@ func (capi *census3API) initTokenHandlers() error {
 // database. It returns a 204 response if no tokens are registered or a 500
 // error if something fails.
 func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// check if there is a page size parameter in the request, if not use the
+	// default value
+	pageSize := defaultPageSize
+	if strPageSize := ctx.Request.URL.Query().Get("page_size"); strPageSize != "" {
+		if intPageSize, err := strconv.Atoi(strPageSize); err == nil {
+			pageSize = int32(intPageSize)
+		}
+	}
+	// init context with timeout and database transaction
 	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensTimeout)
 	defer cancel()
-	// TODO: Support for pagination
-	// get tokens from the database
-	rows, err := capi.db.QueriesRO.ListTokens(internalCtx)
+	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetTokens.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorw(err, "error rolling back tokens transaction")
+		}
+	}()
+	qtx := capi.db.QueriesRO.WithTx(tx)
+	// get tokens from the database, if there is a cursor use it to paginate
+	// the results, if not get the first page
+	var rows []queries.Token
+	strCursor := ctx.Request.URL.Query().Get("cursor")
+	if strCursor != "" {
+		rows, err = qtx.ListTokensPaginated(internalCtx, queries.ListTokensPaginatedParams{
+			PageCursor: common.HexToAddress(strCursor).Bytes(),
+			Limit:      pageSize,
+		})
+	} else {
+		rows, err = qtx.ListTokens(internalCtx, pageSize)
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoTokens.WithErr(err)
@@ -51,10 +81,46 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	if len(rows) == 0 {
 		return ErrNoTokens
 	}
-	// parse and encode resulting tokens
-	tokens := GetTokensResponse{Tokens: []GetTokensItem{}}
+	// init response struct with the initial pagination information and empty
+	// list of tokens
+	tokensResponse := GetTokensResponse{
+		Tokens:     []GetTokensItem{},
+		Pagination: &Pagination{PageSize: pageSize},
+	}
+	// parse current cursor
+	var currentCursor common.Address
+	if strCursor != "" {
+		currentCursor = common.HexToAddress(strCursor)
+	} else {
+		currentCursor = common.BytesToAddress(rows[0].ID)
+	}
+	// get next and previous cursors from the database and parse them to the
+	// response format
+	nextCursor, err := qtx.ListTokensNextCursor(internalCtx,
+		queries.ListTokensNextCursorParams{
+			PageCursor: currentCursor.Bytes(),
+			Limit:      pageSize,
+		})
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return ErrCantGetTokens.WithErr(err)
+	}
+	if nextCursor != nil {
+		tokensResponse.Pagination.NextCursor = common.BytesToAddress(nextCursor).String()
+	}
+	prevCursor, err := qtx.ListTokensPrevCursor(internalCtx,
+		queries.ListTokensPrevCursorParams{
+			PageCursor: currentCursor.Bytes(),
+			Limit:      pageSize,
+		})
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return ErrCantGetTokens.WithErr(err)
+	}
+	if cursor := common.BytesToAddress(prevCursor); cursor.Big().Cmp(big.NewInt(0)) != 0 && cursor != currentCursor {
+		tokensResponse.Pagination.PrevCursor = cursor.String()
+	}
+	// parse results from database to the response format
 	for _, tokenData := range rows {
-		tokenResponse := GetTokensItem{
+		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokensItem{
 			ID:         common.BytesToAddress(tokenData.ID).String(),
 			Type:       state.TokenType(int(tokenData.TypeID)).String(),
 			Name:       tokenData.Name.String,
@@ -62,10 +128,15 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			Tags:       tokenData.Tags.String,
 			Symbol:     tokenData.Symbol.String,
 			ChainID:    tokenData.ChainID,
+		})
+		// if the any of the token ids is equal to the next cursor, remove it
+		// from pagination, because it is already the last page
+		if bytes.Equal(tokenData.ID, nextCursor) {
+			tokensResponse.Pagination.NextCursor = ""
 		}
-		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}
-	res, err := json.Marshal(tokens)
+	// encode the response and send it
+	res, err := json.Marshal(tokensResponse)
 	if err != nil {
 		return ErrEncodeTokens.WithErr(err)
 	}

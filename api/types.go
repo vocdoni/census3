@@ -1,5 +1,11 @@
 package api
 
+type Pagination struct {
+	NextCursor string `json:"nextCursor"`
+	PrevCursor string `json:"prevCursor"`
+	PageSize   int32  `json:"pageSize"`
+}
+
 type CreateTokenRequest struct {
 	ID      string `json:"ID"`
 	Type    string `json:"type"`
@@ -39,7 +45,8 @@ type GetTokensItem struct {
 }
 
 type GetTokensResponse struct {
-	Tokens []GetTokensItem `json:"tokens"`
+	Tokens     []GetTokensItem `json:"tokens"`
+	Pagination *Pagination     `json:"pagination"`
 }
 
 type TokenTypesResponse struct {

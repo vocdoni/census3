@@ -61,17 +61,16 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}()
 	qtx := capi.db.QueriesRO.WithTx(tx)
 	// get tokens from the database, if there is a cursor use it to paginate
-	// the results, if not get the first page
+	// the results, if not get the first page using empty cursor
 	var rows []queries.Token
-	strCursor := ctx.Request.URL.Query().Get("cursor")
-	if strCursor != "" {
-		rows, err = qtx.ListTokensPaginated(internalCtx, queries.ListTokensPaginatedParams{
-			PageCursor: common.HexToAddress(strCursor).Bytes(),
-			Limit:      pageSize,
-		})
-	} else {
-		rows, err = qtx.ListTokens(internalCtx, pageSize)
+	bCursor := []byte{}
+	if strCursor := ctx.Request.URL.Query().Get("cursor"); strCursor != "" {
+		bCursor = common.HexToAddress(strCursor).Bytes()
 	}
+	rows, err = qtx.ListTokensPaginated(internalCtx, queries.ListTokensPaginatedParams{
+		PageCursor: bCursor,
+		Limit:      pageSize,
+	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoTokens.WithErr(err)
@@ -89,8 +88,8 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	// parse current cursor
 	var currentCursor common.Address
-	if strCursor != "" {
-		currentCursor = common.HexToAddress(strCursor)
+	if len(bCursor) > 0 {
+		currentCursor = common.BytesToAddress(bCursor)
 	} else {
 		currentCursor = common.BytesToAddress(rows[0].ID)
 	}
@@ -104,6 +103,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ErrCantGetTokens.WithErr(err)
 	}
+	// there is a next cursor, so add it to the pagination of the response
 	if nextCursor != nil {
 		tokensResponse.Pagination.NextCursor = common.BytesToAddress(nextCursor).String()
 	}
@@ -115,8 +115,11 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ErrCantGetTokens.WithErr(err)
 	}
-	if cursor := common.BytesToAddress(prevCursor); cursor.Big().Cmp(big.NewInt(0)) != 0 && cursor != currentCursor {
-		tokensResponse.Pagination.PrevCursor = cursor.String()
+	// if the previous cursor is different from the current cursor, the current
+	// page is not the first one, so add the previous cursor to the pagination
+	// of the response
+	if !bytes.Equal(prevCursor, currentCursor.Bytes()) {
+		tokensResponse.Pagination.PrevCursor = common.BytesToAddress(prevCursor).String()
 	}
 	// parse results from database to the response format
 	for _, tokenData := range rows {

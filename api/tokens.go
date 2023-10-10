@@ -44,7 +44,7 @@ func (capi *census3API) initTokenHandlers() error {
 // database. It returns a 204 response if no tokens are registered or a 500
 // error if something fails.
 func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokensTimeout)
 	defer cancel()
 	// TODO: Support for pagination
 	// get tokens from the database
@@ -95,7 +95,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// init web3 client to get the token information before register in the
 	// database
 	w3 := state.Web3{}
-	internalCtx, cancel := context.WithTimeout(context.Background(), createTokenTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createTokenTimeout)
 	defer cancel()
 	// get correct web3 uri provider
 	w3URI, exists := capi.w3p.URIByChainID(req.ChainID)
@@ -193,7 +193,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 // fails.
 func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	address := common.HexToAddress(ctx.URLParam("tokenID"))
-	internalCtx, cancel := context.WithTimeout(context.Background(), getTokenTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
 	defer cancel()
 	tokenData, err := capi.db.QueriesRO.TokenByID(internalCtx, address.Bytes())
 	if err != nil {
@@ -283,7 +283,7 @@ func (capi *census3API) isTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCont
 	if err != nil {
 		return ErrMalformedChainID.WithErr(err)
 	}
-	internalCtx, cancel := context.WithTimeout(context.Background(), getTokenTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
 	defer cancel()
 
 	exists, err := capi.db.QueriesRO.ExistTokenHolder(internalCtx, queries.ExistTokenHolderParams{

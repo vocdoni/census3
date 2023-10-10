@@ -44,7 +44,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		return ErrMalformedCensusID
 	}
 	censusID := uint64(iCensusID)
-	internalCtx, cancel := context.WithTimeout(context.Background(), getCensusTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getCensusTimeout)
 	defer cancel()
 	currentCensus, err := capi.db.QueriesRO.CensusByID(internalCtx, censusID)
 	if err != nil {
@@ -129,7 +129,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 
 	strategy, err := qtx.StrategyByID(internalCtx, req.StrategyID)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 0, ErrNotFoundStrategy.WithErr(err)
 		}
 		return 0, ErrCantCreateCensus.WithErr(err)
@@ -152,7 +152,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		// get the strategy holders from the database
 		holders, err := qtx.TokenHoldersByStrategyID(internalCtx, req.StrategyID)
 		if err != nil {
-			if errors.Is(sql.ErrNoRows, err) {
+			if errors.Is(err, sql.ErrNoRows) {
 				return 0, ErrNoStrategyHolders.WithErr(err)
 			}
 			return 0, ErrCantCreateCensus.WithErr(err)
@@ -170,7 +170,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		// get strategy tokens from the database
 		strategyTokens, err := qtx.TokensByStrategyID(internalCtx, req.StrategyID)
 		if err != nil {
-			if errors.Is(sql.ErrNoRows, err) {
+			if errors.Is(err, sql.ErrNoRows) {
 				return 0, ErrNoStrategyTokens.WithErr(err)
 			}
 			return 0, ErrCantCreateCensus.WithErr(err)
@@ -208,7 +208,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	// check if the census already exists
 	_, err = qtx.CensusByID(internalCtx, newCensusID)
 	if err != nil {
-		if !errors.Is(sql.ErrNoRows, err) {
+		if !errors.Is(err, sql.ErrNoRows) {
 			return 0, ErrCantCreateCensus.WithErr(err)
 		}
 	} else {
@@ -282,7 +282,7 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 	// check if it is not finished or some error occurred
 	if done && err == nil {
 		// if everything is ok, get the census information an return it
-		internalCtx, cancel := context.WithTimeout(context.Background(), enqueueCensusCreationTimeout)
+		internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), enqueueCensusCreationTimeout)
 		defer cancel()
 		censusID, ok := data["censusID"].(uint64)
 		if !ok {
@@ -332,7 +332,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 		return ErrMalformedCensusID.WithErr(err)
 	}
 	// get censuses by this strategy ID
-	internalCtx, cancel := context.WithTimeout(context.Background(), getStrategyCensusesTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategyCensusesTimeout)
 	defer cancel()
 	rows, err := capi.db.QueriesRO.CensusByStrategyID(internalCtx, uint64(strategyID))
 	if err != nil {

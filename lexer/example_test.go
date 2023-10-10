@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 )
 
@@ -62,14 +63,7 @@ func AND(iter *Iteration[[]string]) ([]string, error) {
 
 	res := []string{}
 	for _, a := range dataA {
-		exist := false
-		for _, b := range dataB {
-			if a == b {
-				exist = true
-				break
-			}
-		}
-		if exist {
+		if slices.Contains(dataB, a) {
 			res = append(res, a)
 		}
 	}

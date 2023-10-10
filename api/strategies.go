@@ -49,13 +49,18 @@ func (capi *census3API) initStrategiesHandlers() error {
 // the database. It returns a 204 response if any strategy is registered or a
 // 500 error if something fails.
 func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	internalCtx, cancel := context.WithTimeout(context.Background(), getStrategiesTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategiesTimeout)
 	defer cancel()
 	// create db transaction
 	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
 	if err != nil {
 		return ErrCantGetStrategies.WithErr(err)
 	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "get strategies transaction rollback failed")
+		}
+	}()
 	qtx := capi.db.QueriesRO.WithTx(tx)
 	// get strategies associated to the token provided
 	rows, err := qtx.ListStrategies(internalCtx)
@@ -98,7 +103,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 }
 
 func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	internalCtx, cancel := context.WithTimeout(context.Background(), createDummyStrategyTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createDummyStrategyTimeout)
 	defer cancel()
 
 	req := CreateStrategyRequest{}
@@ -195,7 +200,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	strategyID := uint64(iStrategyID)
 	// get strategy from the database
-	internalCtx, cancel := context.WithTimeout(context.Background(), getStrategyTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategyTimeout)
 	defer cancel()
 	strategyData, err := capi.db.QueriesRO.StrategyByID(internalCtx, strategyID)
 	if err != nil {
@@ -236,7 +241,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 // if the provided ID is wrong or empty, a 204 response if the token has not any
 // associated strategy or a 500 error if something fails.
 func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensStrategyTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokensStrategyTimeout)
 	defer cancel()
 	// get the tokenID provided
 	tokenID := ctx.URLParam("tokenID")

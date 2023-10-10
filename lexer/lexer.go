@@ -1,6 +1,9 @@
 package lexer
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // Lexer struct helps to parse a predicated with a predefined operators,
 // generating a iterable struct to eval the it then.
@@ -16,12 +19,7 @@ func NewLexer(ops []string) *Lexer {
 // SupportedOperator method return if the tag provided is a operator supported
 // by the current lexer
 func (l *Lexer) SupportedOperator(tag string) bool {
-	for _, op := range l.ops {
-		if op == tag {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(l.ops, tag)
 }
 
 // Parse method tokenize the predicate provided a decode its groups levels

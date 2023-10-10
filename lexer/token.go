@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"slices"
 	"strings"
 )
 
@@ -94,14 +95,7 @@ func (t *Token) AllLiterals() []string {
 	}
 	res := []string{}
 	commit := func(i string) {
-		exists := false
-		for _, r := range res {
-			if r == i {
-				exists = true
-				break
-			}
-		}
-		if !exists {
+		if !slices.Contains(res, i) {
 			res = append(res, i)
 		}
 	}

@@ -121,41 +121,20 @@ func (q *Queries) ListTokens(ctx context.Context, limit int32) ([]Token, error) 
 	return items, nil
 }
 
-const listTokensNextCursor = `-- name: ListTokensNextCursor :one
-SELECT id FROM (
-    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
-    WHERE tokens.id > ?
-    ORDER BY id ASC 
-    LIMIT ?
-) AS next_cursor ORDER BY id DESC LIMIT 1
-`
-
-type ListTokensNextCursorParams struct {
-	PageCursor annotations.Address
-	Limit      int32
-}
-
-func (q *Queries) ListTokensNextCursor(ctx context.Context, arg ListTokensNextCursorParams) (annotations.Address, error) {
-	row := q.db.QueryRowContext(ctx, listTokensNextCursor, arg.PageCursor, arg.Limit)
-	var id annotations.Address
-	err := row.Scan(&id)
-	return id, err
-}
-
-const listTokensPaginated = `-- name: ListTokensPaginated :many
+const nextTokensPage = `-- name: NextTokensPage :many
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
 WHERE id >= ?
 ORDER BY id ASC 
 LIMIT ?
 `
 
-type ListTokensPaginatedParams struct {
+type NextTokensPageParams struct {
 	PageCursor annotations.Address
 	Limit      int32
 }
 
-func (q *Queries) ListTokensPaginated(ctx context.Context, arg ListTokensPaginatedParams) ([]Token, error) {
-	rows, err := q.db.QueryContext(ctx, listTokensPaginated, arg.PageCursor, arg.Limit)
+func (q *Queries) NextTokensPage(ctx context.Context, arg NextTokensPageParams) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, nextTokensPage, arg.PageCursor, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -188,25 +167,50 @@ func (q *Queries) ListTokensPaginated(ctx context.Context, arg ListTokensPaginat
 	return items, nil
 }
 
-const listTokensPrevCursor = `-- name: ListTokensPrevCursor :one
-SELECT id FROM (
-    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
-    WHERE tokens.id <= ?
-    ORDER BY id ASC 
-    LIMIT ?
-) AS prev_cursor ORDER BY id ASC LIMIT 1
+const prevTokensPage = `-- name: PrevTokensPage :many
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
+WHERE id <= ?
+ORDER BY id ASC 
+LIMIT ?
 `
 
-type ListTokensPrevCursorParams struct {
+type PrevTokensPageParams struct {
 	PageCursor annotations.Address
 	Limit      int32
 }
 
-func (q *Queries) ListTokensPrevCursor(ctx context.Context, arg ListTokensPrevCursorParams) (annotations.Address, error) {
-	row := q.db.QueryRowContext(ctx, listTokensPrevCursor, arg.PageCursor, arg.Limit)
-	var id annotations.Address
-	err := row.Scan(&id)
-	return id, err
+func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, prevTokensPage, arg.PageCursor, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Token
+	for rows.Next() {
+		var i Token
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Symbol,
+			&i.Decimals,
+			&i.TotalSupply,
+			&i.CreationBlock,
+			&i.TypeID,
+			&i.Synced,
+			&i.Tags,
+			&i.ChainID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const tokenByID = `-- name: TokenByID :one

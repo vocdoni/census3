@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
-	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -40,33 +39,15 @@ func (capi *census3API) initTokenHandlers() error {
 func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// check if there is a page size parameter in the request, if not use the
 	// default value
-	pageSize := defaultPageSize + 2
-	if strPageSize := ctx.Request.URL.Query().Get("pageSize"); strPageSize != "" {
-		if intPageSize, err := strconv.Atoi(strPageSize); err == nil && intPageSize > 1 {
-			pageSize = int32(intPageSize) + 2
-		}
+	pageSize, cursor, goForward, err := paginationFromCtx(ctx)
+	if err != nil {
+		return ErrMalformedPagination.WithErr(err)
 	}
-	prevCursor := ctx.Request.URL.Query().Get("prevCursor")
-	nextCursor := ctx.Request.URL.Query().Get("nextCursor")
-	if prevCursor != "" && nextCursor != "" {
-		return ErrMalformedPagination.With("both cursors provided, next and previous")
-	}
-
-	noCursor := false
-	goForward := true
+	// if there is a cursor, decode it to bytes
 	bCursor := []byte{}
-	if prevCursor == "" && nextCursor == "" {
-		noCursor = true
-	} else {
-		if prevCursor != "" {
-			goForward = false
-			bCursor = common.HexToAddress(prevCursor).Bytes()
-		}
-		if nextCursor != "" {
-			bCursor = common.HexToAddress(nextCursor).Bytes()
-		}
+	if cursor != "" {
+		bCursor = common.HexToAddress(cursor).Bytes()
 	}
-
 	// init context with timeout and database transaction
 	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensTimeout)
 	defer cancel()
@@ -88,7 +69,6 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			PageCursor: bCursor,
 			Limit:      pageSize,
 		})
-		log.Info(rows)
 	} else {
 		rows, err = qtx.PrevTokensPage(internalCtx, queries.PrevTokensPageParams{
 			PageCursor: bCursor,
@@ -107,34 +87,15 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	// init response struct with the initial pagination information and empty
 	// list of tokens
 	tokensResponse := GetTokensResponse{
-		Tokens: []GetTokensItem{},
-		Pagination: &Pagination{
-			PageSize:   pageSize - 2,
-			NextCursor: common.BytesToAddress(rows[len(rows)-1].ID).String(),
-			PrevCursor: common.BytesToAddress(rows[0].ID).String(),
-		},
+		Tokens:     []GetTokensItem{},
+		Pagination: &Pagination{PageSize: pageSize - 2},
 	}
-	if tokensResponse.Pagination.NextCursor == tokensResponse.Pagination.PrevCursor {
-		if goForward {
-			tokensResponse.Pagination.NextCursor = ""
-		} else {
-			tokensResponse.Pagination.PrevCursor = ""
-		}
+	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, pageSize, cursor, goForward)
+	if nextCursorRow != nil {
+		tokensResponse.Pagination.NextCursor = common.BytesToAddress(nextCursorRow.ID).String()
 	}
-	if len(rows) == int(pageSize) {
-		if noCursor {
-			tokensResponse.Pagination.NextCursor = common.BytesToAddress(rows[len(rows)-2].ID).String()
-			tokensResponse.Pagination.PrevCursor = ""
-			rows = rows[:len(rows)-2]
-		} else {
-			rows = rows[1 : len(rows)-1]
-		}
-	} else if len(rows) > int(pageSize)-2 {
-		if noCursor || goForward {
-			rows = rows[:len(rows)-1]
-		} else {
-			rows = rows[1:]
-		}
+	if prevCursorRow != nil {
+		tokensResponse.Pagination.PrevCursor = common.BytesToAddress(prevCursorRow.ID).String()
 	}
 	// parse results from database to the response format
 	for _, tokenData := range rows {

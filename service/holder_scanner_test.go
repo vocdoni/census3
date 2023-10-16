@@ -224,5 +224,5 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress), qt.IsNil)
 	token, err := testdb.db.QueriesRW.TokenByID(context.Background(), MonkeysAddress.Bytes())
 	c.Assert(err, qt.IsNil)
-	c.Assert(uint64(token.CreationBlock.Int64), qt.Equals, MonkeysCreationBlock)
+	c.Assert(uint64(token.CreationBlock), qt.Equals, MonkeysCreationBlock)
 }

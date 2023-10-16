@@ -84,10 +84,10 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 			return ErrCantGetStrategies.WithErr(err)
 		}
 		for _, strategyToken := range strategyTokens {
-			if !strategyToken.Symbol.Valid {
+			if strategyToken.Symbol == "" {
 				return ErrCantGetStrategies.With("invalid token symbol")
 			}
-			strategyResponse.Tokens[strategyToken.Symbol.String] = &StrategyToken{
+			strategyResponse.Tokens[strategyToken.Symbol] = &StrategyToken{
 				ID:         common.BytesToAddress(strategyToken.TokenID).String(),
 				ChainID:    strategyToken.ChainID,
 				MinBalance: new(big.Int).SetBytes(strategyToken.MinBalance).String(),
@@ -223,7 +223,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	// parse and encode tokens information
 	for _, tokenData := range tokensData {
-		strategy.Tokens[tokenData.Symbol.String] = &StrategyToken{
+		strategy.Tokens[tokenData.Symbol] = &StrategyToken{
 			ID:         common.BytesToAddress(tokenData.ID).String(),
 			MinBalance: new(big.Int).SetBytes(tokenData.MinBalance).String(),
 			ChainID:    tokenData.ChainID,
@@ -273,10 +273,10 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 			return ErrCantGetStrategies.WithErr(err)
 		}
 		for _, strategyToken := range strategyTokens {
-			if !strategyToken.Symbol.Valid {
+			if strategyToken.Symbol == "" {
 				return ErrCantGetStrategies.With("invalid token symbol")
 			}
-			strategyResponse.Tokens[strategyToken.Symbol.String] = &StrategyToken{
+			strategyResponse.Tokens[strategyToken.Symbol] = &StrategyToken{
 				ID:         common.BytesToAddress(strategyToken.TokenID).String(),
 				ChainID:    strategyToken.ChainID,
 				MinBalance: new(big.Int).SetBytes(strategyToken.MinBalance).String(),

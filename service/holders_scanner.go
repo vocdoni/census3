@@ -131,7 +131,7 @@ func (s *HoldersScanner) tokenAddresses() (map[common.Address]bool, error) {
 	// parse and return token addresses
 	results := make(map[common.Address]bool)
 	for _, token := range tokens {
-		results[common.BytesToAddress(token.ID)] = token.CreationBlock.Valid
+		results[common.BytesToAddress(token.ID)] = token.CreationBlock != 0
 	}
 	return results, nil
 }
@@ -315,7 +315,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 			return false, err
 		}
 		ttype := state.TokenType(tokenInfo.TypeID)
-		tokenLastBlock := uint64(tokenInfo.CreationBlock.Int64)
+		tokenLastBlock := uint64(tokenInfo.CreationBlock)
 		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
 			tokenLastBlock = blockNumber
 		}
@@ -395,15 +395,11 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 	if err != nil {
 		return fmt.Errorf("error getting token creation block: %w", err)
 	}
-	dbCreationBlock := new(sql.NullInt64)
-	if err := dbCreationBlock.Scan(creationBlock); err != nil {
-		return fmt.Errorf("error getting token creation block value: %w", err)
-	}
 	// save the creation block into the database
 	_, err = s.db.QueriesRW.UpdateTokenCreationBlock(ctx,
 		queries.UpdateTokenCreationBlockParams{
 			ID:            addr.Bytes(),
-			CreationBlock: *dbCreationBlock,
+			CreationBlock: int64(creationBlock),
 		})
 	if err != nil {
 		return fmt.Errorf("error updating token creation block on the database: %w", err)

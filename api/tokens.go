@@ -64,10 +64,10 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		tokenResponse := GetTokensItem{
 			ID:         common.BytesToAddress(tokenData.ID).String(),
 			Type:       state.TokenType(int(tokenData.TypeID)).String(),
-			Name:       tokenData.Name.String,
-			StartBlock: tokenData.CreationBlock.Int64,
-			Tags:       tokenData.Tags.String,
-			Symbol:     tokenData.Symbol.String,
+			Name:       tokenData.Name,
+			StartBlock: tokenData.CreationBlock,
+			Tags:       tokenData.Tags,
+			Symbol:     tokenData.Symbol,
 			ChainID:    tokenData.ChainID,
 		}
 		tokens.Tokens = append(tokens.Tokens, tokenResponse)
@@ -110,27 +110,6 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	if err != nil {
 		return ErrCantGetToken.WithErr(err)
 	}
-	var (
-		name          = new(sql.NullString)
-		symbol        = new(sql.NullString)
-		creationBlock = new(sql.NullInt64)
-		totalSupply   = new(big.Int)
-		tags          = new(sql.NullString)
-	)
-	if err := name.Scan(info.Name); err != nil {
-		return ErrCantGetToken.WithErr(err)
-	}
-	if err := symbol.Scan(info.Symbol); err != nil {
-		return ErrCantGetToken.WithErr(err)
-	}
-	if info.TotalSupply != nil {
-		totalSupply = info.TotalSupply
-	}
-	if req.Tags != "" {
-		if err := tags.Scan(req.Tags); err != nil {
-			return ErrCantGetToken.WithErr(err)
-		}
-	}
 	// init db transaction
 	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
@@ -144,14 +123,14 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	qtx := capi.db.QueriesRW.WithTx(tx)
 	_, err = qtx.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
-		Name:          *name,
-		Symbol:        *symbol,
+		Name:          info.Name,
+		Symbol:        info.Symbol,
 		Decimals:      info.Decimals,
-		TotalSupply:   totalSupply.Bytes(),
-		CreationBlock: *creationBlock,
+		TotalSupply:   info.TotalSupply.Bytes(),
+		CreationBlock: 0,
 		TypeID:        uint64(tokenType),
 		Synced:        false,
-		Tags:          *tags,
+		Tags:          req.Tags,
 		ChainID:       req.ChainID,
 	})
 	if err != nil {
@@ -163,7 +142,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// create a default strategy to support censuses over the holders of this
 	// single token
 	res, err := qtx.CreateStategy(internalCtx, queries.CreateStategyParams{
-		Alias:     fmt.Sprintf("default %s strategy", info.Symbol),
+		Alias:     fmt.Sprintf("Default strategy for token %s", info.Symbol),
 		Predicate: lexer.ScapeTokenSymbol(info.Symbol),
 	})
 	if err != nil {
@@ -253,21 +232,19 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		Type:        state.TokenType(int(tokenData.TypeID)).String(),
 		Decimals:    tokenData.Decimals,
 		Size:        uint64(holders),
-		Name:        tokenData.Name.String,
-		Symbol:      tokenData.Symbol.String,
+		Name:        tokenData.Name,
+		Symbol:      tokenData.Symbol,
 		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply).String(),
+		StartBlock:  uint64(tokenData.CreationBlock),
 		Status: &GetTokenStatusResponse{
 			AtBlock:  atBlock,
 			Synced:   tokenData.Synced,
 			Progress: tokenProgress,
 		},
-		Tags: tokenData.Tags.String,
+		Tags: tokenData.Tags,
 		// TODO: Only for the MVP, consider to remove it
 		DefaultStrategy: defaultStrategyID,
 		ChainID:         tokenData.ChainID,
-	}
-	if tokenData.CreationBlock.Valid {
-		tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int64)
 	}
 	res, err := json.Marshal(tokenResponse)
 	if err != nil {

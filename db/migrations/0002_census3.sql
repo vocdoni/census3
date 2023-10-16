@@ -1,26 +1,26 @@
 -- +goose Up
 
 -- stategies table schema updates
-ALTER TABLE strategies ADD COLUMN alias TEXT;
+ALTER TABLE strategies ADD COLUMN alias TEXT NOT NULL DEFAULT '';
 
 -- tokens table schema updates
 CREATE TABLE tokens_copy (
     id BLOB NOT NULL,
-    name TEXT,
-    symbol TEXT,
-    decimals INTEGER,
-    total_supply BLOB,
-    creation_block BIGINT,
-    type_id INTEGER NOT NULL,
-    synced BOOLEAN NOT NULL,
-    tags TEXT,
-    chain_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    symbol TEXT NOT NULL DEFAULT '',
+    decimals INTEGER NOT NULL DEFAULT 0,
+    total_supply BLOB NOT NULL DEFAULT '',
+    creation_block BIGINT NOT NULL DEFAULT 0,
+    type_id INTEGER NOT NULL DEFAULT 0,
+    synced BOOLEAN NOT NULL DEFAULT 0,
+    tags TEXT NOT NULL DEFAULT '',
+    chain_id INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (id, chain_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );
 INSERT INTO tokens_copy SELECT * FROM tokens;
 DROP TABLE tokens;
-DROP INDEX IF EXISTS idx_tokens_type_id;
+-- DROP INDEX IF EXISTS idx_tokens_type_id;
 ALTER TABLE tokens_copy RENAME TO tokens;
 CREATE INDEX idx_tokens_type_id ON tokens(type_id);
 
@@ -43,9 +43,9 @@ SELECT * FROM (
         SELECT token.chain_id FROM tokens AS token WHERE token.id = token_holders.token_id
     ) AS chain_id FROM token_holders
 );
-DROP INDEX IF EXISTS idx_token_holders_token_id;
-DROP INDEX IF EXISTS idx_token_holders_holder_id;
-DROP INDEX IF EXISTS idx_token_holders_block_id;
+-- DROP INDEX IF EXISTS idx_token_holders_token_id;
+-- DROP INDEX IF EXISTS idx_token_holders_holder_id;
+-- DROP INDEX IF EXISTS idx_token_holders_block_id;
 DROP TABLE token_holders;
 ALTER TABLE token_holders_copy RENAME TO token_holders;
 CREATE INDEX idx_token_holders_token_id ON token_holders(token_id);
@@ -69,8 +69,8 @@ SELECT * FROM (
     ) AS chain_id FROM strategy_tokens
 );
 
-DROP INDEX IF EXISTS idx_strategy_tokens_strategy_id;
-DROP INDEX IF EXISTS idx_strategy_tokens_token_id;
+-- DROP INDEX IF EXISTS idx_strategy_tokens_strategy_id;
+-- DROP INDEX IF EXISTS idx_strategy_tokens_token_id;
 DROP TABLE strategy_tokens;
 ALTER TABLE strategy_tokens_copy RENAME TO strategy_tokens;
 CREATE INDEX idx_strategy_tokens_strategy_id ON strategy_tokens(strategy_id);

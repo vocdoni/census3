@@ -178,7 +178,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		// parse token information
 		tokensInfo := map[string]*strategyoperators.TokenInformation{}
 		for _, token := range strategyTokens {
-			tokensInfo[token.Symbol.String] = &strategyoperators.TokenInformation{
+			tokensInfo[token.Symbol] = &strategyoperators.TokenInformation{
 				ID:         common.BytesToAddress(token.ID).String(),
 				ChainID:    token.ChainID,
 				MinBalance: new(big.Int).SetBytes(token.MinBalance).String(),

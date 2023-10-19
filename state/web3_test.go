@@ -253,7 +253,7 @@ func Test_transferLogs(t *testing.T) {
 
 	logs, err := w.transferLogs(MonkeysCreationBlock, MonkeysCreationBlock+500)
 	c.Assert(err, qt.IsNil)
-	c.Assert(logs, qt.HasLen, 10)
+	c.Assert(logs, qt.HasLen, len(MonkeysHolders))
 }
 
 func Test_calcPartialBalances(t *testing.T) {

@@ -82,6 +82,7 @@ type GetCensusesResponse struct {
 
 type GetStrategiesResponse struct {
 	Strategies []uint64 `json:"strategies"`
+	Pagination *Pagination
 }
 
 type GetStrategyToken struct {

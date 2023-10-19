@@ -37,9 +37,8 @@ func (capi *census3API) initTokenHandlers() error {
 // database. It returns a 204 response if no tokens are registered or a 500
 // error if something fails.
 func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// check if there is a page size parameter in the request, if not use the
-	// default value
-	pageSize, cursor, goForward, err := paginationFromCtx(ctx)
+	// get pagination information from the request
+	pageSize, dbPageSize, cursor, goForward, err := paginationFromCtx(ctx)
 	if err != nil {
 		return ErrMalformedPagination.WithErr(err)
 	}
@@ -61,18 +60,18 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		}
 	}()
 	qtx := capi.db.QueriesRO.WithTx(tx)
-	// get tokens from the database, if there is a cursor use it to paginate
-	// the results, if not get the first page using empty cursor
+	// get the tokens from the database using the provided cursor, get the
+	// following or previous page depending on the direction of the cursor
 	var rows []queries.Token
 	if goForward {
 		rows, err = qtx.NextTokensPage(internalCtx, queries.NextTokensPageParams{
 			PageCursor: bCursor,
-			Limit:      pageSize,
+			Limit:      dbPageSize,
 		})
 	} else {
 		rows, err = qtx.PrevTokensPage(internalCtx, queries.PrevTokensPageParams{
 			PageCursor: bCursor,
-			Limit:      pageSize,
+			Limit:      dbPageSize,
 		})
 	}
 	if err != nil {
@@ -88,9 +87,9 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	// list of tokens
 	tokensResponse := GetTokensResponse{
 		Tokens:     []GetTokensItem{},
-		Pagination: &Pagination{PageSize: pageSize - 2},
+		Pagination: &Pagination{PageSize: pageSize},
 	}
-	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, pageSize, cursor, goForward)
+	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, cursor, goForward)
 	if nextCursorRow != nil {
 		tokensResponse.Pagination.NextCursor = common.BytesToAddress(nextCursorRow.ID).String()
 	}

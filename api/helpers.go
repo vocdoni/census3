@@ -5,18 +5,25 @@ import (
 	"strconv"
 
 	"go.vocdoni.io/dvote/httprouter"
-	"go.vocdoni.io/dvote/log"
 )
 
-func paginationFromCtx(ctx *httprouter.HTTPContext) (int32, string, bool, error) {
+// paginationFromCtx extracts from the request and returns the page size,
+// the database page size, the current cursor and the direction of that cursor.
+// The page size is the number of elements of the page, the database page size
+// is the number of elements of the page plus one, to get the previous and next
+// cursors. The cursor and the direction are extracted from the request. If
+// both cursors are provided, it returns an error.
+func paginationFromCtx(ctx *httprouter.HTTPContext) (int32, int32, string, bool, error) {
 	// define the initial page size by increasing the probvided value to get
 	// the previous and next cursors
-	pageSize := defaultPageSize + 2
+	pageSize := defaultPageSize
+	dbPageSize := defaultPageSize + 1
 	// if the page size is provided, use the provided value instead, increasing
 	// it by 2 to get the previous and next cursors
 	if strPageSize := ctx.Request.URL.Query().Get("pageSize"); strPageSize != "" {
 		if intPageSize, err := strconv.Atoi(strPageSize); err == nil && intPageSize > 1 {
-			pageSize = int32(intPageSize) + 2
+			pageSize = int32(intPageSize)
+			dbPageSize = int32(intPageSize) + 1
 		}
 	}
 	// get posible previous and next cursors
@@ -24,7 +31,7 @@ func paginationFromCtx(ctx *httprouter.HTTPContext) (int32, string, bool, error)
 	nextCursor := ctx.Request.URL.Query().Get("nextCursor")
 	// if both cursors are provided, return an error
 	if prevCursor != "" && nextCursor != "" {
-		return 0, "", false, fmt.Errorf("both cursors provided, next and previous")
+		return 0, 0, "", false, fmt.Errorf("both cursors provided, next and previous")
 	}
 	// by default go forward, if the previous cursor is provided, go backwards
 	goForward := prevCursor == ""
@@ -33,67 +40,49 @@ func paginationFromCtx(ctx *httprouter.HTTPContext) (int32, string, bool, error)
 		cursor = prevCursor
 	}
 	// return the page size, the cursor and the direction
-	return pageSize, cursor, goForward, nil
+	return pageSize, dbPageSize, cursor, goForward, nil
 }
 
-func paginationToRequest[T any](rows []T, pageSize int32, cursor string, goForward bool) ([]T, *T, *T) {
-	// define vars to get correct the rows for the current page
-	var rowsStart, rowsEnd int = 0, len(rows)
-	// by default, the next cursor is the last element of the slice, and the
-	// previous cursor is the first element of the slice
-	prevCursorIdx, nextCursorIdx := 0, len(rows)-1
-	// This represetents the edge case of first or intermediate pages with or
-	// without cursor. If the rows slice has the same size as the page size,
-	// and a cursor is not provided, the next cursor is the second to last
-	// element of the slice, no previous cursor is needed and the correct rows
-	// are from the first element to the second to last element of the slice.
-	// If the cursor is provided, the boundary rows will not be included in the
-	// rows slice.
-	log.Info(len(rows), pageSize)
-	if len(rows) == int(pageSize) {
-		if cursor == "" {
-			nextCursorIdx = len(rows) - 2
-			prevCursorIdx = -1
-			rowsEnd = len(rows) - 2
-		} else {
-			rowsStart = 1
-			rowsEnd = len(rows) - 1
+// paginationToRequest returns the rows of the page, the next cursor and the
+// previous cursor. If the rows size is the same as the database page size, the
+// last element of the page is the next cursor, so it has to be removed from the
+// rows. If the current page is the first one, the previous cursor is nil, and
+// the rows are empty, because the first element is the cursor and there is
+// include it in the following page. It uses generics to support any type of
+// rows. The cursors will alwways be strings.
+func paginationToRequest[T any](rows []T, dbPageSize int32, cursor string, goForward bool) ([]T, *T, *T) {
+	// if the rows are empty there is no results or next and previous cursor
+	if len(rows) == 0 {
+		return rows, nil, nil
+	}
+	// by default, the next cursor is the last element of the page, and the
+	// previous cursor is the first element of the page
+	nextCursor := &rows[len(rows)-1]
+	prevCursor := &rows[0]
+	// if the length of the rows is less than the maximun page size, there is
+	// no next cursor, and all the rows are part of the page
+	if len(rows) < int(dbPageSize)-1 {
+		if len(rows) > 1 {
+			return rows, nil, prevCursor
 		}
-	} else if len(rows) > int(pageSize)-2 {
-		// This represetents the edge case of last pages in both directions.
-		// If the rows slice has more elements than the page size but less than
-		// the page size subtracted by 2 and cursor is provided or direction is
-		// forward, the correct rows are from the first element to the second to
-		// last element of the slice. If no cursor is provided or direction is
-		// backwards, the correct rows are from the second element to the last.
-		if cursor != "" || goForward {
-			rowsEnd = len(rows) - 1
-		} else {
-			rowsStart = 1
-		}
-	}
-	// If the next cursor index is greater than 0, the next cursor is the
-	// element in the next cursor index.
-	var nextCursor *T
-	if nextCursorIdx >= 0 {
-		nextCursor = &rows[nextCursorIdx]
-	}
-	// If the previous cursor index is greater than 0, the previous cursor is
-	// the element in the previous cursor index.
-	var prevCursor *T
-	if prevCursorIdx >= 0 {
-		prevCursor = &rows[prevCursorIdx]
-	}
-	// If the next and previous cursor indexes are the same, and the direction
-	// is forward, the next cursor is nil. If the direction is backwards, the
-	// previous cursor is nil. This is to avoid returning the same cursor for
-	// prev and next.
-	if nextCursorIdx == prevCursorIdx {
-		if goForward {
-			nextCursor = nil
-		} else {
-			prevCursor = nil
+		// if the rows has just one element, there is no next or previous cursor, so
+		// if the direction is forward, the next cursor is nil, and if the direction
+		// is backwards, the previous cursor is nil and the rows are empty, because
+		// the first element is the cursor and there is include it in the following
+		// page.
+		if len(rows) == 1 {
+			if goForward {
+				nextCursor = nil
+			} else {
+				prevCursor = nil
+				rows = []T{}
+			}
 		}
 	}
-	return rows[rowsStart:rowsEnd], nextCursor, prevCursor
+	// if the page size is the same as the database page size, the last element
+	// of the page is the next cursor, so it has to be removed from the rows
+	if len(rows) == int(dbPageSize) {
+		rows = rows[:len(rows)-1]
+	}
+	return rows, nextCursor, prevCursor
 }

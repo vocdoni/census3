@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 
@@ -56,11 +57,34 @@ func (capi *census3API) createDummyStrategy(tokenID []byte) error {
 // the database. It returns a 204 response if any strategy is registered or a
 // 500 error if something fails.
 func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get pagination information from the request
+	pageSize, dbPageSize, cursor, goForward, err := paginationFromCtx(ctx)
+	if err != nil {
+		return ErrMalformedPagination.WithErr(err)
+	}
+	iCursor := 0
+	if cursor != "" {
+		iCursor, err = strconv.Atoi(cursor)
+		if err != nil {
+			return ErrMalformedPagination.WithErr(err)
+		}
+	}
 	internalCtx, cancel := context.WithTimeout(context.Background(), getStrategiesTimeout)
 	defer cancel()
-	// TODO: Support for pagination
-	// get strategies from the database
-	rows, err := capi.db.QueriesRO.ListStrategies(internalCtx)
+	// get the strategies from the database using the provided cursor, get the
+	// following or previous page depending on the direction of the cursor
+	var rows []queries.Strategy
+	if goForward {
+		rows, err = capi.db.QueriesRO.NextStrategiesPage(internalCtx, queries.NextStrategiesPageParams{
+			PageCursor: uint64(iCursor),
+			Limit:      dbPageSize,
+		})
+	} else {
+		rows, err = capi.db.QueriesRO.PrevStrategiesPage(internalCtx, queries.PrevStrategiesPageParams{
+			PageCursor: uint64(iCursor),
+			Limit:      dbPageSize,
+		})
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoStrategies.WithErr(err)
@@ -71,11 +95,22 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		return ErrNoStrategies
 	}
 	// parse and encode the strategies
-	strategies := GetStrategiesResponse{Strategies: []uint64{}}
-	for _, strategy := range rows {
-		strategies.Strategies = append(strategies.Strategies, strategy.ID)
+	strategiesResponse := GetStrategiesResponse{
+		Strategies: []uint64{},
+		Pagination: &Pagination{PageSize: pageSize},
 	}
-	res, err := json.Marshal(strategies)
+	// get the next and previous cursors and add them to the response
+	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, cursor, goForward)
+	if nextCursorRow != nil {
+		strategiesResponse.Pagination.NextCursor = fmt.Sprint(nextCursorRow.ID)
+	}
+	if prevCursorRow != nil {
+		strategiesResponse.Pagination.PrevCursor = fmt.Sprint(prevCursorRow.ID)
+	}
+	for _, strategy := range rows {
+		strategiesResponse.Strategies = append(strategiesResponse.Strategies, strategy.ID)
+	}
+	res, err := json.Marshal(strategiesResponse)
 	if err != nil {
 		return ErrEncodeStrategies.WithErr(err)
 	}

@@ -168,10 +168,12 @@ func (q *Queries) NextTokensPage(ctx context.Context, arg NextTokensPageParams) 
 }
 
 const prevTokensPage = `-- name: PrevTokensPage :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
-WHERE id <= ?
-ORDER BY id ASC 
-LIMIT ?
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM (
+    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id FROM tokens
+    WHERE id <= ?
+    ORDER BY id DESC
+    LIMIT ?
+) as token ORDER BY token.id ASC
 `
 
 type PrevTokensPageParams struct {

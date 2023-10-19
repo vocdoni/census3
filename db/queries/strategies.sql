@@ -2,6 +2,20 @@
 SELECT * FROM strategies
 ORDER BY id;
 
+-- name: NextStrategiesPage :many
+SELECT * FROM strategies
+WHERE id >= sqlc.arg(page_cursor)
+ORDER BY id ASC 
+LIMIT ?;
+
+-- name: PrevStrategiesPage :many
+SELECT * FROM (
+    SELECT * FROM strategies
+    WHERE id <= sqlc.arg(page_cursor)
+    ORDER BY id DESC 
+    LIMIT ?
+) as strategy ORDER BY strategy.id ASC; 
+
 -- name: StrategyByID :one
 SELECT * FROM strategies
 WHERE id = ?

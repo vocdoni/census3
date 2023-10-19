@@ -7,6 +7,9 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/queue"
 	"github.com/vocdoni/census3/state"
+	storagelayer "go.vocdoni.io/dvote/data"
+	"go.vocdoni.io/dvote/data/ipfs"
+	"go.vocdoni.io/dvote/data/ipfs/ipfsconnect"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -27,6 +30,7 @@ type census3API struct {
 	censusDB *census.CensusDB
 	queue    *queue.BackgroundQueue
 	w3p      state.Web3Providers
+	storage  storagelayer.Storage
 }
 
 func Init(db *db.DB, conf Census3APIConf) error {
@@ -49,8 +53,19 @@ func Init(db *db.DB, conf Census3APIConf) error {
 	if newAPI.endpoint, err = api.NewAPI(&r, "/api"); err != nil {
 		return err
 	}
-	// init the census DB
-	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir, conf.GroupKey); err != nil {
+	// init the IPFS service and the storage layer and connect them
+	ipfsConfig := storagelayer.IPFSNewConfig(conf.DataDir)
+	newAPI.storage, err = storagelayer.Init(storagelayer.IPFS, ipfsConfig)
+	if err != nil {
+		return err
+	}
+	var ipfsConn *ipfsconnect.IPFSConnect
+	if len(conf.GroupKey) > 0 {
+		ipfsConn = ipfsconnect.New(conf.GroupKey, newAPI.storage.(*ipfs.Handler))
+		ipfsConn.Start()
+	}
+	// init the census DB using the storage layer
+	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir, newAPI.storage); err != nil {
 		return err
 	}
 	// init handlers

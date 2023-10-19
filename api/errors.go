@@ -103,6 +103,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("malformed chain ID"),
 	}
+	ErrNoIPFSUri = apirest.APIerror{
+		Code:       4019,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("no IPFS uri provided"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
@@ -242,5 +247,10 @@ var (
 		Code:       5027,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error encoding supported strategy predicate operators"),
+	}
+	ErrCantImportStrategy = apirest.APIerror{
+		Code:       5028,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error importing strategy"),
 	}
 )

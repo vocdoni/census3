@@ -14,8 +14,11 @@ WHERE st.token_id = ?
 ORDER BY s.id;
 
 -- name: CreateStategy :execresult
-INSERT INTO strategies (alias, predicate)
-VALUES (?, ?);
+INSERT INTO strategies (alias, predicate, uri)
+VALUES (?, ?, ?);
+
+-- name: UpdateStrategyIPFSUri :execresult
+UPDATE strategies SET uri = ? WHERE id = ?;
 
 -- name: CreateStrategyToken :execresult
 INSERT INTO strategy_tokens (

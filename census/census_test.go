@@ -51,18 +51,18 @@ var MonkeysAddresses = map[common.Address]*big.Int{
 
 func TestNewCensusDB(t *testing.T) {
 	c := qt.New(t)
-	_, err := NewCensusDB("/", "")
+	_, err := NewCensusDB("/", nil)
 	c.Assert(err, qt.IsNotNil)
 	c.Assert(err, qt.ErrorIs, ErrCreatingCensusDB)
 
-	cdb, err := NewCensusDB(t.TempDir(), "")
+	cdb, err := NewCensusDB(t.TempDir(), nil)
 	c.Assert(err, qt.IsNil)
-	c.Assert(cdb.ipfsConn, qt.IsNil)
-	c.Assert(cdb.storage.Stop(), qt.IsNil)
+	c.Assert(cdb.storage, qt.IsNil)
 
-	cdb, err = NewCensusDB(t.TempDir(), "test")
+	testDB := NewTestCensusDB(t)
+
+	cdb, err = NewCensusDB(t.TempDir(), testDB.storage)
 	c.Assert(err, qt.IsNil)
-	c.Assert(cdb.ipfsConn, qt.IsNotNil)
 	c.Assert(cdb.storage.Stop(), qt.IsNil)
 }
 

@@ -2,6 +2,7 @@
 
 -- stategies table schema updates
 ALTER TABLE strategies ADD COLUMN alias TEXT NOT NULL DEFAULT '';
+ALTER TABLE strategies ADD COLUMN uri TEXT NOT NULL DEFAULT '';
 
 -- tokens table schema updates
 CREATE TABLE tokens_copy (

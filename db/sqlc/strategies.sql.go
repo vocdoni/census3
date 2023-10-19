@@ -11,17 +11,18 @@ import (
 )
 
 const createStategy = `-- name: CreateStategy :execresult
-INSERT INTO strategies (alias, predicate)
-VALUES (?, ?)
+INSERT INTO strategies (alias, predicate, uri)
+VALUES (?, ?, ?)
 `
 
 type CreateStategyParams struct {
 	Alias     string
 	Predicate string
+	Uri       string
 }
 
 func (q *Queries) CreateStategy(ctx context.Context, arg CreateStategyParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createStategy, arg.Alias, arg.Predicate)
+	return q.db.ExecContext(ctx, createStategy, arg.Alias, arg.Predicate, arg.Uri)
 }
 
 const createStrategyToken = `-- name: CreateStrategyToken :execresult
@@ -53,7 +54,7 @@ func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTok
 }
 
 const listStrategies = `-- name: ListStrategies :many
-SELECT id, predicate, alias FROM strategies
+SELECT id, predicate, alias, uri FROM strategies
 ORDER BY id
 `
 
@@ -66,7 +67,12 @@ func (q *Queries) ListStrategies(ctx context.Context) ([]Strategy, error) {
 	var items []Strategy
 	for rows.Next() {
 		var i Strategy
-		if err := rows.Scan(&i.ID, &i.Predicate, &i.Alias); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Predicate,
+			&i.Alias,
+			&i.Uri,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -81,7 +87,7 @@ func (q *Queries) ListStrategies(ctx context.Context) ([]Strategy, error) {
 }
 
 const strategiesByTokenID = `-- name: StrategiesByTokenID :many
-SELECT s.id, s.predicate, s.alias FROM strategies s
+SELECT s.id, s.predicate, s.alias, s.uri FROM strategies s
 JOIN strategy_tokens st ON st.strategy_id = s.id
 WHERE st.token_id = ?
 ORDER BY s.id
@@ -96,7 +102,12 @@ func (q *Queries) StrategiesByTokenID(ctx context.Context, tokenID []byte) ([]St
 	var items []Strategy
 	for rows.Next() {
 		var i Strategy
-		if err := rows.Scan(&i.ID, &i.Predicate, &i.Alias); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Predicate,
+			&i.Alias,
+			&i.Uri,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -111,7 +122,7 @@ func (q *Queries) StrategiesByTokenID(ctx context.Context, tokenID []byte) ([]St
 }
 
 const strategyByID = `-- name: StrategyByID :one
-SELECT id, predicate, alias FROM strategies
+SELECT id, predicate, alias, uri FROM strategies
 WHERE id = ?
 LIMIT 1
 `
@@ -119,7 +130,12 @@ LIMIT 1
 func (q *Queries) StrategyByID(ctx context.Context, id uint64) (Strategy, error) {
 	row := q.db.QueryRowContext(ctx, strategyByID, id)
 	var i Strategy
-	err := row.Scan(&i.ID, &i.Predicate, &i.Alias)
+	err := row.Scan(
+		&i.ID,
+		&i.Predicate,
+		&i.Alias,
+		&i.Uri,
+	)
 	return i, err
 }
 
@@ -200,4 +216,17 @@ func (q *Queries) StrategyTokensByStrategyID(ctx context.Context, strategyID uin
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateStrategyIPFSUri = `-- name: UpdateStrategyIPFSUri :execresult
+UPDATE strategies SET uri = ? WHERE id = ?
+`
+
+type UpdateStrategyIPFSUriParams struct {
+	Uri string
+	ID  uint64
+}
+
+func (q *Queries) UpdateStrategyIPFSUri(ctx context.Context, arg UpdateStrategyIPFSUriParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateStrategyIPFSUri, arg.Uri, arg.ID)
 }

@@ -10,6 +10,7 @@ const (
 	getStrategyCensusesTimeout    = time.Second * 10
 	// strategies
 	createDummyStrategyTimeout = time.Second * 10
+	importStrategyTimeout      = time.Second * 10
 	getStrategiesTimeout       = time.Second * 10
 	getStrategyTimeout         = time.Second * 10
 	getTokensStrategyTimeout   = time.Second * 10

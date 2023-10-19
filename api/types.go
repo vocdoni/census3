@@ -107,6 +107,7 @@ type GetStrategyResponse struct {
 	ID        uint64                    `json:"ID"`
 	Alias     string                    `json:"alias"`
 	Predicate string                    `json:"predicate"`
+	URI       string                    `json:"uri,omitempty"`
 	Tokens    map[string]*StrategyToken `json:"tokens"`
 }
 

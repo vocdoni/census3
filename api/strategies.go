@@ -26,6 +26,10 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.createStrategy); err != nil {
 		return err
 	}
+	if err := capi.endpoint.RegisterMethod("/strategies/import/{ipfsCID}", "POST",
+		api.MethodAccessTypePublic, capi.importStrategy); err != nil {
+		return err
+	}
 	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}", "GET",
 		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
 		return err
@@ -77,6 +81,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 			ID:        strategy.ID,
 			Alias:     strategy.Alias,
 			Predicate: strategy.Predicate,
+			URI:       strategy.Uri,
 			Tokens:    make(map[string]*StrategyToken),
 		}
 		strategyTokens, err := qtx.StrategyTokensByStrategyID(internalCtx, strategy.ID)
@@ -178,6 +183,107 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 			return ErrCantCreateStrategy.WithErr(err)
 		}
 	}
+	// encode and compose final strategy data using the response of GET
+	// strategy endpoint
+	strategyDump, err := json.Marshal(GetStrategyResponse{
+		ID:        uint64(strategyID),
+		Alias:     req.Alias,
+		Predicate: req.Predicate,
+		Tokens:    req.Tokens,
+	})
+	if err != nil {
+		return ErrEncodeStrategy.WithErr(err)
+	}
+	// publish the strategy to IPFS and update the database
+	uri, err := capi.storage.Publish(internalCtx, strategyDump)
+	if err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	if _, err := qtx.UpdateStrategyIPFSUri(internalCtx, queries.UpdateStrategyIPFSUriParams{
+		ID:  uint64(strategyID),
+		Uri: capi.storage.URIprefix() + uri,
+	}); err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	// commit the transaction and return the strategyID
+	if err := tx.Commit(); err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	response, err := json.Marshal(map[string]any{"strategyID": strategyID})
+	if err != nil {
+		return ErrEncodeStrategy.WithErr(err)
+	}
+	return ctx.Send(response, api.HTTPstatusOK)
+}
+
+// importStrategy function handler imports a strategy from IPFS and stores it
+// into the database. It returns a 400 error if the provided IPFS CID is wrong
+// or empty, a 500 error if something fails. It returns the strategyID of the
+// imported strategy.
+func (capi *census3API) importStrategy(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get the ipfsCID from the url
+	ipfsCID := ctx.URLParam("ipfsCID")
+	if ipfsCID == "" {
+		return ErrMalformedStrategy.With("no ipfsCID provided")
+	}
+	// init the internal context
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), importStrategyTimeout)
+	defer cancel()
+	// get the strategy from IPFS and decode it
+	dump, err := capi.storage.Retrieve(internalCtx, ipfsCID, 0)
+	if err != nil {
+		return ErrCantImportStrategy.WithErr(err)
+	}
+	importedStrategy := GetStrategyResponse{}
+	if err := json.Unmarshal(dump, &importedStrategy); err != nil {
+		return ErrCantImportStrategy.WithErr(err)
+	}
+	// init db transaction
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "create strategy transaction rollback failed")
+		}
+	}()
+	qtx := capi.db.QueriesRW.WithTx(tx)
+	// create the strategy to get the ID and then create the strategy tokens
+	result, err := qtx.CreateStategy(internalCtx, queries.CreateStategyParams{
+		Alias:     importedStrategy.Alias,
+		Predicate: importedStrategy.Predicate,
+		Uri:       importedStrategy.URI,
+	})
+	if err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	strategyID, err := result.LastInsertId()
+	if err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
+	}
+	// iterate over the token included in the predicate and create them in the
+	// database
+	for symbol, token := range importedStrategy.Tokens {
+		// decode the min balance for the current token if it is provided,
+		// if not use zero
+		minBalance := new(big.Int)
+		if token.MinBalance != "" {
+			if _, ok := minBalance.SetString(token.MinBalance, 10); !ok {
+				return ErrEncodeStrategy.Withf("error with %s minBalance", symbol)
+			}
+		}
+		// create the strategy token in the database
+		if _, err := qtx.CreateStrategyToken(internalCtx, queries.CreateStrategyTokenParams{
+			StrategyID: importedStrategy.ID,
+			TokenID:    common.HexToAddress(token.ID).Bytes(),
+			MinBalance: minBalance.Bytes(),
+			ChainID:    token.ChainID,
+		}); err != nil {
+			return ErrCantCreateStrategy.WithErr(err)
+		}
+	}
+	// commit the transaction and return the strategyID
 	if err := tx.Commit(); err != nil {
 		return ErrCantCreateStrategy.WithErr(err)
 	}
@@ -214,6 +320,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		ID:        strategyData.ID,
 		Alias:     strategyData.Alias,
 		Predicate: strategyData.Predicate,
+		URI:       strategyData.Uri,
 		Tokens:    map[string]*StrategyToken{},
 	}
 	// get information of the strategy related tokens
@@ -266,6 +373,7 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 			ID:        strategy.ID,
 			Alias:     strategy.Alias,
 			Predicate: strategy.Predicate,
+			URI:       strategy.Uri,
 			Tokens:    make(map[string]*StrategyToken),
 		}
 		strategyTokens, err := qtx.StrategyTokensByStrategyID(internalCtx, strategy.ID)

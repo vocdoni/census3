@@ -35,6 +35,7 @@ type Strategy struct {
 	ID        uint64
 	Predicate string
 	Alias     string
+	Uri       string
 }
 
 type StrategyToken struct {

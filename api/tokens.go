@@ -120,13 +120,17 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 			log.Errorw(err, "create strategy transaction rollback failed")
 		}
 	}()
+	totalSupply := big.NewInt(0).Bytes()
+	if info.TotalSupply != nil {
+		totalSupply = info.TotalSupply.Bytes()
+	}
 	qtx := capi.db.QueriesRW.WithTx(tx)
 	_, err = qtx.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
 		Name:          info.Name,
 		Symbol:        info.Symbol,
 		Decimals:      info.Decimals,
-		TotalSupply:   info.TotalSupply.Bytes(),
+		TotalSupply:   totalSupply,
 		CreationBlock: 0,
 		TypeID:        uint64(tokenType),
 		Synced:        false,

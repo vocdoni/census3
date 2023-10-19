@@ -13,6 +13,7 @@ import (
 	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
+	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -146,6 +147,14 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	if err != nil {
 		return 0, ErrInvalidStrategyPredicate.WithErr(err)
 	}
+	// get strategy tokens from the database
+	strategyTokens, err := qtx.TokensByStrategyID(internalCtx, req.StrategyID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, ErrNoStrategyTokens.WithErr(err)
+		}
+		return 0, ErrCantCreateCensus.WithErr(err)
+	}
 	// if the current predicate is a literal, just query about its holders. If
 	// it is a complex predicate, create a evaluator and evaluate the predicate
 	if validPredicate.IsLiteral() {
@@ -167,14 +176,6 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 			}
 		}
 	} else {
-		// get strategy tokens from the database
-		strategyTokens, err := qtx.TokensByStrategyID(internalCtx, req.StrategyID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return 0, ErrNoStrategyTokens.WithErr(err)
-			}
-			return 0, ErrCantCreateCensus.WithErr(err)
-		}
 		// parse token information
 		tokensInfo := map[string]*strategyoperators.TokenInformation{}
 		for _, token := range strategyTokens {
@@ -203,8 +204,31 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	if len(strategyHolders) == 0 {
 		return 0, ErrNotFoundTokenHolders.With("no holders for strategy")
 	}
+	// any census strategy is identified by id created from the concatenation of
+	// the block number, the strategy id and the anonymous flag. The creation of
+	// censuses on specific block is not supported yet, so we need to get the
+	// last block of every token chain id to sum them and get the total block
+	// number, used to create the census id.
+	totalTokensBlockNumber := uint64(0)
+	w3 := state.Web3{}
+	defer cancel()
+	// get correct web3 uri provider
+	for _, token := range strategyTokens {
+		w3uri, exists := capi.w3p[token.ChainID]
+		if !exists {
+			return 0, ErrChainIDNotSupported.With("chain ID not supported")
+		}
+		if err := w3.Init(internalCtx, w3uri.URI, common.BytesToAddress(token.ID), state.TokenType(token.TypeID)); err != nil {
+			return 0, ErrInitializingWeb3.WithErr(err)
+		}
+		currentBlockNumber, err := w3.LatestBlockNumber(internalCtx)
+		if err != nil {
+			return 0, ErrCantGetLastBlockNumber.WithErr(err)
+		}
+		totalTokensBlockNumber += currentBlockNumber
+	}
 	// compute the new censusId and censusType
-	newCensusID := census.InnerCensusID(req.BlockNumber, req.StrategyID, req.Anonymous)
+	newCensusID := census.InnerCensusID(totalTokensBlockNumber, req.StrategyID, req.Anonymous)
 	// check if the census already exists
 	_, err = qtx.CensusByID(internalCtx, newCensusID)
 	if err != nil {

@@ -9,19 +9,13 @@ services:
       net.core.somaxconn: 8128
     volumes:
       - census3:/app/data
-    command:
-      - "--web3Providers=${WEB3_PROVIDERS}"
-      - "--port=${PORT}"
-      - "--logLevel=${LOGLEVEL}"
-      - "--connectKey=${CONNECT_KEY}"
-      - "--dataDir=/app/data/census3"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.census3.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.census3.entrypoints=websecure"
       - "traefik.http.routers.census3.tls.certresolver=le"
       - "traefik.http.routers.census3.service=census3"
-      - "traefik.http.services.census3.loadbalancer.server.port=${PORT}"
+      - "traefik.http.services.census3.loadbalancer.server.port=${CENSUS3_PORT}"
 
   traefik:
     image: traefik:2.5

@@ -74,7 +74,6 @@ func main() {
 	config.listOfWeb3Providers = strings.Split(pviper.GetString("web3Providers"), ",")
 	// init logger
 	log.Init(config.logLevel, "stdout", nil)
-	log.Info(config)
 	// check if the web3 providers are defined
 	if len(config.listOfWeb3Providers) == 0 {
 		log.Fatal("no web3 providers defined")
@@ -84,7 +83,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Info(w3p)
 	// init the database
 	database, err := db.Init(config.dataDir)
 	if err != nil {

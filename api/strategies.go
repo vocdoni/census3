@@ -93,9 +93,10 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 				return ErrCantGetStrategies.With("invalid token symbol")
 			}
 			strategyResponse.Tokens[strategyToken.Symbol] = &StrategyToken{
-				ID:         common.BytesToAddress(strategyToken.TokenID).String(),
-				ChainID:    strategyToken.ChainID,
-				MinBalance: new(big.Int).SetBytes(strategyToken.MinBalance).String(),
+				ID:           common.BytesToAddress(strategyToken.ID).String(),
+				ChainID:      strategyToken.ChainID,
+				MinBalance:   new(big.Int).SetBytes(strategyToken.MinBalance).String(),
+				ChainAddress: strategyToken.ChainAddress,
 			}
 		}
 		strategies.Strategies = append(strategies.Strategies, strategyResponse)
@@ -182,6 +183,9 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 		}); err != nil {
 			return ErrCantCreateStrategy.WithErr(err)
 		}
+		// get the chain address of the token
+		chainAddress, _ := capi.w3p.ChainAddress(tokenData.ChainID, tokenData.ID)
+		req.Tokens[symbol].ChainAddress = chainAddress
 	}
 	// encode and compose final strategy data using the response of GET
 	// strategy endpoint
@@ -331,9 +335,10 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// parse and encode tokens information
 	for _, tokenData := range tokensData {
 		strategy.Tokens[tokenData.Symbol] = &StrategyToken{
-			ID:         common.BytesToAddress(tokenData.ID).String(),
-			MinBalance: new(big.Int).SetBytes(tokenData.MinBalance).String(),
-			ChainID:    tokenData.ChainID,
+			ID:           common.BytesToAddress(tokenData.ID).String(),
+			ChainAddress: tokenData.ChainAddress,
+			MinBalance:   new(big.Int).SetBytes(tokenData.MinBalance).String(),
+			ChainID:      tokenData.ChainID,
 		}
 	}
 	res, err := json.Marshal(strategy)
@@ -385,9 +390,10 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 				return ErrCantGetStrategies.With("invalid token symbol")
 			}
 			strategyResponse.Tokens[strategyToken.Symbol] = &StrategyToken{
-				ID:         common.BytesToAddress(strategyToken.TokenID).String(),
-				ChainID:    strategyToken.ChainID,
-				MinBalance: new(big.Int).SetBytes(strategyToken.MinBalance).String(),
+				ID:           common.BytesToAddress(strategyToken.ID).String(),
+				ChainAddress: strategyToken.ChainAddress,
+				ChainID:      strategyToken.ChainID,
+				MinBalance:   new(big.Int).SetBytes(strategyToken.MinBalance).String(),
 			}
 		}
 		strategies.Strategies = append(strategies.Strategies, strategyResponse)

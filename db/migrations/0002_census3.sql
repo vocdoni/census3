@@ -5,6 +5,7 @@ ALTER TABLE strategies ADD COLUMN alias TEXT NOT NULL DEFAULT '';
 ALTER TABLE strategies ADD COLUMN uri TEXT NOT NULL DEFAULT '';
 
 -- tokens table schema updates
+ALTER TABLE tokens ADD COLUMN chain_address TEXT;
 CREATE TABLE tokens_copy (
     id BLOB NOT NULL,
     name TEXT NOT NULL DEFAULT '',
@@ -16,6 +17,7 @@ CREATE TABLE tokens_copy (
     synced BOOLEAN NOT NULL DEFAULT 0,
     tags TEXT NOT NULL DEFAULT '',
     chain_id INTEGER NOT NULL DEFAULT 0,
+    chain_address TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (id, chain_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );

@@ -30,18 +30,11 @@ func TestCheckWeb3Providers(t *testing.T) {
 		c.Assert(ok, qt.Equals, true)
 		c.Assert(chainID, qt.Equals, DefaultWeb3Provider.ChainID)
 	})
-	t.Run("PrefixBlockNumber", func(t *testing.T) {
-		_, ok := w3p.PrefixBlockNumber(DefaultWeb3Provider.ChainID+1, 123456)
+	t.Run("ChainAddress", func(t *testing.T) {
+		_, ok := w3p.ChainAddress(DefaultWeb3Provider.ChainID+1, "0x1234567890")
 		c.Assert(ok, qt.IsFalse)
-		prefix, ok := w3p.PrefixBlockNumber(DefaultWeb3Provider.ChainID, 123456)
+		prefix, ok := w3p.ChainAddress(DefaultWeb3Provider.ChainID, "0x1234567890")
 		c.Assert(ok, qt.Equals, true)
-		c.Assert(prefix, qt.Equals, "gor:123456")
-	})
-	t.Run("PrefixSymbol", func(t *testing.T) {
-		_, ok := w3p.PrefixSymbol(DefaultWeb3Provider.ChainID+1, "UNKNOWN")
-		c.Assert(ok, qt.IsFalse)
-		prefix, ok := w3p.PrefixSymbol(DefaultWeb3Provider.ChainID, "MON")
-		c.Assert(ok, qt.Equals, true)
-		c.Assert(prefix, qt.Equals, "gor:MON")
+		c.Assert(prefix, qt.Equals, "gor:0x1234567890")
 	})
 }

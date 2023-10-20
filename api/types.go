@@ -38,16 +38,18 @@ type GetTokenResponse struct {
 	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
 	Tags            string                  `json:"tags,omitempty"`
 	ChainID         uint64                  `json:"chainID"`
+	ChainAddress    string                  `json:"chainAddress"`
 }
 
 type GetTokensItem struct {
-	ID         string `json:"ID"`
-	Type       string `json:"type"`
-	StartBlock int64  `json:"startBlock"`
-	Name       string `json:"name"`
-	Symbol     string `json:"symbol"`
-	Tags       string `json:"tags,omitempty"`
-	ChainID    uint64 `json:"chainID"`
+	ID           string `json:"ID"`
+	Type         string `json:"type"`
+	StartBlock   int64  `json:"startBlock"`
+	Name         string `json:"name"`
+	Symbol       string `json:"symbol"`
+	Tags         string `json:"tags,omitempty"`
+	ChainID      uint64 `json:"chainID"`
+	ChainAddress string `json:"chainAddress"`
 }
 
 type GetTokensResponse struct {
@@ -92,9 +94,10 @@ type CensusQueueResponse struct {
 }
 
 type StrategyToken struct {
-	ID         string `json:"ID"`
-	ChainID    uint64 `json:"chainID"`
-	MinBalance string `json:"minBalance"`
+	ID           string `json:"ID"`
+	ChainID      uint64 `json:"chainID"`
+	MinBalance   string `json:"minBalance"`
+	ChainAddress string `json:"chainAddress"`
 }
 
 type CreateStrategyRequest struct {

@@ -64,7 +64,8 @@ List of already added tokens.
             "startBlock": 123456,
             "symbol": "wANT",
             "tags": "testTag1,testTag2",
-            "chainID": 1
+            "chainID": 1,
+            "chainAddress": "eth:0x1234" 
         }
     ]
 }
@@ -150,7 +151,8 @@ Returns the information about the token referenced by the provided ID.
     },
     "defaultStrategy": 1,
     "tags": "testTag1,testTag2",
-    "chainID": 1
+    "chainID": 1,
+    "chainAddress": "eth:0x1234" 
 }
 ```
 
@@ -185,7 +187,8 @@ Returns the ID's list of the strategies registered.
             "tokens": {
                 "MON": {
                     "ID": "0x1234",
-                    "chainID": 5
+                    "chainID": 5,
+                    "chainAddress": "gor:0x1234" 
                 }
             }
         },
@@ -196,7 +199,8 @@ Returns the ID's list of the strategies registered.
             "tokens": {
                 "ANT": {
                     "ID": "0x1234",
-                    "chainID": 1
+                    "chainID": 1,
+                    "chainAddress": "eth:0x1234" 
                 }
             }
         },
@@ -207,7 +211,8 @@ Returns the ID's list of the strategies registered.
             "tokens": {
                 "USDC": {
                     "ID": "0x1234",
-                    "chainID": 1
+                    "chainID": 1,
+                    "chainAddress": "eth:0x1234"
                 }
             }
         },
@@ -218,16 +223,19 @@ Returns the ID's list of the strategies registered.
             "tokens": {
                 "MON": {
                     "ID": "0x1234",
-                    "chainID": 5
+                    "chainID": 5,
+                    "chainAddress": "gor:0x1234"
                 },
                 "ANT": {
                     "ID": "0x1234",
                     "chainID": 1,
+                    "chainAddress": "eth:0x1234",
                     "minBalance": "1"
                 },
                 "USDC": {
                     "ID": "0x1234",
                     "chainID": 1,
+                    "chainAddress": "eth:0x1234"
                 }
             }
         }
@@ -304,16 +312,19 @@ Returns the information of the strategy related to the provided ID.
     "tokens": {
         "MON": {
             "ID": "0x1234",
-            "chainID": 5
+            "chainID": 5,
+            "chainAddress": "gor:0x1234"
         },
         "ANT": {
             "ID": "0x1234",
             "chainID": 1,
+            "chainAddress": "eth:0x1234",
             "minBalance": "1"
         },
         "USDC": {
             "ID": "0x1234",
             "chainID": 1,
+            "chainAddress": "eth:0x1234"
         }
     }
 }
@@ -344,7 +355,8 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
             "tokens": {
                 "MON": {
                     "ID": "0x1234",
-                    "chainID": 5
+                    "chainID": 5,
+                    "chainAddress": "gor:0x1234"
                 }
             }
         },
@@ -355,16 +367,19 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
             "tokens": {
                 "MON": {
                     "ID": "0x1234",
-                    "chainID": 5
+                    "chainID": 5,
+                    "chainAddress": "gor:0x1234"
                 },
                 "ANT": {
                     "ID": "0x1234",
                     "chainID": 1,
+                    "chainAddress": "eth:0x1234",
                     "minBalance": "1"
                 },
                 "USDC": {
                     "ID": "0x1234",
                     "chainID": 1,
+                    "chainAddress": "eth:0x1234"
                 }
             }
         }

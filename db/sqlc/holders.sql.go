@@ -417,7 +417,7 @@ func (q *Queries) TokenHoldersByTokenIDAndChainIDAndMinBalance(ctx context.Conte
 }
 
 const tokensByHolderID = `-- name: TokensByHolderID :many
-SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id
+SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.chain_address
 FROM Tokens
 JOIN token_holders ON tokens.id = token_holders.token_id
 WHERE token_holders.holder_id = ?
@@ -443,6 +443,7 @@ func (q *Queries) TokensByHolderID(ctx context.Context, holderID []byte) ([]Toke
 			&i.Synced,
 			&i.Tags,
 			&i.ChainID,
+			&i.ChainAddress,
 		); err != nil {
 			return nil, err
 		}

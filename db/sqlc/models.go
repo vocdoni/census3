@@ -56,6 +56,7 @@ type Token struct {
 	Synced        bool
 	Tags          string
 	ChainID       uint64
+	ChainAddress  string
 }
 
 type TokenHolder struct {

@@ -174,19 +174,19 @@ func (q *Queries) StrategyTokens(ctx context.Context) ([]StrategyToken, error) {
 }
 
 const strategyTokensByStrategyID = `-- name: StrategyTokensByStrategyID :many
-SELECT st.strategy_id, st.token_id, st.min_balance, st.chain_id, t.symbol
+SELECT st.token_id as id, st.min_balance, t.symbol, t.chain_address, t.chain_id
 FROM strategy_tokens st
-JOIN tokens t ON t.ID = st.token_id
+JOIN tokens t ON t.id = st.token_id
 WHERE strategy_id = ?
 ORDER BY strategy_id, token_id
 `
 
 type StrategyTokensByStrategyIDRow struct {
-	StrategyID uint64
-	TokenID    []byte
-	MinBalance []byte
-	ChainID    uint64
-	Symbol     string
+	ID           []byte
+	MinBalance   []byte
+	Symbol       string
+	ChainAddress string
+	ChainID      uint64
 }
 
 func (q *Queries) StrategyTokensByStrategyID(ctx context.Context, strategyID uint64) ([]StrategyTokensByStrategyIDRow, error) {
@@ -199,11 +199,11 @@ func (q *Queries) StrategyTokensByStrategyID(ctx context.Context, strategyID uin
 	for rows.Next() {
 		var i StrategyTokensByStrategyIDRow
 		if err := rows.Scan(
-			&i.StrategyID,
-			&i.TokenID,
+			&i.ID,
 			&i.MinBalance,
-			&i.ChainID,
 			&i.Symbol,
+			&i.ChainAddress,
+			&i.ChainID,
 		); err != nil {
 			return nil, err
 		}

@@ -62,13 +62,14 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	tokens := GetTokensResponse{Tokens: []GetTokensItem{}}
 	for _, tokenData := range rows {
 		tokenResponse := GetTokensItem{
-			ID:         common.BytesToAddress(tokenData.ID).String(),
-			Type:       state.TokenType(int(tokenData.TypeID)).String(),
-			Name:       tokenData.Name,
-			StartBlock: tokenData.CreationBlock,
-			Tags:       tokenData.Tags,
-			Symbol:     tokenData.Symbol,
-			ChainID:    tokenData.ChainID,
+			ID:           common.BytesToAddress(tokenData.ID).String(),
+			Type:         state.TokenType(int(tokenData.TypeID)).String(),
+			Name:         tokenData.Name,
+			StartBlock:   tokenData.CreationBlock,
+			Tags:         tokenData.Tags,
+			Symbol:       tokenData.Symbol,
+			ChainID:      tokenData.ChainID,
+			ChainAddress: tokenData.ChainAddress,
 		}
 		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}
@@ -120,6 +121,11 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 			log.Errorw(err, "create strategy transaction rollback failed")
 		}
 	}()
+	// get the chain address for the token based on the chainID and tokenID
+	chainAddress, ok := capi.w3p.ChainAddress(req.ChainID, req.ID)
+	if !ok {
+		return ErrChainIDNotSupported.Withf("chainID: %d, tokenID: %s", req.ChainID, req.ID)
+	}
 	totalSupply := big.NewInt(0).Bytes()
 	if info.TotalSupply != nil {
 		totalSupply = info.TotalSupply.Bytes()
@@ -136,6 +142,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Synced:        false,
 		Tags:          req.Tags,
 		ChainID:       req.ChainID,
+		ChainAddress:  chainAddress,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -249,6 +256,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		// TODO: Only for the MVP, consider to remove it
 		DefaultStrategy: defaultStrategyID,
 		ChainID:         tokenData.ChainID,
+		ChainAddress:    tokenData.ChainAddress,
 	}
 	res, err := json.Marshal(tokenResponse)
 	if err != nil {

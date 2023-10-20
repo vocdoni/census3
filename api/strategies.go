@@ -9,9 +9,9 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vocdoni/census3/api/strategyoperators"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
+	"github.com/vocdoni/census3/strategyoperators"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"

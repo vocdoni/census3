@@ -7,10 +7,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vocdoni/census3/api/strategyoperators"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/state"
+	"github.com/vocdoni/census3/strategyoperators"
 )
 
 // CalculateStrategyHolders function returns the holders of a strategy and the

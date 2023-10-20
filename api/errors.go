@@ -79,7 +79,7 @@ var (
 		Err:        fmt.Errorf("chain ID provided not supported"),
 	}
 	ErrMalformedPagination = apirest.APIerror{
-		Code:       4013,
+		Code:       4014,
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("malformed pagination params"),
 	}

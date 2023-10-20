@@ -31,6 +31,14 @@ Show information about the API service.
 ### GET `/tokens`
 List of already added tokens.
 
+**Pagination URL params**
+
+| URL key | Description | Example |
+|:---|:---|:---|
+| `pageSize` | (optional) Defines the number of results per page. By default, `100`. | `?pageSize=2` |
+| `nextCursor` | (optional) When is defined, it is used to get the page results, going forward. By default, `""`. | `?nextCursor=0x1234` |
+| `prevCursor` | (optional) When is defined, it is used to get the page results, going backwards. By default, `""`. | `?prevCursor=0x1234` |
+
 - 📥 response:
 
 ```json
@@ -45,9 +53,15 @@ List of already added tokens.
             "tags": "testTag1,testTag2",
             "chainID": 1
         }
-    ]
+    ],
+    "pagination": {
+        "nextCursor": "",
+        "prevCursor": "0x1234",
+        "pageSize": 100
+    }
 }
 ```
+
 
 > If `tags` is empty, it will be ommited.
 
@@ -56,6 +70,7 @@ List of already added tokens.
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 204 | `no tokens found` | 4007 |
+| 400 | `malformed pagination params` | 4014 |
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error encoding tokens` | 5011 | 
 
@@ -199,11 +214,24 @@ Stores a new strategy based on the defined combination of tokens provided, these
 ### GET `/strategies`
 Returns the ID's list of the strategies registered.
 
+**Pagination URL params**
+
+| URL key | Description | Example |
+|:---|:---|:---|
+| `pageSize` | (optional) Defines the number of results per page. By default, `100`. | `?pageSize=2` |
+| `nextCursor` | (optional) When is defined, it is used to get the page results, going forward. By default, `""`. | `?nextCursor=3` |
+| `prevCursor` | (optional) When is defined, it is used to get the page results, going backwards. By default, `""`. | `?prevCursor=1` |
+
 - 📥 response:
 
 ```json
 {
-    "strategies": [ 1, 3 ]
+    "strategies": [ 1, 2 ],
+    "pagination": {
+        "nextCursor": "",
+        "prevCursor": "1",
+        "pageSize": 100
+    }
 }
 ```
 
@@ -212,6 +240,7 @@ Returns the ID's list of the strategies registered.
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 204 | `-` | 4008 |
+| 400 | `malformed pagination params` | 4014 |
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 

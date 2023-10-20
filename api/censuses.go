@@ -8,12 +8,8 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/vocdoni/census3/api/strategyoperators"
 	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/lexer"
-	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -139,93 +135,13 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		return 0, ErrInvalidStrategyPredicate.With("empty predicate")
 	}
 	// init some variables to get computed in the following steps
-	censusWeight := new(big.Int)
-	strategyHolders := map[common.Address]*big.Int{}
-	// parse the predicate
-	lx := lexer.NewLexer(strategyoperators.ValidOperatorsTags)
-	validPredicate, err := lx.Parse(strategy.Predicate)
+	strategyHolders, censusWeight, totalTokensBlockNumber, err := census.CalculateStrategyHolders(
+		internalCtx, capi.db.QueriesRO, capi.w3p, req.StrategyID, strategy.Predicate)
 	if err != nil {
-		return 0, ErrInvalidStrategyPredicate.WithErr(err)
+		return 0, ErrEvalStrategyPredicate.WithErr(err)
 	}
-	// get strategy tokens from the database
-	strategyTokens, err := qtx.TokensByStrategyID(internalCtx, req.StrategyID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, ErrNoStrategyTokens.WithErr(err)
-		}
-		return 0, ErrCantCreateCensus.WithErr(err)
-	}
-	// if the current predicate is a literal, just query about its holders. If
-	// it is a complex predicate, create a evaluator and evaluate the predicate
-	if validPredicate.IsLiteral() {
-		// get the strategy holders from the database
-		holders, err := qtx.TokenHoldersByStrategyID(internalCtx, req.StrategyID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return 0, ErrNoStrategyHolders.WithErr(err)
-			}
-			return 0, ErrCantCreateCensus.WithErr(err)
-		}
-		// parse holders addresses and balances
-		for _, holder := range holders {
-			holderAddr := common.BytesToAddress(holder.HolderID)
-			holderBalance := new(big.Int).SetBytes(holder.Balance)
-			if _, exists := strategyHolders[holderAddr]; !exists {
-				strategyHolders[holderAddr] = holderBalance
-				censusWeight = new(big.Int).Add(censusWeight, holderBalance)
-			}
-		}
-	} else {
-		// parse token information
-		tokensInfo := map[string]*strategyoperators.TokenInformation{}
-		for _, token := range strategyTokens {
-			tokensInfo[token.Symbol] = &strategyoperators.TokenInformation{
-				ID:         common.BytesToAddress(token.ID).String(),
-				ChainID:    token.ChainID,
-				MinBalance: new(big.Int).SetBytes(token.MinBalance).String(),
-				Decimals:   token.Decimals,
-			}
-		}
-		// init the operators and the predicate evaluator
-		operators := strategyoperators.InitOperators(capi.db.QueriesRO, tokensInfo)
-		eval := lexer.NewEval[*strategyoperators.StrategyIteration](operators.Map())
-		// execute the evaluation of the predicate
-		res, err := eval.EvalToken(validPredicate)
-		if err != nil {
-			return 0, ErrEvalStrategyPredicate.WithErr(err)
-		}
-		// parse the evaluation results
-		for address, value := range res.Data {
-			strategyHolders[common.HexToAddress(address)] = value
-			censusWeight = new(big.Int).Add(censusWeight, value)
-		}
-	}
-	// if no holders found, return an error
 	if len(strategyHolders) == 0 {
-		return 0, ErrNotFoundTokenHolders.With("no holders for strategy")
-	}
-	// any census strategy is identified by id created from the concatenation of
-	// the block number, the strategy id and the anonymous flag. The creation of
-	// censuses on specific block is not supported yet, so we need to get the
-	// last block of every token chain id to sum them and get the total block
-	// number, used to create the census id.
-	totalTokensBlockNumber := uint64(0)
-	w3 := state.Web3{}
-	defer cancel()
-	// get correct web3 uri provider
-	for _, token := range strategyTokens {
-		w3uri, exists := capi.w3p[token.ChainID]
-		if !exists {
-			return 0, ErrChainIDNotSupported.With("chain ID not supported")
-		}
-		if err := w3.Init(internalCtx, w3uri.URI, common.BytesToAddress(token.ID), state.TokenType(token.TypeID)); err != nil {
-			return 0, ErrInitializingWeb3.WithErr(err)
-		}
-		currentBlockNumber, err := w3.LatestBlockNumber(internalCtx)
-		if err != nil {
-			return 0, ErrCantGetLastBlockNumber.WithErr(err)
-		}
-		totalTokensBlockNumber += currentBlockNumber
+		return 0, ErrNoStrategyHolders
 	}
 	// compute the new censusId and censusType
 	newCensusID := census.InnerCensusID(totalTokensBlockNumber, req.StrategyID, req.Anonymous)

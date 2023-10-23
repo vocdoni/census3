@@ -89,6 +89,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrMalformedToken.WithErr(err)
 	}
 	tokenType := state.TokenTypeFromString(req.Type)
+	addr := common.HexToAddress(req.ID)
 	// the meta token id parameter is only required for POAP tokens, so if the
 	// token type is POAP and the meta token id is not provided, return an
 	// error, else parse the meta token id
@@ -101,8 +102,8 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		if metaTokenID, ok = new(big.Int).SetString(req.MetaTokenID, 10); !ok {
 			return ErrMalformedToken.With("POAP token requires a valid meta token ID")
 		}
+		addr = common.HexToAddress(state.CONTRACT_POAP_ADDRESS)
 	}
-	addr := common.HexToAddress(req.ID)
 	// init web3 client to get the token information before register in the
 	// database
 	w3 := state.Web3{}

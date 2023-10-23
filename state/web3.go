@@ -365,6 +365,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				"from", fromBlockNumber,
 				"to", fromBlockNumber+blocks,
 				"chainID", th.ChainID,
+				"metaTokenID", th.TokenID,
 			)
 
 			// get transfer logs for the following n blocks
@@ -631,6 +632,11 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates, blockNumber uint64) error {
 	// remove null address from candidates
 	delete(candidates, common.HexToAddress(NULL_ADDRESS))
+	// skip if the token id is not the same as the one provided by the user with
+	// token type POAP
+	if w.contractType == CONTRACT_TYPE_POAP && w.tokenID.Cmp(th.TokenID) != 0 {
+		return nil
+	}
 	// delete holder candidates without funds
 	for addr, balance := range candidates {
 		if balance.Cmp(big.NewInt(0)) != 0 {

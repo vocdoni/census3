@@ -9,6 +9,7 @@ import (
 	"time"
 
 	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"github.com/vocdoni/census3/api"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/service"
@@ -16,48 +17,89 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
+type Census3Config struct {
+	dataDir, logLevel, connectKey string
+	listOfWeb3Providers           []string
+	port                          int
+}
+
 func main() {
+	// init service config
+	config := Census3Config{}
+	// get home directory to create the data directory for persistent storage
 	home, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
 	}
 	home += "/.census3"
-	dataDir := flag.String("dataDir", home, "data directory for persistent storage")
-	logLevel := flag.String("logLevel", "info", "log level (debug, info, warn, error)")
-	port := flag.Int("port", 7788, "HTTP port for the API")
-	connectKey := flag.String("connectKey", "", "connect group key for IPFS connect")
-	listOfWeb3Providers := flag.String("web3Providers", "", "the list of URL's of available web3 providers (separated with commas)")
+	// parse flags
+	flag.StringVar(&config.dataDir, "dataDir", home, "data directory for persistent storage")
+	flag.StringVar(&config.logLevel, "logLevel", "info", "log level (debug, info, warn, error)")
+	flag.IntVar(&config.port, "port", 7788, "HTTP port for the API")
+	flag.StringVar(&config.connectKey, "connectKey", "", "connect group key for IPFS connect")
+	var strWeb3Providers string
+	flag.StringVar(&strWeb3Providers, "web3Providers", "", "the list of URL's of available web3 providers")
 	flag.Parse()
+	// init viper to read config file
+	pviper := viper.New()
+	pviper.SetConfigName("census3")
+	pviper.SetConfigType("yml")
+	pviper.SetEnvPrefix("CENSUS3")
+	pviper.AutomaticEnv()
+	pviper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	// bind flags to viper
+	if err := pviper.BindPFlag("dataDir", flag.Lookup("dataDir")); err != nil {
+		panic(err)
+	}
+	config.dataDir = pviper.GetString("dataDir")
+	// read config file
+	pviper.AddConfigPath(config.dataDir)
+	_ = pviper.ReadInConfig()
 
-	log.Init(*logLevel, "stdout", nil)
-	if *listOfWeb3Providers == "" {
+	if err := pviper.BindPFlag("logLevel", flag.Lookup("logLevel")); err != nil {
+		panic(err)
+	}
+	config.logLevel = pviper.GetString("logLevel")
+	if err := pviper.BindPFlag("port", flag.Lookup("port")); err != nil {
+		panic(err)
+	}
+	config.port = pviper.GetInt("port")
+	if err := pviper.BindPFlag("connectKey", flag.Lookup("connectKey")); err != nil {
+		panic(err)
+	}
+	config.connectKey = pviper.GetString("connectKey")
+	if err := pviper.BindPFlag("web3Providers", flag.Lookup("web3Providers")); err != nil {
+		panic(err)
+	}
+	config.listOfWeb3Providers = strings.Split(pviper.GetString("web3Providers"), ",")
+	// init logger
+	log.Init(config.logLevel, "stdout", nil)
+	// check if the web3 providers are defined
+	if len(config.listOfWeb3Providers) == 0 {
 		log.Fatal("no web3 providers defined")
 	}
-
-	database, err := db.Init(*dataDir)
+	// check if the web3 providers are valid
+	w3p, err := state.CheckWeb3Providers(config.listOfWeb3Providers)
 	if err != nil {
 		log.Fatal(err)
 	}
-	web3Providers := strings.Split(*listOfWeb3Providers, ",")
-	w3p, err := state.CheckWeb3Providers(web3Providers)
+	// init the database
+	database, err := db.Init(config.dataDir)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Info(w3p)
-
-	// Start the holder scanner
+	// start the holder scanner
 	hc, err := service.NewHoldersScanner(database, w3p)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Start the API
+	// start the API
 	err = api.Init(database, api.Census3APIConf{
 		Hostname:      "0.0.0.0",
-		Port:          *port,
-		DataDir:       *dataDir,
+		Port:          config.port,
+		DataDir:       config.dataDir,
 		Web3Providers: w3p,
-		GroupKey:      *connectKey,
+		GroupKey:      config.connectKey,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -65,7 +107,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	go hc.Start(ctx)
 
-	// Wait for SIGTERM
+	// wait for SIGTERM
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c

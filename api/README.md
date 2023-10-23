@@ -49,7 +49,7 @@ List of already added tokens.
 }
 ```
 
-> If `tags` is empty, it will be ommited.
+> If `tags` is empty, it will be omited.
 
 - ⚠️ errors:
 
@@ -131,7 +131,7 @@ Returns the information about the token referenced by the provided ID.
 }
 ```
 
-> If `tags` is empty, it will be ommited.
+> If `tags` is empty, it will be omited.
 
 - ⚠️ errors:
 
@@ -326,7 +326,7 @@ Returns the information of the snapshots related to the provided ID.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 400 | `malformed census ID, it must be a integer` | 4001 | 
+| 400 | `malformed census ID, it must be an integer` | 4001 | 
 | 404 | `census not found` | 4006 | 
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census` | 5017 | 
@@ -371,7 +371,7 @@ Returns a list of censusID for the strategy provided.
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 204 | `-` | 4007 |
-| 400 | `malformed census ID, it must be a integer` | 4001 | 
+| 400 | `malformed census ID, it must be an integer` | 4001 | 
 | 404 | `census not found` | 4006 | 
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding censuses` | 5018 |

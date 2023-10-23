@@ -20,6 +20,8 @@ sql:
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
         - column: "tokens.total_supply"
           go_type: "github.com/vocdoni/census3/db/annotations.BigInt"
+        - column: "tokens.meta_token_id"
+          go_type: "github.com/vocdoni/census3/db/annotations.BigInt"
         - column: "censuses.merkle_root"
           go_type: "github.com/vocdoni/census3/db/annotations.Hash"
         - column: "blocks.root_hash"

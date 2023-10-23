@@ -39,11 +39,15 @@ type Web3 struct {
 	contract        interface{}
 	contractType    TokenType
 	contractAddress common.Address
+	// POAP ERC721 contract type uses the tokenID to identify the token that
+	// must be used to get the token holders. This field stores the tokenID
+	// value that must be provided by the user.
+	tokenID *big.Int
 }
 
 // Init creates and client connection and connects to contract given its address
 func (w *Web3) Init(ctx context.Context, web3Endpoint string,
-	contractAddress common.Address, contractType TokenType,
+	contractAddress common.Address, contractType TokenType, tokenID *big.Int,
 ) error {
 	var err error
 	// connect to ethereum endpoint
@@ -59,12 +63,22 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string,
 		CONTRACT_TYPE_ERC1155,
 		CONTRACT_TYPE_ERC777,
 		CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
-		CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+		CONTRACT_TYPE_CUSTOM_ARAGON_WANT,
+		CONTRACT_TYPE_POAP:
 		w.contractType = contractType
 	default:
 		return ErrUnknownTokenType
 	}
 	w.contractAddress = contractAddress
+	// If the contract type is POAP, the contract address is ignored and the
+	// hardcoded POAP contract address is used instead.
+	if contractType == CONTRACT_TYPE_POAP {
+		w.contractAddress = common.HexToAddress(CONTRACT_POAP_ADDRESS)
+		if tokenID == nil {
+			return fmt.Errorf("tokenID is required for POAP contract type")
+		}
+		w.tokenID = tokenID
+	}
 	if w.contract, err = w.NewContract(); err != nil {
 		return err
 	}
@@ -79,7 +93,7 @@ func (w *Web3) NewContract() (interface{}, error) {
 	switch w.contractType {
 	case CONTRACT_TYPE_ERC20:
 		return erc20.NewERC20Contract(w.contractAddress, w.client)
-	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED, CONTRACT_TYPE_POAP:
 		return erc721.NewERC721Contract(w.contractAddress, w.client)
 	case CONTRACT_TYPE_ERC1155:
 		return erc1155.NewERC1155Contract(w.contractAddress, w.client)
@@ -100,7 +114,7 @@ func (w *Web3) TokenName() (string, error) {
 	case CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Name(nil)
-	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED, CONTRACT_TYPE_POAP:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.Name(nil)
 	case CONTRACT_TYPE_ERC777:
@@ -124,7 +138,7 @@ func (w *Web3) TokenSymbol() (string, error) {
 	case CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Symbol(nil)
-	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED, CONTRACT_TYPE_POAP:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.Symbol(nil)
 	case CONTRACT_TYPE_ERC777:
@@ -148,7 +162,7 @@ func (w *Web3) TokenDecimals() (uint8, error) {
 	case CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Decimals(nil)
-	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED, CONTRACT_TYPE_POAP:
 		return 0, nil
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
@@ -175,7 +189,7 @@ func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 	case CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.TotalSupply(nil)
-	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED, CONTRACT_TYPE_POAP:
 		return nil, nil
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
@@ -232,7 +246,7 @@ func (w *Web3) TokenBalanceOf(tokenHolderAddress common.Address, args ...interfa
 	case CONTRACT_TYPE_ERC721:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.BalanceOf(nil, tokenHolderAddress)
-	case CONTRACT_TYPE_ERC721_BURNED:
+	case CONTRACT_TYPE_ERC721_BURNED, CONTRACT_TYPE_POAP:
 		return nil, ErrNoImplementedMethod
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
@@ -432,7 +446,8 @@ func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
 	}
 	// set the topics to filter depending on the contract type
 	switch w.contractType {
-	case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
+	case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721,
+		CONTRACT_TYPE_ERC721_BURNED, CONTRACT_TYPE_POAP:
 		query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20_TRANSFER)}}
 	case CONTRACT_TYPE_ERC1155:
 		query.Topics = [][]common.Hash{
@@ -537,6 +552,27 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 			} else {
 				hc[logData.From] = big.NewInt(1)
 			}
+		}
+	case CONTRACT_TYPE_POAP:
+		filter := w.contract.(*erc721.ERC721Contract).ERC721ContractFilterer
+		logData, err := filter.ParseTransfer(currentLog)
+		if err != nil {
+			return hc, err
+		}
+		// For POAP contract type, check if the tokenID of the log is the same
+		// as the tokenID provided by the user. If not, ignore the log.
+		if logData.TokenId.Cmp(w.tokenID) != 0 {
+			break
+		}
+		if toBalance, exists := hc[logData.To]; exists {
+			hc[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
+		} else {
+			hc[logData.To] = big.NewInt(1)
+		}
+		if fromBalance, exists := hc[logData.From]; exists {
+			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
+		} else {
+			hc[logData.From] = big.NewInt(-1)
 		}
 	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		// This token contract is a bit special, token balances

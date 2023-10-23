@@ -39,10 +39,11 @@ INSERT INTO tokens (
     type_id,
     synced,
     tags,
-    chain_id
+    chain_id,
+    meta_token_id
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 );
 
 -- name: UpdateToken :execresult

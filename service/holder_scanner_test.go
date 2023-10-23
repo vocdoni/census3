@@ -118,7 +118,7 @@ func Test_saveHolders(t *testing.T) {
 	hs, err := NewHoldersScanner(testdb.db, w3p)
 	c.Assert(err, qt.IsNil)
 
-	th := new(state.TokenHolders).Init(MonkeysAddress, state.CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
+	th := new(state.TokenHolders).Init(MonkeysAddress, state.CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5, nil)
 	// no registered token
 	c.Assert(hs.saveHolders(th), qt.ErrorIs, ErrTokenNotExists)
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(

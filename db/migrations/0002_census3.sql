@@ -1,9 +1,9 @@
 -- +goose Up
 
 -- tokens table schema updates
-ALTER TABLE tokens ADD COLUMN meta_token_id TEXT;
+ALTER TABLE tokens ADD COLUMN meta_token_id BLOB;
 CREATE TABLE tokens_copy (
-    id BLOB PRIMARY KEY NOT NULL,
+    id BLOB NOT NULL,
     name TEXT,
     symbol TEXT,
     decimals INTEGER,
@@ -14,7 +14,7 @@ CREATE TABLE tokens_copy (
     tags TEXT,
     chain_id INTEGER NOT NULL,
     meta_token_id BLOB NULL DEFAULT '',
-    PRIMARY KEY (id, chain_id),
+    PRIMARY KEY (id, chain_id, meta_token_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );
 INSERT INTO tokens_copy SELECT * FROM tokens;

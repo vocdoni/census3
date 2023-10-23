@@ -38,7 +38,10 @@ func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block, chainID
 	h.lastBlock.Store(block)
 	h.synced.Store(false)
 	h.ChainID = chainID
-	h.TokenID = tokenID
+	h.TokenID = new(big.Int)
+	if tokenID != nil {
+		h.TokenID = tokenID
+	}
 	return h
 }
 

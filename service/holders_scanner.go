@@ -316,7 +316,11 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
 			tokenLastBlock = blockNumber
 		}
-		th = new(state.TokenHolders).Init(addr, ttype, tokenLastBlock, tokenInfo.ChainID, th.TokenID)
+		metaTokenID := new(big.Int)
+		if ttype == state.CONTRACT_TYPE_POAP {
+			metaTokenID.SetBytes(tokenInfo.MetaTokenID)
+		}
+		th = new(state.TokenHolders).Init(addr, ttype, tokenLastBlock, tokenInfo.ChainID, metaTokenID)
 		s.tokens[addr] = th
 	}
 	s.mutex.RUnlock()

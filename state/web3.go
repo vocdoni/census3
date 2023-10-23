@@ -71,7 +71,9 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string,
 	}
 	w.contractAddress = contractAddress
 	// If the contract type is POAP, the contract address is ignored and the
-	// hardcoded POAP contract address is used instead.
+	// hardcoded POAP contract address is used instead. By default, the tokenID
+	// is zero.
+	w.tokenID = new(big.Int)
 	if contractType == CONTRACT_TYPE_POAP {
 		w.contractAddress = common.HexToAddress(CONTRACT_POAP_ADDRESS)
 		if tokenID == nil {

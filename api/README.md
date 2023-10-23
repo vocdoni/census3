@@ -43,7 +43,8 @@ List of already added tokens.
             "startBlock": 123456,
             "symbol": "wANT",
             "tags": "testTag1,testTag2",
-            "chainID": 1
+            "chainID": 1,
+            "metaTokenID": "" // used by POAP contracts
         }
     ]
 }
@@ -67,8 +68,13 @@ List the supported token types.
 ```json
 {
     "supportedTypes": [
-        "erc20", "erc721", "erc777", 
-        "erc1155", "nation3", "wANT"
+        "erc20", 
+        "erc721", 
+        "erc777", 
+        "erc1155", 
+        "nation3", 
+        "wANT", 
+        "poap"
     ]
 }
 ```
@@ -87,9 +93,10 @@ Triggers a new scan for the provided token, starting from the defined block.
 ```json
 {
     "ID": "0x1234",
-    "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
+    "type": "erc20|erc721|erc777|erc1155|nation3|wANT|poap",
     "tags": "testTag1,testTag2",
-    "chainID": 1
+    "chainID": 1,
+    "metaTokenID": "" // big integer required for POAP contracts
 }
 ```
 
@@ -127,7 +134,8 @@ Returns the information about the token referenced by the provided ID.
     },
     "defaultStrategy": 1,
     "tags": "testTag1,testTag2",
-    "chainID": 1
+    "chainID": 1,
+    "metaTokenID": ""
 }
 ```
 

@@ -31,11 +31,11 @@ type POAPExternalProvider struct {
 
 // Init initializes the POAP external provider with the database provided.
 // It returns an error if the POAP access token is not defined.
-func (p *POAPExternalProvider) Init(_ *db.DB) (*POAPExternalProvider, error) {
+func (p *POAPExternalProvider) Init(_ *db.DB) error {
 	if p.AccessToken == "" {
-		return nil, fmt.Errorf("no POAP access token defined")
+		return fmt.Errorf("no POAP access token defined")
 	}
-	return p, nil
+	return nil
 }
 
 // GetHolders returns the holders of the POAP eventID provided. It requests the

@@ -13,7 +13,7 @@ import (
 // token. The census3 service uses this information to create the census.
 type ExternalProvider interface {
 	// Init initializes the external provider with the database provided.
-	Init(db *db.DB) (*ExternalProvider, error)
+	Init(db *db.DB) error
 	// GetHolders returns the holders of the token with the IDs provided.
 	// It receives a list of IDs to provide flexibility to the external
 	// provider to return the holders of multiple tokens in a single call, or

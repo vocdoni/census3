@@ -55,14 +55,14 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	tokens := GetTokensResponse{Tokens: []GetTokensItem{}}
 	for _, tokenData := range rows {
 		tokenResponse := GetTokensItem{
-			ID:          common.BytesToAddress(tokenData.ID).String(),
-			Type:        state.TokenType(int(tokenData.TypeID)).String(),
-			Name:        tokenData.Name.String,
-			StartBlock:  tokenData.CreationBlock.Int64,
-			Tags:        tokenData.Tags.String,
-			Symbol:      tokenData.Symbol.String,
-			ChainID:     tokenData.ChainID,
-			MetaEventID: new(big.Int).SetBytes(tokenData.MetaEventID).String(),
+			ID:         common.BytesToAddress(tokenData.ID).String(),
+			Type:       state.TokenType(int(tokenData.TypeID)).String(),
+			Name:       tokenData.Name.String,
+			StartBlock: tokenData.CreationBlock.Int64,
+			Tags:       tokenData.Tags.String,
+			Symbol:     tokenData.Symbol.String,
+			ChainID:    tokenData.ChainID,
+			ExternalID: tokenData.ExternalID,
 		}
 		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}
@@ -86,20 +86,6 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	tokenType := state.TokenTypeFromString(req.Type)
 	addr := common.HexToAddress(req.ID)
-	// the meta token id parameter is only required for POAP tokens, so if the
-	// token type is POAP and the meta token id is not provided, return an
-	// error, else parse the meta token id
-	var metaEventID *big.Int
-	if tokenType == state.CONTRACT_TYPE_POAP {
-		if req.MetaEventID == "" {
-			return ErrMalformedToken.With("POAP token requires a meta token ID")
-		}
-		var ok bool
-		if metaEventID, ok = new(big.Int).SetString(req.MetaEventID, 10); !ok {
-			return ErrMalformedToken.With("POAP token requires a valid meta token ID")
-		}
-		addr = common.HexToAddress(state.CONTRACT_POAP_ADDRESS)
-	}
 	// init web3 client to get the token information before register in the
 	// database
 	w3 := state.Web3{}
@@ -110,7 +96,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	if !exists {
 		return ErrChainIDNotSupported.With("chain ID not supported")
 	}
-	if err := w3.Init(internalCtx, w3uri, addr, tokenType, metaEventID); err != nil {
+	if err := w3.Init(internalCtx, w3uri, addr, tokenType); err != nil {
 		log.Errorw(ErrInitializingWeb3, err.Error())
 		return ErrInitializingWeb3.WithErr(err)
 	}
@@ -139,11 +125,6 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 			return ErrCantGetToken.WithErr(err)
 		}
 	}
-	// decode meta token ID from string to bytes using big.Int
-	dbMetaEventID := []byte{}
-	if metaEventID != nil {
-		dbMetaEventID = metaEventID.Bytes()
-	}
 	_, err = capi.db.QueriesRW.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
 		Name:          *name,
@@ -155,7 +136,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Synced:        false,
 		Tags:          *tags,
 		ChainID:       req.ChainID,
-		MetaEventID:   dbMetaEventID,
+		ExternalID:    req.ExternalID,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -202,12 +183,6 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		}
 		atBlock = 0
 	}
-	// if the token is a POAP token, decode the meta token ID from bytes to
-	// big.Int
-	var metaEventID *big.Int
-	if tokenData.TypeID == uint64(state.CONTRACT_TYPE_POAP) {
-		metaEventID = new(big.Int).SetBytes(tokenData.MetaEventID)
-	}
 	// if the token is not synced, get the last block of the network to
 	// calculate the current scan progress
 	tokenProgress := 100
@@ -219,7 +194,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		}
 		// get last block of the network, if something fails return progress 0
 		w3 := state.Web3{}
-		if err := w3.Init(internalCtx, w3uri, address, state.TokenType(tokenData.TypeID), metaEventID); err != nil {
+		if err := w3.Init(internalCtx, w3uri, address, state.TokenType(tokenData.TypeID)); err != nil {
 			return ErrInitializingWeb3.WithErr(err)
 		}
 		// fetch the last block header and calculate progress
@@ -253,7 +228,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		// TODO: Only for the MVP, consider to remove it
 		DefaultStrategy: defaultStrategyID,
 		ChainID:         tokenData.ChainID,
-		MetaEventID:     metaEventID.String(),
+		ExternalID:      tokenData.ExternalID,
 	}
 	if tokenData.CreationBlock.Valid {
 		tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int64)

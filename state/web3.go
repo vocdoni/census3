@@ -24,11 +24,13 @@ import (
 )
 
 var (
-	ErrUnknownTokenType    = fmt.Errorf("unknown contract type")
-	ErrTokenData           = fmt.Errorf("unable to get token data")
-	ErrNoImplementedMethod = fmt.Errorf("this method is not implemented for this token type")
-	ErrWrongBalanceOfArgs  = fmt.Errorf("wrong number of arguments for balanceOf function")
-	ErrNoNewBlocks         = fmt.Errorf("no new blocks")
+	ErrUnknownTokenType                = fmt.Errorf("unknown contract type")
+	ErrTokenData                       = fmt.Errorf("unable to get token data")
+	ErrNoImplementedMethod             = fmt.Errorf("this method is not implemented for this token type")
+	ErrWrongBalanceOfArgs              = fmt.Errorf("wrong number of arguments for balanceOf function")
+	ErrNoNewBlocks                     = fmt.Errorf("no new blocks")
+	ErrTransferLogsNotSupported        = fmt.Errorf("transferLogs not supported for this token type")
+	ErrCalcPartialBalancesNotSupported = fmt.Errorf("calcPartialBalances not supported for this token type")
 )
 
 // Web3 holds a reference to a web3 client and a contract, as
@@ -40,15 +42,11 @@ type Web3 struct {
 	contract        interface{}
 	contractType    TokenType
 	contractAddress common.Address
-	// POAP ERC721 contract type uses the eventID to identify a token collection
-	// that must be used to get the token holders. This field stores the eventID
-	// value that must be provided by the user.
-	eventID *big.Int
 }
 
 // Init creates and client connection and connects to contract given its address
 func (w *Web3) Init(ctx context.Context, web3Endpoint string,
-	contractAddress common.Address, contractType TokenType, eventID *big.Int,
+	contractAddress common.Address, contractType TokenType,
 ) error {
 	var err error
 	// connect to ethereum endpoint
@@ -71,17 +69,6 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string,
 		return ErrUnknownTokenType
 	}
 	w.contractAddress = contractAddress
-	w.eventID = new(big.Int)
-	// If the contract type is POAP, the contract address is ignored and the
-	// hardcoded POAP contract address is used instead. By default, the eventID
-	// is zero.
-	if contractType == CONTRACT_TYPE_POAP {
-		w.contractAddress = common.HexToAddress(CONTRACT_POAP_ADDRESS)
-		if eventID == nil {
-			return fmt.Errorf("tokenID is required for POAP contract type")
-		}
-		w.eventID = eventID
-	}
 	if w.contract, err = w.NewContract(); err != nil {
 		return err
 	}
@@ -263,8 +250,7 @@ func (w *Web3) TokenBalanceOf(tokenHolderAddress common.Address, args ...interfa
 	case CONTRACT_TYPE_ERC721_BURNED:
 		return nil, ErrNoImplementedMethod
 	case CONTRACT_TYPE_POAP:
-		caller := w.contract.(*poap.POAPContract).POAPContractCaller
-		return caller.BalanceOf(nil, tokenHolderAddress)
+		return nil, ErrNoImplementedMethod
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.BalanceOf(nil, tokenHolderAddress)
@@ -380,7 +366,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				"from", fromBlockNumber,
 				"to", fromBlockNumber+blocks,
 				"chainID", th.ChainID,
-				"metaEventID", th.EventID,
 			)
 
 			// get transfer logs for the following n blocks
@@ -465,8 +450,10 @@ func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
 	// set the topics to filter depending on the contract type
 	switch w.contractType {
 	case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721,
-		CONTRACT_TYPE_ERC721_BURNED, CONTRACT_TYPE_POAP:
+		CONTRACT_TYPE_ERC721_BURNED:
 		query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20_TRANSFER)}}
+	case CONTRACT_TYPE_POAP:
+		return nil, ErrTransferLogsNotSupported
 	case CONTRACT_TYPE_ERC1155:
 		query.Topics = [][]common.Hash{
 			{
@@ -572,32 +559,7 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 			}
 		}
 	case CONTRACT_TYPE_POAP:
-		filter := w.contract.(*poap.POAPContract).POAPContractFilterer
-		logData, err := filter.ParseTransfer(currentLog)
-		if err != nil {
-			return hc, err
-		}
-		// get eventID for the received tokenID
-		caller := w.contract.(*poap.POAPContract).POAPContractCaller
-		eventID, err := caller.TokenEvent(nil, logData.TokenId)
-		if err != nil {
-			return hc, err
-		}
-		// For POAP contract type, check if the eventID of the log is the same
-		// as the eventID provided by the user. If not, ignore the log.
-		if w.eventID.Cmp(eventID) != 0 {
-			break
-		}
-		if toBalance, exists := hc[logData.To]; exists {
-			hc[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
-		} else {
-			hc[logData.To] = big.NewInt(1)
-		}
-		if fromBalance, exists := hc[logData.From]; exists {
-			hc[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
-		} else {
-			hc[logData.From] = big.NewInt(-1)
-		}
+		return nil, ErrCalcPartialBalancesNotSupported
 	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		// This token contract is a bit special, token balances
 		// are updated every block based on the contract state.
@@ -653,11 +615,6 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates, blockNumber uint64) error {
 	// remove null address from candidates
 	delete(candidates, common.HexToAddress(NULL_ADDRESS))
-	// skip if the token id is not the same as the one provided by the user with
-	// token type POAP
-	if w.contractType == CONTRACT_TYPE_POAP && w.eventID.Cmp(th.EventID) != 0 {
-		return nil
-	}
 	// delete holder candidates without funds
 	for addr, balance := range candidates {
 		if balance.Cmp(big.NewInt(0)) != 0 {

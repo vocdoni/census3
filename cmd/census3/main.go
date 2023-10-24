@@ -99,8 +99,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// init POAP external provider
+	poapProvider := &service.POAPExternalProvider{
+		URI:         config.poapAPIEndpoint,
+		AccessToken: config.poapAuthToken,
+	}
+	if err := poapProvider.Init(database); err != nil {
+		log.Fatal(err)
+	}
 	// start the holder scanner
-	hc, err := service.NewHoldersScanner(database, w3p)
+	hc, err := service.NewHoldersScanner(database, w3p, map[state.TokenType]service.ExternalProvider{
+		state.CONTRACT_TYPE_ERC20: poapProvider,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

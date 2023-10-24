@@ -54,15 +54,15 @@ type Token struct {
 	Synced        bool
 	Tags          sql.NullString
 	ChainID       uint64
-	MetaEventID   annotations.BigInt
+	ExternalID    string
 }
 
 type TokenHolder struct {
-	TokenID     annotations.Address
-	HolderID    annotations.Address
-	Balance     annotations.BigInt
-	BlockID     uint64
-	MetaEventID annotations.BigInt
+	TokenID    annotations.Address
+	HolderID   annotations.Address
+	Balance    annotations.BigInt
+	BlockID    uint64
+	ExternalID string
 }
 
 type TokenType struct {

@@ -20,8 +20,9 @@ sql:
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
         - column: "tokens.total_supply"
           go_type: "github.com/vocdoni/census3/db/annotations.BigInt"
-        - column: "tokens.meta_event_id"
-          go_type: "github.com/vocdoni/census3/db/annotations.BigInt"
+        - column: "tokens.external_id"
+          go_type: "string"
+          nullable: false
         - column: "censuses.merkle_root"
           go_type: "github.com/vocdoni/census3/db/annotations.Hash"
         - column: "blocks.root_hash"
@@ -34,8 +35,9 @@ sql:
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
         - column: "token_holders.balance"
           go_type: "github.com/vocdoni/census3/db/annotations.BigInt"
-        - column: "token_holders.meta_event_id"
-          go_type: "github.com/vocdoni/census3/db/annotations.BigInt"
+        - column: "token_holders.external_id"
+          go_type: "string"
+          nullable: false
         - column: "strategytokens.token_id"
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
         - column: "strategy_tokens.method_hash"

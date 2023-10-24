@@ -22,7 +22,7 @@ func (capi *census3API) initTokenHandlers() error {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens", "POST",
-		api.MethodAccessTypePublic, capi.createToken); err != nil {
+		api.MethodAccessTypeAdmin, capi.createToken); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}", "GET",

@@ -15,12 +15,14 @@ import (
 	"github.com/vocdoni/census3/service"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/log"
+	"go.vocdoni.io/dvote/util"
 )
 
 type Census3Config struct {
 	dataDir, logLevel, connectKey string
 	listOfWeb3Providers           []string
 	port                          int
+	adminToken                    string
 }
 
 func main() {
@@ -37,6 +39,7 @@ func main() {
 	flag.StringVar(&config.logLevel, "logLevel", "info", "log level (debug, info, warn, error)")
 	flag.IntVar(&config.port, "port", 7788, "HTTP port for the API")
 	flag.StringVar(&config.connectKey, "connectKey", "", "connect group key for IPFS connect")
+	flag.StringVar(&config.adminToken, "adminToken", "", "the admin token for the API")
 	var strWeb3Providers string
 	flag.StringVar(&strWeb3Providers, "web3Providers", "", "the list of URL's of available web3 providers")
 	flag.Parse()
@@ -68,6 +71,10 @@ func main() {
 		panic(err)
 	}
 	config.connectKey = pviper.GetString("connectKey")
+	if err := pviper.BindPFlag("adminToken", flag.Lookup("adminToken")); err != nil {
+		panic(err)
+	}
+	config.adminToken = pviper.GetString("adminToken")
 	if err := pviper.BindPFlag("web3Providers", flag.Lookup("web3Providers")); err != nil {
 		panic(err)
 	}
@@ -93,6 +100,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// if the admin token is not defined, generate a random one
+	if config.adminToken == "" {
+		config.adminToken = util.RandomHex(20)
+		log.Infof("no admin token defined, using a random one: %s", config.adminToken)
+	}
 	// start the API
 	err = api.Init(database, api.Census3APIConf{
 		Hostname:      "0.0.0.0",
@@ -100,6 +112,7 @@ func main() {
 		DataDir:       config.dataDir,
 		Web3Providers: w3p,
 		GroupKey:      config.connectKey,
+		AdminToken:    config.adminToken,
 	})
 	if err != nil {
 		log.Fatal(err)

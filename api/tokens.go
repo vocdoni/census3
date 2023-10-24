@@ -54,10 +54,6 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	// parse and encode resulting tokens
 	tokens := GetTokensResponse{Tokens: []GetTokensItem{}}
 	for _, tokenData := range rows {
-		metaTokenID := ""
-		if tokenData.TypeID == uint64(state.CONTRACT_TYPE_POAP) {
-			metaTokenID = new(big.Int).SetBytes(tokenData.MetaTokenID).String()
-		}
 		tokenResponse := GetTokensItem{
 			ID:          common.BytesToAddress(tokenData.ID).String(),
 			Type:        state.TokenType(int(tokenData.TypeID)).String(),
@@ -66,7 +62,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			Tags:        tokenData.Tags.String,
 			Symbol:      tokenData.Symbol.String,
 			ChainID:     tokenData.ChainID,
-			MetaTokenID: metaTokenID,
+			MetaTokenID: new(big.Int).SetBytes(tokenData.MetaTokenID).String(),
 		}
 		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}

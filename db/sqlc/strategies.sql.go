@@ -8,6 +8,8 @@ package queries
 import (
 	"context"
 	"database/sql"
+
+	"github.com/vocdoni/census3/db/annotations"
 )
 
 const createStategy = `-- name: CreateStategy :execresult
@@ -34,8 +36,8 @@ VALUES (
 type CreateStrategyTokenParams struct {
 	StrategyID uint64
 	TokenID    []byte
-	MinBalance []byte
-	MethodHash []byte
+	MinBalance annotations.BigInt
+	MethodHash annotations.MethodHash
 }
 
 func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTokenParams) (sql.Result, error) {
@@ -187,7 +189,7 @@ WHERE strategy_id = ? AND token_id = ? AND method_hash = ?
 type StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams struct {
 	StrategyID uint64
 	TokenID    []byte
-	MethodHash []byte
+	MethodHash annotations.MethodHash
 }
 
 func (q *Queries) StrategyTokenByStrategyIDAndTokenIDAndMethodHash(ctx context.Context, arg StrategyTokenByStrategyIDAndTokenIDAndMethodHashParams) (StrategyToken, error) {
@@ -259,8 +261,8 @@ WHERE strategy_id = ? AND token_id = ?
 `
 
 type UpdateStrategyTokenParams struct {
-	MinBalance []byte
-	MethodHash []byte
+	MinBalance annotations.BigInt
+	MethodHash annotations.MethodHash
 	StrategyID uint64
 	TokenID    []byte
 }

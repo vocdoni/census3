@@ -55,11 +55,23 @@ FROM holders
 JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ? AND token_holders.balance >= ? AND token_holders.block_id = ?;
 
+-- name: TokenHoldersByTokenIDAndMetaEventID :many
+SELECT holders.*, token_holders.balance
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.meta_event_id = ?;
+
 -- name: TokenHolderByTokenIDAndHolderID :one
 SELECT holders.*, token_holders.*
 FROM holders
 JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ? AND token_holders.holder_id = ?;
+
+-- name: TokenHolderByTokenIDAndHolderIDandMetaEventID :one
+SELECT holders.*, token_holders.*
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.holder_id = ? AND token_holders.meta_event_id = ?;
 
 -- name: TokenHolderByTokenIDAndBlockIDAndHolderID :one
 SELECT holders.*, token_holders.balance
@@ -84,18 +96,19 @@ INSERT INTO token_holders (
     token_id,
     holder_id,
     balance,
-    block_id
+    block_id,
+    meta_event_id
 )
 VALUES (
-    ?, ?, ?, ?
+    ?, ?, ?, ?, ?
 );
 
 -- name: UpdateTokenHolderBalance :execresult
 UPDATE token_holders
 SET balance = sqlc.arg(balance),
     block_id = sqlc.arg(new_block_id)
-WHERE token_id = sqlc.arg(token_id) AND holder_id = sqlc.arg(holder_id) AND block_id = sqlc.arg(block_id);
+WHERE token_id = sqlc.arg(token_id) AND holder_id = sqlc.arg(holder_id) AND block_id = sqlc.arg(block_id) AND meta_event_id = sqlc.arg(meta_event_id);
 
 -- name: DeleteTokenHolder :execresult
 DELETE FROM token_holders
-WHERE token_id = ? AND holder_id = ?;
+WHERE token_id = ? AND holder_id = ? AND meta_event_id = ?;

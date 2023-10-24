@@ -82,14 +82,20 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 			}
 			// scan for new holders of every token
 			atSyncGlobal := true
-			for addr, ready := range tokens {
-				if !ready {
+			for addr, data := range tokens {
+				if !data.ready {
 					if err := s.calcTokenCreationBlock(ctx, addr); err != nil {
 						log.Error(err)
 						continue
 					}
 				}
-				atSync, err := s.scanHolders(ctx, addr)
+				tokenID := new(big.Int)
+				if metaEventID, ok := data.metadata["metaEventID"]; ok {
+					if bMetaEventID, ok := metaEventID.([]byte); ok {
+						tokenID.SetBytes(bMetaEventID)
+					}
+				}
+				atSync, err := s.scanHolders(ctx, addr, tokenID)
 				if err != nil {
 					log.Error(err)
 					continue
@@ -111,11 +117,21 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 	}
 }
 
+// scanToken struct contains the needed parameters to scan the holders of the
+// tokens stored on the database. It indicates if the token is ready to be
+// scanned and contains the token metadata.
+type scanToken struct {
+	ready    bool
+	metadata map[string]interface{}
+}
+
 // tokenAddresses function gets the current token addresses from the database
 // and returns it as a list of common.Address structs. If the current database
 // instance does not contain any token, it returns nil addresses without error.
-// This behaviour helps to deal with this particular case.
-func (s *HoldersScanner) tokenAddresses() (map[common.Address]bool, error) {
+// This behaviour helps to deal with this particular case. It also filters the
+// tokens to retunr only the ones that are ready to be scanned, which means that
+// the token creation block is already calculated.
+func (s *HoldersScanner) tokenAddresses() (map[common.Address]scanToken, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// get tokens from the database
@@ -129,9 +145,16 @@ func (s *HoldersScanner) tokenAddresses() (map[common.Address]bool, error) {
 		return nil, err
 	}
 	// parse and return token addresses
-	results := make(map[common.Address]bool)
+	results := make(map[common.Address]scanToken)
 	for _, token := range tokens {
-		results[common.BytesToAddress(token.ID)] = token.CreationBlock.Valid
+		st := scanToken{
+			ready:    token.CreationBlock.Valid,
+			metadata: make(map[string]interface{}),
+		}
+		if token.TypeID == uint64(state.CONTRACT_TYPE_POAP) {
+			st.metadata["metaEventID"] = token.MetaEventID
+		}
+		results[common.BytesToAddress(token.ID)] = st
 	}
 	return results, nil
 }
@@ -184,7 +207,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	}
 	// init web3 contract state
 	w3 := state.Web3{}
-	if err := w3.Init(ctx, w3uri, th.Address(), th.Type(), th.TokenID); err != nil {
+	if err := w3.Init(ctx, w3uri, th.Address(), th.Type(), th.EventID); err != nil {
 		return err
 	}
 	// get current block number timestamp and root hash, required parameters to
@@ -220,10 +243,11 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	//		- if the calculated balance is not 0, update it
 	created, updated, deleted := 0, 0, 0
 	for holder, balance := range th.Holders() {
-		currentTokenHolder, err := qtx.TokenHolderByTokenIDAndHolderID(ctx,
-			queries.TokenHolderByTokenIDAndHolderIDParams{
-				TokenID:  th.Address().Bytes(),
-				HolderID: holder.Bytes(),
+		currentTokenHolder, err := qtx.TokenHolderByTokenIDAndHolderIDandMetaEventID(ctx,
+			queries.TokenHolderByTokenIDAndHolderIDandMetaEventIDParams{
+				TokenID:     th.Address().Bytes(),
+				HolderID:    holder.Bytes(),
+				MetaEventID: th.EventID.Bytes(),
 			})
 		if err != nil {
 			// return the error if fails and the error is not 'no rows' err
@@ -236,10 +260,11 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			}
 			// if the token holder not exists, create it
 			_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
-				TokenID:  th.Address().Bytes(),
-				HolderID: holder.Bytes(),
-				BlockID:  th.LastBlock(),
-				Balance:  balance.Bytes(),
+				TokenID:     th.Address().Bytes(),
+				HolderID:    holder.Bytes(),
+				BlockID:     th.LastBlock(),
+				Balance:     balance.Bytes(),
+				MetaEventID: th.EventID.Bytes(),
 			})
 			if err != nil {
 				return err
@@ -255,8 +280,9 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		if newBalance.Cmp(big.NewInt(0)) <= 0 {
 			_, err := qtx.DeleteTokenHolder(ctx,
 				queries.DeleteTokenHolderParams{
-					TokenID:  th.Address().Bytes(),
-					HolderID: holder.Bytes(),
+					TokenID:     th.Address().Bytes(),
+					HolderID:    holder.Bytes(),
+					MetaEventID: th.EventID.Bytes(),
 				})
 			if err != nil {
 				return fmt.Errorf("error deleting token holder: %w", err)
@@ -266,11 +292,12 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		}
 		// if the calculated balance is not 0, update it
 		_, err = qtx.UpdateTokenHolderBalance(ctx, queries.UpdateTokenHolderBalanceParams{
-			TokenID:    th.Address().Bytes(),
-			HolderID:   holder.Bytes(),
-			BlockID:    currentTokenHolder.BlockID,
-			NewBlockID: th.LastBlock(),
-			Balance:    newBalance.Bytes(),
+			TokenID:     th.Address().Bytes(),
+			HolderID:    holder.Bytes(),
+			BlockID:     currentTokenHolder.BlockID,
+			NewBlockID:  th.LastBlock(),
+			Balance:     newBalance.Bytes(),
+			MetaEventID: th.EventID.Bytes(),
 		})
 		if err != nil {
 			return fmt.Errorf("error updating token holder: %w", err)
@@ -296,7 +323,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 // HoldersScanner database and caches it. If something expected fails or the
 // scan process ends successfully, the cached information is stored in the
 // database. If it has no updates, it does not change anything and returns nil.
-func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (bool, error) {
+func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address, tokenID *big.Int) (bool, error) {
 	log.Debugf("scanning contract %s", addr)
 	ctx, cancel := context.WithTimeout(ctx, scanIterationDurationPerToken)
 	defer cancel()
@@ -316,11 +343,11 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
 			tokenLastBlock = blockNumber
 		}
-		metaTokenID := new(big.Int)
+		metaEventID := new(big.Int)
 		if ttype == state.CONTRACT_TYPE_POAP {
-			metaTokenID.SetBytes(tokenInfo.MetaTokenID)
+			metaEventID.SetBytes(tokenInfo.MetaEventID)
 		}
-		th = new(state.TokenHolders).Init(addr, ttype, tokenLastBlock, tokenInfo.ChainID, metaTokenID)
+		th = new(state.TokenHolders).Init(addr, ttype, tokenLastBlock, tokenInfo.ChainID, metaEventID)
 		s.tokens[addr] = th
 	}
 	s.mutex.RUnlock()
@@ -337,7 +364,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 	}
 	// init web3 contract state
 	w3 := state.Web3{}
-	if err := w3.Init(ctx, w3uri, addr, th.Type(), th.TokenID); err != nil {
+	if err := w3.Init(ctx, w3uri, addr, th.Type(), th.EventID); err != nil {
 		return th.IsSynced(), err
 	}
 	// try to update the TokenHolders struct and the current scanner last block
@@ -388,7 +415,7 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 	}
 	// init web3 contract state
 	w3 := state.Web3{}
-	if err := w3.Init(ctx, w3uri, addr, ttype, new(big.Int).SetBytes(tokenInfo.MetaTokenID)); err != nil {
+	if err := w3.Init(ctx, w3uri, addr, ttype, new(big.Int).SetBytes(tokenInfo.MetaEventID)); err != nil {
 		return fmt.Errorf("error intializing web3 client for this token: %w", err)
 	}
 	// get creation block of the current token contract

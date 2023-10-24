@@ -24,7 +24,7 @@ INSERT INTO tokens (
     synced,
     tags,
     chain_id,
-    meta_token_id
+    meta_event_id
 )
 VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
@@ -42,7 +42,7 @@ type CreateTokenParams struct {
 	Synced        bool
 	Tags          sql.NullString
 	ChainID       uint64
-	MetaTokenID   annotations.BigInt
+	MetaEventID   annotations.BigInt
 }
 
 func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.Result, error) {
@@ -57,7 +57,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.R
 		arg.Synced,
 		arg.Tags,
 		arg.ChainID,
-		arg.MetaTokenID,
+		arg.MetaEventID,
 	)
 }
 
@@ -85,7 +85,7 @@ func (q *Queries) ExistsToken(ctx context.Context, id annotations.Address) (bool
 }
 
 const listTokens = `-- name: ListTokens :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_token_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_event_id FROM tokens
 ORDER BY type_id, name
 `
 
@@ -109,7 +109,7 @@ func (q *Queries) ListTokens(ctx context.Context) ([]Token, error) {
 			&i.Synced,
 			&i.Tags,
 			&i.ChainID,
-			&i.MetaTokenID,
+			&i.MetaEventID,
 		); err != nil {
 			return nil, err
 		}
@@ -125,7 +125,7 @@ func (q *Queries) ListTokens(ctx context.Context) ([]Token, error) {
 }
 
 const tokenByID = `-- name: TokenByID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_token_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_event_id FROM tokens
 WHERE id = ?
 LIMIT 1
 `
@@ -144,13 +144,13 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 		&i.Synced,
 		&i.Tags,
 		&i.ChainID,
-		&i.MetaTokenID,
+		&i.MetaEventID,
 	)
 	return i, err
 }
 
 const tokenByName = `-- name: TokenByName :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_token_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_event_id FROM tokens
 WHERE name = ?
 LIMIT 1
 `
@@ -169,13 +169,13 @@ func (q *Queries) TokenByName(ctx context.Context, name sql.NullString) (Token, 
 		&i.Synced,
 		&i.Tags,
 		&i.ChainID,
-		&i.MetaTokenID,
+		&i.MetaEventID,
 	)
 	return i, err
 }
 
 const tokenBySymbol = `-- name: TokenBySymbol :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_token_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_event_id FROM tokens
 WHERE symbol = ?
 LIMIT 1
 `
@@ -194,13 +194,13 @@ func (q *Queries) TokenBySymbol(ctx context.Context, symbol sql.NullString) (Tok
 		&i.Synced,
 		&i.Tags,
 		&i.ChainID,
-		&i.MetaTokenID,
+		&i.MetaEventID,
 	)
 	return i, err
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.meta_token_id, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM tokens t
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.meta_event_id, st.strategy_id, st.token_id, st.min_balance, st.method_hash FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
@@ -217,11 +217,11 @@ type TokensByStrategyIDRow struct {
 	Synced        bool
 	Tags          sql.NullString
 	ChainID       uint64
-	MetaTokenID   annotations.BigInt
+	MetaEventID   annotations.BigInt
 	StrategyID    uint64
 	TokenID       []byte
-	MinBalance    []byte
-	MethodHash    []byte
+	MinBalance    annotations.BigInt
+	MethodHash    annotations.MethodHash
 }
 
 func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]TokensByStrategyIDRow, error) {
@@ -244,7 +244,7 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]
 			&i.Synced,
 			&i.Tags,
 			&i.ChainID,
-			&i.MetaTokenID,
+			&i.MetaEventID,
 			&i.StrategyID,
 			&i.TokenID,
 			&i.MinBalance,
@@ -264,7 +264,7 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]
 }
 
 const tokensByType = `-- name: TokensByType :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_token_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, meta_event_id FROM tokens
 WHERE type_id = ?
 ORDER BY name
 `
@@ -289,7 +289,7 @@ func (q *Queries) TokensByType(ctx context.Context, typeID uint64) ([]Token, err
 			&i.Synced,
 			&i.Tags,
 			&i.ChainID,
-			&i.MetaTokenID,
+			&i.MetaEventID,
 		); err != nil {
 			return nil, err
 		}

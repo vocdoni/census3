@@ -40,7 +40,7 @@ INSERT INTO tokens (
     synced,
     tags,
     chain_id,
-    meta_token_id
+    meta_event_id
 )
 VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?

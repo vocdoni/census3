@@ -179,7 +179,7 @@ func Test_scanHolders(t *testing.T) {
 	// token does not exists
 	ctx1, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = hs.scanHolders(ctx1, MonkeysAddress)
+	_, err = hs.scanHolders(ctx1, MonkeysAddress, nil)
 	c.Assert(err, qt.IsNotNil)
 
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
@@ -189,7 +189,7 @@ func Test_scanHolders(t *testing.T) {
 	// token exists and the scanner gets the holders
 	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = hs.scanHolders(ctx2, MonkeysAddress)
+	_, err = hs.scanHolders(ctx2, MonkeysAddress, nil)
 	c.Assert(err, qt.IsNil)
 
 	res, err := testdb.db.QueriesRW.TokenHoldersByTokenID(context.Background(), MonkeysAddress.Bytes())

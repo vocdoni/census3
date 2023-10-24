@@ -18,7 +18,7 @@ FROM token_holders
 WHERE token_id = ?
 `
 
-func (q *Queries) CountTokenHoldersByTokenID(ctx context.Context, tokenID []byte) (int64, error) {
+func (q *Queries) CountTokenHoldersByTokenID(ctx context.Context, tokenID annotations.Address) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countTokenHoldersByTokenID, tokenID)
 	var count int64
 	err := row.Scan(&count)
@@ -39,18 +39,20 @@ INSERT INTO token_holders (
     token_id,
     holder_id,
     balance,
-    block_id
+    block_id,
+    meta_event_id
 )
 VALUES (
-    ?, ?, ?, ?
+    ?, ?, ?, ?, ?
 )
 `
 
 type CreateTokenHolderParams struct {
-	TokenID  []byte
-	HolderID []byte
-	Balance  []byte
-	BlockID  uint64
+	TokenID     annotations.Address
+	HolderID    annotations.Address
+	Balance     annotations.BigInt
+	BlockID     uint64
+	MetaEventID annotations.BigInt
 }
 
 func (q *Queries) CreateTokenHolder(ctx context.Context, arg CreateTokenHolderParams) (sql.Result, error) {
@@ -59,6 +61,7 @@ func (q *Queries) CreateTokenHolder(ctx context.Context, arg CreateTokenHolderPa
 		arg.HolderID,
 		arg.Balance,
 		arg.BlockID,
+		arg.MetaEventID,
 	)
 }
 
@@ -73,16 +76,17 @@ func (q *Queries) DeleteHolder(ctx context.Context, id annotations.Address) (sql
 
 const deleteTokenHolder = `-- name: DeleteTokenHolder :execresult
 DELETE FROM token_holders
-WHERE token_id = ? AND holder_id = ?
+WHERE token_id = ? AND holder_id = ? AND meta_event_id = ?
 `
 
 type DeleteTokenHolderParams struct {
-	TokenID  []byte
-	HolderID []byte
+	TokenID     annotations.Address
+	HolderID    annotations.Address
+	MetaEventID annotations.BigInt
 }
 
 func (q *Queries) DeleteTokenHolder(ctx context.Context, arg DeleteTokenHolderParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteTokenHolder, arg.TokenID, arg.HolderID)
+	return q.db.ExecContext(ctx, deleteTokenHolder, arg.TokenID, arg.HolderID, arg.MetaEventID)
 }
 
 const holderByID = `-- name: HolderByID :one
@@ -105,7 +109,7 @@ ORDER BY block_id DESC
 LIMIT 1
 `
 
-func (q *Queries) LastBlockByTokenID(ctx context.Context, tokenID []byte) (uint64, error) {
+func (q *Queries) LastBlockByTokenID(ctx context.Context, tokenID annotations.Address) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, lastBlockByTokenID, tokenID)
 	var block_id uint64
 	err := row.Scan(&block_id)
@@ -141,7 +145,7 @@ func (q *Queries) ListHolders(ctx context.Context) ([]annotations.Address, error
 }
 
 const listTokenHolders = `-- name: ListTokenHolders :many
-SELECT token_id, holder_id, balance, block_id FROM token_holders
+SELECT token_id, holder_id, balance, block_id, meta_event_id FROM token_holders
 ORDER BY token_id, holder_id, block_id
 `
 
@@ -159,6 +163,7 @@ func (q *Queries) ListTokenHolders(ctx context.Context) ([]TokenHolder, error) {
 			&i.HolderID,
 			&i.Balance,
 			&i.BlockID,
+			&i.MetaEventID,
 		); err != nil {
 			return nil, err
 		}
@@ -181,14 +186,14 @@ WHERE token_holders.token_id = ? AND token_holders.holder_id = ? AND token_holde
 `
 
 type TokenHolderByTokenIDAndBlockIDAndHolderIDParams struct {
-	TokenID  []byte
-	HolderID []byte
+	TokenID  annotations.Address
+	HolderID annotations.Address
 	BlockID  uint64
 }
 
 type TokenHolderByTokenIDAndBlockIDAndHolderIDRow struct {
 	ID      annotations.Address
-	Balance []byte
+	Balance annotations.BigInt
 }
 
 func (q *Queries) TokenHolderByTokenIDAndBlockIDAndHolderID(ctx context.Context, arg TokenHolderByTokenIDAndBlockIDAndHolderIDParams) (TokenHolderByTokenIDAndBlockIDAndHolderIDRow, error) {
@@ -199,23 +204,24 @@ func (q *Queries) TokenHolderByTokenIDAndBlockIDAndHolderID(ctx context.Context,
 }
 
 const tokenHolderByTokenIDAndHolderID = `-- name: TokenHolderByTokenIDAndHolderID :one
-SELECT holders.id, token_holders.token_id, token_holders.holder_id, token_holders.balance, token_holders.block_id
+SELECT holders.id, token_holders.token_id, token_holders.holder_id, token_holders.balance, token_holders.block_id, token_holders.meta_event_id
 FROM holders
 JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ? AND token_holders.holder_id = ?
 `
 
 type TokenHolderByTokenIDAndHolderIDParams struct {
-	TokenID  []byte
-	HolderID []byte
+	TokenID  annotations.Address
+	HolderID annotations.Address
 }
 
 type TokenHolderByTokenIDAndHolderIDRow struct {
-	ID       annotations.Address
-	TokenID  []byte
-	HolderID []byte
-	Balance  []byte
-	BlockID  uint64
+	ID          annotations.Address
+	TokenID     annotations.Address
+	HolderID    annotations.Address
+	Balance     annotations.BigInt
+	BlockID     uint64
+	MetaEventID annotations.BigInt
 }
 
 func (q *Queries) TokenHolderByTokenIDAndHolderID(ctx context.Context, arg TokenHolderByTokenIDAndHolderIDParams) (TokenHolderByTokenIDAndHolderIDRow, error) {
@@ -227,6 +233,43 @@ func (q *Queries) TokenHolderByTokenIDAndHolderID(ctx context.Context, arg Token
 		&i.HolderID,
 		&i.Balance,
 		&i.BlockID,
+		&i.MetaEventID,
+	)
+	return i, err
+}
+
+const tokenHolderByTokenIDAndHolderIDandMetaEventID = `-- name: TokenHolderByTokenIDAndHolderIDandMetaEventID :one
+SELECT holders.id, token_holders.token_id, token_holders.holder_id, token_holders.balance, token_holders.block_id, token_holders.meta_event_id
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.holder_id = ? AND token_holders.meta_event_id = ?
+`
+
+type TokenHolderByTokenIDAndHolderIDandMetaEventIDParams struct {
+	TokenID     annotations.Address
+	HolderID    annotations.Address
+	MetaEventID annotations.BigInt
+}
+
+type TokenHolderByTokenIDAndHolderIDandMetaEventIDRow struct {
+	ID          annotations.Address
+	TokenID     annotations.Address
+	HolderID    annotations.Address
+	Balance     annotations.BigInt
+	BlockID     uint64
+	MetaEventID annotations.BigInt
+}
+
+func (q *Queries) TokenHolderByTokenIDAndHolderIDandMetaEventID(ctx context.Context, arg TokenHolderByTokenIDAndHolderIDandMetaEventIDParams) (TokenHolderByTokenIDAndHolderIDandMetaEventIDRow, error) {
+	row := q.db.QueryRowContext(ctx, tokenHolderByTokenIDAndHolderIDandMetaEventID, arg.TokenID, arg.HolderID, arg.MetaEventID)
+	var i TokenHolderByTokenIDAndHolderIDandMetaEventIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.TokenID,
+		&i.HolderID,
+		&i.Balance,
+		&i.BlockID,
+		&i.MetaEventID,
 	)
 	return i, err
 }
@@ -240,10 +283,10 @@ WHERE token_holders.token_id = ?
 
 type TokenHoldersByTokenIDRow struct {
 	ID      annotations.Address
-	Balance []byte
+	Balance annotations.BigInt
 }
 
-func (q *Queries) TokenHoldersByTokenID(ctx context.Context, tokenID []byte) ([]TokenHoldersByTokenIDRow, error) {
+func (q *Queries) TokenHoldersByTokenID(ctx context.Context, tokenID annotations.Address) ([]TokenHoldersByTokenIDRow, error) {
 	rows, err := q.db.QueryContext(ctx, tokenHoldersByTokenID, tokenID)
 	if err != nil {
 		return nil, err
@@ -274,7 +317,7 @@ WHERE token_holders.token_id = ? AND token_holders.block_id = ?
 `
 
 type TokenHoldersByTokenIDAndBlockIDParams struct {
-	TokenID []byte
+	TokenID annotations.Address
 	BlockID uint64
 }
 
@@ -309,8 +352,8 @@ WHERE token_holders.token_id = ? AND token_holders.balance >= ? AND token_holder
 `
 
 type TokenHoldersByTokenIDAndBlockIDAndMinBalanceParams struct {
-	TokenID []byte
-	Balance []byte
+	TokenID annotations.Address
+	Balance annotations.BigInt
 	BlockID uint64
 }
 
@@ -337,6 +380,46 @@ func (q *Queries) TokenHoldersByTokenIDAndBlockIDAndMinBalance(ctx context.Conte
 	return items, nil
 }
 
+const tokenHoldersByTokenIDAndMetaEventID = `-- name: TokenHoldersByTokenIDAndMetaEventID :many
+SELECT holders.id, token_holders.balance
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.meta_event_id = ?
+`
+
+type TokenHoldersByTokenIDAndMetaEventIDParams struct {
+	TokenID     annotations.Address
+	MetaEventID annotations.BigInt
+}
+
+type TokenHoldersByTokenIDAndMetaEventIDRow struct {
+	ID      annotations.Address
+	Balance annotations.BigInt
+}
+
+func (q *Queries) TokenHoldersByTokenIDAndMetaEventID(ctx context.Context, arg TokenHoldersByTokenIDAndMetaEventIDParams) ([]TokenHoldersByTokenIDAndMetaEventIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, tokenHoldersByTokenIDAndMetaEventID, arg.TokenID, arg.MetaEventID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TokenHoldersByTokenIDAndMetaEventIDRow
+	for rows.Next() {
+		var i TokenHoldersByTokenIDAndMetaEventIDRow
+		if err := rows.Scan(&i.ID, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const tokenHoldersByTokenIDAndMinBalance = `-- name: TokenHoldersByTokenIDAndMinBalance :many
 SELECT holders.id
 FROM holders
@@ -345,8 +428,8 @@ WHERE token_holders.token_id = ? AND token_holders.balance >= ?
 `
 
 type TokenHoldersByTokenIDAndMinBalanceParams struct {
-	TokenID []byte
-	Balance []byte
+	TokenID annotations.Address
+	Balance annotations.BigInt
 }
 
 func (q *Queries) TokenHoldersByTokenIDAndMinBalance(ctx context.Context, arg TokenHoldersByTokenIDAndMinBalanceParams) ([]annotations.Address, error) {
@@ -373,13 +456,13 @@ func (q *Queries) TokenHoldersByTokenIDAndMinBalance(ctx context.Context, arg To
 }
 
 const tokensByHolderID = `-- name: TokensByHolderID :many
-SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.meta_token_id
+SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.meta_event_id
 FROM Tokens
 JOIN token_holders ON tokens.id = token_holders.token_id
 WHERE token_holders.holder_id = ?
 `
 
-func (q *Queries) TokensByHolderID(ctx context.Context, holderID []byte) ([]Token, error) {
+func (q *Queries) TokensByHolderID(ctx context.Context, holderID annotations.Address) ([]Token, error) {
 	rows, err := q.db.QueryContext(ctx, tokensByHolderID, holderID)
 	if err != nil {
 		return nil, err
@@ -399,7 +482,7 @@ func (q *Queries) TokensByHolderID(ctx context.Context, holderID []byte) ([]Toke
 			&i.Synced,
 			&i.Tags,
 			&i.ChainID,
-			&i.MetaTokenID,
+			&i.MetaEventID,
 		); err != nil {
 			return nil, err
 		}
@@ -415,14 +498,14 @@ func (q *Queries) TokensByHolderID(ctx context.Context, holderID []byte) ([]Toke
 }
 
 const tokensByHolderIDAndBlockID = `-- name: TokensByHolderIDAndBlockID :many
-SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.meta_token_id
+SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.meta_event_id
 FROM Tokens
 JOIN token_holders ON tokens.id = token_holders.token_id
 WHERE token_holders.holder_id = ? AND token_holders.block_id = ?
 `
 
 type TokensByHolderIDAndBlockIDParams struct {
-	HolderID []byte
+	HolderID annotations.Address
 	BlockID  uint64
 }
 
@@ -446,7 +529,7 @@ func (q *Queries) TokensByHolderIDAndBlockID(ctx context.Context, arg TokensByHo
 			&i.Synced,
 			&i.Tags,
 			&i.ChainID,
-			&i.MetaTokenID,
+			&i.MetaEventID,
 		); err != nil {
 			return nil, err
 		}
@@ -465,15 +548,16 @@ const updateTokenHolderBalance = `-- name: UpdateTokenHolderBalance :execresult
 UPDATE token_holders
 SET balance = ?,
     block_id = ?
-WHERE token_id = ? AND holder_id = ? AND block_id = ?
+WHERE token_id = ? AND holder_id = ? AND block_id = ? AND meta_event_id = ?
 `
 
 type UpdateTokenHolderBalanceParams struct {
-	Balance    []byte
-	NewBlockID uint64
-	TokenID    []byte
-	HolderID   []byte
-	BlockID    uint64
+	Balance     annotations.BigInt
+	NewBlockID  uint64
+	TokenID     annotations.Address
+	HolderID    annotations.Address
+	BlockID     uint64
+	MetaEventID annotations.BigInt
 }
 
 func (q *Queries) UpdateTokenHolderBalance(ctx context.Context, arg UpdateTokenHolderBalanceParams) (sql.Result, error) {
@@ -483,5 +567,6 @@ func (q *Queries) UpdateTokenHolderBalance(ctx context.Context, arg UpdateTokenH
 		arg.TokenID,
 		arg.HolderID,
 		arg.BlockID,
+		arg.MetaEventID,
 	)
 }

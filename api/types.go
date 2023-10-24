@@ -5,7 +5,7 @@ type CreateTokenRequest struct {
 	Type        string `json:"type"`
 	Tags        string `json:"tags"`
 	ChainID     uint64 `json:"chainID"`
-	MetaTokenID string `json:"metaTokenID"`
+	MetaEventID string `json:"metaEventID"`
 }
 
 type GetTokenStatusResponse struct {
@@ -27,7 +27,7 @@ type GetTokenResponse struct {
 	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
 	Tags            string                  `json:"tags,omitempty"`
 	ChainID         uint64                  `json:"chainID"`
-	MetaTokenID     string                  `json:"metaTokenID,omitempty"`
+	MetaEventID     string                  `json:"metaEventID,omitempty"`
 }
 
 type GetTokensItem struct {
@@ -38,7 +38,7 @@ type GetTokensItem struct {
 	Symbol      string `json:"symbol"`
 	Tags        string `json:"tags,omitempty"`
 	ChainID     uint64 `json:"chainID"`
-	MetaTokenID string `json:"metaTokenID,omitempty"`
+	MetaEventID string `json:"metaEventID,omitempty"`
 }
 
 type GetTokensResponse struct {

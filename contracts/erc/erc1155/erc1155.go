@@ -26,6 +26,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 // ERC1155ContractMetaData contains all meta data concerning the ERC1155Contract contract.
@@ -134,11 +135,11 @@ func NewERC1155ContractFilterer(address common.Address, filterer bind.ContractFi
 
 // bindERC1155Contract binds a generic wrapper to an already deployed contract.
 func bindERC1155Contract(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(ERC1155ContractABI))
+	parsed, err := ERC1155ContractMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -185,6 +186,7 @@ func (_ERC1155Contract *ERC1155ContractTransactorRaw) Transact(opts *bind.Transa
 func (_ERC1155Contract *ERC1155ContractCaller) BalanceOf(opts *bind.CallOpts, account common.Address, id *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _ERC1155Contract.contract.Call(opts, &out, "balanceOf", account, id)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -192,6 +194,7 @@ func (_ERC1155Contract *ERC1155ContractCaller) BalanceOf(opts *bind.CallOpts, ac
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // BalanceOf is a free data retrieval call binding the contract method 0x00fdd58e.
@@ -214,6 +217,7 @@ func (_ERC1155Contract *ERC1155ContractCallerSession) BalanceOf(account common.A
 func (_ERC1155Contract *ERC1155ContractCaller) BalanceOfBatch(opts *bind.CallOpts, accounts []common.Address, ids []*big.Int) ([]*big.Int, error) {
 	var out []interface{}
 	err := _ERC1155Contract.contract.Call(opts, &out, "balanceOfBatch", accounts, ids)
+
 	if err != nil {
 		return *new([]*big.Int), err
 	}
@@ -221,6 +225,7 @@ func (_ERC1155Contract *ERC1155ContractCaller) BalanceOfBatch(opts *bind.CallOpt
 	out0 := *abi.ConvertType(out[0], new([]*big.Int)).(*[]*big.Int)
 
 	return out0, err
+
 }
 
 // BalanceOfBatch is a free data retrieval call binding the contract method 0x4e1273f4.
@@ -243,6 +248,7 @@ func (_ERC1155Contract *ERC1155ContractCallerSession) BalanceOfBatch(accounts []
 func (_ERC1155Contract *ERC1155ContractCaller) IsApprovedForAll(opts *bind.CallOpts, account common.Address, operator common.Address) (bool, error) {
 	var out []interface{}
 	err := _ERC1155Contract.contract.Call(opts, &out, "isApprovedForAll", account, operator)
+
 	if err != nil {
 		return *new(bool), err
 	}
@@ -250,6 +256,7 @@ func (_ERC1155Contract *ERC1155ContractCaller) IsApprovedForAll(opts *bind.CallO
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
+
 }
 
 // IsApprovedForAll is a free data retrieval call binding the contract method 0xe985e9c5.
@@ -272,6 +279,7 @@ func (_ERC1155Contract *ERC1155ContractCallerSession) IsApprovedForAll(account c
 func (_ERC1155Contract *ERC1155ContractCaller) SupportsInterface(opts *bind.CallOpts, interfaceId [4]byte) (bool, error) {
 	var out []interface{}
 	err := _ERC1155Contract.contract.Call(opts, &out, "supportsInterface", interfaceId)
+
 	if err != nil {
 		return *new(bool), err
 	}
@@ -279,6 +287,7 @@ func (_ERC1155Contract *ERC1155ContractCaller) SupportsInterface(opts *bind.Call
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
+
 }
 
 // SupportsInterface is a free data retrieval call binding the contract method 0x01ffc9a7.
@@ -301,6 +310,7 @@ func (_ERC1155Contract *ERC1155ContractCallerSession) SupportsInterface(interfac
 func (_ERC1155Contract *ERC1155ContractCaller) Uri(opts *bind.CallOpts, arg0 *big.Int) (string, error) {
 	var out []interface{}
 	err := _ERC1155Contract.contract.Call(opts, &out, "uri", arg0)
+
 	if err != nil {
 		return *new(string), err
 	}
@@ -308,6 +318,7 @@ func (_ERC1155Contract *ERC1155ContractCaller) Uri(opts *bind.CallOpts, arg0 *bi
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
+
 }
 
 // Uri is a free data retrieval call binding the contract method 0x0e89341c.
@@ -466,6 +477,7 @@ type ERC1155ContractApprovalForAll struct {
 //
 // Solidity: event ApprovalForAll(address indexed account, address indexed operator, bool approved)
 func (_ERC1155Contract *ERC1155ContractFilterer) FilterApprovalForAll(opts *bind.FilterOpts, account []common.Address, operator []common.Address) (*ERC1155ContractApprovalForAllIterator, error) {
+
 	var accountRule []interface{}
 	for _, accountItem := range account {
 		accountRule = append(accountRule, accountItem)
@@ -486,6 +498,7 @@ func (_ERC1155Contract *ERC1155ContractFilterer) FilterApprovalForAll(opts *bind
 //
 // Solidity: event ApprovalForAll(address indexed account, address indexed operator, bool approved)
 func (_ERC1155Contract *ERC1155ContractFilterer) WatchApprovalForAll(opts *bind.WatchOpts, sink chan<- *ERC1155ContractApprovalForAll, account []common.Address, operator []common.Address) (event.Subscription, error) {
+
 	var accountRule []interface{}
 	for _, accountItem := range account {
 		accountRule = append(accountRule, accountItem)
@@ -620,6 +633,7 @@ type ERC1155ContractTransferBatch struct {
 //
 // Solidity: event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)
 func (_ERC1155Contract *ERC1155ContractFilterer) FilterTransferBatch(opts *bind.FilterOpts, operator []common.Address, from []common.Address, to []common.Address) (*ERC1155ContractTransferBatchIterator, error) {
+
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -644,6 +658,7 @@ func (_ERC1155Contract *ERC1155ContractFilterer) FilterTransferBatch(opts *bind.
 //
 // Solidity: event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)
 func (_ERC1155Contract *ERC1155ContractFilterer) WatchTransferBatch(opts *bind.WatchOpts, sink chan<- *ERC1155ContractTransferBatch, operator []common.Address, from []common.Address, to []common.Address) (event.Subscription, error) {
+
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -782,6 +797,7 @@ type ERC1155ContractTransferSingle struct {
 //
 // Solidity: event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)
 func (_ERC1155Contract *ERC1155ContractFilterer) FilterTransferSingle(opts *bind.FilterOpts, operator []common.Address, from []common.Address, to []common.Address) (*ERC1155ContractTransferSingleIterator, error) {
+
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -806,6 +822,7 @@ func (_ERC1155Contract *ERC1155ContractFilterer) FilterTransferSingle(opts *bind
 //
 // Solidity: event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)
 func (_ERC1155Contract *ERC1155ContractFilterer) WatchTransferSingle(opts *bind.WatchOpts, sink chan<- *ERC1155ContractTransferSingle, operator []common.Address, from []common.Address, to []common.Address) (event.Subscription, error) {
+
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -941,6 +958,7 @@ type ERC1155ContractURI struct {
 //
 // Solidity: event URI(string value, uint256 indexed id)
 func (_ERC1155Contract *ERC1155ContractFilterer) FilterURI(opts *bind.FilterOpts, id []*big.Int) (*ERC1155ContractURIIterator, error) {
+
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)
@@ -957,6 +975,7 @@ func (_ERC1155Contract *ERC1155ContractFilterer) FilterURI(opts *bind.FilterOpts
 //
 // Solidity: event URI(string value, uint256 indexed id)
 func (_ERC1155Contract *ERC1155ContractFilterer) WatchURI(opts *bind.WatchOpts, sink chan<- *ERC1155ContractURI, id []*big.Int) (event.Subscription, error) {
+
 	var idRule []interface{}
 	for _, idItem := range id {
 		idRule = append(idRule, idItem)

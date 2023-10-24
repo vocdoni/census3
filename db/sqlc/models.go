@@ -39,8 +39,8 @@ type Strategy struct {
 type StrategyToken struct {
 	StrategyID uint64
 	TokenID    []byte
-	MinBalance []byte
-	MethodHash []byte
+	MinBalance annotations.BigInt
+	MethodHash annotations.MethodHash
 }
 
 type Token struct {
@@ -54,14 +54,15 @@ type Token struct {
 	Synced        bool
 	Tags          sql.NullString
 	ChainID       uint64
-	MetaTokenID   annotations.BigInt
+	MetaEventID   annotations.BigInt
 }
 
 type TokenHolder struct {
-	TokenID  []byte
-	HolderID []byte
-	Balance  []byte
-	BlockID  uint64
+	TokenID     annotations.Address
+	HolderID    annotations.Address
+	Balance     annotations.BigInt
+	BlockID     uint64
+	MetaEventID annotations.BigInt
 }
 
 type TokenType struct {

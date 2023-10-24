@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db"
+	"go.vocdoni.io/dvote/log"
 )
 
 // POAP_URI is the endpoint to get the POAP holders for an eventID and offset.
@@ -72,7 +73,11 @@ func (p *POAPExternalProvider) GetHolders(externalID []byte) (map[common.Address
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Error(err)
+		}
+	}()
 	// parse poap from decoded response
 	poapRes := POAPAPIResponse{}
 	if err := json.Unmarshal(rawResults, &poapRes); err != nil {

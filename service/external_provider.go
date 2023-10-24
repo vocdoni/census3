@@ -15,9 +15,8 @@ type ExternalProvider interface {
 	// Init initializes the external provider with the database provided.
 	Init(db *db.DB) error
 	// GetHolders returns the holders of the token with the IDs provided.
-	// It receives a list of IDs to provide flexibility to the external
-	// provider to return the holders of multiple tokens in a single call, or
-	// using specific token attributes. It must return a map with the address
-	// of the holder as key and the balance of the token holder as value.
-	GetHolders(ids ...any) (map[common.Address]*big.Int, error)
+	// It receives an external ID to be used to get holders and their balances.
+	// It must return a map with the address of the holder as key and the
+	// balance of the token holder as value.
+	GetHolders(externalID []byte) (map[common.Address]*big.Int, error)
 }

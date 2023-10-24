@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"path"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db"
@@ -14,7 +15,7 @@ import (
 // POAP_URI is the endpoint to get the POAP holders for an eventID and offset.
 // It uses the maximum limit of 300 POAPs per request.
 // https://documentation.poap.tech/reference/geteventpoaps-2
-const POAP_URI = "https://api.poap.tech/event/%s/poaps?limit=300&offset=%d"
+const POAP_URI = "/event/%s/poaps?limit=300&offset=%d"
 
 type POAPAPIResponse struct {
 	Total  int `json:"total"`
@@ -26,12 +27,16 @@ type POAPAPIResponse struct {
 }
 
 type POAPExternalProvider struct {
+	URI         string
 	AccessToken string
 }
 
 // Init initializes the POAP external provider with the database provided.
 // It returns an error if the POAP access token is not defined.
 func (p *POAPExternalProvider) Init(_ *db.DB) error {
+	if p.URI == "" {
+		return fmt.Errorf("no POAP URI defined")
+	}
 	if p.AccessToken == "" {
 		return fmt.Errorf("no POAP access token defined")
 	}
@@ -44,20 +49,14 @@ func (p *POAPExternalProvider) Init(_ *db.DB) error {
 // balance of the token holder as value. The POAP API endpoint to get the list
 // of POAPs is paginated, so it requests the list of POAPs in batches of 300
 // POAPs per request (maximum limit allowed by the POAP API).
-func (p *POAPExternalProvider) GetHolders(ids ...any) (map[common.Address]*big.Int, error) {
-	// parse eventID
-	if len(ids) == 0 {
-		return nil, fmt.Errorf("no POAP eventID provided")
-	}
-	eventID, ok := ids[0].(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("invalid POAP eventID provided, it must be a big.Int")
-	}
+func (p *POAPExternalProvider) GetHolders(externalID []byte) (map[common.Address]*big.Int, error) {
+	// parse eventID from externalID
+	eventID := string(externalID)
 	// init http client
 	client := &http.Client{}
 	// create a request to get the first page of poaps
 	offset := 0
-	endpoint := fmt.Sprintf(POAP_URI, eventID.String(), offset)
+	endpoint := path.Join(p.URI, fmt.Sprintf(p.URI, eventID, offset))
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err

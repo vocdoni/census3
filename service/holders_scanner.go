@@ -29,27 +29,27 @@ var (
 // the tokens stored on the database (located on 'dataDir/dbFilename'). It
 // keeps the database updated scanning the network using the web3 endpoint.
 type HoldersScanner struct {
-	w3p               map[uint64]string
-	tokens            map[common.Address]*state.TokenHolders
-	mutex             sync.RWMutex
-	db                *db.DB
-	lastBlock         uint64
-	externalProviders map[state.TokenType]ExternalProvider
+	w3p          map[uint64]string
+	tokens       map[common.Address]*state.TokenHolders
+	mutex        sync.RWMutex
+	db           *db.DB
+	lastBlock    uint64
+	extProviders map[state.TokenType]HolderProvider
 }
 
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
-func NewHoldersScanner(db *db.DB, w3p map[uint64]string, ext map[state.TokenType]ExternalProvider) (*HoldersScanner, error) {
+func NewHoldersScanner(db *db.DB, w3p map[uint64]string, ext map[state.TokenType]HolderProvider) (*HoldersScanner, error) {
 	if db == nil {
 		return nil, ErrNoDB
 	}
 	// create an empty scanner
 	s := HoldersScanner{
-		w3p:               w3p,
-		tokens:            make(map[common.Address]*state.TokenHolders),
-		db:                db,
-		externalProviders: ext,
+		w3p:          w3p,
+		tokens:       make(map[common.Address]*state.TokenHolders),
+		db:           db,
+		extProviders: ext,
 	}
 	// get latest analyzed block
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -117,9 +117,9 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 // tokens stored on the database. It indicates if the token is ready to be
 // scanned and contains the token metadata.
 type scanToken struct {
-	ready            bool
-	externalProvider ExternalProvider
-	metadata         map[string]interface{}
+	ready          bool
+	holderProvider HolderProvider
+	metadata       map[string]interface{}
 }
 
 // tokenAddresses function gets the current token addresses from the database
@@ -144,11 +144,11 @@ func (s *HoldersScanner) tokenAddresses() (map[common.Address]scanToken, error) 
 	// parse and return token addresses
 	results := make(map[common.Address]scanToken)
 	for _, token := range tokens {
-		provider, isExternal := s.externalProviders[state.TokenType(token.TypeID)]
+		provider, isExternal := s.extProviders[state.TokenType(token.TypeID)]
 		if isExternal {
 			results[common.BytesToAddress(token.ID)] = scanToken{
-				ready:            true,
-				externalProvider: provider,
+				ready:          true,
+				holderProvider: provider,
 			}
 		} else {
 			results[common.BytesToAddress(token.ID)] = scanToken{
@@ -357,8 +357,11 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 	// if the token type has a external provider associated, get the holders
 	// from it and append it to the TokenHolders struct, then save it into the
 	// database and return
-	if provider, isExternal := s.externalProviders[th.Type()]; isExternal {
-		externalBalances, err := provider.GetHolders([]byte(th.ExternalID))
+	if provider, isExternal := s.extProviders[th.Type()]; isExternal {
+		if err := provider.SetLastBalances(ctx, []byte(th.ExternalID), th.Holders(), th.LastBlock()); err != nil {
+			return false, err
+		}
+		externalBalances, err := provider.HoldersBalances(ctx, []byte(th.ExternalID), s.lastBlock-th.LastBlock())
 		if err != nil {
 			return false, err
 		}

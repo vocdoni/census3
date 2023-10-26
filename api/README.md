@@ -298,6 +298,51 @@ Stores a new strategy based on the defined combination of tokens provided, these
 | 500 | `error encoding strategy info` | 5015 | 
 | 500 | `error creating strategy` | 5025 | 
 
+### POST `/strategies/import/{cid}`
+Imports a strategy from IPFS downloading it with the `cid` provided in background.
+
+- 📥 response:
+
+```json
+{
+    "queueID": "0123456789abcdef0123456789abcdef01234567"
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed strategy provided` | 4014 |
+| 500 | `error encoding strategy info` | 5015 | 
+
+### GET `/strategies/import/queue/{queueID}`
+Returns the information of the census that are in the creation queue.
+
+- 📥 response:
+```json
+{
+    "done": true,
+    "error": {
+        "code": 0,
+        "err": "error message or null"
+    },
+    "strategy": { /* <same_get_strategy_response> */ }
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 404 | `strategy not found` | 4006 | 
+| 400 | `malformed queue ID` | 4011 | 
+| 500 | `error getting strategy information` | 5009 | 
+| 500 | `error encoding strategy queue item` | 5022 | 
+
+- ⚠️ possible error values inside the body:
+
+<small>The request could response `OK 200` and at the same time includes an error because it is an error of the enqueued process and not of the request processing).</small>
 
 ### GET `/strategies/{strategyID}`
 Returns the information of the strategy related to the provided ID.

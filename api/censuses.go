@@ -95,7 +95,7 @@ func (capi *census3API) launchCensusCreation(msg *api.APIdata, ctx *httprouter.H
 		}
 	}()
 	// encoding the result and response it
-	res, err := json.Marshal(CreateCensusResponse{
+	res, err := json.Marshal(QueueResponse{
 		QueueID: queueID,
 	})
 	if err != nil {

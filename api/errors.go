@@ -108,6 +108,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("no IPFS uri provided"),
 	}
+	ErrMalformedStrategyQueueID = apirest.APIerror{
+		Code:       4020,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed queue ID"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,

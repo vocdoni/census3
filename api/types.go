@@ -69,7 +69,7 @@ type CreateCensusRequest struct {
 	Anonymous  bool   `json:"anonymous"`
 }
 
-type CreateCensusResponse struct {
+type QueueResponse struct {
 	QueueID string `json:"queueID"`
 }
 
@@ -116,4 +116,10 @@ type GetStrategyResponse struct {
 
 type GetStrategiesResponse struct {
 	Strategies []*GetStrategyResponse `json:"strategies"`
+}
+
+type StrategyQueueResponse struct {
+	Done     bool                 `json:"done"`
+	Error    error                `json:"error"`
+	Strategy *GetStrategyResponse `json:"strategy"`
 }

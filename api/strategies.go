@@ -26,8 +26,12 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.createStrategy); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategies/import/{ipfsCID}", "POST",
-		api.MethodAccessTypePublic, capi.importStrategy); err != nil {
+	if err := capi.endpoint.RegisterMethod("/strategies/import/{cID}", "POST",
+		api.MethodAccessTypePublic, capi.launchStrategyImport); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/strategies/import/queue/{queueID}", "GET",
+		api.MethodAccessTypePublic, capi.enqueueImportStrategy); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}", "GET",
@@ -220,32 +224,50 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 	return ctx.Send(response, api.HTTPstatusOK)
 }
 
-// importStrategy function handler imports a strategy from IPFS and stores it
-// into the database. It returns a 400 error if the provided IPFS CID is wrong
-// or empty, a 500 error if something fails. It returns the strategyID of the
-// imported strategy.
-func (capi *census3API) importStrategy(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// get the ipfsCID from the url
-	ipfsCID := ctx.URLParam("ipfsCID")
+func (capi *census3API) launchStrategyImport(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get the cID from the url
+	ipfsCID := ctx.URLParam("cID")
 	if ipfsCID == "" {
-		return ErrMalformedStrategy.With("no ipfsCID provided")
+		return ErrMalformedStrategy.With("no IPFS cID provided")
 	}
-	// init the internal context
-	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), importStrategyTimeout)
-	defer cancel()
-	// get the strategy from IPFS and decode it
-	dump, err := capi.storage.Retrieve(internalCtx, ipfsCID, 0)
+	// import the strategy from IPFS in background generating a queueID
+	queueID := capi.queue.Enqueue()
+	go func() {
+		capi.downloader.AddToQueue("ipfs://"+ipfsCID, func(_ string, dump []byte) {
+			strategyID, err := capi.importStrategyDump(dump)
+			if err != nil {
+				if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+					log.Errorf("error updating import strategy queue %s", queueID)
+				}
+				return
+			}
+			queueData := map[string]any{"strategyID": strategyID}
+			if ok := capi.queue.Update(queueID, true, queueData, nil); !ok {
+				log.Errorf("error updating import strategy queue %s", queueID)
+			}
+		}, true)
+	}()
+	// encode and send the queueID
+	res, err := json.Marshal(QueueResponse{QueueID: queueID})
 	if err != nil {
-		return ErrCantImportStrategy.WithErr(err)
+		return ErrEncodeStrategy.WithErr(err)
 	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) importStrategyDump(dump []byte) (uint64, error) {
+	// init the internal context
+	internalCtx, cancel := context.WithTimeout(context.Background(), importStrategyTimeout)
+	defer cancel()
+
 	importedStrategy := GetStrategyResponse{}
 	if err := json.Unmarshal(dump, &importedStrategy); err != nil {
-		return ErrCantImportStrategy.WithErr(err)
+		return 0, ErrCantImportStrategy.WithErr(err)
 	}
 	// init db transaction
 	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
-		return ErrCantCreateStrategy.WithErr(err)
+		return 0, ErrCantCreateStrategy.WithErr(err)
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
@@ -260,11 +282,11 @@ func (capi *census3API) importStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 		Uri:       importedStrategy.URI,
 	})
 	if err != nil {
-		return ErrCantCreateStrategy.WithErr(err)
+		return 0, ErrCantCreateStrategy.WithErr(err)
 	}
 	strategyID, err := result.LastInsertId()
 	if err != nil {
-		return ErrCantCreateStrategy.WithErr(err)
+		return 0, ErrCantCreateStrategy.WithErr(err)
 	}
 	// iterate over the token included in the predicate and create them in the
 	// database
@@ -274,7 +296,7 @@ func (capi *census3API) importStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 		minBalance := new(big.Int)
 		if token.MinBalance != "" {
 			if _, ok := minBalance.SetString(token.MinBalance, 10); !ok {
-				return ErrEncodeStrategy.Withf("error with %s minBalance", symbol)
+				return 0, ErrEncodeStrategy.Withf("error with %s minBalance", symbol)
 			}
 		}
 		// create the strategy token in the database
@@ -284,18 +306,81 @@ func (capi *census3API) importStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 			MinBalance: minBalance.Bytes(),
 			ChainID:    token.ChainID,
 		}); err != nil {
-			return ErrCantCreateStrategy.WithErr(err)
+			return 0, ErrCantCreateStrategy.WithErr(err)
 		}
 	}
 	// commit the transaction and return the strategyID
 	if err := tx.Commit(); err != nil {
-		return ErrCantCreateStrategy.WithErr(err)
+		return 0, ErrCantCreateStrategy.WithErr(err)
 	}
-	response, err := json.Marshal(map[string]any{"strategyID": strategyID})
+	return uint64(strategyID), nil
+}
+
+func (capi *census3API) enqueueImportStrategy(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// parse queueID from url
+	queueID := ctx.URLParam("queueID")
+	if queueID == "" {
+		return ErrMalformedStrategyQueueID
+	}
+	// try to get and check if the strategy is in the queue
+	exists, done, data, err := capi.queue.Done(queueID)
+	if !exists {
+		return ErrNotFoundStrategy.Withf("the ID %s does not exist in the queue", queueID)
+	}
+	// init the queue response
+	queueStrategy := StrategyQueueResponse{
+		Done:  done,
+		Error: err,
+	}
+	// check if it is not finished or some error occurred
+	if done && err == nil {
+		// if everything is ok, get the census information an return it
+		internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), enqueueStrategyImportTimeout)
+		defer cancel()
+		strategyID, ok := data["strategyID"].(uint64)
+		if !ok {
+			log.Errorf("no strategy id registered on queue item")
+			return ErrCantGetStrategy
+		}
+		// get strategy from the database
+		strategyData, err := capi.db.QueriesRO.StrategyByID(internalCtx, strategyID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotFoundStrategy.WithErr(err)
+			}
+			return ErrCantGetStrategy.WithErr(err)
+		}
+		// encode census
+		queueStrategy.Strategy = &GetStrategyResponse{
+			ID:        strategyData.ID,
+			Alias:     strategyData.Alias,
+			Predicate: strategyData.Predicate,
+			URI:       strategyData.Uri,
+			Tokens:    map[string]*StrategyToken{},
+		}
+		// get information of the strategy related tokens
+		tokensData, err := capi.db.QueriesRO.TokensByStrategyID(internalCtx, strategyData.ID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return ErrCantGetTokens.WithErr(err)
+		}
+		// parse and encode tokens information
+		for _, tokenData := range tokensData {
+			queueStrategy.Strategy.Tokens[tokenData.Symbol] = &StrategyToken{
+				ID:           common.BytesToAddress(tokenData.ID).String(),
+				ChainAddress: tokenData.ChainAddress,
+				MinBalance:   new(big.Int).SetBytes(tokenData.MinBalance).String(),
+				ChainID:      tokenData.ChainID,
+			}
+		}
+		// remove the item from the queue
+		capi.queue.Dequeue(queueID)
+	}
+	// encode item response and send it
+	res, err := json.Marshal(queueStrategy)
 	if err != nil {
-		return ErrEncodeStrategy.WithErr(err)
+		return ErrEncodeQueueItem.WithErr(err)
 	}
-	return ctx.Send(response, api.HTTPstatusOK)
+	return ctx.Send(res, api.HTTPstatusOK)
 }
 
 // getStrategy function handler return the information of the strategy

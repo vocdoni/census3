@@ -35,33 +35,33 @@ var ValidOperatorsTags = []string{
 var ValidOperators = []map[string]string{
 	{
 		"tag": ANDTag,
-		"description": "logical operator that returns the common token " +
+		"description": "AND logical operator that returns the common token " +
 			"holders between symbols with fixed balance to 1",
 	},
 	{
 		"tag": ANDSUMTag,
-		"description": "logical operator that returns the common token holders " +
-			"between symbols with the sum of their balances on both tokens",
+		"description": "AND:sum logical operator that returns the common token " +
+			"holders between symbols with the sum of their balances on both tokens",
 	},
 	{
 		"tag": ANDMULTag,
-		"description": "logical operator that returns the common token holders " +
-			"between symbols with the multiplication of their balances on both tokens",
+		"description": "AND:mul logical operator that returns the common token " +
+			"holders between symbols with the multiplication of their balances on both tokens",
 	},
 	{
 		"tag": ORTag,
-		"description": "logical operator that returns the token holders of " +
-			"both symbols with fixed balance to 1",
+		"description": "OR logical operator that returns the token holders " +
+			"of both symbols with fixed balance to 1",
 	},
 	{
 		"tag": ORSUMTag,
-		"description": "logical operator that returns the token holders of " +
-			"both symbols with the sum of their balances on both tokens",
+		"description": "OR:sum logical operator that returns the token holders " +
+			"of both symbols with the sum of their balances on both tokens",
 	},
 	{
 		"tag": ORMULTag,
-		"description": "logical operator that returns the token holders of " +
-			"both symbols with the multiplication of their balances on both tokens",
+		"description": "OR:mul logical operator that returns the token holders " +
+			"of both symbols with the multiplication of their balances on both tokens",
 	},
 }
 

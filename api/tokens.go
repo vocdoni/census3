@@ -182,7 +182,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 // empty, a 404 error if the token is not found or a 500 error if something
 // fails.
 func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// get contract address from the tokenID query param and decode check if 
+	// get contract address from the tokenID query param and decode check if
 	// it is provided, if not return an error
 	strAddress := ctx.URLParam("tokenID")
 	if strAddress == "" {
@@ -204,8 +204,8 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
 	defer cancel()
 	tokenData, err := capi.db.QueriesRO.TokenByIDAndChainID(internalCtx, queries.TokenByIDAndChainIDParams{
-		ID:         address.Bytes(),
-		ChainID:    uint64(chainID),
+		ID:      address.Bytes(),
+		ChainID: uint64(chainID),
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

@@ -13,10 +13,14 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-// POAP_URI is the endpoint to get the POAP holders for an eventID and offset.
-// It uses the maximum limit of 300 POAPs per request.
-// https://documentation.poap.tech/reference/geteventpoaps-2
-const POAP_URI = "/event/%s/poaps?limit=300&offset=%d"
+const (
+	// POAP_MAX_LIMIT is the maximum limit of 300 POAPs per request.
+	// https://documentation.poap.tech/reference/geteventpoaps-2
+	POAP_MAX_LIMIT = 300
+	// POAP_URI is the endpoint to get the POAP holders for an eventID, offset
+	// and limit.
+	POAP_URI = "/event/%s/poaps?limit=%d&offset=%d"
+)
 
 type POAPAPIResponse struct {
 	Total  int `json:"total"`
@@ -41,7 +45,7 @@ type POAPSnapshot struct {
 type POAPHolderProvider struct {
 	URI         string
 	AccessToken string
-	snapshots   map[string]POAPSnapshot
+	snapshots   map[string]*POAPSnapshot
 }
 
 // Init initializes the POAP external provider with the database provided.
@@ -54,7 +58,7 @@ func (p *POAPHolderProvider) Init() error {
 	if p.AccessToken == "" {
 		return fmt.Errorf("no POAP access token defined")
 	}
-	p.snapshots = make(map[string]POAPSnapshot)
+	p.snapshots = make(map[string]*POAPSnapshot)
 	return nil
 }
 
@@ -63,7 +67,7 @@ func (p *POAPHolderProvider) Init() error {
 func (p *POAPHolderProvider) SetLastBalances(_ context.Context, id []byte,
 	balances map[common.Address]*big.Int, from uint64,
 ) error {
-	p.snapshots[string(id)] = POAPSnapshot{
+	p.snapshots[string(id)] = &POAPSnapshot{
 		from:     from,
 		snapshot: balances,
 	}
@@ -78,7 +82,7 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 	// parse eventID from id
 	eventID := string(id)
 	// get last snapshot
-	holders, err := p.getLastHolders(eventID)
+	newSnapshot, err := p.getLastHolders(eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,11 +92,12 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 		from += snapshot.from
 	}
 	// save snapshot
-	p.snapshots[string(id)] = POAPSnapshot{
+	p.snapshots[string(id)] = &POAPSnapshot{
 		from:     from,
-		snapshot: holders,
+		snapshot: newSnapshot,
 	}
-	return holders, nil
+	// calculate and return partials from last snapshot
+	return p.calcPartials(eventID, newSnapshot), nil
 }
 
 // Close method is not implemented for the POAP external provider.
@@ -108,11 +113,35 @@ func (p *POAPHolderProvider) Close() error {
 // of POAPs is paginated, so it requests the list of POAPs in batches of 300
 // POAPs per request (maximum limit allowed by the POAP API).
 func (p *POAPHolderProvider) getLastHolders(eventID string) (map[common.Address]*big.Int, error) {
+	holders := make(map[common.Address]*big.Int)
+	offset, total := 0, POAP_MAX_LIMIT+1
+	for offset < total {
+		// get holders page based on offset
+		poapRes, err := p.getHoldersPage(eventID, offset)
+		if err != nil {
+			return nil, err
+		}
+		// add holders to map
+		for _, poap := range poapRes.Tokens {
+			addr := common.HexToAddress(poap.Owner.ID)
+			holders[addr] = big.NewInt(1)
+		}
+		// update offset and total
+		offset += POAP_MAX_LIMIT
+		total = poapRes.Total
+	}
+	return holders, nil
+}
+
+// getHoldersPage returns the holders of the POAP eventID provided for the
+// given offset. It returns a POAPAPIResponse struct with the list of POAPs
+// for the eventID and the total number of POAPs for the eventID. Every POAP
+// in the list contains the address of the token holder.
+func (p *POAPHolderProvider) getHoldersPage(eventID string, offset int) (*POAPAPIResponse, error) {
 	// init http client
 	client := &http.Client{}
-	// create a request to get the first page of poaps
-	offset := 0
-	endpoint := path.Join(p.URI, fmt.Sprintf(p.URI, eventID, offset))
+	// create a request to get the current page of POAPs
+	endpoint := path.Join(p.URI, fmt.Sprintf(POAP_URI, eventID, POAP_MAX_LIMIT, offset))
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -138,11 +167,32 @@ func (p *POAPHolderProvider) getLastHolders(eventID string) (map[common.Address]
 	if err := json.Unmarshal(rawResults, &poapRes); err != nil {
 		return nil, err
 	}
-	// compose holders map
-	holders := make(map[common.Address]*big.Int)
-	for _, poap := range poapRes.Tokens {
-		addr := common.HexToAddress(poap.Owner.ID)
-		holders[addr] = big.NewInt(1)
+	return &poapRes, nil
+}
+
+func (p *POAPHolderProvider) calcPartials(eventID string, newSnapshot map[common.Address]*big.Int) map[common.Address]*big.Int {
+	// get current snapshot if exists
+	currentSnapshot := make(map[common.Address]*big.Int)
+	if current, exist := p.snapshots[eventID]; exist {
+		currentSnapshot = current.snapshot
 	}
-	return holders, nil
+	// the resulting partials will include:
+	//  * holders from the new snapshot that are not in the current snapshot
+	//    with the balance of the new snapshot
+	//  * holders from the current snapshot that are not in the new snapshot
+	//    but with negative balance
+	//  * holders from the current snapshot that are in the new snapshot with
+	//    the difference between the balances of the new and current snapshot
+	partialsBalances := make(map[common.Address]*big.Int)
+	for addr, balance := range newSnapshot {
+		partialsBalances[addr] = balance
+	}
+	for addr, balance := range currentSnapshot {
+		if newBalance, exist := newSnapshot[addr]; !exist {
+			partialsBalances[addr] = new(big.Int).Neg(balance)
+		} else {
+			partialsBalances[addr] = new(big.Int).Sub(newBalance, balance)
+		}
+	}
+	return partialsBalances
 }

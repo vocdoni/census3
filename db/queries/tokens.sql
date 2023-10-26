@@ -7,6 +7,11 @@ SELECT * FROM tokens
 WHERE id = ?
 LIMIT 1;
 
+-- name: TokenByIDAndChainID :one
+SELECT * FROM tokens
+WHERE id = ? AND chain_id = ?
+LIMIT 1;
+
 -- name: TokensByStrategyID :many
 SELECT t.*, st.* FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id

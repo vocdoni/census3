@@ -182,10 +182,31 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 // empty, a 404 error if the token is not found or a 500 error if something
 // fails.
 func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	address := common.HexToAddress(ctx.URLParam("tokenID"))
+	// get contract address from the tokenID query param and decode check if 
+	// it is provided, if not return an error
+	strAddress := ctx.URLParam("tokenID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	address := common.HexToAddress(strAddress)
+	// get chainID from query params and decode it as integer, if it's not
+	// provided or it's not a valid integer return an error
+	strChainID := ctx.Request.URL.Query().Get("chainID")
+	if strChainID == "" {
+		return ErrMalformedToken.With("chainID is required")
+	}
+	chainID, err := strconv.Atoi(strChainID)
+	if err != nil {
+		return ErrMalformedToken.WithErr(err)
+	} else if chainID < 0 {
+		return ErrMalformedToken.With("chainID must be a positive number")
+	}
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
 	defer cancel()
-	tokenData, err := capi.db.QueriesRO.TokenByID(internalCtx, address.Bytes())
+	tokenData, err := capi.db.QueriesRO.TokenByIDAndChainID(internalCtx, queries.TokenByIDAndChainIDParams{
+		ID:         address.Bytes(),
+		ChainID:    uint64(chainID),
+	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundToken.WithErr(err)

@@ -159,6 +159,36 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 	return i, err
 }
 
+const tokenByIDAndChainID = `-- name: TokenByIDAndChainID :one
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address FROM tokens
+WHERE id = ? AND chain_id = ?
+LIMIT 1
+`
+
+type TokenByIDAndChainIDParams struct {
+	ID      annotations.Address
+	ChainID uint64
+}
+
+func (q *Queries) TokenByIDAndChainID(ctx context.Context, arg TokenByIDAndChainIDParams) (Token, error) {
+	row := q.db.QueryRowContext(ctx, tokenByIDAndChainID, arg.ID, arg.ChainID)
+	var i Token
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Symbol,
+		&i.Decimals,
+		&i.TotalSupply,
+		&i.CreationBlock,
+		&i.TypeID,
+		&i.Synced,
+		&i.Tags,
+		&i.ChainID,
+		&i.ChainAddress,
+	)
+	return i, err
+}
+
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
 SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.chain_address, st.strategy_id, st.token_id, st.min_balance, st.chain_id FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id

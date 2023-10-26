@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 
@@ -233,7 +234,8 @@ func (capi *census3API) launchStrategyImport(msg *api.APIdata, ctx *httprouter.H
 	// import the strategy from IPFS in background generating a queueID
 	queueID := capi.queue.Enqueue()
 	go func() {
-		capi.downloader.AddToQueue("ipfs://"+ipfsCID, func(_ string, dump []byte) {
+		ipfsURI := fmt.Sprintf("%s%s", capi.downloader.RemoteStorage.URIprefix(), ipfsCID)
+		capi.downloader.AddToQueue(ipfsURI, func(_ string, dump []byte) {
 			strategyID, err := capi.importStrategyDump(dump)
 			if err != nil {
 				if ok := capi.queue.Update(queueID, true, nil, err); !ok {

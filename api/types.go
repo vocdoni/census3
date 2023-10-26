@@ -1,5 +1,17 @@
 package api
 
+import "go.vocdoni.io/dvote/types"
+
+type SupportedChain struct {
+	ChainID   uint64 `json:"chainID"`
+	ShortName string `json:"shortName"`
+	Name      string `json:"name"`
+}
+
+type APIInfo struct {
+	SupportedChains []SupportedChain `json:"supportedChains"`
+}
+
 type CreateTokenRequest struct {
 	ID      string `json:"ID"`
 	Type    string `json:"type"`
@@ -26,16 +38,18 @@ type GetTokenResponse struct {
 	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
 	Tags            string                  `json:"tags,omitempty"`
 	ChainID         uint64                  `json:"chainID"`
+	ChainAddress    string                  `json:"chainAddress"`
 }
 
 type GetTokensItem struct {
-	ID         string `json:"ID"`
-	Type       string `json:"type"`
-	StartBlock int64  `json:"startBlock"`
-	Name       string `json:"name"`
-	Symbol     string `json:"symbol"`
-	Tags       string `json:"tags,omitempty"`
-	ChainID    uint64 `json:"chainID"`
+	ID           string `json:"ID"`
+	Type         string `json:"type"`
+	StartBlock   int64  `json:"startBlock"`
+	Name         string `json:"name"`
+	Symbol       string `json:"symbol"`
+	Tags         string `json:"tags,omitempty"`
+	ChainID      uint64 `json:"chainID"`
+	ChainAddress string `json:"chainAddress"`
 }
 
 type GetTokensResponse struct {
@@ -55,43 +69,57 @@ type CreateCensusRequest struct {
 	Anonymous  bool   `json:"anonymous"`
 }
 
-type CreateCensusResponse struct {
+type QueueResponse struct {
 	QueueID string `json:"queueID"`
 }
 
 type GetCensusResponse struct {
-	CensusID   uint64 `json:"ID"`
-	StrategyID uint64 `json:"strategyID"`
-	MerkleRoot string `json:"merkleRoot"`
-	URI        string `json:"uri"`
-	Size       uint64 `json:"size"`
-	Weight     string `json:"weight"`
-	Anonymous  bool   `json:"anonymous"`
+	CensusID   uint64         `json:"ID"`
+	StrategyID uint64         `json:"strategyID"`
+	MerkleRoot types.HexBytes `json:"merkleRoot"`
+	URI        string         `json:"uri"`
+	Size       uint64         `json:"size"`
+	Weight     string         `json:"weight"`
+	Anonymous  bool           `json:"anonymous"`
 }
 
 type GetCensusesResponse struct {
-	Censuses []uint64 `json:"censuses"`
-}
-
-type GetStrategiesResponse struct {
-	Strategies []uint64 `json:"strategies"`
-}
-
-type GetStrategyToken struct {
-	ID         string `json:"ID"`
-	Name       string `json:"name"`
-	MinBalance string `json:"minBalance"`
-	Method     string `json:"method"`
-}
-
-type GetStrategyResponse struct {
-	ID        uint64             `json:"ID"`
-	Tokens    []GetStrategyToken `json:"tokens"`
-	Predicate string             `json:"strategy"`
+	Censuses []*GetCensusResponse `json:"censuses"`
 }
 
 type CensusQueueResponse struct {
 	Done   bool               `json:"done"`
 	Error  error              `json:"error"`
 	Census *GetCensusResponse `json:"census"`
+}
+
+type StrategyToken struct {
+	ID           string `json:"ID"`
+	ChainID      uint64 `json:"chainID"`
+	MinBalance   string `json:"minBalance"`
+	ChainAddress string `json:"chainAddress"`
+}
+
+type CreateStrategyRequest struct {
+	Alias     string                    `json:"alias"`
+	Predicate string                    `json:"predicate"`
+	Tokens    map[string]*StrategyToken `json:"tokens"`
+}
+
+type GetStrategyResponse struct {
+	ID        uint64                    `json:"ID"`
+	Alias     string                    `json:"alias"`
+	Predicate string                    `json:"predicate"`
+	URI       string                    `json:"uri,omitempty"`
+	Tokens    map[string]*StrategyToken `json:"tokens"`
+}
+
+type GetStrategiesResponse struct {
+	Strategies []*GetStrategyResponse `json:"strategies"`
+}
+
+type StrategyQueueResponse struct {
+	Done     bool                 `json:"done"`
+	Error    error                `json:"error"`
+	Strategy *GetStrategyResponse `json:"strategy"`
 }

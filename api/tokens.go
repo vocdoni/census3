@@ -5,11 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
@@ -29,6 +32,10 @@ func (capi *census3API) initTokenHandlers() error {
 		api.MethodAccessTypePublic, capi.getToken); err != nil {
 		return err
 	}
+	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/{chainID}/holders/{holderID}", "GET",
+		api.MethodAccessTypePublic, capi.isTokenHolder); err != nil {
+		return err
+	}
 	return capi.endpoint.RegisterMethod("/tokens/types", "GET",
 		api.MethodAccessTypePublic, capi.getTokenTypes)
 }
@@ -37,7 +44,7 @@ func (capi *census3API) initTokenHandlers() error {
 // database. It returns a 204 response if no tokens are registered or a 500
 // error if something fails.
 func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokensTimeout)
 	defer cancel()
 	// TODO: Support for pagination
 	// get tokens from the database
@@ -55,13 +62,14 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	tokens := GetTokensResponse{Tokens: []GetTokensItem{}}
 	for _, tokenData := range rows {
 		tokenResponse := GetTokensItem{
-			ID:         common.BytesToAddress(tokenData.ID).String(),
-			Type:       state.TokenType(int(tokenData.TypeID)).String(),
-			Name:       tokenData.Name.String,
-			StartBlock: tokenData.CreationBlock.Int64,
-			Tags:       tokenData.Tags.String,
-			Symbol:     tokenData.Symbol.String,
-			ChainID:    tokenData.ChainID,
+			ID:           common.BytesToAddress(tokenData.ID).String(),
+			Type:         state.TokenType(int(tokenData.TypeID)).String(),
+			Name:         tokenData.Name,
+			StartBlock:   tokenData.CreationBlock,
+			Tags:         tokenData.Tags,
+			Symbol:       tokenData.Symbol,
+			ChainID:      tokenData.ChainID,
+			ChainAddress: tokenData.ChainAddress,
 		}
 		tokens.Tokens = append(tokens.Tokens, tokenResponse)
 	}
@@ -88,14 +96,14 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// init web3 client to get the token information before register in the
 	// database
 	w3 := state.Web3{}
-	internalCtx, cancel := context.WithTimeout(context.Background(), createTokenTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createTokenTimeout)
 	defer cancel()
 	// get correct web3 uri provider
-	w3uri, exists := capi.w3p[req.ChainID]
+	w3URI, exists := capi.w3p.URIByChainID(req.ChainID)
 	if !exists {
 		return ErrChainIDNotSupported.With("chain ID not supported")
 	}
-	if err := w3.Init(internalCtx, w3uri, addr, tokenType); err != nil {
+	if err := w3.Init(internalCtx, w3URI, addr, tokenType); err != nil {
 		log.Errorw(ErrInitializingWeb3, err.Error())
 		return ErrInitializingWeb3.WithErr(err)
 	}
@@ -103,38 +111,38 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	if err != nil {
 		return ErrCantGetToken.WithErr(err)
 	}
-	var (
-		name          = new(sql.NullString)
-		symbol        = new(sql.NullString)
-		creationBlock = new(sql.NullInt64)
-		totalSupply   = new(big.Int)
-		tags          = new(sql.NullString)
-	)
-	if err := name.Scan(info.Name); err != nil {
-		return ErrCantGetToken.WithErr(err)
+	// init db transaction
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantCreateStrategy.WithErr(err)
 	}
-	if err := symbol.Scan(info.Symbol); err != nil {
-		return ErrCantGetToken.WithErr(err)
-	}
-	if info.TotalSupply != nil {
-		totalSupply = info.TotalSupply
-	}
-	if req.Tags != "" {
-		if err := tags.Scan(req.Tags); err != nil {
-			return ErrCantGetToken.WithErr(err)
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "create strategy transaction rollback failed")
 		}
+	}()
+	// get the chain address for the token based on the chainID and tokenID
+	chainAddress, ok := capi.w3p.ChainAddress(req.ChainID, req.ID)
+	if !ok {
+		return ErrChainIDNotSupported.Withf("chainID: %d, tokenID: %s", req.ChainID, req.ID)
 	}
-	_, err = capi.db.QueriesRW.CreateToken(internalCtx, queries.CreateTokenParams{
+	totalSupply := big.NewInt(0).Bytes()
+	if info.TotalSupply != nil {
+		totalSupply = info.TotalSupply.Bytes()
+	}
+	qtx := capi.db.QueriesRW.WithTx(tx)
+	_, err = qtx.CreateToken(internalCtx, queries.CreateTokenParams{
 		ID:            info.Address.Bytes(),
-		Name:          *name,
-		Symbol:        *symbol,
+		Name:          info.Name,
+		Symbol:        info.Symbol,
 		Decimals:      info.Decimals,
-		TotalSupply:   totalSupply.Bytes(),
-		CreationBlock: *creationBlock,
+		TotalSupply:   totalSupply,
+		CreationBlock: 0,
 		TypeID:        uint64(tokenType),
 		Synced:        false,
-		Tags:          *tags,
+		Tags:          req.Tags,
 		ChainID:       req.ChainID,
+		ChainAddress:  chainAddress,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -142,9 +150,29 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		}
 		return ErrCantCreateToken.WithErr(err)
 	}
-	// TODO: Only for the MVP, consider to remove it
-	if err := capi.createDummyStrategy(info.Address.Bytes()); err != nil {
-		log.Warn(err, "error creating dummy strategy for this token")
+	// create a default strategy to support censuses over the holders of this
+	// single token
+	res, err := qtx.CreateStategy(internalCtx, queries.CreateStategyParams{
+		Alias:     fmt.Sprintf("Default strategy for token %s", info.Symbol),
+		Predicate: lexer.ScapeTokenSymbol(info.Symbol),
+	})
+	if err != nil {
+		return err
+	}
+	strategyID, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+	if _, err := qtx.CreateStrategyToken(internalCtx, queries.CreateStrategyTokenParams{
+		StrategyID: uint64(strategyID),
+		TokenID:    info.Address.Bytes(),
+		ChainID:    req.ChainID,
+		MinBalance: big.NewInt(0).Bytes(),
+	}); err != nil {
+		return ErrCantGetToken.WithErr(err)
+	}
+	if err := tx.Commit(); err != nil {
+		return ErrCantGetToken.WithErr(err)
 	}
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
@@ -154,10 +182,31 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 // empty, a 404 error if the token is not found or a 500 error if something
 // fails.
 func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	address := common.HexToAddress(ctx.URLParam("tokenID"))
-	internalCtx, cancel := context.WithTimeout(context.Background(), getTokenTimeout)
+	// get contract address from the tokenID query param and decode check if
+	// it is provided, if not return an error
+	strAddress := ctx.URLParam("tokenID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	address := common.HexToAddress(strAddress)
+	// get chainID from query params and decode it as integer, if it's not
+	// provided or it's not a valid integer return an error
+	strChainID := ctx.Request.URL.Query().Get("chainID")
+	if strChainID == "" {
+		return ErrMalformedToken.With("chainID is required")
+	}
+	chainID, err := strconv.Atoi(strChainID)
+	if err != nil {
+		return ErrMalformedToken.WithErr(err)
+	} else if chainID < 0 {
+		return ErrMalformedToken.With("chainID must be a positive number")
+	}
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
 	defer cancel()
-	tokenData, err := capi.db.QueriesRO.TokenByID(internalCtx, address.Bytes())
+	tokenData, err := capi.db.QueriesRO.TokenByIDAndChainID(internalCtx, queries.TokenByIDAndChainIDParams{
+		ID:      address.Bytes(),
+		ChainID: uint64(chainID),
+	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundToken.WithErr(err)
@@ -186,13 +235,13 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	tokenProgress := 100
 	if !tokenData.Synced {
 		// get correct web3 uri provider
-		w3uri, exists := capi.w3p[tokenData.ChainID]
+		w3URI, exists := capi.w3p.URIByChainID(tokenData.ChainID)
 		if !exists {
 			return ErrChainIDNotSupported.With("chain ID not supported")
 		}
 		// get last block of the network, if something fails return progress 0
 		w3 := state.Web3{}
-		if err := w3.Init(internalCtx, w3uri, address, state.TokenType(tokenData.TypeID)); err != nil {
+		if err := w3.Init(internalCtx, w3URI, address, state.TokenType(tokenData.TypeID)); err != nil {
 			return ErrInitializingWeb3.WithErr(err)
 		}
 		// fetch the last block header and calculate progress
@@ -215,27 +264,47 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		Type:        state.TokenType(int(tokenData.TypeID)).String(),
 		Decimals:    tokenData.Decimals,
 		Size:        uint64(holders),
-		Name:        tokenData.Name.String,
-		Symbol:      tokenData.Symbol.String,
+		Name:        tokenData.Name,
+		Symbol:      tokenData.Symbol,
 		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply).String(),
+		StartBlock:  uint64(tokenData.CreationBlock),
 		Status: &GetTokenStatusResponse{
 			AtBlock:  atBlock,
 			Synced:   tokenData.Synced,
 			Progress: tokenProgress,
 		},
-		Tags: tokenData.Tags.String,
+		Tags: tokenData.Tags,
 		// TODO: Only for the MVP, consider to remove it
 		DefaultStrategy: defaultStrategyID,
 		ChainID:         tokenData.ChainID,
-	}
-	if tokenData.CreationBlock.Valid {
-		tokenResponse.StartBlock = uint64(tokenData.CreationBlock.Int64)
+		ChainAddress:    tokenData.ChainAddress,
 	}
 	res, err := json.Marshal(tokenResponse)
 	if err != nil {
 		return ErrEncodeToken.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) isTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	address := common.HexToAddress(ctx.URLParam("tokenID"))
+	holderID := common.HexToAddress(ctx.URLParam("holderID"))
+	chainID, err := strconv.Atoi(ctx.URLParam("chainID"))
+	if err != nil {
+		return ErrMalformedChainID.WithErr(err)
+	}
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
+	defer cancel()
+
+	exists, err := capi.db.QueriesRO.ExistTokenHolder(internalCtx, queries.ExistTokenHolderParams{
+		TokenID:  address.Bytes(),
+		HolderID: holderID.Bytes(),
+		ChainID:  uint64(chainID),
+	})
+	if err != nil {
+		return ErrCantGetTokenHolders.WithErr(err)
+	}
+	return ctx.Send([]byte(strconv.FormatBool(exists)), api.HTTPstatusOK)
 }
 
 // getTokenTypes handler returns the list of string names of the currently

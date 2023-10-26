@@ -78,6 +78,41 @@ var (
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("chain ID provided not supported"),
 	}
+	ErrMalformedStrategy = apirest.APIerror{
+		Code:       4014,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed strategy provided"),
+	}
+	ErrInvalidStrategyPredicate = apirest.APIerror{
+		Code:       4015,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("the predicate provided is not valid"),
+	}
+	ErrNoEnoughtStrategyTokens = apirest.APIerror{
+		Code:       4016,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("the predicate includes tokens that are not included in the request"),
+	}
+	ErrNoStrategyHolders = apirest.APIerror{
+		Code:       4017,
+		HTTPstatus: apirest.HTTPstatusNoContent,
+		Err:        fmt.Errorf("strategy has not registered holders"),
+	}
+	ErrMalformedChainID = apirest.APIerror{
+		Code:       4018,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed chain ID"),
+	}
+	ErrNoIPFSUri = apirest.APIerror{
+		Code:       4019,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("no IPFS uri provided"),
+	}
+	ErrMalformedStrategyQueueID = apirest.APIerror{
+		Code:       4020,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed queue ID"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
@@ -197,5 +232,30 @@ var (
 		Code:       5023,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error encoding API info"),
+	}
+	ErrEncodeValidPredicate = apirest.APIerror{
+		Code:       5024,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error encoding validated strategy predicate"),
+	}
+	ErrCantCreateStrategy = apirest.APIerror{
+		Code:       5025,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error creating strategy"),
+	}
+	ErrEvalStrategyPredicate = apirest.APIerror{
+		Code:       5026,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error evaluating strategy predicate"),
+	}
+	ErrEncodeStrategyPredicateOperators = apirest.APIerror{
+		Code:       5027,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error encoding supported strategy predicate operators"),
+	}
+	ErrCantImportStrategy = apirest.APIerror{
+		Code:       5028,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error importing strategy"),
 	}
 )

@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/vocdoni/census3/api"
@@ -15,7 +16,6 @@ import (
 	"github.com/vocdoni/census3/service"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/log"
-	"go.vocdoni.io/dvote/util"
 )
 
 type Census3Config struct {
@@ -39,7 +39,7 @@ func main() {
 	flag.StringVar(&config.logLevel, "logLevel", "info", "log level (debug, info, warn, error)")
 	flag.IntVar(&config.port, "port", 7788, "HTTP port for the API")
 	flag.StringVar(&config.connectKey, "connectKey", "", "connect group key for IPFS connect")
-	flag.StringVar(&config.adminToken, "adminToken", "", "the admin token for the API")
+	flag.StringVar(&config.adminToken, "adminToken", "", "the admin UUID token for the API")
 	var strWeb3Providers string
 	flag.StringVar(&strWeb3Providers, "web3Providers", "", "the list of URL's of available web3 providers")
 	flag.Parse()
@@ -101,8 +101,13 @@ func main() {
 		log.Fatal(err)
 	}
 	// if the admin token is not defined, generate a random one
-	if config.adminToken == "" {
-		config.adminToken = util.RandomHex(20)
+
+	if config.adminToken != "" {
+		if _, err := uuid.Parse(config.adminToken); err != nil {
+			log.Fatal("bad admin token format, it must be a valid UUID")
+		}
+	} else {
+		config.adminToken = uuid.New().String()
 		log.Infof("no admin token defined, using a random one: %s", config.adminToken)
 	}
 	// start the API

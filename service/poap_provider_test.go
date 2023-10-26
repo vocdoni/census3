@@ -37,9 +37,9 @@ func TestPOAPHolderProvider_calcPartials(t *testing.T) {
 		common.HexToAddress("0x4"): big.NewInt(1), // add 0x4
 	}
 	expected := map[common.Address]*big.Int{
-		common.HexToAddress("0x1"): big.NewInt(0),
-		common.HexToAddress("0x2"): big.NewInt(-2),
-		common.HexToAddress("0x3"): big.NewInt(-1),
+		common.HexToAddress("0x1"): big.NewInt(1),
+		common.HexToAddress("0x2"): big.NewInt(0),
+		common.HexToAddress("0x3"): big.NewInt(2),
 		common.HexToAddress("0x4"): big.NewInt(1),
 	}
 	// check that the calcPartials method returns the expected results
@@ -48,25 +48,6 @@ func TestPOAPHolderProvider_calcPartials(t *testing.T) {
 	c.Assert(len(partialBalances), qt.Equals, len(expected))
 	for addr, balance := range expected {
 		resultingBalance, exist := partialBalances[addr]
-		c.Assert(exist, qt.Equals, true)
-		c.Assert(resultingBalance.Cmp(balance), qt.Equals, 0, qt.Commentf("address %s", addr.Hex()))
-	}
-	// combine the results of calcPartials with the current snapshot
-	computedNewSnapshot := make(map[common.Address]*big.Int)
-	for addr, partialBalance := range partialBalances {
-		balance := new(big.Int).Set(partialBalance)
-		if currentBalance, exist := currentSnapshot[addr]; exist {
-			balance = new(big.Int).Add(currentBalance, partialBalance)
-		}
-		if balance.Cmp(big.NewInt(0)) != 0 {
-			computedNewSnapshot[addr] = balance
-		}
-	}
-	// check that the computed new snapshot is the same as the mocked new
-	// snapshot
-	c.Assert(len(computedNewSnapshot), qt.Equals, len(newSnapshot))
-	for addr, balance := range newSnapshot {
-		resultingBalance, exist := computedNewSnapshot[addr]
 		c.Assert(exist, qt.Equals, true)
 		c.Assert(resultingBalance.Cmp(balance), qt.Equals, 0, qt.Commentf("address %s", addr.Hex()))
 	}

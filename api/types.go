@@ -27,7 +27,7 @@ type GetTokenResponse struct {
 	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
 	Tags            string                  `json:"tags,omitempty"`
 	ChainID         uint64                  `json:"chainID"`
-	ExternalID      string                  `json:"ExternalID,omitempty"`
+	ExternalID      string                  `json:"externalID,omitempty"`
 }
 
 type GetTokensItem struct {
@@ -38,7 +38,7 @@ type GetTokensItem struct {
 	Symbol     string `json:"symbol"`
 	Tags       string `json:"tags,omitempty"`
 	ChainID    uint64 `json:"chainID"`
-	ExternalID string `json:"ExternalID,omitempty"`
+	ExternalID string `json:"externalID,omitempty"`
 }
 
 type GetTokensResponse struct {

@@ -69,6 +69,9 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string,
 		return ErrUnknownTokenType
 	}
 	w.contractAddress = contractAddress
+	if w.contractType == CONTRACT_TYPE_POAP {
+		w.contractAddress = common.HexToAddress(CONTRACT_POAP_ADDRESS)
+	}
 	if w.contract, err = w.NewContract(); err != nil {
 		return err
 	}

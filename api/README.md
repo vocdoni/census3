@@ -44,7 +44,7 @@ List of already added tokens.
             "symbol": "wANT",
             "tags": "testTag1,testTag2",
             "chainID": 1,
-            "metaTokenID": "" // used by POAP contracts
+            "externalID": "" // used by POAP contracts
         }
     ]
 }
@@ -96,7 +96,7 @@ Triggers a new scan for the provided token, starting from the defined block.
     "type": "erc20|erc721|erc777|erc1155|nation3|wANT|poap",
     "tags": "testTag1,testTag2",
     "chainID": 1,
-    "metaTokenID": "" // big integer required for POAP contracts
+    "externalID": "" // id for external holders providers
 }
 ```
 
@@ -135,7 +135,7 @@ Returns the information about the token referenced by the provided ID.
     "defaultStrategy": 1,
     "tags": "testTag1,testTag2",
     "chainID": 1,
-    "metaTokenID": ""
+    "externalID": ""
 }
 ```
 

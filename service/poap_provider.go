@@ -7,7 +7,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
-	"path"
+	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.vocdoni.io/dvote/log"
@@ -19,7 +19,7 @@ const (
 	POAP_MAX_LIMIT = 300
 	// POAP_URI is the endpoint to get the POAP holders for an eventID, offset
 	// and limit.
-	POAP_URI = "/event/%s/poaps?limit=%d&offset=%d"
+	POAP_URI = "/event/%s/poaps"
 )
 
 type POAPAPIResponse struct {
@@ -138,17 +138,28 @@ func (p *POAPHolderProvider) getLastHolders(eventID string) (map[common.Address]
 // for the eventID and the total number of POAPs for the eventID. Every POAP
 // in the list contains the address of the token holder.
 func (p *POAPHolderProvider) getHoldersPage(eventID string, offset int) (*POAPAPIResponse, error) {
-	// init http client
-	client := &http.Client{}
-	// create a request to get the current page of POAPs
-	endpoint := path.Join(p.URI, fmt.Sprintf(POAP_URI, eventID, POAP_MAX_LIMIT, offset))
-	req, err := http.NewRequest("GET", endpoint, nil)
+	// compose the endpoint for the request
+	strURL, err := url.JoinPath(p.URI, fmt.Sprintf(POAP_URI, eventID))
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("x-api-key", p.AccessToken)
+	endpoint, err := url.Parse(strURL)
+	if err != nil {
+		return nil, err
+	}
+	q := endpoint.Query()
+	q.Add("limit", fmt.Sprint(POAP_MAX_LIMIT))
+	q.Add("offset", fmt.Sprint(offset))
+	endpoint.RawQuery = q.Encode()
+	// create request and add headers
+	req, err := http.NewRequest("GET", endpoint.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("x-api-key", p.AccessToken)
 	// do the request
-	res, err := client.Do(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -180,18 +191,14 @@ func (p *POAPHolderProvider) calcPartials(eventID string, newSnapshot map[common
 	//  * holders from the new snapshot that are not in the current snapshot
 	//    with the balance of the new snapshot
 	//  * holders from the current snapshot that are not in the new snapshot
-	//    but with negative balance
-	//  * holders from the current snapshot that are in the new snapshot with
-	//    the difference between the balances of the new and current snapshot
+	//    but with zero balance
 	partialsBalances := make(map[common.Address]*big.Int)
 	for addr, balance := range newSnapshot {
 		partialsBalances[addr] = balance
 	}
-	for addr, balance := range currentSnapshot {
-		if newBalance, exist := newSnapshot[addr]; !exist {
-			partialsBalances[addr] = new(big.Int).Neg(balance)
-		} else {
-			partialsBalances[addr] = new(big.Int).Sub(newBalance, balance)
+	for addr := range currentSnapshot {
+		if _, exist := newSnapshot[addr]; !exist {
+			partialsBalances[addr] = big.NewInt(0)
 		}
 	}
 	return partialsBalances

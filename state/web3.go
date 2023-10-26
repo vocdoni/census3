@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 
 	want "github.com/vocdoni/census3/contracts/aragon/want"
 	erc1155 "github.com/vocdoni/census3/contracts/erc/erc1155"
@@ -440,7 +440,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 // getTransferLogs function queries to the web3 endpoint for the transfer logs
 // of the token provided, that are included in the range of blocks defined by
 // the from block number provided to the following number of blocks given.
-func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
+func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]gethTypes.Log, error) {
 	// create the filter query
 	query := eth.FilterQuery{
 		Addresses: []common.Address{w.contractAddress},
@@ -494,7 +494,7 @@ func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
 // This behaviour allows to keep track of the partial balance of each holder
 // candidate for a batch of logs or blocks, and then update the total balance
 // in a single operation.
-func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (HoldersCandidates, error) {
+func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog gethTypes.Log) (HoldersCandidates, error) {
 	// update the token holders state with the log data
 	switch w.contractType {
 	case CONTRACT_TYPE_ERC20:
@@ -628,9 +628,23 @@ func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates
 // current was created. It tries to calculate it using the first block (0) and
 // the current last block.
 func (w *Web3) ContractCreationBlock(ctx context.Context) (uint64, error) {
-	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
+	// check if the network is gnosis chain, if so, send the request with 0
+	// otherwise send the HeaderByNumber request with nil
+	lastBlockHeader := new(gethTypes.Header)
+	chainId, err := w.client.NetworkID(ctx)
 	if err != nil {
 		return 0, err
+	}
+	if chainId.Uint64() == 100 {
+		lastBlockHeader, err = w.client.HeaderByNumber(ctx, big.NewInt(0))
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		lastBlockHeader, err = w.client.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return 0, err
+		}
 	}
 	return w.creationBlockInRange(ctx, 0, lastBlockHeader.Number.Uint64())
 }

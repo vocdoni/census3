@@ -17,6 +17,7 @@ type Census3APIConf struct {
 	DataDir       string
 	GroupKey      string
 	Web3Providers map[uint64]string
+	AdminToken    string
 }
 
 type census3API struct {
@@ -48,6 +49,8 @@ func Init(db *db.DB, conf Census3APIConf) error {
 	if newAPI.endpoint, err = api.NewAPI(&r, "/api"); err != nil {
 		return err
 	}
+	// set the admin token
+	newAPI.endpoint.SetAdminToken(conf.AdminToken)
 	// init the census DB
 	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir, conf.GroupKey); err != nil {
 		return err

@@ -149,7 +149,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		if !exists {
 			return 0, ErrChainIDNotSupported.With("chain ID not supported")
 		}
-		if err := w3.Init(internalCtx, w3uri, common.BytesToAddress(token.ID), state.TokenType(token.TypeID)); err != nil {
+		if err := w3.Init(internalCtx, w3uri.URI, common.BytesToAddress(token.ID), state.TokenType(token.TypeID)); err != nil {
 			return 0, ErrInitializingWeb3.WithErr(err)
 		}
 		currentBlockNumber, err := w3.LatestBlockNumber(internalCtx)

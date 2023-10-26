@@ -16,7 +16,28 @@ Show information about the API service.
 
 ```json
 {
-    "chainIDs": [1, 5]
+    "supportedChains": [
+        {
+            "chainID": 5,
+            "shortName": "gor",
+            "name": "Goerli"
+        },
+        {
+            "chainID": 137,
+            "shortName": "matic",
+            "name": "Polygon Mainnet"
+        },
+        {
+            "chainID": 80001,
+            "shortName": "maticmum",
+            "name": "Mumbai"
+        },
+        {
+            "chainID": 1,
+            "shortName": "eth",
+            "name": "Ethereum Mainnet"
+        }
+    ]
 }
 ```
 

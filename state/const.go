@@ -1,6 +1,13 @@
 package state
 
+import "time"
+
 const timeLayout = "2006-01-02T15:04:05Z07:00"
+
+const (
+	shortNameSourceUri        = "https://chainid.network/chains_mini.json"
+	checkWeb3ProvidersTimeout = time.Second * 10
+)
 
 const (
 	// OTHER CONSTANTS
@@ -20,6 +27,7 @@ const (
 	LOG_TOPIC_ERC1155_TRANSFER_BATCH  = "4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb"
 	LOG_TOPIC_WANT_DEPOSIT            = "e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c"
 	LOG_TOPIC_WANT_WITHDRAWAL         = "7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"
+	LOG_TOPIC_ERC20VOTES_DELEGATE     = "dec2bacdd2f05b59de34da9b523dff8be42e5e38e818c82fdb0bae774387a724"
 	// Add more topics here
 )
 
@@ -33,4 +41,5 @@ const (
 	CONTRACT_TYPE_CUSTOM_NATION3_VENATION
 	CONTRACT_TYPE_CUSTOM_ARAGON_WANT
 	CONTRACT_TYPE_ERC721_BURNED
+	CONTRACT_TYPE_ERC20_VOTES
 )

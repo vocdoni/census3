@@ -6,6 +6,7 @@ import (
 	"github.com/vocdoni/census3/census"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/queue"
+	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -16,7 +17,7 @@ type Census3APIConf struct {
 	Port          int
 	DataDir       string
 	GroupKey      string
-	Web3Providers map[uint64]string
+	Web3Providers state.Web3Providers
 }
 
 type census3API struct {
@@ -25,7 +26,7 @@ type census3API struct {
 	endpoint *api.API
 	censusDB *census.CensusDB
 	queue    *queue.BackgroundQueue
-	w3p      map[uint64]string
+	w3p      state.Web3Providers
 }
 
 func Init(db *db.DB, conf Census3APIConf) error {
@@ -74,11 +75,16 @@ func (capi *census3API) initAPIHandlers() error {
 }
 
 func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	chainIDs := []uint64{}
-	for chainID := range capi.w3p {
-		chainIDs = append(chainIDs, chainID)
+	info := &APIInfo{
+		SupportedChains: []SupportedChain{},
 	}
-	info := map[string]any{"chainIDs": chainIDs}
+	for _, provider := range capi.w3p {
+		info.SupportedChains = append(info.SupportedChains, SupportedChain{
+			ChainID:   provider.ChainID,
+			ShortName: provider.ShortName,
+			Name:      provider.Name,
+		})
+	}
 	res, err := json.Marshal(info)
 	if err != nil {
 		log.Errorw(err, "error encoding api info")

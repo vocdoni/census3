@@ -32,7 +32,7 @@ func (capi *census3API) initTokenHandlers() error {
 		api.MethodAccessTypePublic, capi.getToken); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/{chainID}/holders/{holderID}", "GET",
+	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/holders/{holderID}", "GET",
 		api.MethodAccessTypePublic, capi.isTokenHolder); err != nil {
 		return err
 	}
@@ -193,13 +193,13 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	// provided or it's not a valid integer return an error
 	strChainID := ctx.Request.URL.Query().Get("chainID")
 	if strChainID == "" {
-		return ErrMalformedToken.With("chainID is required")
+		return ErrMalformedChainID.With("chainID is required")
 	}
 	chainID, err := strconv.Atoi(strChainID)
 	if err != nil {
-		return ErrMalformedToken.WithErr(err)
+		return ErrMalformedChainID.WithErr(err)
 	} else if chainID < 0 {
-		return ErrMalformedToken.With("chainID must be a positive number")
+		return ErrMalformedChainID.With("chainID must be a positive number")
 	}
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
 	defer cancel()
@@ -287,12 +287,32 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 }
 
 func (capi *census3API) isTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	address := common.HexToAddress(ctx.URLParam("tokenID"))
-	holderID := common.HexToAddress(ctx.URLParam("holderID"))
-	chainID, err := strconv.Atoi(ctx.URLParam("chainID"))
+	// get contract address from the tokenID query param and decode check if
+	// it is provided, if not return an error
+	strAddress := ctx.URLParam("tokenID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	address := common.HexToAddress(strAddress)
+	// get chainID from query params and decode it as integer, if it's not
+	// provided or it's not a valid integer return an error
+	strChainID := ctx.Request.URL.Query().Get("chainID")
+	if strChainID == "" {
+		return ErrMalformedChainID.With("chainID is required")
+	}
+	chainID, err := strconv.Atoi(strChainID)
 	if err != nil {
 		return ErrMalformedChainID.WithErr(err)
+	} else if chainID < 0 {
+		return ErrMalformedChainID.With("chainID must be a positive number")
 	}
+	// get holder address from the holderID query param and decode check if
+	// it is provided, if not return an error
+	strHolderID := ctx.URLParam("holderID")
+	if strHolderID == "" {
+		return ErrMalformedHolder.With("holderID is required")
+	}
+	holderID := common.HexToAddress(strHolderID)
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
 	defer cancel()
 

@@ -113,6 +113,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("malformed queue ID"),
 	}
+	ErrMalformedHolder = apirest.APIerror{
+		Code:       4021,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed holder information"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,

@@ -130,7 +130,7 @@ Triggers a new scan for the provided token, starting from the defined block.
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error initialising web3 client` | 5019 | 
 
-### GET `/tokens/{tokenID}`
+### GET `/tokens/{tokenID}?chainID={chainID}`
 Returns the information about the token referenced by the provided ID.
 
 - 📥 response:
@@ -162,6 +162,8 @@ Returns the information about the token referenced by the provided ID.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
+| 400 | `malformed token information` | 4001 |
+| 400 | `malformed chain ID` | 4018 |
 | 404 | `no token found` | 4003 |
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error encoding token` | 5010 | 
@@ -169,6 +171,24 @@ Returns the information about the token referenced by the provided ID.
 | 500 | `error initialising web3 client` | 5019 | 
 | 500 | `error getting number of token holders` | 5020 | 
 | 500 | `error getting last block number from web3 endpoint` | 5021 | 
+
+### GET `/tokens/{tokenID}/holders/{holderID}?chainID={chainID}`
+Returns if the holder ID is already registered in the database as a holder of the token ID and chain ID provided.
+
+- 📥 response:
+
+```
+true|false
+```
+
+- ⚠️ errors:
+
+| HTTP Status | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed token information` | 4001 |
+| 400 | `malformed chain ID` | 4018 |
+| 404 | `no token found` | 4003 |
+| 500 | `error getting token holders` | 5006 | 
 
 ## Strategies
 

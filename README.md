@@ -11,17 +11,17 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/vocdoni.svg?style=social&label=Follow)](https://twitter.com/vocdoni)
 
 <center>
-<b>⚠ This project is currently a MVP and will be change ⚠</b>
+<b>⚠ This project is currently a MVP and will be changed ⚠</b>
 </center>
 
 ---
 
 ## Description
 
-Census3 is an API service to create censuses for elections with holders of a single token or a combination of a some of them. The service creates a list of holder addresses and balances and keeps it updated in realtime, for every registered token. Then, allows to create a merkle tree census (compatible with [Vocdoni](https://vocdoni.io/)) with these holders, using its balances as vote weight. 
+Census3 is an API service to create censuses for elections with holders of a single token or a combination of some of them. The service creates a list of holder addresses and balances and keeps it updated in realtime, for every registered token. Then, allows to create a merkle tree census (compatible with [Vocdoni](https://vocdoni.io/)) with these holders, using its balances as vote weight. 
 
-#### Suported contract types
-The service suports the following list of token types:
+#### Supported contract types
+The service supports the following list of token types:
 * ERC20
 * ERC721
 * ERC1155 (*coming soon*)
@@ -39,7 +39,7 @@ The service suports the following list of token types:
 #### About complex strategies
 A strategy is a definition of a group of previously created tokens and how their scanned holders must be combined to create a census.
 * Must support combinations of tokens which contains:
-  * A operator, which is a function associated with a tag (e.g. `AND`) that are used to combine token holders and define how to combine them.
+  * An operator, which is a function associated with a tag (e.g. `AND`) that are used to combine token holders and define how to combine them.
   * Two token symbols (e.g. `BTC`), that identifies the token holders to combine.
   * Must have the following format: `<token_symbol> <operator> <token_symbol>`, e.g. `BTC OR ETH`.
 * Must support groups of combinations, e.g. `USDC AND (ETH OR (BTC AND DAI))`
@@ -48,7 +48,7 @@ A strategy is a definition of a group of previously created tokens and how their
 
 ## Documentation
 
-1. [How to run the Census3 servive](#how-to-run-the-census3-api-service)
+1. [How to run the Census3 service](#how-to-run-the-census3-api-service)
 2. [Basic example](#basic-example)
 3. [API definition](#api-defintion)
 
@@ -126,13 +126,13 @@ curl -X GET \
       http://localhost:7788/api/tokens/0xFE67A4450907459c3e1FFf623aA927dD4e28c67a
 ```
 
-3. When the API ends, and the token reaches `synced` status (`token.status.synced = true`), its time to create a new census based on the default token strategy. This strategy is created during the token registration and just contains the holders of this token. To create the census with token holders, you need to know the `token.defaultStrategy` (from token info endpoint):
+3. When the API ends, and the token reaches `synced` status (`token.status.synced = true`), it's time to create a new census based on the default token strategy. This strategy is created during the token registration and just contains the holders of this token. To create the census with token holders, you need to know the `token.defaultStrategy` (from token info endpoint):
 ```sh
 curl -X POST \
         --json '{"strategyID": <strategyId>, "anonymous": true}" \
         http://localhost:7788/api/censuses
 ```
-4. The last request will return a `queueId` which identifies the census creation and publication processes on the API queue. It will be completed in background. We can check if the task is done, it raised an error or was succesfully completed:
+4. The last request will return a `queueId` which identifies the census creation and publication processes on the API queue. It will be completed in background. We can check if the task is done, it raised an error or was successfully completed:
 ```sh
 curl -X GET \
         http://localhost:7788/censuses/queue/<queueId>
@@ -157,5 +157,5 @@ cd234ba75988e04e1e7a3234e48ff4033633142f
 {"done":true,"error":null,"census":{"censusId":1,"strategyId":1,"merkleRoot":"73368af290f4d0dfcb25b12060184bb3e5ad4147c5e5949de6729800c3629509","uri":"ipfs://bafybeiehspu3xrpshzjcvexl52u756cwfjobcwjz7ol4as44zfpvnlchsu","size":644,"weight":"5180125781955736442164650279357953853238828163172892166520872906800","anonymous":true}}
 ```
 
-### API Defintion
+### API Definition
 Check out the API endpoints definitions, accepted requests and expected responses in the [`./api` folder](./api).

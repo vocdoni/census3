@@ -11,17 +11,20 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/vocdoni.svg?style=social&label=Follow)](https://twitter.com/vocdoni)
 
 <center>
-<b>⚠ This project is currently a MVP and will be change ⚠</b>
+<b>⚠ This project is currently an MVP and is subject to change ⚠</b>
 </center>
 
 ---
 
 ## Description
 
-Census3 is an API service to create censuses for elections with holders of a single token or a combination of a some of them. The service creates a list of holder addresses and balances and keeps it updated in realtime, for every registered token. Then, allows to create a merkle tree census (compatible with [Vocdoni](https://vocdoni.io/)) with these holders, using its balances as vote weight. 
+Census3 is an API service to create censuses for elections with holders of a single token or a combination of them.
+The service creates a list of holder addresses and balances and keeps it updated in real time, for every registered token.
+Then, it allows creating a merkle tree census (compatible with [Vocdoni](https://vocdoni.io/)) with those holders, using their balances as vote weights.
 
 #### Suported contract types
-The service suports the following list of token types:
+
+The service suports the following token types:
 * ERC20
 * ERC721
 * ERC1155 (*coming soon*)
@@ -31,10 +34,10 @@ The service suports the following list of token types:
 
 
 #### About censuses
- * The censuses are published on [IPFS](https://ipfs.tech/) after its creation. 
- * Census3 uses [go.vocdoni.io/dvote/tree/arbo](go.vocdoni.io/dvote/tree/arbo) to build the censuses merkle trees.
+ * The censuses are published on [IPFS](https://ipfs.tech/) after their creation. 
+ * Census3 uses [go.vocdoni.io/dvote/tree/arbo](go.vocdoni.io/dvote/tree/arbo) to build the census merkle trees.
  * The censuses can be created with the holders of just one token or a combination of tokens, using **complex strategies**  (*coming soon*).
- * The censuses are *zk-friendly* and can be used also for anonymous voting.
+ * The censuses are *zk-friendly* and can also be used for anonymous voting.
 
 #### About complex strategies
 A strategy is a definition of a group of previously created tokens and how their scanned holders must be combined to create a census.

@@ -4,7 +4,7 @@ VALUES (?);
 
 -- name: TokensByHolderID :many
 SELECT tokens.*
-FROM Tokens
+FROM tokens
 JOIN token_holders ON tokens.id = token_holders.token_id
 WHERE token_holders.holder_id = ?;
 

@@ -264,7 +264,7 @@ func (p *POAPHolderProvider) holdersPage(eventID string, offset int) (*POAPAPIRe
 }
 
 // getEventInfo returns the event info for the given eventID. It makes a request
-// to the POAP API endpoint to get the event info for the eventID provided and 
+// to the POAP API endpoint to get the event info for the eventID provided and
 // returns an EventAPIResponse struct with the event info.
 func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, error) {
 	// compose the endpoint for the request
@@ -313,10 +313,10 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 // given eventID and new snapshot. It returns a map with the address of the
 // holder as key and the balance of the token holder as value. The partials
 // balances will include:
-//  * holders from the new snapshot that are not in the current snapshot with 
-// 	  the balance of the new snapshot
-//  * holders from the current snapshot that are not in the new snapshot but 
-//    with zero balance
+//   - holders from the new snapshot that are not in the current snapshot with
+//     the balance of the new snapshot
+//   - holders from the current snapshot that are not in the new snapshot but
+//     with zero balance
 func (p *POAPHolderProvider) calcPartials(eventID string, newSnapshot map[common.Address]*big.Int) map[common.Address]*big.Int {
 	// get current snapshot if exists
 	currentSnapshot := make(map[common.Address]*big.Int)

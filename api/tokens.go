@@ -92,25 +92,62 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		log.Errorf("error unmarshalling token information: %s", err)
 		return ErrMalformedToken.WithErr(err)
 	}
-	tokenType := state.TokenTypeFromString(req.Type)
-	addr := common.HexToAddress(req.ID)
-	// init web3 client to get the token information before register in the
-	// database
-	w3 := state.Web3{}
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createTokenTimeout)
 	defer cancel()
-	// get correct web3 uri provider
-	w3URI, exists := capi.w3p.URIByChainID(req.ChainID)
-	if !exists {
-		return ErrChainIDNotSupported.With("chain ID not supported")
-	}
-	if err := w3.Init(internalCtx, w3URI, addr, tokenType); err != nil {
-		log.Errorw(ErrInitializingWeb3, err.Error())
-		return ErrInitializingWeb3.WithErr(err)
-	}
-	info, err := w3.TokenData()
-	if err != nil {
-		return ErrCantGetToken.WithErr(err)
+
+	var info *state.TokenData
+	tokenType := state.TokenTypeFromString(req.Type)
+	if provider, exists := capi.extProviders[tokenType]; exists {
+		// get token information from the external provider
+		address, err := provider.Address(internalCtx, []byte(req.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+		name, err := provider.Name(internalCtx, []byte(req.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+		symbol, err := provider.Symbol(internalCtx, []byte(req.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+		decimals, err := provider.Decimals(internalCtx, []byte(req.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+		totalSupply, err := provider.TotalSupply(internalCtx, []byte(req.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+		// build token information struct with the data from the external
+		// provider
+		info = &state.TokenData{
+			Type:        tokenType,
+			Address:     address,
+			Name:        name,
+			Symbol:      symbol,
+			Decimals:    decimals,
+			TotalSupply: totalSupply,
+		}
+	} else {
+		addr := common.HexToAddress(req.ID)
+		// init web3 client to get the token information before register in the
+		// database
+		w3 := state.Web3{}
+		// get correct web3 uri provider
+		w3URI, exists := capi.w3p.URIByChainID(req.ChainID)
+		if !exists {
+			return ErrChainIDNotSupported.With("chain ID not supported")
+		}
+		// init web3 client to get the token information
+		err := w3.Init(internalCtx, w3URI, addr, tokenType)
+		if err != nil {
+			return ErrInitializingWeb3.WithErr(err)
+		}
+		// get token information from the web3 client
+		if info, err = w3.TokenData(); err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
 	}
 	// init db transaction
 	tx, err := capi.db.RW.BeginTx(internalCtx, nil)

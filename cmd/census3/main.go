@@ -123,6 +123,7 @@ func main() {
 		DataDir:       config.dataDir,
 		Web3Providers: w3p,
 		GroupKey:      config.connectKey,
+		ExtProviders:  externalProviders,
 	})
 	if err != nil {
 		log.Fatal(err)

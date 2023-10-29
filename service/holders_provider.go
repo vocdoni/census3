@@ -26,4 +26,14 @@ type HolderProvider interface {
 	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, error)
 	// Close closes the provider and its internal structures.
 	Close() error
+	// Token realated methods
+	Address(ctx context.Context, id []byte) (common.Address, error)
+	Name(ctx context.Context, id []byte) (string, error)
+	Symbol(ctx context.Context, id []byte) (string, error)
+	Decimals(ctx context.Context, id []byte) (uint64, error)
+	TotalSupply(ctx context.Context, id []byte) (*big.Int, error)
+	BalanceOf(ctx context.Context, id []byte, addr common.Address) (*big.Int, error)
+	BlockTimestamp(ctx context.Context, blockNumber uint64) (string, error)
+	LatestBlockNumber(ctx context.Context, id []byte) (uint64, error)
+	CreationBlock(ctx context.Context, id []byte) (uint64, error)
 }

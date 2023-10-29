@@ -140,8 +140,7 @@ func (w *Web3) TokenSymbol() (string, error) {
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.Symbol(nil)
 	case CONTRACT_TYPE_POAP:
-		caller := w.contract.(*poap.POAPContract).POAPContractCaller
-		return caller.Symbol(nil)
+		return CONTRACT_POAP_SYMBOL, nil
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.Symbol(nil)

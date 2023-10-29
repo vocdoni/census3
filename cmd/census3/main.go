@@ -115,8 +115,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// start the API
-	err = api.Init(database, api.Census3APIConf{
+
+	// Start the API
+	apiService, err := api.Init(database, api.Census3APIConf{
 		Hostname:      "0.0.0.0",
 		Port:          config.port,
 		DataDir:       config.dataDir,
@@ -138,6 +139,9 @@ func main() {
 	log.Infof("waiting for routines to end gracefully...")
 	// closing database
 	go func() {
+		if err := apiService.Stop(); err != nil {
+			log.Fatal(err)
+		}
 		if err := database.Close(); err != nil {
 			log.Fatal(err)
 		}

@@ -7,63 +7,39 @@ SELECT * FROM strategies
 WHERE id = ?
 LIMIT 1;
 
--- name: StrategyByPredicate :one
-SELECT * FROM strategies
-WHERE predicate = ?
-LIMIT 1;
-
--- name: StrategiesByTokenID :many
+-- name: StrategiesByTokenIDAndChainIDAndExternalID :many
 SELECT s.* FROM strategies s
 JOIN strategy_tokens st ON st.strategy_id = s.id
-WHERE st.token_id = ?
+WHERE st.token_id = ? AND st.chain_id = ? AND st.external_id = ?
 ORDER BY s.id;
 
 -- name: CreateStategy :execresult
-INSERT INTO strategies (predicate)
-VALUES (?);
+INSERT INTO strategies (alias, predicate, uri)
+VALUES (?, ?, ?);
 
--- name: UpdateStrategy :execresult
-UPDATE strategies
-SET predicate = sqlc.arg(predicate)
-WHERE id = sqlc.arg(id);
-
--- name: DeleteStrategy :execresult
-DELETE FROM strategies
-WHERE id = ?;
+-- name: UpdateStrategyIPFSUri :execresult
+UPDATE strategies SET uri = ? WHERE id = ?;
 
 -- name: CreateStrategyToken :execresult
 INSERT INTO strategy_tokens (
     strategy_id,
     token_id,
+    chain_id,
     min_balance,
-    method_hash
+    external_id
 )
 VALUES (
-    ?, ?, ?, ?
+    ?, ?, ?, ?, ?
 );
-
--- name: UpdateStrategyToken :execresult
-UPDATE strategy_tokens
-SET min_balance = sqlc.arg(min_balance),
-    method_hash = sqlc.arg(method_hash)
-WHERE strategy_id = sqlc.arg(strategy_id) AND token_id = sqlc.arg(token_id);
-
--- name: DeleteStrategyToken :execresult
-DELETE FROM strategy_tokens
-WHERE strategy_id = ? AND token_id = ?;
 
 -- name: StrategyTokens :many
 SELECT *
 FROM strategy_tokens
 ORDER BY strategy_id, token_id;
 
--- name: StrategyTokenByStrategyIDAndTokenID :one 
-SELECT *
-FROM strategy_tokens
-WHERE strategy_id = ? AND token_id = ?
-LIMIT 1;
-
--- name: StrategyTokenByStrategyIDAndTokenIDAndMethodHash :one
-SELECT *
-FROM strategy_tokens
-WHERE strategy_id = ? AND token_id = ? AND method_hash = ?;
+-- name: StrategyTokensByStrategyID :many
+SELECT st.token_id as id, st.min_balance, t.symbol, t.chain_address, t.chain_id, t.external_id
+FROM strategy_tokens st
+JOIN tokens t ON t.id = st.token_id
+WHERE strategy_id = ?
+ORDER BY strategy_id, token_id;

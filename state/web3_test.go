@@ -275,7 +275,7 @@ func Test_calcPartialBalances(t *testing.T) {
 	for addr, balance := range MonkeysHolders {
 		res, ok := hc[addr]
 		c.Assert(ok, qt.IsTrue)
-		c.Assert(res.String(), qt.Equals, balance.String())
+		c.Assert(res.String(), qt.Equals, balance.String(), qt.Commentf(addr.String()))
 	}
 }
 
@@ -295,6 +295,7 @@ func Test_commitTokenHolders(t *testing.T) {
 	for addr, balance := range hc {
 		c.Assert(th.Exists(addr), qt.IsTrue)
 		val, ok := th.holders.Load(addr)
+		c.Logf("addr: %s, balance: %d, val: %d", addr.String(), balance, val.(*big.Int))
 		c.Assert(ok, qt.IsTrue)
 		c.Assert(val.(*big.Int).String(), qt.Equals, balance.String())
 	}

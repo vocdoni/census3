@@ -1,6 +1,13 @@
 package state
 
+import "time"
+
 const timeLayout = "2006-01-02T15:04:05Z07:00"
+
+const (
+	shortNameSourceUri        = "https://chainid.network/chains_mini.json"
+	checkWeb3ProvidersTimeout = time.Second * 10
+)
 
 const (
 	// OTHER CONSTANTS
@@ -21,7 +28,6 @@ const (
 	LOG_TOPIC_WANT_DEPOSIT            = "e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c"
 	LOG_TOPIC_WANT_WITHDRAWAL         = "7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"
 	// Add more topics here
-	CONTRACT_POAP_ADDRESS = "0x22c1f6050e56d2876009903609a2cc3fef83b415"
 )
 
 const (
@@ -35,4 +41,10 @@ const (
 	CONTRACT_TYPE_CUSTOM_ARAGON_WANT
 	CONTRACT_TYPE_ERC721_BURNED
 	CONTRACT_TYPE_POAP
+)
+
+const (
+	// POAP SPECIFIC CONSTANTS
+	CONTRACT_POAP_ADDRESS = "0x22c1f6050e56d2876009903609a2cc3fef83b415"
+	CONTRACT_POAP_SYMBOL  = "POAP" // the POAP contract has 'The Proof of Attendance Protocol' as a symbol
 )

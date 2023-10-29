@@ -34,34 +34,39 @@ type Holder struct {
 type Strategy struct {
 	ID        uint64
 	Predicate string
+	Alias     string
+	Uri       string
 }
 
 type StrategyToken struct {
 	StrategyID uint64
 	TokenID    []byte
-	MinBalance annotations.BigInt
-	MethodHash annotations.MethodHash
+	MinBalance []byte
+	ChainID    uint64
+	ExternalID string
 }
 
 type Token struct {
 	ID            annotations.Address
-	Name          sql.NullString
-	Symbol        sql.NullString
+	Name          string
+	Symbol        string
 	Decimals      uint64
 	TotalSupply   annotations.BigInt
-	CreationBlock sql.NullInt64
+	CreationBlock int64
 	TypeID        uint64
 	Synced        bool
-	Tags          sql.NullString
+	Tags          string
 	ChainID       uint64
+	ChainAddress  string
 	ExternalID    string
 }
 
 type TokenHolder struct {
 	TokenID    annotations.Address
 	HolderID   annotations.Address
-	Balance    annotations.BigInt
+	Balance    []byte
 	BlockID    uint64
+	ChainID    uint64
 	ExternalID string
 }
 

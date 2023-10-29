@@ -1,18 +1,20 @@
 -- +goose Up
 
 -- tokens table schema updates
+ALTER TABLE tokens ADD COLUMN chain_address TEXT;
 ALTER TABLE tokens ADD COLUMN external_id TEXT;
 CREATE TABLE tokens_copy (
     id BLOB NOT NULL,
-    name TEXT,
-    symbol TEXT,
-    decimals INTEGER,
-    total_supply BLOB,
-    creation_block BIGINT,
-    type_id INTEGER NOT NULL,
-    synced BOOLEAN NOT NULL,
-    tags TEXT,
-    chain_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    symbol TEXT NOT NULL DEFAULT '',
+    decimals INTEGER NOT NULL DEFAULT 0,
+    total_supply BLOB NOT NULL DEFAULT '',
+    creation_block BIGINT NOT NULL DEFAULT 0,
+    type_id INTEGER NOT NULL DEFAULT 0,
+    synced BOOLEAN NOT NULL DEFAULT 0,
+    tags TEXT NOT NULL DEFAULT '',
+    chain_id INTEGER NOT NULL DEFAULT 0,
+    chain_address TEXT NOT NULL DEFAULT '',
     external_id TEXT NULL DEFAULT '',
     PRIMARY KEY (id, chain_id, external_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
@@ -24,19 +26,26 @@ ALTER TABLE tokens_copy RENAME TO tokens;
 CREATE INDEX idx_tokens_type_id ON tokens(type_id);
 
 -- token_holders table schema updates
+ALTER TABLE token_holders ADD COLUMN chain_id INTEGER;
 ALTER TABLE token_holders ADD COLUMN external_id TEXT;
 CREATE TABLE token_holders_copy (
     token_id BLOB NOT NULL,
     holder_id BLOB NOT NULL,
     balance BLOB NOT NULL,
     block_id INTEGER NOT NULL,
+    chain_id INTEGER NOT NULL,
     external_id TEXT NULL DEFAULT '',
-    PRIMARY KEY (token_id, holder_id, block_id, external_id),
+    PRIMARY KEY (token_id, holder_id, block_id, chain_id, external_id),
     FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE,
     FOREIGN KEY (holder_id) REFERENCES holders(id) ON DELETE CASCADE,
     FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE
 );
-INSERT INTO token_holders_copy SELECT * FROM token_holders;
+INSERT INTO token_holders_copy (token_id, holder_id, balance, block_id, chain_id) 
+SELECT * FROM (
+    SELECT token_id, holder_id, balance, block_id, (
+        SELECT token.chain_id FROM tokens AS token WHERE token.id = token_holders.token_id
+    ) AS chain_id FROM token_holders
+);
 -- DROP INDEX IF EXISTS idx_token_holders_token_id;
 -- DROP INDEX IF EXISTS idx_token_holders_holder_id;
 -- DROP INDEX IF EXISTS idx_token_holders_block_id;
@@ -45,3 +54,33 @@ ALTER TABLE token_holders_copy RENAME TO token_holders;
 CREATE INDEX idx_token_holders_token_id ON token_holders(token_id);
 CREATE INDEX idx_token_holders_holder_id ON token_holders(holder_id);
 CREATE INDEX idx_token_holders_block_id ON token_holders(block_id);
+
+-- stategies table schema updates
+ALTER TABLE strategies ADD COLUMN alias TEXT NOT NULL DEFAULT '';
+ALTER TABLE strategies ADD COLUMN uri TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE strategy_tokens ADD COLUMN external_id BLOB;
+-- strategy tokens schema updates
+CREATE TABLE strategy_tokens_copy (
+    strategy_id INTEGER NOT NULL,
+    token_id BLOB NOT NULL,
+    min_balance BLOB NOT NULL,
+    chain_id INTEGER NOT NULL,
+    external_id TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (strategy_id, token_id, external_id),
+    FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE,
+    FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE
+);
+INSERT INTO strategy_tokens_copy (strategy_id, token_id, min_balance, chain_id, external_id) 
+SELECT * FROM (
+    SELECT strategy_id, token_id, min_balance, external_id, (
+        SELECT token.chain_id FROM tokens AS token WHERE token.id = strategy_tokens.token_id
+    ) AS chain_id FROM strategy_tokens
+);
+
+-- DROP INDEX IF EXISTS idx_strategy_tokens_strategy_id;
+-- DROP INDEX IF EXISTS idx_strategy_tokens_token_id;
+DROP TABLE strategy_tokens;
+ALTER TABLE strategy_tokens_copy RENAME TO strategy_tokens;
+CREATE INDEX idx_strategy_tokens_strategy_id ON strategy_tokens(strategy_id);
+CREATE INDEX idx_strategy_tokens_token_id ON strategy_tokens(token_id);

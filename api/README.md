@@ -16,7 +16,28 @@ Show information about the API service.
 
 ```json
 {
-    "chainIDs": [1, 5]
+    "supportedChains": [
+        {
+            "chainID": 5,
+            "shortName": "gor",
+            "name": "Goerli"
+        },
+        {
+            "chainID": 137,
+            "shortName": "matic",
+            "name": "Polygon Mainnet"
+        },
+        {
+            "chainID": 80001,
+            "shortName": "maticmum",
+            "name": "Mumbai"
+        },
+        {
+            "chainID": 1,
+            "shortName": "eth",
+            "name": "Ethereum Mainnet"
+        }
+    ]
 }
 ```
 
@@ -44,13 +65,15 @@ List of already added tokens.
             "symbol": "wANT",
             "tags": "testTag1,testTag2",
             "chainID": 1,
-            "externalID": "" // used by POAP contracts
+            "externalID": "", // used by POAP contracts
+            "chainAddress": "eth:0x1234" 
         }
     ]
 }
 ```
 
 > If `tags` is empty, it will be ommited.
+> If `externalID` is empty, it will be ommited.
 
 - ⚠️ errors:
 
@@ -86,7 +109,9 @@ List the supported token types.
 | 500 | `error encoding supported tokens types` | 5012 | 
 
 ### POST `/tokens`
-Triggers a new scan for the provided token, starting from the defined block.
+Triggers a new scan for the provided token, starting from the defined block. 
+
+**Important**: When a token is created, the API also creates a simple strategy with just the holders of that token, which is assigned to it as `defaultStrategy`.
 
 - 📤 request:
 
@@ -101,10 +126,11 @@ Triggers a new scan for the provided token, starting from the defined block.
 ```
 
 > `tags` attribute is *optional*.
+> `externalID` attribute is *optional*.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed token information` | 4000 | 
 | 409 | `token already created` | 4009 | 
@@ -113,8 +139,8 @@ Triggers a new scan for the provided token, starting from the defined block.
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error initialising web3 client` | 5019 | 
 
-### GET `/tokens/{tokenID}`
-Returns the information about the token referenced by the provided ID.
+### GET `/tokens/{tokenID}?chainID={chainID}&externalID={externalID}`
+Returns the information about the token referenced by the provided ID and chain ID, the external ID is optional.
 
 - 📥 response:
 
@@ -135,16 +161,20 @@ Returns the information about the token referenced by the provided ID.
     "defaultStrategy": 1,
     "tags": "testTag1,testTag2",
     "chainID": 1,
-    "externalID": ""
+    "externalID": "",
+    "chainAddress": "eth:0x1234" 
 }
 ```
 
 > If `tags` is empty, it will be ommited.
+> If `externalID` is empty, it will be ommited.
 
 - ⚠️ errors:
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
+| 400 | `malformed token information` | 4001 |
+| 400 | `malformed chain ID` | 4018 |
 | 404 | `no token found` | 4003 |
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error encoding token` | 5010 | 
@@ -153,9 +183,106 @@ Returns the information about the token referenced by the provided ID.
 | 500 | `error getting number of token holders` | 5020 | 
 | 500 | `error getting last block number from web3 endpoint` | 5021 | 
 
-**MVP Warn**: If `defaultStrategy` is `0`, no strategy (neither the dummy strategy) is associated to the given token.
+### GET `/tokens/{tokenID}/holders/{holderID}?chainID={chainID}`
+Returns if the holder ID is already registered in the database as a holder of the token ID and chain ID provided.
+
+- 📥 response:
+
+```
+true|false
+```
+
+- ⚠️ errors:
+
+| HTTP Status | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed token information` | 4001 |
+| 400 | `malformed chain ID` | 4018 |
+| 404 | `no token found` | 4003 |
+| 500 | `error getting token holders` | 5006 | 
 
 ## Strategies
+
+### GET `/strategies`
+Returns the ID's list of the strategies registered.
+
+- 📥 response:
+
+```json
+{
+    "strategies": [
+        {
+            "ID": 1,
+            "alias": "default MON strategy",
+            "predicate": "MON",
+            "tokens": {
+                "MON": {
+                    "ID": "0x1234",
+                    "chainID": 5,
+                    "chainAddress": "gor:0x1234",
+                    "externalID": "mon_id_on_external_holder_provider"
+                }
+            }
+        },
+        {
+            "ID": 2,
+            "alias": "default ANT strategy",
+            "predicate": "ANT",
+            "tokens": {
+                "ANT": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                    "chainAddress": "eth:0x1234" 
+                }
+            }
+        },
+        {
+            "ID": 3,
+            "alias": "default USDC strategy",
+            "predicate": "USDC",
+            "tokens": {
+                "USDC": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                    "chainAddress": "eth:0x1234"
+                }
+            }
+        },
+        {
+            "ID": 4,
+            "alias": "strategy_alias",
+            "predicate": "MON AND (ANT OR USDC)",
+            "tokens": {
+                "MON": {
+                    "ID": "0x1234",
+                    "chainID": 5,
+                    "chainAddress": "gor:0x1234",
+                    "externalID": "mon_id_on_external_holder_provider"
+                },
+                "ANT": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                    "chainAddress": "eth:0x1234",
+                    "minBalance": "1"
+                },
+                "USDC": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                    "chainAddress": "eth:0x1234"
+                }
+            }
+        }
+    ]
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 204 | `-` | 4008 |
+| 500 | `error getting strategies information` | 5008 | 
+| 500 | `error encoding strategies` | 5016 | 
 
 ### POST `/strategies`
 Stores a new strategy based on the defined combination of tokens provided, these tokens must be registered previously.
@@ -164,27 +291,24 @@ Stores a new strategy based on the defined combination of tokens provided, these
 
 ```json
     {
-    "tokens": [
-        {
-            "ID": "0x1324",
-            "name": "wANT",
-            "minBalance": "10000",
-            "method": "0x8230"
-        },
-        {
-            "ID": "0x5678",
-            "name": "USDC",
-            "minBalance": "20000",
-            "method": "0x3241" 
-        },
-        {
-            "ID": "0x9da2",
-            "name": "ANT",
-            "minBalance": "1",
-            "method": "0x9db1"
+        "alias": "test_strategy",
+        "predicate": "(wANT OR ANT) AND USDC",
+        "tokens": {
+            "wANT": {
+                "ID": "0x1324",
+                "chainID": 1,
+                "minBalance": "10000"
+            },
+            "ANT": {
+                "ID": "0x1324",
+                "chainID": 5,
+            },
+            "USDC": {
+                "ID": "0x1324",
+                "chainID": 1,
+                "minBalance": "50"
+            },
         }
-    ],
-    "strategy": "(wANT OR ANT) AND USDC"
     }
 ```
 
@@ -200,18 +324,21 @@ Stores a new strategy based on the defined combination of tokens provided, these
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 204 | `-` | 4008 |
-| 500 | `error getting strategies information` | 5008 | 
-| 500 | `error encoding strategies` | 5016 | 
+| 404 | `no token found` | 4003 | 
+| 400 | `malformed strategy provided` | 4014 |
+| 400 | `the predicate provided is not valid` | 4015 | 
+| 400 | `the predicate includes tokens that are not included in the request` | 4016 | 
+| 500 | `error encoding strategy info` | 5015 | 
+| 500 | `error creating strategy` | 5025 | 
 
-### GET `/strategies`
-Returns the ID's list of the strategies registered.
+### POST `/strategies/import/{cid}`
+Imports a strategy from IPFS downloading it with the `cid` provided in background.
 
 - 📥 response:
 
 ```json
 {
-    "strategies": [ 1, 3 ]
+    "queueID": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
 
@@ -219,9 +346,36 @@ Returns the ID's list of the strategies registered.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 204 | `-` | 4008 |
-| 500 | `error getting strategies information` | 5008 | 
-| 500 | `error encoding strategies` | 5016 | 
+| 400 | `malformed strategy provided` | 4014 |
+| 500 | `error encoding strategy info` | 5015 | 
+
+### GET `/strategies/import/queue/{queueID}`
+Returns the information of the census that are in the creation queue.
+
+- 📥 response:
+```json
+{
+    "done": true,
+    "error": {
+        "code": 0,
+        "err": "error message or null"
+    },
+    "strategy": { /* <same_get_strategy_response> */ }
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 404 | `strategy not found` | 4006 | 
+| 400 | `malformed queue ID` | 4011 | 
+| 500 | `error getting strategy information` | 5009 | 
+| 500 | `error encoding strategy queue item` | 5022 | 
+
+- ⚠️ possible error values inside the body:
+
+<small>The request could response `OK 200` and at the same time includes an error because it is an error of the enqueued process and not of the request processing).</small>
 
 ### GET `/strategies/{strategyID}`
 Returns the information of the strategy related to the provided ID.
@@ -230,28 +384,29 @@ Returns the information of the strategy related to the provided ID.
 
 ```json
 {
-    "id": 2,
-    "tokens": [
-        {
-            "ID": "0x1324",
-            "name": "wANT",
-            "minBalance": "10000",
-            "method": "0x8230" 
+    "ID": 4,
+    "alias": "strategy_alias",
+    "predicate": "MON AND (ANT OR USDC)",
+    "uri": "ipfs://...",
+    "tokens": {
+        "MON": {
+            "ID": "0x1234",
+            "chainID": 5,
+            "chainAddress": "gor:0x1234",
+            "externalID": "mon_id_on_external_holder_provider"
         },
-        {
-            "ID": "0x5678",
-            "name": "USDC",
-            "minBalance": "20000",
-            "method": "0x3241" 
+        "ANT": {
+            "ID": "0x1234",
+            "chainID": 1,
+            "chainAddress": "eth:0x1234",
+            "minBalance": "1"
         },
-        {
-            "ID": "0x9da2",
-            "name": "ANT",
-            "minBalance": "1",
-            "method": "0x9db1" 
+        "USDC": {
+            "ID": "0x1234",
+            "chainID": 1,
+            "chainAddress": "eth:0x1234"
         }
-    ],
-    "strategy": "(wANT OR ANT) AND USDC"
+    }
 }
 ```
 
@@ -259,20 +414,57 @@ Returns the information of the strategy related to the provided ID.
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 400 | `malformed strategy ID, it must be an integer` | 4002 |
-| 404 | `no strategy found with the ID provided` | 4005 | 
+| 400 | `malformed strategy ID, it must be an integer` | 4002 | 
+| 404 | `no strategy found with the ID provided` | 405 |
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error getting strategy information` | 5007 | 
-| 500 | `error encoding strategy` | 5015 | 
+| 500 | `error encoding strategy info` | 5015 | 
 
-### GET `/strategies/token/{tokenID}`
+### GET `/strategies/token/{tokenID}?chainID={chainID}&externalID={externalID}`
 Returns ID's of the already created strategies including the `tokenAddress` provided.
 
 - 📥 response:
 
 ```json
 {
-    "strategies": [ 2, 8 ]
+    "strategies": [
+        {
+            "ID": 1,
+            "alias": "default MON strategy",
+            "predicate": "MON",
+            "tokens": {
+                "MON": {
+                    "ID": "0x1234",
+                    "chainID": 5,
+                    "chainAddress": "gor:0x1234"
+                }
+            }
+        },
+        {
+            "ID": 4,
+            "alias": "strategy_alias",
+            "predicate": "MON AND (ANT OR USDC)",
+            "tokens": {
+                "MON": {
+                    "ID": "0x1234",
+                    "chainID": 5,
+                    "chainAddress": "gor:0x1234",
+                    "externalID": "mon_id_on_external_holder_provider"
+                },
+                "ANT": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                    "chainAddress": "eth:0x1234",
+                    "minBalance": "1"
+                },
+                "USDC": {
+                    "ID": "0x1234",
+                    "chainID": 1,
+                    "chainAddress": "eth:0x1234"
+                }
+            }
+        }
+    ]
 }
 ```
 
@@ -283,6 +475,81 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
 | 204 | `-` | 4008 |
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
+
+### POST `/strategies/predicate/validate`
+Returns if the provided strategy predicate is valid and well-formatted. If the predicate is valid the handler returns a parsed version of the predicate as a JSON.
+
+- 📤 request:
+
+```json
+{
+    "predicate": "DAI AND (ANT OR ETH)"
+}
+```
+
+- 📥 response:
+
+```json
+{
+    "result": {
+        "childs": {
+            "operator": "AND",
+            "tokens": [
+                {
+                    "literal": "DAI"
+                },
+                {
+                    "childs": {
+                        "operator": "OR",
+                        "tokens": [
+                            {
+                                "literal": "ANT"
+                            },
+                            {
+                                "literal": "ETH"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed strategy provided` | 4014 |
+| 400 | `the predicate provided is not valid` | 4015 | 
+| 500 | `error encoding validated strategy predicate` | 5024 | 
+
+### GET `/strategies/predicate/operators`
+Returns the list of supported operators to build strategy predicates.
+
+- 📥 response:
+
+```json
+{
+    "operators": [
+        {
+            "description": "logical operator that returns the common token holders between symbols with fixed balance to 1",
+            "tag": "AND"
+        },
+        {
+            "description": "logical operator that returns the token holders of both symbols with fixed balance to 1",
+            "tag": "OR"
+        }
+    ]
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 500 | `error encoding supported strategy predicate operators` | 5027 | 
 
 ## Censuses
 
@@ -339,7 +606,7 @@ Returns the information of the snapshots related to the provided ID.
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census` | 5017 | 
 
-### GET `/census/queue/{queueID}`
+### GET `/censuses/queue/{queueID}`
 Returns the information of the census that are in the creation queue.
 
 - 📥 response:
@@ -363,14 +630,39 @@ Returns the information of the census that are in the creation queue.
 | 500 | `error getting census information` | 5009 | 
 | 500 | `error encoding census queue item` | 5022 | 
 
-### GET `/census/strategy/{strategyID}`
+- ⚠️ possible error values inside the body:
+
+<small>The request could response `OK 200` and at the same time includes an error because it is an error of the enqueued process and not of the request processing).</small>
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 404 | `no token holders found` | 4004 |
+| 404 | `no strategy found with the ID provided` | 4005 |
+| 400 | `no tokens found for the strategy provided` | 4010 |
+| 409 | `census already exists` | 4012 |
+| 400 | `the predicate provided is not valid` | 4015 |
+| 204 | `strategy has not registered holders` | 4017 |
+| 500 | `error creating the census tree on the census database` | 5001 |
+| 500 | `error evaluating strategy predicate` | 5026 |
+
+### GET `/censuses/strategy/{strategyID}`
 Returns a list of censusID for the strategy provided.
 
 - 📥 response:
 
 ```json
 {
-    "censuses": [ 3, 5 ]
+    "censuses": [ 
+        { 
+            "censusID": 1,
+            "strategyID": 1,
+            "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac",
+            "uri": "ipfs://Qma....",
+            "size": 1000,
+            "weight": "200000000000000000000",
+            "anonymous": true
+        }
+    ]
 }
 ```
 

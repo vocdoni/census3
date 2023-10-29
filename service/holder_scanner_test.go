@@ -139,6 +139,7 @@ func Test_saveHolders(t *testing.T) {
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),
+			ChainID:  th.ChainID,
 		})
 	c.Assert(err, qt.IsNil)
 	c.Assert([]byte(res.Balance), qt.ContentEquals, holderBalance.Bytes())
@@ -149,6 +150,7 @@ func Test_saveHolders(t *testing.T) {
 		queries.TokenHolderByTokenIDAndHolderIDParams{
 			TokenID:  MonkeysAddress.Bytes(),
 			HolderID: holderAddr.Bytes(),
+			ChainID:  th.ChainID,
 		})
 	c.Assert(err, qt.IsNil)
 	resBalance := new(big.Int).SetBytes(res.Balance)
@@ -212,15 +214,15 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 
 	hs, err := NewHoldersScanner(testdb.db, w3p, nil)
 	c.Assert(err, qt.IsNil)
-	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress), qt.IsNotNil)
+	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress, 5), qt.IsNotNil)
 
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysCreationBlock,
 		MonkeysDecimals, uint64(state.CONTRACT_TYPE_ERC20), MonkeysTotalSupply.Int64(), false, 5, ""))
 	c.Assert(err, qt.IsNil)
 
-	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress), qt.IsNil)
+	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress, 5), qt.IsNil)
 	token, err := testdb.db.QueriesRW.TokenByID(context.Background(), MonkeysAddress.Bytes())
 	c.Assert(err, qt.IsNil)
-	c.Assert(uint64(token.CreationBlock.Int64), qt.Equals, MonkeysCreationBlock)
+	c.Assert(uint64(token.CreationBlock), qt.Equals, MonkeysCreationBlock)
 }

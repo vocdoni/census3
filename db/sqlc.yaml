@@ -1,4 +1,4 @@
-version: 2
+version: "2"
 sql:
 - schema: "migrations"
   queries: "queries"
@@ -33,8 +33,6 @@ sql:
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
         - column: "token_holders.holder_id"
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
-        - column: "token_holders.balance"
-          go_type: "github.com/vocdoni/census3/db/annotations.BigInt"
         - column: "token_holders.external_id"
           go_type: "string"
           nullable: false
@@ -42,5 +40,3 @@ sql:
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
         - column: "strategy_tokens.method_hash"
           go_type: "github.com/vocdoni/census3/db/annotations.MethodHash"
-        - column: "strategy_tokens.min_balance"
-          go_type: "github.com/vocdoni/census3/db/annotations.BigInt"

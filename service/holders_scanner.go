@@ -29,7 +29,7 @@ var (
 // the tokens stored on the database (located on 'dataDir/dbFilename'). It
 // keeps the database updated scanning the network using the web3 endpoint.
 type HoldersScanner struct {
-	w3p          map[uint64]string
+	w3p          state.Web3Providers
 	tokens       map[common.Address]*state.TokenHolders
 	mutex        sync.RWMutex
 	db           *db.DB
@@ -40,7 +40,7 @@ type HoldersScanner struct {
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
-func NewHoldersScanner(db *db.DB, w3p map[uint64]string, ext map[state.TokenType]HolderProvider) (*HoldersScanner, error) {
+func NewHoldersScanner(db *db.DB, w3p state.Web3Providers, ext map[state.TokenType]HolderProvider) (*HoldersScanner, error) {
 	if db == nil {
 		return nil, ErrNoDB
 	}
@@ -86,7 +86,7 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 			atSyncGlobal := true
 			for addr, data := range tokens {
 				if !data.ready {
-					if err := s.calcTokenCreationBlock(ctx, addr); err != nil {
+					if err := s.calcTokenCreationBlock(ctx, addr, data.chainID); err != nil {
 						log.Error(err)
 						continue
 					}
@@ -119,6 +119,7 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 type scanToken struct {
 	ready          bool
 	holderProvider HolderProvider
+	chainID        uint64
 	metadata       map[string]interface{}
 }
 
@@ -144,18 +145,19 @@ func (s *HoldersScanner) tokenAddresses() (map[common.Address]scanToken, error) 
 	// parse and return token addresses
 	results := make(map[common.Address]scanToken)
 	for _, token := range tokens {
+		scanTokenData := scanToken{
+			ready:    token.CreationBlock > 0,
+			chainID:  token.ChainID,
+			metadata: make(map[string]interface{}),
+		}
 		provider, isExternal := s.extProviders[state.TokenType(token.TypeID)]
 		if isExternal {
-			results[common.BytesToAddress(token.ID)] = scanToken{
-				ready:          true,
-				holderProvider: provider,
-			}
-		} else {
-			results[common.BytesToAddress(token.ID)] = scanToken{
-				ready:    token.CreationBlock.Valid,
-				metadata: make(map[string]interface{}),
+			scanTokenData.holderProvider = provider
+			scanTokenData.metadata = map[string]interface{}{
+				"externalID": token.ExternalID,
 			}
 		}
+		results[common.BytesToAddress(token.ID)] = scanTokenData
 	}
 	return results, nil
 }
@@ -202,13 +204,13 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		return nil
 	}
 	// get correct web3 uri provider
-	w3uri, exists := s.w3p[th.ChainID]
+	w3URI, exists := s.w3p.URIByChainID(th.ChainID)
 	if !exists {
 		return fmt.Errorf("chain ID not supported")
 	}
 	// init web3 contract state
 	w3 := state.Web3{}
-	if err := w3.Init(ctx, w3uri, th.Address(), th.Type()); err != nil {
+	if err := w3.Init(ctx, w3URI, th.Address(), th.Type()); err != nil {
 		return err
 	}
 	// get current block number timestamp and root hash, required parameters to
@@ -244,10 +246,11 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	//		- if the calculated balance is not 0, update it
 	created, updated, deleted := 0, 0, 0
 	for holder, balance := range th.Holders() {
-		currentTokenHolder, err := qtx.TokenHolderByTokenIDAndHolderIDandExternalID(ctx,
-			queries.TokenHolderByTokenIDAndHolderIDandExternalIDParams{
+		currentTokenHolder, err := qtx.TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalID(ctx,
+			queries.TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalIDParams{
 				TokenID:    th.Address().Bytes(),
 				HolderID:   holder.Bytes(),
+				ChainID:    th.ChainID,
 				ExternalID: th.ExternalID,
 			})
 		if err != nil {
@@ -265,6 +268,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 				HolderID:   holder.Bytes(),
 				BlockID:    th.LastBlock(),
 				Balance:    balance.Bytes(),
+				ChainID:    th.ChainID,
 				ExternalID: th.ExternalID,
 			})
 			if err != nil {
@@ -283,6 +287,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 				queries.DeleteTokenHolderParams{
 					TokenID:    th.Address().Bytes(),
 					HolderID:   holder.Bytes(),
+					ChainID:    th.ChainID,
 					ExternalID: th.ExternalID,
 				})
 			if err != nil {
@@ -298,6 +303,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			BlockID:    currentTokenHolder.BlockID,
 			NewBlockID: th.LastBlock(),
 			Balance:    newBalance.Bytes(),
+			ChainID:    th.ChainID,
 			ExternalID: th.ExternalID,
 		})
 		if err != nil {
@@ -340,7 +346,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 			return false, err
 		}
 		ttype := state.TokenType(tokenInfo.TypeID)
-		tokenLastBlock := uint64(tokenInfo.CreationBlock.Int64)
+		tokenLastBlock := uint64(tokenInfo.CreationBlock)
 		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, addr.Bytes()); err == nil {
 			tokenLastBlock = blockNumber
 		}
@@ -371,14 +377,14 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 		th.Synced()
 		return true, s.saveHolders(th)
 	}
-	// if the token has not an external provider, get correct web3 uri provider
-	w3uri, exists := s.w3p[th.ChainID]
+	// get correct web3 uri provider
+	w3URI, exists := s.w3p.URIByChainID(th.ChainID)
 	if !exists {
 		return false, fmt.Errorf("chain ID not supported")
 	}
 	// init web3 contract state
 	w3 := state.Web3{}
-	if err := w3.Init(ctx, w3uri, addr, th.Type()); err != nil {
+	if err := w3.Init(ctx, w3URI, addr, th.Type()); err != nil {
 		return th.IsSynced(), err
 	}
 	// try to update the TokenHolders struct and the current scanner last block
@@ -412,24 +418,28 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address) (
 // calcTokenCreationBlock function attempts to calculate the block number when
 // the token contract provided was created and deployed and updates the database
 // with the result obtained.
-func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common.Address) error {
+func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common.Address, chainID uint64) error {
 	// set a deadline of 10 seconds from the current context
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	// get the token type
-	tokenInfo, err := s.db.QueriesRO.TokenByID(ctx, addr.Bytes())
+	tokenInfo, err := s.db.QueriesRO.TokenByIDAndChainID(ctx,
+		queries.TokenByIDAndChainIDParams{
+			ID:      addr.Bytes(),
+			ChainID: chainID,
+		})
 	if err != nil {
 		return fmt.Errorf("error getting token from database: %w", err)
 	}
 	ttype := state.TokenType(tokenInfo.TypeID)
 	// get correct web3 uri provider
-	w3uri, exists := s.w3p[tokenInfo.ChainID]
+	w3URI, exists := s.w3p.URIByChainID(tokenInfo.ChainID)
 	if !exists {
 		return fmt.Errorf("chain ID not supported")
 	}
 	// init web3 contract state
 	w3 := state.Web3{}
-	if err := w3.Init(ctx, w3uri, addr, ttype); err != nil {
+	if err := w3.Init(ctx, w3URI, addr, ttype); err != nil {
 		return fmt.Errorf("error intializing web3 client for this token: %w", err)
 	}
 	// get creation block of the current token contract
@@ -437,15 +447,11 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 	if err != nil {
 		return fmt.Errorf("error getting token creation block: %w", err)
 	}
-	dbCreationBlock := new(sql.NullInt64)
-	if err := dbCreationBlock.Scan(creationBlock); err != nil {
-		return fmt.Errorf("error getting token creation block value: %w", err)
-	}
 	// save the creation block into the database
 	_, err = s.db.QueriesRW.UpdateTokenCreationBlock(ctx,
 		queries.UpdateTokenCreationBlockParams{
 			ID:            addr.Bytes(),
-			CreationBlock: *dbCreationBlock,
+			CreationBlock: int64(creationBlock),
 		})
 	if err != nil {
 		return fmt.Errorf("error updating token creation block on the database: %w", err)

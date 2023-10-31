@@ -45,7 +45,10 @@ VALUES (
 -- name: UpdateTokenStatus :execresult
 UPDATE tokens
 SET synced = sqlc.arg(synced)
-WHERE id = sqlc.arg(id);
+WHERE id = sqlc.arg(id) 
+    AND chain_id = sqlc.arg(chain_id) 
+    AND external_id = sqlc.arg(external_id);
+
 
 -- name: UpdateTokenCreationBlock :execresult
 UPDATE tokens
@@ -63,3 +66,9 @@ SELECT EXISTS
     (SELECT id 
     FROM tokens
     WHERE id = ? AND chain_id = ?);
+
+-- name: ExistsTokenByChainIDAndExternalID :one
+SELECT EXISTS 
+    (SELECT id 
+    FROM tokens
+    WHERE id = ? AND chain_id = ? AND external_id = ?);

@@ -83,7 +83,7 @@ func Test_tokenAddresses(t *testing.T) {
 
 	res, err := hs.tokenAddresses()
 	c.Assert(err, qt.IsNil)
-	c.Assert(res, qt.ContentEquals, make(map[common.Address]scanToken))
+	c.Assert(res, qt.HasLen, 0)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -94,7 +94,8 @@ func Test_tokenAddresses(t *testing.T) {
 
 	res, err = hs.tokenAddresses()
 	c.Assert(err, qt.IsNil)
-	c.Assert(res[common.HexToAddress("0x1")].ready, qt.IsFalse)
+	c.Assert(res[0].ready, qt.IsFalse)
+	c.Assert(res[0].addr.String(), qt.Equals, common.HexToAddress("0x1").String())
 
 	_, err = testdb.db.QueriesRW.CreateToken(ctx, testTokenParams("0x2", "test2",
 		"test3", 10, MonkeysDecimals, uint64(state.CONTRACT_TYPE_ERC20),
@@ -103,7 +104,8 @@ func Test_tokenAddresses(t *testing.T) {
 
 	res, err = hs.tokenAddresses()
 	c.Assert(err, qt.IsNil)
-	c.Assert(res[common.HexToAddress("0x2")].ready, qt.IsTrue)
+	c.Assert(res[1].ready, qt.IsTrue)
+	c.Assert(res[1].addr.String(), qt.Equals, common.HexToAddress("0x2").String())
 }
 
 func Test_saveHolders(t *testing.T) {
@@ -181,7 +183,7 @@ func Test_scanHolders(t *testing.T) {
 	// token does not exists
 	ctx1, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = hs.scanHolders(ctx1, MonkeysAddress)
+	_, err = hs.scanHolders(ctx1, MonkeysAddress, 5, []byte{})
 	c.Assert(err, qt.IsNotNil)
 
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
@@ -191,7 +193,7 @@ func Test_scanHolders(t *testing.T) {
 	// token exists and the scanner gets the holders
 	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = hs.scanHolders(ctx2, MonkeysAddress)
+	_, err = hs.scanHolders(ctx2, MonkeysAddress, 5, []byte{})
 	c.Assert(err, qt.IsNil)
 
 	res, err := testdb.db.QueriesRW.TokenHoldersByTokenID(context.Background(), MonkeysAddress.Bytes())

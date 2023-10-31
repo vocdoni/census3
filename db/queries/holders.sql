@@ -20,6 +20,12 @@ FROM holders
 JOIN token_holders ON holders.id = token_holders.holder_id
 WHERE token_holders.token_id = ? AND token_holders.external_id = ?;
 
+-- name: TokenHoldersByTokenIDAndChainIDAndExternalID :many
+SELECT holders.*, token_holders.balance
+FROM holders
+JOIN token_holders ON holders.id = token_holders.holder_id
+WHERE token_holders.token_id = ? AND token_holders.chain_id = ? AND token_holders.external_id = ?;
+
 -- name: TokenHolderByTokenIDAndHolderID :one
 SELECT holders.*, token_holders.*
 FROM holders

@@ -97,6 +97,26 @@ func (q *Queries) ExistsTokenByChainID(ctx context.Context, arg ExistsTokenByCha
 	return exists, err
 }
 
+const existsTokenByChainIDAndExternalID = `-- name: ExistsTokenByChainIDAndExternalID :one
+SELECT EXISTS 
+    (SELECT id 
+    FROM tokens
+    WHERE id = ? AND chain_id = ? AND external_id = ?)
+`
+
+type ExistsTokenByChainIDAndExternalIDParams struct {
+	ID         annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) ExistsTokenByChainIDAndExternalID(ctx context.Context, arg ExistsTokenByChainIDAndExternalIDParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, existsTokenByChainIDAndExternalID, arg.ID, arg.ChainID, arg.ExternalID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listTokens = `-- name: ListTokens :many
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
 ORDER BY type_id, name
@@ -313,14 +333,23 @@ func (q *Queries) UpdateTokenCreationBlock(ctx context.Context, arg UpdateTokenC
 const updateTokenStatus = `-- name: UpdateTokenStatus :execresult
 UPDATE tokens
 SET synced = ?
-WHERE id = ?
+WHERE id = ? 
+    AND chain_id = ? 
+    AND external_id = ?
 `
 
 type UpdateTokenStatusParams struct {
-	Synced bool
-	ID     annotations.Address
+	Synced     bool
+	ID         annotations.Address
+	ChainID    uint64
+	ExternalID string
 }
 
 func (q *Queries) UpdateTokenStatus(ctx context.Context, arg UpdateTokenStatusParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateTokenStatus, arg.Synced, arg.ID)
+	return q.db.ExecContext(ctx, updateTokenStatus,
+		arg.Synced,
+		arg.ID,
+		arg.ChainID,
+		arg.ExternalID,
+	)
 }

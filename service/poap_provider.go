@@ -81,6 +81,12 @@ func (p *POAPHolderProvider) BlockTimestamp(_ context.Context, _ uint64) (string
 	return "", nil
 }
 
+// BlockRootHash method is not implemented in the POAP external provider. By
+// default it returns an empty bytes slice and nil error.
+func (p *POAPHolderProvider) BlockRootHash(_ context.Context, _ uint64) ([]byte, error) {
+	return []byte{}, nil
+}
+
 // CreationBlock method is not implemented in the POAP external provider. By
 // default it returns 0 and nil error.
 func (p *POAPHolderProvider) CreationBlock(_ context.Context, _ []byte) (uint64, error) {
@@ -136,13 +142,15 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 	if snapshot, exist := p.snapshots[string(id)]; exist {
 		from += snapshot.from
 	}
+	// calculate partials balances
+	partialBalances := p.calcPartials(eventID, newSnapshot)
 	// save snapshot
 	p.snapshots[string(id)] = &POAPSnapshot{
 		from:     from,
 		snapshot: newSnapshot,
 	}
-	// calculate and return partials from last snapshot
-	return p.calcPartials(eventID, newSnapshot), nil
+	// return partials from last snapshot
+	return partialBalances, nil
 }
 
 func (p *POAPHolderProvider) Address(_ context.Context, _ []byte) (common.Address, error) {
@@ -283,8 +291,6 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 	}
 	req.Header.Add("accept", "application/json")
 	req.Header.Add("x-api-key", p.AccessToken)
-	log.Info(req.URL.String())
-	log.Info(req.Header.Get("x-api-key"))
 	// do the request
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -300,7 +306,6 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 			log.Error(err)
 		}
 	}()
-	log.Info(string(rawResults))
 	// parse poap from decoded response
 	eventRes := EventAPIResponse{}
 	if err := json.Unmarshal(rawResults, &eventRes); err != nil {
@@ -317,6 +322,8 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 //     the balance of the new snapshot
 //   - holders from the current snapshot that are not in the new snapshot but
 //     with zero balance
+//   - holders from the current snapshot that are in the new snapshot with the
+//     balance of the new snapshot if the balance has changed
 func (p *POAPHolderProvider) calcPartials(eventID string, newSnapshot map[common.Address]*big.Int) map[common.Address]*big.Int {
 	// get current snapshot if exists
 	currentSnapshot := make(map[common.Address]*big.Int)
@@ -326,12 +333,14 @@ func (p *POAPHolderProvider) calcPartials(eventID string, newSnapshot map[common
 	// calculate partials balances from current and new snapshots
 	partialsBalances := make(map[common.Address]*big.Int)
 	for addr, balance := range newSnapshot {
-		partialsBalances[addr] = balance
+		if currentBalance, exist := currentSnapshot[addr]; !exist || currentBalance.Cmp(balance) != 0 {
+			partialsBalances[addr] = balance
+		}
 	}
 	// add zero balances for holders in current snapshot but not in new snapshot
-	for addr := range currentSnapshot {
+	for addr, currentBalance := range currentSnapshot {
 		if _, exist := newSnapshot[addr]; !exist {
-			partialsBalances[addr] = big.NewInt(0)
+			partialsBalances[addr] = new(big.Int).Neg(currentBalance)
 		}
 	}
 	return partialsBalances

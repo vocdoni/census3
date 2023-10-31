@@ -34,6 +34,7 @@ type HolderProvider interface {
 	TotalSupply(ctx context.Context, id []byte) (*big.Int, error)
 	BalanceOf(ctx context.Context, id []byte, addr common.Address) (*big.Int, error)
 	BlockTimestamp(ctx context.Context, blockNumber uint64) (string, error)
+	BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error)
 	LatestBlockNumber(ctx context.Context, id []byte) (uint64, error)
 	CreationBlock(ctx context.Context, id []byte) (uint64, error)
 }

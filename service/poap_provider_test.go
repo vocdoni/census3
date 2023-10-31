@@ -37,8 +37,7 @@ func TestPOAPHolderProvider_calcPartials(t *testing.T) {
 		common.HexToAddress("0x4"): big.NewInt(1), // add 0x4
 	}
 	expected := map[common.Address]*big.Int{
-		common.HexToAddress("0x1"): big.NewInt(1),
-		common.HexToAddress("0x2"): big.NewInt(0),
+		common.HexToAddress("0x2"): big.NewInt(-2),
 		common.HexToAddress("0x3"): big.NewInt(2),
 		common.HexToAddress("0x4"): big.NewInt(1),
 	}

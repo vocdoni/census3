@@ -118,11 +118,11 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 // tokens stored on the database. It indicates if the token is ready to be
 // scanned and contains the token metadata.
 type scanToken struct {
-	addr 		 common.Address
+	addr           common.Address
 	ready          bool
 	holderProvider HolderProvider
 	chainID        uint64
-	externalID	   []byte
+	externalID     []byte
 }
 
 // tokenAddresses function gets the current token addresses from the database
@@ -148,9 +148,9 @@ func (s *HoldersScanner) tokenAddresses() ([]scanToken, error) {
 	results := []scanToken{}
 	for _, token := range tokens {
 		scanTokenData := scanToken{
-			addr:     common.BytesToAddress(token.ID),
-			ready:    token.CreationBlock > 0,
-			chainID:  token.ChainID,
+			addr:       common.BytesToAddress(token.ID),
+			ready:      token.CreationBlock > 0,
+			chainID:    token.ChainID,
 			externalID: []byte{},
 		}
 		provider, isExternal := s.extProviders[state.TokenType(token.TypeID)]
@@ -186,7 +186,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 	}()
 	qtx := s.db.QueriesRW.WithTx(tx)
 	if exists, err := qtx.ExistsTokenByChainIDAndExternalID(ctx, queries.ExistsTokenByChainIDAndExternalIDParams{
-		ID: 	    th.Address().Bytes(),
+		ID:         th.Address().Bytes(),
 		ChainID:    th.ChainID,
 		ExternalID: th.ExternalID,
 	}); err != nil {
@@ -195,8 +195,8 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		return ErrTokenNotExists
 	}
 	_, err = qtx.UpdateTokenStatus(ctx, queries.UpdateTokenStatusParams{
-		Synced: th.IsSynced(),
-		ID:     th.Address().Bytes(),
+		Synced:     th.IsSynced(),
+		ID:         th.Address().Bytes(),
 		ChainID:    th.ChainID,
 		ExternalID: th.ExternalID,
 	})
@@ -304,11 +304,6 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		// if the holder already exists, calculate the holder balance with the
 		// current balance and the new one
 		currentBalance := new(big.Int).SetBytes(currentTokenHolder.Balance)
-		// TODO: fix this
-		// if currentBalance.Cmp(balance) == 0 {
-		// 	continue
-		// }
-
 		newBalance := new(big.Int).Add(currentBalance, balance)
 		// if the calculated balance is 0 delete it
 		if newBalance.Cmp(big.NewInt(0)) <= 0 {
@@ -358,7 +353,9 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 // cachedToken function returns the TokenHolders struct associated to the
 // address, chainID and externalID provided. If it does not exists, it creates
 // a new one and caches it getting the token information from the database.
-func (s *HoldersScanner) cachedToken(ctx context.Context, addr common.Address, chainID uint64, externalID []byte) (*state.TokenHolders, error) {
+func (s *HoldersScanner) cachedToken(ctx context.Context, addr common.Address,
+	chainID uint64, externalID []byte,
+) (*state.TokenHolders, error) {
 	// get the token TokenHolders struct from cache, if it not exists it will
 	// be initialized
 	s.mutex.RLock()
@@ -366,8 +363,9 @@ func (s *HoldersScanner) cachedToken(ctx context.Context, addr common.Address, c
 
 	var th *state.TokenHolders
 	for index, token := range s.tokens {
-		if bytes.Equal(token.Address().Bytes(), addr.Bytes()) && token.ChainID == chainID && bytes.Equal([]byte(token.ExternalID), externalID) {
-			tokenHolders, err := s.db.QueriesRO.TokenHoldersByTokenIDAndChainIDAndExternalID(ctx, 
+		if bytes.Equal(token.Address().Bytes(), addr.Bytes()) &&
+			token.ChainID == chainID && bytes.Equal([]byte(token.ExternalID), externalID) {
+			tokenHolders, err := s.db.QueriesRO.TokenHoldersByTokenIDAndChainIDAndExternalID(ctx,
 				queries.TokenHoldersByTokenIDAndChainIDAndExternalIDParams{
 					TokenID:    addr.Bytes(),
 					ChainID:    chainID,
@@ -387,8 +385,8 @@ func (s *HoldersScanner) cachedToken(ctx context.Context, addr common.Address, c
 	log.Infow("initializing token", "address", addr, "chainID", chainID, "externalID", externalID)
 	// get token information from the database
 	tokenInfo, err := s.db.QueriesRO.TokenByIDAndChainIDAndExternalID(ctx, queries.TokenByIDAndChainIDAndExternalIDParams{
-		ID:      addr.Bytes(),
-		ChainID: chainID,
+		ID:         addr.Bytes(),
+		ChainID:    chainID,
 		ExternalID: string(externalID),
 	})
 	if err != nil {
@@ -400,7 +398,7 @@ func (s *HoldersScanner) cachedToken(ctx context.Context, addr common.Address, c
 		tokenLastBlock = blockNumber
 	}
 	th = new(state.TokenHolders).Init(addr, ttype, tokenLastBlock, tokenInfo.ChainID, tokenInfo.ExternalID)
-	tokenHolders, err := s.db.QueriesRO.TokenHoldersByTokenIDAndChainIDAndExternalID(ctx, 
+	tokenHolders, err := s.db.QueriesRO.TokenHoldersByTokenIDAndChainIDAndExternalID(ctx,
 		queries.TokenHoldersByTokenIDAndChainIDAndExternalIDParams{
 			TokenID:    addr.Bytes(),
 			ChainID:    chainID,

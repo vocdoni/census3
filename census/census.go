@@ -16,8 +16,6 @@ import (
 	"go.vocdoni.io/dvote/api/censusdb"
 	"go.vocdoni.io/dvote/censustree"
 	storagelayer "go.vocdoni.io/dvote/data"
-	"go.vocdoni.io/dvote/data/ipfs"
-	"go.vocdoni.io/dvote/data/ipfs/ipfsconnect"
 	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/db/metadb"
 	"go.vocdoni.io/dvote/log"
@@ -86,29 +84,18 @@ type PublishedCensus struct {
 // CensusDB struct envolves the internal trees database and the IPFS handler,
 // required to create and publish censuses.
 type CensusDB struct {
-	treeDB   db.Database
-	storage  storagelayer.Storage
-	ipfsConn *ipfsconnect.IPFSConnect
+	treeDB  db.Database
+	storage storagelayer.Storage
 }
 
 // NewCensusDB function instansiates an new internal tree database that will be
 // located into the directory path provided.
-func NewCensusDB(dataDir, groupKey string) (*CensusDB, error) {
+func NewCensusDB(dataDir string, storage storagelayer.Storage) (*CensusDB, error) {
 	db, err := metadb.New(db.TypePebble, filepath.Join(dataDir, "censusdb"))
 	if err != nil {
 		return nil, ErrCreatingCensusDB
 	}
-	ipfsConfig := storagelayer.IPFSNewConfig(dataDir)
-	storage, err := storagelayer.Init(storagelayer.IPFS, ipfsConfig)
-	if err != nil {
-		return nil, ErrInitializingIPFS
-	}
-	var ipfsConn *ipfsconnect.IPFSConnect
-	if len(groupKey) > 0 {
-		ipfsConn = ipfsconnect.New(groupKey, storage.(*ipfs.Handler))
-		ipfsConn.Start()
-	}
-	return &CensusDB{treeDB: db, storage: storage, ipfsConn: ipfsConn}, nil
+	return &CensusDB{treeDB: db, storage: storage}, nil
 }
 
 // CreateAndPublish function creates a new census tree based on the definition
@@ -249,7 +236,7 @@ func censusDBKey(censusID uint64) string {
 // represented as 1 for true and 0 for false. This concatenated string is then converted
 // to a uint64 to create a unique identifier.
 func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
-	// Convert the boolean to a uint32: 1 for true, 0 for false
+	// Convert the boolean to a uint64: 1 for true, 0 for false
 	var anonymousUint uint64
 	if anonymous {
 		anonymousUint = 1

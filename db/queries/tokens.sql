@@ -22,20 +22,10 @@ SELECT * FROM tokens
 WHERE id = ?
 LIMIT 1;
 
--- name: TokenByName :one
+-- name: TokenByIDAndChainID :one
 SELECT * FROM tokens
-WHERE name = ?
+WHERE id = ? AND chain_id = ?
 LIMIT 1;
-
--- name: TokenBySymbol :one
-SELECT * FROM tokens
-WHERE symbol = ?
-LIMIT 1;
-
--- name: TokensByType :many
-SELECT * FROM tokens
-WHERE type_id = ?
-ORDER BY name;
 
 -- name: TokensByStrategyID :many
 SELECT t.*, st.* FROM tokens t
@@ -54,23 +44,12 @@ INSERT INTO tokens (
     type_id,
     synced,
     tags,
-    chain_id
+    chain_id,
+    chain_address
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 );
-
--- name: UpdateToken :execresult
-UPDATE tokens
-SET name = sqlc.arg(name),
-    symbol = sqlc.arg(symbol),
-    decimals = sqlc.arg(decimals),
-    total_supply = sqlc.arg(total_supply),
-    creation_block = sqlc.arg(creation_block),
-    type_id = sqlc.arg(type_id),
-    synced = sqlc.arg(synced),
-    tags = sqlc.arg(tags)
-WHERE id = sqlc.arg(id);
 
 -- name: UpdateTokenStatus :execresult
 UPDATE tokens
@@ -82,12 +61,14 @@ UPDATE tokens
 SET creation_block = sqlc.arg(creation_block)
 WHERE id = sqlc.arg(id);
 
--- name: DeleteToken :execresult
-DELETE FROM tokens
-WHERE id = ?;
-
 -- name: ExistsToken :one
 SELECT EXISTS 
     (SELECT id 
     FROM tokens
-    WHERE id = ?)
+    WHERE id = ?);
+
+-- name: ExistsTokenByChainID :one
+SELECT EXISTS 
+    (SELECT id 
+    FROM tokens
+    WHERE id = ? AND chain_id = ?);

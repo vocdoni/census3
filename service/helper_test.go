@@ -1,7 +1,6 @@
 package service
 
 import (
-	"database/sql"
 	"math/big"
 	"os"
 	"testing"
@@ -70,11 +69,11 @@ func testTokenParams(id, name, symbol string, creationBlock, decimals, typeID ui
 ) queries.CreateTokenParams {
 	return queries.CreateTokenParams{
 		ID:            common.HexToAddress(id).Bytes(),
-		Name:          sql.NullString{String: name, Valid: name != ""},
-		Symbol:        sql.NullString{String: symbol, Valid: symbol != ""},
+		Name:          name,
+		Symbol:        symbol,
 		Decimals:      decimals,
 		TotalSupply:   new(big.Int).SetInt64(int64(totalSupply)).Bytes(),
-		CreationBlock: sql.NullInt64{Int64: int64(creationBlock), Valid: creationBlock != 0},
+		CreationBlock: int64(creationBlock),
 		TypeID:        typeID,
 		Synced:        synced,
 		ChainID:       chainID,

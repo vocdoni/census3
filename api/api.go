@@ -6,6 +6,11 @@ import (
 	"github.com/vocdoni/census3/census"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/queue"
+	"github.com/vocdoni/census3/state"
+	storagelayer "go.vocdoni.io/dvote/data"
+	"go.vocdoni.io/dvote/data/downloader"
+	"go.vocdoni.io/dvote/data/ipfs"
+	"go.vocdoni.io/dvote/data/ipfs/ipfsconnect"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -16,19 +21,21 @@ type Census3APIConf struct {
 	Port          int
 	DataDir       string
 	GroupKey      string
-	Web3Providers map[uint64]string
+	Web3Providers state.Web3Providers
 }
 
 type census3API struct {
-	conf     Census3APIConf
-	db       *db.DB
-	endpoint *api.API
-	censusDB *census.CensusDB
-	queue    *queue.BackgroundQueue
-	w3p      map[uint64]string
+	conf       Census3APIConf
+	db         *db.DB
+	endpoint   *api.API
+	censusDB   *census.CensusDB
+	queue      *queue.BackgroundQueue
+	w3p        state.Web3Providers
+	storage    storagelayer.Storage
+	downloader *downloader.Downloader
 }
 
-func Init(db *db.DB, conf Census3APIConf) error {
+func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 	newAPI := &census3API{
 		conf:  conf,
 		db:    db,
@@ -42,27 +49,49 @@ func Init(db *db.DB, conf Census3APIConf) error {
 	var err error
 	r := httprouter.HTTProuter{}
 	if err = r.Init(conf.Hostname, conf.Port); err != nil {
-		return err
+		return nil, err
 	}
 	// init API using the http router created
 	if newAPI.endpoint, err = api.NewAPI(&r, "/api"); err != nil {
-		return err
+		return nil, err
 	}
-	// init the census DB
-	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir, conf.GroupKey); err != nil {
-		return err
+	// init the IPFS service and the storage layer and connect them
+	ipfsConfig := storagelayer.IPFSNewConfig(conf.DataDir)
+	newAPI.storage, err = storagelayer.Init(storagelayer.IPFS, ipfsConfig)
+	if err != nil {
+		return nil, err
+	}
+	var ipfsConn *ipfsconnect.IPFSConnect
+	if len(conf.GroupKey) > 0 {
+		ipfsConn = ipfsconnect.New(conf.GroupKey, newAPI.storage.(*ipfs.Handler))
+		ipfsConn.Start()
+	}
+	// init the downloader using the storage layer
+	newAPI.downloader = downloader.NewDownloader(newAPI.storage)
+	newAPI.downloader.Start()
+	// init the census DB using the storage layer
+	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir, newAPI.storage); err != nil {
+		return nil, err
 	}
 	// init handlers
 	if err := newAPI.initAPIHandlers(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := newAPI.initTokenHandlers(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := newAPI.initCensusHandlers(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := newAPI.initStrategiesHandlers(); err != nil {
+		return nil, err
+	}
+	return newAPI, nil
+}
+
+func (capi *census3API) Stop() error {
+	capi.downloader.Stop()
+	if err := capi.storage.Stop(); err != nil {
 		return err
 	}
 	return nil
@@ -74,11 +103,16 @@ func (capi *census3API) initAPIHandlers() error {
 }
 
 func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	chainIDs := []uint64{}
-	for chainID := range capi.w3p {
-		chainIDs = append(chainIDs, chainID)
+	info := &APIInfo{
+		SupportedChains: []SupportedChain{},
 	}
-	info := map[string]any{"chainIDs": chainIDs}
+	for _, provider := range capi.w3p {
+		info.SupportedChains = append(info.SupportedChains, SupportedChain{
+			ChainID:   provider.ChainID,
+			ShortName: provider.ShortName,
+			Name:      provider.Name,
+		})
+	}
 	res, err := json.Marshal(info)
 	if err != nil {
 		log.Errorw(err, "error encoding api info")

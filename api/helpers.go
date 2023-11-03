@@ -21,9 +21,14 @@ func paginationFromCtx(ctx *httprouter.HTTPContext) (int32, int32, string, bool,
 	// if the page size is provided, use the provided value instead, increasing
 	// it by 2 to get the previous and next cursors
 	if strPageSize := ctx.Request.URL.Query().Get("pageSize"); strPageSize != "" {
-		if intPageSize, err := strconv.Atoi(strPageSize); err == nil && intPageSize > 1 {
-			pageSize = int32(intPageSize)
-			dbPageSize = int32(intPageSize) + 1
+		if intPageSize, err := strconv.Atoi(strPageSize); err == nil {
+			if intPageSize < 0 {
+				pageSize = -1
+				dbPageSize = -1
+			} else if intPageSize < int(defaultPageSize) {
+				pageSize = int32(intPageSize)
+				dbPageSize = int32(intPageSize) + 1
+			}
 		}
 	}
 	// get posible previous and next cursors

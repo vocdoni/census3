@@ -13,6 +13,8 @@ import (
 	queries "github.com/vocdoni/census3/db/sqlc"
 )
 
+//go:generate go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.23.0 generate
+
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 

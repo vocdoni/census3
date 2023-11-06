@@ -44,11 +44,43 @@ func (capi *census3API) initTokenHandlers() error {
 // database. It returns a 204 response if no tokens are registered or a 500
 // error if something fails.
 func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokensTimeout)
+	// get pagination information from the request
+	pageSize, dbPageSize, cursor, goForward, err := paginationFromCtx(ctx)
+	if err != nil {
+		return ErrMalformedPagination.WithErr(err)
+	}
+	// if there is a cursor, decode it to bytes
+	bCursor := []byte{}
+	if cursor != "" {
+		bCursor = common.HexToAddress(cursor).Bytes()
+	}
+	// init context with timeout and database transaction
+	internalCtx, cancel := context.WithTimeout(context.Background(), getTokensTimeout)
 	defer cancel()
-	// TODO: Support for pagination
-	// get tokens from the database
-	rows, err := capi.db.QueriesRO.ListTokens(internalCtx)
+	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetTokens.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorw(err, "error rolling back tokens transaction")
+		}
+	}()
+	qtx := capi.db.QueriesRO.WithTx(tx)
+	// get the tokens from the database using the provided cursor, get the
+	// following or previous page depending on the direction of the cursor
+	var rows []queries.Token
+	if goForward {
+		rows, err = qtx.NextTokensPage(internalCtx, queries.NextTokensPageParams{
+			PageCursor: bCursor,
+			Limit:      dbPageSize,
+		})
+	} else {
+		rows, err = qtx.PrevTokensPage(internalCtx, queries.PrevTokensPageParams{
+			PageCursor: bCursor,
+			Limit:      dbPageSize,
+		})
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoTokens.WithErr(err)
@@ -58,10 +90,22 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	if len(rows) == 0 {
 		return ErrNoTokens
 	}
-	// parse and encode resulting tokens
-	tokens := GetTokensResponse{Tokens: []GetTokensItem{}}
+	// init response struct with the initial pagination information and empty
+	// list of tokens
+	tokensResponse := GetTokensResponse{
+		Tokens:     []GetTokensItem{},
+		Pagination: &Pagination{PageSize: pageSize},
+	}
+	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, cursor, goForward)
+	if nextCursorRow != nil {
+		tokensResponse.Pagination.NextCursor = common.BytesToAddress(nextCursorRow.ID).String()
+	}
+	if prevCursorRow != nil {
+		tokensResponse.Pagination.PrevCursor = common.BytesToAddress(prevCursorRow.ID).String()
+	}
+	// parse results from database to the response format
 	for _, tokenData := range rows {
-		tokenResponse := GetTokensItem{
+		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokensItem{
 			ID:           common.BytesToAddress(tokenData.ID).String(),
 			Type:         state.TokenType(int(tokenData.TypeID)).String(),
 			Name:         tokenData.Name,
@@ -71,10 +115,10 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			ChainID:      tokenData.ChainID,
 			ChainAddress: tokenData.ChainAddress,
 			ExternalID:   tokenData.ExternalID,
-		}
-		tokens.Tokens = append(tokens.Tokens, tokenResponse)
+		})
 	}
-	res, err := json.Marshal(tokens)
+	// encode the response and send it
+	res, err := json.Marshal(tokensResponse)
 	if err != nil {
 		return ErrEncodeTokens.WithErr(err)
 	}

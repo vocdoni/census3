@@ -89,6 +89,88 @@ func (q *Queries) ListStrategies(ctx context.Context) ([]Strategy, error) {
 	return items, nil
 }
 
+const nextStrategiesPage = `-- name: NextStrategiesPage :many
+SELECT id, predicate, alias, uri FROM strategies
+WHERE id >= ?
+ORDER BY id ASC 
+LIMIT ?
+`
+
+type NextStrategiesPageParams struct {
+	PageCursor uint64
+	Limit      int32
+}
+
+func (q *Queries) NextStrategiesPage(ctx context.Context, arg NextStrategiesPageParams) ([]Strategy, error) {
+	rows, err := q.db.QueryContext(ctx, nextStrategiesPage, arg.PageCursor, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Strategy
+	for rows.Next() {
+		var i Strategy
+		if err := rows.Scan(
+			&i.ID,
+			&i.Predicate,
+			&i.Alias,
+			&i.Uri,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const prevStrategiesPage = `-- name: PrevStrategiesPage :many
+SELECT id, predicate, alias, uri FROM (
+    SELECT id, predicate, alias, uri FROM strategies
+    WHERE id <= ?
+    ORDER BY id DESC 
+    LIMIT ?
+) as strategy ORDER BY strategy.id ASC
+`
+
+type PrevStrategiesPageParams struct {
+	PageCursor uint64
+	Limit      int32
+}
+
+func (q *Queries) PrevStrategiesPage(ctx context.Context, arg PrevStrategiesPageParams) ([]Strategy, error) {
+	rows, err := q.db.QueryContext(ctx, prevStrategiesPage, arg.PageCursor, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Strategy
+	for rows.Next() {
+		var i Strategy
+		if err := rows.Scan(
+			&i.ID,
+			&i.Predicate,
+			&i.Alias,
+			&i.Uri,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const strategiesByTokenIDAndChainIDAndExternalID = `-- name: StrategiesByTokenIDAndChainIDAndExternalID :many
 SELECT s.id, s.predicate, s.alias, s.uri FROM strategies s
 JOIN strategy_tokens st ON st.strategy_id = s.id

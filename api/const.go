@@ -20,3 +20,7 @@ const (
 	createTokenTimeout = time.Second * 10
 	getTokenTimeout    = time.Second * 15
 )
+
+const (
+	defaultPageSize = int32(10)
+)

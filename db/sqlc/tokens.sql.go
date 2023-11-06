@@ -119,11 +119,110 @@ func (q *Queries) ExistsTokenByChainIDAndExternalID(ctx context.Context, arg Exi
 
 const listTokens = `-- name: ListTokens :many
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
-ORDER BY type_id, name
+ORDER BY id ASC 
+LIMIT ?
 `
 
-func (q *Queries) ListTokens(ctx context.Context) ([]Token, error) {
-	rows, err := q.db.QueryContext(ctx, listTokens)
+func (q *Queries) ListTokens(ctx context.Context, limit int32) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, listTokens, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Token
+	for rows.Next() {
+		var i Token
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Symbol,
+			&i.Decimals,
+			&i.TotalSupply,
+			&i.CreationBlock,
+			&i.TypeID,
+			&i.Synced,
+			&i.Tags,
+			&i.ChainID,
+			&i.ChainAddress,
+			&i.ExternalID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const nextTokensPage = `-- name: NextTokensPage :many
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
+WHERE id >= ?
+ORDER BY id ASC 
+LIMIT ?
+`
+
+type NextTokensPageParams struct {
+	PageCursor annotations.Address
+	Limit      int32
+}
+
+func (q *Queries) NextTokensPage(ctx context.Context, arg NextTokensPageParams) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, nextTokensPage, arg.PageCursor, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Token
+	for rows.Next() {
+		var i Token
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Symbol,
+			&i.Decimals,
+			&i.TotalSupply,
+			&i.CreationBlock,
+			&i.TypeID,
+			&i.Synced,
+			&i.Tags,
+			&i.ChainID,
+			&i.ChainAddress,
+			&i.ExternalID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const prevTokensPage = `-- name: PrevTokensPage :many
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM (
+    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
+    WHERE id <= ?
+    ORDER BY id DESC
+    LIMIT ?
+) as token ORDER BY token.id ASC
+`
+
+type PrevTokensPageParams struct {
+	PageCursor annotations.Address
+	Limit      int32
+}
+
+func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, prevTokensPage, arg.PageCursor, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

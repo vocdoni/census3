@@ -1,11 +1,8 @@
 -- +goose Up
 
--- stategies table schema updates
-ALTER TABLE strategies ADD COLUMN alias TEXT NOT NULL DEFAULT '';
-ALTER TABLE strategies ADD COLUMN uri TEXT NOT NULL DEFAULT '';
-
 -- tokens table schema updates
 ALTER TABLE tokens ADD COLUMN chain_address TEXT;
+ALTER TABLE tokens ADD COLUMN external_id TEXT;
 CREATE TABLE tokens_copy (
     id BLOB NOT NULL,
     name TEXT NOT NULL DEFAULT '',
@@ -18,7 +15,8 @@ CREATE TABLE tokens_copy (
     tags TEXT NOT NULL DEFAULT '',
     chain_id INTEGER NOT NULL DEFAULT 0,
     chain_address TEXT NOT NULL DEFAULT '',
-    PRIMARY KEY (id, chain_id),
+    external_id TEXT NULL DEFAULT '',
+    PRIMARY KEY (id, chain_id, external_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
 );
 INSERT INTO tokens_copy SELECT * FROM tokens;
@@ -29,13 +27,15 @@ CREATE INDEX idx_tokens_type_id ON tokens(type_id);
 
 -- token_holders table schema updates
 ALTER TABLE token_holders ADD COLUMN chain_id INTEGER;
+ALTER TABLE token_holders ADD COLUMN external_id TEXT;
 CREATE TABLE token_holders_copy (
     token_id BLOB NOT NULL,
     holder_id BLOB NOT NULL,
     balance BLOB NOT NULL,
     block_id INTEGER NOT NULL,
     chain_id INTEGER NOT NULL,
-    PRIMARY KEY (token_id, holder_id, block_id, chain_id),
+    external_id TEXT NULL DEFAULT '',
+    PRIMARY KEY (token_id, holder_id, block_id, chain_id, external_id),
     FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE,
     FOREIGN KEY (holder_id) REFERENCES holders(id) ON DELETE CASCADE,
     FOREIGN KEY (block_id) REFERENCES blocks(id) ON DELETE CASCADE
@@ -55,19 +55,25 @@ CREATE INDEX idx_token_holders_token_id ON token_holders(token_id);
 CREATE INDEX idx_token_holders_holder_id ON token_holders(holder_id);
 CREATE INDEX idx_token_holders_block_id ON token_holders(block_id);
 
+-- stategies table schema updates
+ALTER TABLE strategies ADD COLUMN alias TEXT NOT NULL DEFAULT '';
+ALTER TABLE strategies ADD COLUMN uri TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE strategy_tokens ADD COLUMN external_id BLOB;
 -- strategy tokens schema updates
 CREATE TABLE strategy_tokens_copy (
     strategy_id INTEGER NOT NULL,
     token_id BLOB NOT NULL,
     min_balance BLOB NOT NULL,
     chain_id INTEGER NOT NULL,
-    PRIMARY KEY (strategy_id, token_id),
+    external_id TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (strategy_id, token_id, external_id),
     FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE,
     FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE
 );
-INSERT INTO strategy_tokens_copy (strategy_id, token_id, min_balance, chain_id) 
+INSERT INTO strategy_tokens_copy (strategy_id, token_id, min_balance, chain_id, external_id) 
 SELECT * FROM (
-    SELECT strategy_id, token_id, min_balance, (
+    SELECT strategy_id, token_id, min_balance, external_id, (
         SELECT token.chain_id FROM tokens AS token WHERE token.id = strategy_tokens.token_id
     ) AS chain_id FROM strategy_tokens
 );

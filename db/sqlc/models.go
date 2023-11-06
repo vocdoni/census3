@@ -43,6 +43,7 @@ type StrategyToken struct {
 	TokenID    []byte
 	MinBalance []byte
 	ChainID    uint64
+	ExternalID string
 }
 
 type Token struct {
@@ -57,14 +58,16 @@ type Token struct {
 	Tags          string
 	ChainID       uint64
 	ChainAddress  string
+	ExternalID    string
 }
 
 type TokenHolder struct {
-	TokenID  []byte
-	HolderID []byte
-	Balance  []byte
-	BlockID  uint64
-	ChainID  uint64
+	TokenID    annotations.Address
+	HolderID   annotations.Address
+	Balance    []byte
+	BlockID    uint64
+	ChainID    uint64
+	ExternalID string
 }
 
 type TokenType struct {

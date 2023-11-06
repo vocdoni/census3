@@ -17,19 +17,20 @@ type HoldersCandidates map[common.Address]*big.Int
 // differents goroutines, such as holders list, analyzed blocks or the last
 // block analyzed.
 type TokenHolders struct {
-	address   common.Address
-	ctype     TokenType
-	holders   sync.Map
-	blocks    sync.Map
-	lastBlock atomic.Uint64
-	synced    atomic.Bool
-	ChainID   uint64
+	address    common.Address
+	ctype      TokenType
+	holders    sync.Map
+	blocks     sync.Map
+	lastBlock  atomic.Uint64
+	synced     atomic.Bool
+	ChainID    uint64
+	ExternalID string
 }
 
 // Init function fills the given TokenHolders struct with the address and type
 // given, also checks the block number provided as done. It returns the
 // TokenHolders struct updated.
-func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block, chainID uint64) *TokenHolders {
+func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block, chainID uint64, externalID string) *TokenHolders {
 	h.address = addr
 	h.ctype = ctype
 	h.holders = sync.Map{}
@@ -37,6 +38,7 @@ func (h *TokenHolders) Init(addr common.Address, ctype TokenType, block, chainID
 	h.lastBlock.Store(block)
 	h.synced.Store(false)
 	h.ChainID = chainID
+	h.ExternalID = externalID
 	return h
 }
 

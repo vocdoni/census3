@@ -6,6 +6,7 @@ import (
 	"github.com/vocdoni/census3/census"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/queue"
+	"github.com/vocdoni/census3/service"
 	"github.com/vocdoni/census3/state"
 	storagelayer "go.vocdoni.io/dvote/data"
 	"go.vocdoni.io/dvote/data/downloader"
@@ -22,25 +23,28 @@ type Census3APIConf struct {
 	DataDir       string
 	GroupKey      string
 	Web3Providers state.Web3Providers
+	ExtProviders  map[state.TokenType]service.HolderProvider
 }
 
 type census3API struct {
-	conf       Census3APIConf
-	db         *db.DB
-	endpoint   *api.API
-	censusDB   *census.CensusDB
-	queue      *queue.BackgroundQueue
-	w3p        state.Web3Providers
-	storage    storagelayer.Storage
-	downloader *downloader.Downloader
+	conf         Census3APIConf
+	db           *db.DB
+	endpoint     *api.API
+	censusDB     *census.CensusDB
+	queue        *queue.BackgroundQueue
+	w3p          state.Web3Providers
+	storage      storagelayer.Storage
+	downloader   *downloader.Downloader
+	extProviders map[state.TokenType]service.HolderProvider
 }
 
 func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 	newAPI := &census3API{
-		conf:  conf,
-		db:    db,
-		w3p:   conf.Web3Providers,
-		queue: queue.NewBackgroundQueue(),
+		conf:         conf,
+		db:           db,
+		w3p:          conf.Web3Providers,
+		queue:        queue.NewBackgroundQueue(),
+		extProviders: conf.ExtProviders,
 	}
 	// get the current chainID
 	log.Infow("starting API", "chainID-web3Providers", conf.Web3Providers)

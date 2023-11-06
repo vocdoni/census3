@@ -26,6 +26,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 // AragonWrappedANTTokenContractMetaData contains all meta data concerning the AragonWrappedANTTokenContract contract.
@@ -134,11 +135,11 @@ func NewAragonWrappedANTTokenContractFilterer(address common.Address, filterer b
 
 // bindAragonWrappedANTTokenContract binds a generic wrapper to an already deployed contract.
 func bindAragonWrappedANTTokenContract(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(AragonWrappedANTTokenContractABI))
+	parsed, err := AragonWrappedANTTokenContractMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -185,6 +186,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractTransactorRaw
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) AllowRecoverability(opts *bind.CallOpts, _token common.Address) (bool, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "allowRecoverability", _token)
+
 	if err != nil {
 		return *new(bool), err
 	}
@@ -192,6 +194,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Allow
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
+
 }
 
 // AllowRecoverability is a free data retrieval call binding the contract method 0x7e7db6e1.
@@ -214,6 +217,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Allowance(opts *bind.CallOpts, arg0 common.Address, arg1 common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "allowance", arg0, arg1)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -221,6 +225,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Allow
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // Allowance is a free data retrieval call binding the contract method 0xdd62ed3e.
@@ -243,6 +248,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) AppId(opts *bind.CallOpts) ([32]byte, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "appId")
+
 	if err != nil {
 		return *new([32]byte), err
 	}
@@ -250,6 +256,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) AppId
 	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
 
 	return out0, err
+
 }
 
 // AppId is a free data retrieval call binding the contract method 0x80afdea8.
@@ -272,6 +279,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) BalanceOf(opts *bind.CallOpts, _owner common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "balanceOf", _owner)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -279,6 +287,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Balan
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
@@ -301,6 +310,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) BalanceOfAt(opts *bind.CallOpts, _owner common.Address, _blockNumber *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "balanceOfAt", _owner, _blockNumber)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -308,6 +318,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Balan
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // BalanceOfAt is a free data retrieval call binding the contract method 0x4ee2cd7e.
@@ -330,6 +341,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) CanPerform(opts *bind.CallOpts, _sender common.Address, _role [32]byte, _params []*big.Int) (bool, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "canPerform", _sender, _role, _params)
+
 	if err != nil {
 		return *new(bool), err
 	}
@@ -337,6 +349,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) CanPe
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
+
 }
 
 // CanPerform is a free data retrieval call binding the contract method 0xa1658fad.
@@ -359,6 +372,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Decimals(opts *bind.CallOpts) (uint8, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "decimals")
+
 	if err != nil {
 		return *new(uint8), err
 	}
@@ -366,6 +380,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Decim
 	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
 
 	return out0, err
+
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
@@ -388,6 +403,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) DepositedToken(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "depositedToken")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -395,6 +411,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Depos
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // DepositedToken is a free data retrieval call binding the contract method 0xdad9b086.
@@ -417,6 +434,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) GetEVMScriptExecutor(opts *bind.CallOpts, _script []byte) (common.Address, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "getEVMScriptExecutor", _script)
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -424,6 +442,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) GetEV
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // GetEVMScriptExecutor is a free data retrieval call binding the contract method 0x2914b9bd.
@@ -446,6 +465,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) GetEVMScriptRegistry(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "getEVMScriptRegistry")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -453,6 +473,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) GetEV
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // GetEVMScriptRegistry is a free data retrieval call binding the contract method 0xa479e508.
@@ -475,6 +496,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) GetInitializationBlock(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "getInitializationBlock")
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -482,6 +504,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) GetIn
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // GetInitializationBlock is a free data retrieval call binding the contract method 0x8b3dd749.
@@ -504,6 +527,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) GetRecoveryVault(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "getRecoveryVault")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -511,6 +535,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) GetRe
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // GetRecoveryVault is a free data retrieval call binding the contract method 0x32f0a3b5.
@@ -533,6 +558,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) HasInitialized(opts *bind.CallOpts) (bool, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "hasInitialized")
+
 	if err != nil {
 		return *new(bool), err
 	}
@@ -540,6 +566,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) HasIn
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
+
 }
 
 // HasInitialized is a free data retrieval call binding the contract method 0x0803fac0.
@@ -562,6 +589,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) IsPetrified(opts *bind.CallOpts) (bool, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "isPetrified")
+
 	if err != nil {
 		return *new(bool), err
 	}
@@ -569,6 +597,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) IsPet
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
+
 }
 
 // IsPetrified is a free data retrieval call binding the contract method 0xde4796ed.
@@ -591,6 +620,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Kernel(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "kernel")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -598,6 +628,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Kerne
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // Kernel is a free data retrieval call binding the contract method 0xd4aae0c4.
@@ -620,6 +651,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Name(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "name")
+
 	if err != nil {
 		return *new(string), err
 	}
@@ -627,6 +659,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Name(
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
+
 }
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
@@ -649,6 +682,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Symbol(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "symbol")
+
 	if err != nil {
 		return *new(string), err
 	}
@@ -656,6 +690,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Symbo
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
+
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
@@ -678,6 +713,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) TotalSupply(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "totalSupply")
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -685,6 +721,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Total
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
@@ -707,6 +744,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCallerSession
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) TotalSupplyAt(opts *bind.CallOpts, _blockNumber *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _AragonWrappedANTTokenContract.contract.Call(opts, &out, "totalSupplyAt", _blockNumber)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -714,6 +752,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractCaller) Total
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // TotalSupplyAt is a free data retrieval call binding the contract method 0x981b24d0.
@@ -956,6 +995,7 @@ type AragonWrappedANTTokenContractApproval struct {
 //
 // Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) FilterApproval(opts *bind.FilterOpts, owner []common.Address, spender []common.Address) (*AragonWrappedANTTokenContractApprovalIterator, error) {
+
 	var ownerRule []interface{}
 	for _, ownerItem := range owner {
 		ownerRule = append(ownerRule, ownerItem)
@@ -976,6 +1016,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) Fil
 //
 // Solidity: event Approval(address indexed owner, address indexed spender, uint256 value)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) WatchApproval(opts *bind.WatchOpts, sink chan<- *AragonWrappedANTTokenContractApproval, owner []common.Address, spender []common.Address) (event.Subscription, error) {
+
 	var ownerRule []interface{}
 	for _, ownerItem := range owner {
 		ownerRule = append(ownerRule, ownerItem)
@@ -1107,6 +1148,7 @@ type AragonWrappedANTTokenContractDeposit struct {
 //
 // Solidity: event Deposit(address indexed entity, uint256 amount)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) FilterDeposit(opts *bind.FilterOpts, entity []common.Address) (*AragonWrappedANTTokenContractDepositIterator, error) {
+
 	var entityRule []interface{}
 	for _, entityItem := range entity {
 		entityRule = append(entityRule, entityItem)
@@ -1123,6 +1165,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) Fil
 //
 // Solidity: event Deposit(address indexed entity, uint256 amount)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) WatchDeposit(opts *bind.WatchOpts, sink chan<- *AragonWrappedANTTokenContractDeposit, entity []common.Address) (event.Subscription, error) {
+
 	var entityRule []interface{}
 	for _, entityItem := range entity {
 		entityRule = append(entityRule, entityItem)
@@ -1251,6 +1294,7 @@ type AragonWrappedANTTokenContractRecoverToVault struct {
 //
 // Solidity: event RecoverToVault(address indexed vault, address indexed token, uint256 amount)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) FilterRecoverToVault(opts *bind.FilterOpts, vault []common.Address, token []common.Address) (*AragonWrappedANTTokenContractRecoverToVaultIterator, error) {
+
 	var vaultRule []interface{}
 	for _, vaultItem := range vault {
 		vaultRule = append(vaultRule, vaultItem)
@@ -1271,6 +1315,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) Fil
 //
 // Solidity: event RecoverToVault(address indexed vault, address indexed token, uint256 amount)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) WatchRecoverToVault(opts *bind.WatchOpts, sink chan<- *AragonWrappedANTTokenContractRecoverToVault, vault []common.Address, token []common.Address) (event.Subscription, error) {
+
 	var vaultRule []interface{}
 	for _, vaultItem := range vault {
 		vaultRule = append(vaultRule, vaultItem)
@@ -1404,6 +1449,7 @@ type AragonWrappedANTTokenContractScriptResult struct {
 //
 // Solidity: event ScriptResult(address indexed executor, bytes script, bytes input, bytes returnData)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) FilterScriptResult(opts *bind.FilterOpts, executor []common.Address) (*AragonWrappedANTTokenContractScriptResultIterator, error) {
+
 	var executorRule []interface{}
 	for _, executorItem := range executor {
 		executorRule = append(executorRule, executorItem)
@@ -1420,6 +1466,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) Fil
 //
 // Solidity: event ScriptResult(address indexed executor, bytes script, bytes input, bytes returnData)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) WatchScriptResult(opts *bind.WatchOpts, sink chan<- *AragonWrappedANTTokenContractScriptResult, executor []common.Address) (event.Subscription, error) {
+
 	var executorRule []interface{}
 	for _, executorItem := range executor {
 		executorRule = append(executorRule, executorItem)
@@ -1548,6 +1595,7 @@ type AragonWrappedANTTokenContractTransfer struct {
 //
 // Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) FilterTransfer(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*AragonWrappedANTTokenContractTransferIterator, error) {
+
 	var fromRule []interface{}
 	for _, fromItem := range from {
 		fromRule = append(fromRule, fromItem)
@@ -1568,6 +1616,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) Fil
 //
 // Solidity: event Transfer(address indexed from, address indexed to, uint256 value)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) WatchTransfer(opts *bind.WatchOpts, sink chan<- *AragonWrappedANTTokenContractTransfer, from []common.Address, to []common.Address) (event.Subscription, error) {
+
 	var fromRule []interface{}
 	for _, fromItem := range from {
 		fromRule = append(fromRule, fromItem)
@@ -1699,6 +1748,7 @@ type AragonWrappedANTTokenContractWithdrawal struct {
 //
 // Solidity: event Withdrawal(address indexed entity, uint256 amount)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) FilterWithdrawal(opts *bind.FilterOpts, entity []common.Address) (*AragonWrappedANTTokenContractWithdrawalIterator, error) {
+
 	var entityRule []interface{}
 	for _, entityItem := range entity {
 		entityRule = append(entityRule, entityItem)
@@ -1715,6 +1765,7 @@ func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) Fil
 //
 // Solidity: event Withdrawal(address indexed entity, uint256 amount)
 func (_AragonWrappedANTTokenContract *AragonWrappedANTTokenContractFilterer) WatchWithdrawal(opts *bind.WatchOpts, sink chan<- *AragonWrappedANTTokenContractWithdrawal, entity []common.Address) (event.Subscription, error) {
+
 	var entityRule []interface{}
 	for _, entityItem := range entity {
 		entityRule = append(entityRule, entityItem)

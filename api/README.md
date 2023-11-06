@@ -77,6 +77,7 @@ List of already added tokens.
             "symbol": "wANT",
             "tags": "testTag1,testTag2",
             "chainID": 1,
+            "externalID": "", // used by POAP contracts
             "chainAddress": "eth:0x1234" 
         }
     ],
@@ -89,6 +90,7 @@ List of already added tokens.
 ```
 
 > If `tags` is empty, it will be ommited.
+> If `externalID` is empty, it will be ommited.
 
 - ⚠️ errors:
 
@@ -107,8 +109,13 @@ List the supported token types.
 ```json
 {
     "supportedTypes": [
-        "erc20", "erc721", "erc777", 
-        "erc1155", "nation3", "wANT"
+        "erc20", 
+        "erc721", 
+        "erc777", 
+        "erc1155", 
+        "nation3", 
+        "wANT", 
+        "poap"
     ]
 }
 ```
@@ -129,17 +136,19 @@ Triggers a new scan for the provided token, starting from the defined block.
 ```json
 {
     "ID": "0x1234",
-    "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
+    "type": "erc20|erc721|erc777|erc1155|nation3|wANT|poap",
     "tags": "testTag1,testTag2",
-    "chainID": 1
+    "chainID": 1,
+    "externalID": "" // id for external holders providers
 }
 ```
 
 > `tags` attribute is *optional*.
+> `externalID` attribute is *optional*.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed token information` | 4000 | 
 | 409 | `token already created` | 4009 | 
@@ -148,8 +157,8 @@ Triggers a new scan for the provided token, starting from the defined block.
 | 500 | `error getting token information` | 5004 | 
 | 500 | `error initialising web3 client` | 5019 | 
 
-### GET `/tokens/{tokenID}?chainID={chainID}`
-Returns the information about the token referenced by the provided ID.
+### GET `/tokens/{tokenID}?chainID={chainID}&externalID={externalID}`
+Returns the information about the token referenced by the provided ID and chain ID, the external ID is optional.
 
 - 📥 response:
 
@@ -170,11 +179,13 @@ Returns the information about the token referenced by the provided ID.
     "defaultStrategy": 1,
     "tags": "testTag1,testTag2",
     "chainID": 1,
+    "externalID": "",
     "chainAddress": "eth:0x1234" 
 }
 ```
 
 > If `tags` is empty, it will be ommited.
+> If `externalID` is empty, it will be ommited.
 
 - ⚠️ errors:
 
@@ -236,7 +247,8 @@ Returns the ID's list of the strategies registered.
                 "MON": {
                     "ID": "0x1234",
                     "chainID": 5,
-                    "chainAddress": "gor:0x1234" 
+                    "chainAddress": "gor:0x1234",
+                    "externalID": "mon_id_on_external_holder_provider"
                 }
             }
         },
@@ -272,7 +284,8 @@ Returns the ID's list of the strategies registered.
                 "MON": {
                     "ID": "0x1234",
                     "chainID": 5,
-                    "chainAddress": "gor:0x1234"
+                    "chainAddress": "gor:0x1234",
+                    "externalID": "mon_id_on_external_holder_provider"
                 },
                 "ANT": {
                     "ID": "0x1234",
@@ -408,11 +421,13 @@ Returns the information of the strategy related to the provided ID.
     "ID": 4,
     "alias": "strategy_alias",
     "predicate": "MON AND (ANT OR USDC)",
+    "uri": "ipfs://...",
     "tokens": {
         "MON": {
             "ID": "0x1234",
             "chainID": 5,
-            "chainAddress": "gor:0x1234"
+            "chainAddress": "gor:0x1234",
+            "externalID": "mon_id_on_external_holder_provider"
         },
         "ANT": {
             "ID": "0x1234",
@@ -439,7 +454,7 @@ Returns the information of the strategy related to the provided ID.
 | 500 | `error getting strategy information` | 5007 | 
 | 500 | `error encoding strategy info` | 5015 | 
 
-### GET `/strategies/token/{tokenID}`
+### GET `/strategies/token/{tokenID}?chainID={chainID}&externalID={externalID}`
 Returns ID's of the already created strategies including the `tokenAddress` provided.
 
 - 📥 response:
@@ -467,7 +482,8 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
                 "MON": {
                     "ID": "0x1234",
                     "chainID": 5,
-                    "chainAddress": "gor:0x1234"
+                    "chainAddress": "gor:0x1234",
+                    "externalID": "mon_id_on_external_holder_provider"
                 },
                 "ANT": {
                     "ID": "0x1234",

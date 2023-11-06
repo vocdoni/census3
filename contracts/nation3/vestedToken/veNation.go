@@ -26,6 +26,7 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
+	_ = abi.ConvertType
 )
 
 // Nation3VestedTokenContractMetaData contains all meta data concerning the Nation3VestedTokenContract contract.
@@ -134,11 +135,11 @@ func NewNation3VestedTokenContractFilterer(address common.Address, filterer bind
 
 // bindNation3VestedTokenContract binds a generic wrapper to an already deployed contract.
 func bindNation3VestedTokenContract(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := abi.JSON(strings.NewReader(Nation3VestedTokenContractABI))
+	parsed, err := Nation3VestedTokenContractMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
@@ -185,6 +186,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractTransactorRaw) Tran
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Admin(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "admin")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -192,6 +194,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Admin(opts 
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // Admin is a free data retrieval call binding the contract method 0xf851a440.
@@ -214,6 +217,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Admi
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) BalanceOf(opts *bind.CallOpts, addr common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "balanceOf", addr)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -221,6 +225,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) BalanceOf(o
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // BalanceOf is a free data retrieval call binding the contract method 0x70a08231.
@@ -243,6 +248,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Bala
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) BalanceOf0(opts *bind.CallOpts, addr common.Address, _t *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "balanceOf0", addr, _t)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -250,6 +256,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) BalanceOf0(
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // BalanceOf0 is a free data retrieval call binding the contract method 0x00fdd58e.
@@ -272,6 +279,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Bala
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) BalanceOfAt(opts *bind.CallOpts, addr common.Address, _block *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "balanceOfAt", addr, _block)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -279,6 +287,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) BalanceOfAt
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // BalanceOfAt is a free data retrieval call binding the contract method 0x4ee2cd7e.
@@ -301,6 +310,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Bala
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Controller(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "controller")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -308,6 +318,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Controller(
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // Controller is a free data retrieval call binding the contract method 0xf77c4791.
@@ -330,6 +341,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Cont
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Decimals(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "decimals")
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -337,6 +349,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Decimals(op
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // Decimals is a free data retrieval call binding the contract method 0x313ce567.
@@ -359,6 +372,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Deci
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) DepositsLocked(opts *bind.CallOpts) (bool, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "depositsLocked")
+
 	if err != nil {
 		return *new(bool), err
 	}
@@ -366,6 +380,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) DepositsLoc
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
+
 }
 
 // DepositsLocked is a free data retrieval call binding the contract method 0xf60ab774.
@@ -388,6 +403,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Depo
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Epoch(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "epoch")
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -395,6 +411,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Epoch(opts 
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // Epoch is a free data retrieval call binding the contract method 0x900cf0cf.
@@ -417,6 +434,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Epoc
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) FutureAdmin(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "future_admin")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -424,6 +442,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) FutureAdmin
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // FutureAdmin is a free data retrieval call binding the contract method 0x17f7182a.
@@ -446,6 +465,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Futu
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) FutureSmartWalletChecker(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "future_smart_wallet_checker")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -453,6 +473,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) FutureSmart
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // FutureSmartWalletChecker is a free data retrieval call binding the contract method 0x8ff36fd1.
@@ -475,6 +496,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Futu
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) GetLastUserSlope(opts *bind.CallOpts, addr common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "get_last_user_slope", addr)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -482,6 +504,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) GetLastUser
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // GetLastUserSlope is a free data retrieval call binding the contract method 0x7c74a174.
@@ -504,8 +527,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) GetL
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Locked(opts *bind.CallOpts, arg0 common.Address) (struct {
 	Amount *big.Int
 	End    *big.Int
-}, error,
-) {
+}, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "locked", arg0)
 
@@ -521,6 +543,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Locked(opts
 	outstruct.End = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
+
 }
 
 // Locked is a free data retrieval call binding the contract method 0xcbf9fe5f.
@@ -529,8 +552,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Locked(opts
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractSession) Locked(arg0 common.Address) (struct {
 	Amount *big.Int
 	End    *big.Int
-}, error,
-) {
+}, error) {
 	return _Nation3VestedTokenContract.Contract.Locked(&_Nation3VestedTokenContract.CallOpts, arg0)
 }
 
@@ -540,8 +562,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractSession) Locked(arg
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Locked(arg0 common.Address) (struct {
 	Amount *big.Int
 	End    *big.Int
-}, error,
-) {
+}, error) {
 	return _Nation3VestedTokenContract.Contract.Locked(&_Nation3VestedTokenContract.CallOpts, arg0)
 }
 
@@ -551,6 +572,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Lock
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) LockedEnd(opts *bind.CallOpts, _addr common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "locked__end", _addr)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -558,6 +580,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) LockedEnd(o
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // LockedEnd is a free data retrieval call binding the contract method 0xadc63589.
@@ -580,6 +603,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Lock
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Name(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "name")
+
 	if err != nil {
 		return *new(string), err
 	}
@@ -587,6 +611,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Name(opts *
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
+
 }
 
 // Name is a free data retrieval call binding the contract method 0x06fdde03.
@@ -611,8 +636,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) PointHistor
 	Slope *big.Int
 	Ts    *big.Int
 	Blk   *big.Int
-}, error,
-) {
+}, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "point_history", arg0)
 
@@ -632,6 +656,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) PointHistor
 	outstruct.Blk = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
+
 }
 
 // PointHistory is a free data retrieval call binding the contract method 0xd1febfb9.
@@ -642,8 +667,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractSession) PointHisto
 	Slope *big.Int
 	Ts    *big.Int
 	Blk   *big.Int
-}, error,
-) {
+}, error) {
 	return _Nation3VestedTokenContract.Contract.PointHistory(&_Nation3VestedTokenContract.CallOpts, arg0)
 }
 
@@ -655,8 +679,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Poin
 	Slope *big.Int
 	Ts    *big.Int
 	Blk   *big.Int
-}, error,
-) {
+}, error) {
 	return _Nation3VestedTokenContract.Contract.PointHistory(&_Nation3VestedTokenContract.CallOpts, arg0)
 }
 
@@ -666,6 +689,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Poin
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) SlopeChanges(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "slope_changes", arg0)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -673,6 +697,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) SlopeChange
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // SlopeChanges is a free data retrieval call binding the contract method 0x71197484.
@@ -695,6 +720,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Slop
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) SmartWalletChecker(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "smart_wallet_checker")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -702,6 +728,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) SmartWallet
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // SmartWalletChecker is a free data retrieval call binding the contract method 0x7175d4f7.
@@ -724,6 +751,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Smar
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Supply(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "supply")
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -731,6 +759,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Supply(opts
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // Supply is a free data retrieval call binding the contract method 0x047fc9aa.
@@ -753,6 +782,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Supp
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Symbol(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "symbol")
+
 	if err != nil {
 		return *new(string), err
 	}
@@ -760,6 +790,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Symbol(opts
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
+
 }
 
 // Symbol is a free data retrieval call binding the contract method 0x95d89b41.
@@ -782,6 +813,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Symb
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Token(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "token")
+
 	if err != nil {
 		return *new(common.Address), err
 	}
@@ -789,6 +821,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Token(opts 
 	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 
 	return out0, err
+
 }
 
 // Token is a free data retrieval call binding the contract method 0xfc0c546a.
@@ -811,6 +844,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Toke
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) TotalSupply(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "totalSupply")
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -818,6 +852,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) TotalSupply
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // TotalSupply is a free data retrieval call binding the contract method 0x18160ddd.
@@ -840,6 +875,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Tota
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) TotalSupply0(opts *bind.CallOpts, t *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "totalSupply0", t)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -847,6 +883,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) TotalSupply
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // TotalSupply0 is a free data retrieval call binding the contract method 0xbd85b039.
@@ -869,6 +906,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Tota
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) TotalSupplyAt(opts *bind.CallOpts, _block *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "totalSupplyAt", _block)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -876,6 +914,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) TotalSupply
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // TotalSupplyAt is a free data retrieval call binding the contract method 0x981b24d0.
@@ -898,6 +937,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Tota
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) TransfersEnabled(opts *bind.CallOpts) (bool, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "transfersEnabled")
+
 	if err != nil {
 		return *new(bool), err
 	}
@@ -905,6 +945,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) TransfersEn
 	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
 
 	return out0, err
+
 }
 
 // TransfersEnabled is a free data retrieval call binding the contract method 0xbef97c87.
@@ -927,6 +968,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) Tran
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) UserPointEpoch(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "user_point_epoch", arg0)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -934,6 +976,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) UserPointEp
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // UserPointEpoch is a free data retrieval call binding the contract method 0x010ae757.
@@ -958,8 +1001,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) UserPointHi
 	Slope *big.Int
 	Ts    *big.Int
 	Blk   *big.Int
-}, error,
-) {
+}, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "user_point_history", arg0, arg1)
 
@@ -979,6 +1021,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) UserPointHi
 	outstruct.Blk = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
+
 }
 
 // UserPointHistory is a free data retrieval call binding the contract method 0x28d09d47.
@@ -989,8 +1032,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractSession) UserPointH
 	Slope *big.Int
 	Ts    *big.Int
 	Blk   *big.Int
-}, error,
-) {
+}, error) {
 	return _Nation3VestedTokenContract.Contract.UserPointHistory(&_Nation3VestedTokenContract.CallOpts, arg0, arg1)
 }
 
@@ -1002,8 +1044,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) User
 	Slope *big.Int
 	Ts    *big.Int
 	Blk   *big.Int
-}, error,
-) {
+}, error) {
 	return _Nation3VestedTokenContract.Contract.UserPointHistory(&_Nation3VestedTokenContract.CallOpts, arg0, arg1)
 }
 
@@ -1013,6 +1054,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) User
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) UserPointHistoryTs(opts *bind.CallOpts, _addr common.Address, _idx *big.Int) (*big.Int, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "user_point_history__ts", _addr, _idx)
+
 	if err != nil {
 		return *new(*big.Int), err
 	}
@@ -1020,6 +1062,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) UserPointHi
 	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 
 	return out0, err
+
 }
 
 // UserPointHistoryTs is a free data retrieval call binding the contract method 0xda020a18.
@@ -1042,6 +1085,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCallerSession) User
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Version(opts *bind.CallOpts) (string, error) {
 	var out []interface{}
 	err := _Nation3VestedTokenContract.contract.Call(opts, &out, "version")
+
 	if err != nil {
 		return *new(string), err
 	}
@@ -1049,6 +1093,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractCaller) Version(opt
 	out0 := *abi.ConvertType(out[0], new(string)).(*string)
 
 	return out0, err
+
 }
 
 // Version is a free data retrieval call binding the contract method 0x54fd4d50.
@@ -1394,6 +1439,7 @@ type Nation3VestedTokenContractApplyOwnership struct {
 //
 // Solidity: event ApplyOwnership(address admin)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterApplyOwnership(opts *bind.FilterOpts) (*Nation3VestedTokenContractApplyOwnershipIterator, error) {
+
 	logs, sub, err := _Nation3VestedTokenContract.contract.FilterLogs(opts, "ApplyOwnership")
 	if err != nil {
 		return nil, err
@@ -1405,6 +1451,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterApp
 //
 // Solidity: event ApplyOwnership(address admin)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) WatchApplyOwnership(opts *bind.WatchOpts, sink chan<- *Nation3VestedTokenContractApplyOwnership) (event.Subscription, error) {
+
 	logs, sub, err := _Nation3VestedTokenContract.contract.WatchLogs(opts, "ApplyOwnership")
 	if err != nil {
 		return nil, err
@@ -1526,6 +1573,7 @@ type Nation3VestedTokenContractCommitOwnership struct {
 //
 // Solidity: event CommitOwnership(address admin)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterCommitOwnership(opts *bind.FilterOpts) (*Nation3VestedTokenContractCommitOwnershipIterator, error) {
+
 	logs, sub, err := _Nation3VestedTokenContract.contract.FilterLogs(opts, "CommitOwnership")
 	if err != nil {
 		return nil, err
@@ -1537,6 +1585,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterCom
 //
 // Solidity: event CommitOwnership(address admin)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) WatchCommitOwnership(opts *bind.WatchOpts, sink chan<- *Nation3VestedTokenContractCommitOwnership) (event.Subscription, error) {
+
 	logs, sub, err := _Nation3VestedTokenContract.contract.WatchLogs(opts, "CommitOwnership")
 	if err != nil {
 		return nil, err
@@ -1662,6 +1711,7 @@ type Nation3VestedTokenContractDeposit struct {
 //
 // Solidity: event Deposit(address indexed provider, uint256 value, uint256 indexed locktime, int128 type, uint256 ts)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterDeposit(opts *bind.FilterOpts, provider []common.Address, locktime []*big.Int) (*Nation3VestedTokenContractDepositIterator, error) {
+
 	var providerRule []interface{}
 	for _, providerItem := range provider {
 		providerRule = append(providerRule, providerItem)
@@ -1683,6 +1733,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterDep
 //
 // Solidity: event Deposit(address indexed provider, uint256 value, uint256 indexed locktime, int128 type, uint256 ts)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) WatchDeposit(opts *bind.WatchOpts, sink chan<- *Nation3VestedTokenContractDeposit, provider []common.Address, locktime []*big.Int) (event.Subscription, error) {
+
 	var providerRule []interface{}
 	for _, providerItem := range provider {
 		providerRule = append(providerRule, providerItem)
@@ -1814,6 +1865,7 @@ type Nation3VestedTokenContractDepositsLockedChange struct {
 //
 // Solidity: event DepositsLockedChange(bool status)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterDepositsLockedChange(opts *bind.FilterOpts) (*Nation3VestedTokenContractDepositsLockedChangeIterator, error) {
+
 	logs, sub, err := _Nation3VestedTokenContract.contract.FilterLogs(opts, "DepositsLockedChange")
 	if err != nil {
 		return nil, err
@@ -1825,6 +1877,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterDep
 //
 // Solidity: event DepositsLockedChange(bool status)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) WatchDepositsLockedChange(opts *bind.WatchOpts, sink chan<- *Nation3VestedTokenContractDepositsLockedChange) (event.Subscription, error) {
+
 	logs, sub, err := _Nation3VestedTokenContract.contract.WatchLogs(opts, "DepositsLockedChange")
 	if err != nil {
 		return nil, err
@@ -1947,6 +2000,7 @@ type Nation3VestedTokenContractSupply struct {
 //
 // Solidity: event Supply(uint256 prevSupply, uint256 supply)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterSupply(opts *bind.FilterOpts) (*Nation3VestedTokenContractSupplyIterator, error) {
+
 	logs, sub, err := _Nation3VestedTokenContract.contract.FilterLogs(opts, "Supply")
 	if err != nil {
 		return nil, err
@@ -1958,6 +2012,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterSup
 //
 // Solidity: event Supply(uint256 prevSupply, uint256 supply)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) WatchSupply(opts *bind.WatchOpts, sink chan<- *Nation3VestedTokenContractSupply) (event.Subscription, error) {
+
 	logs, sub, err := _Nation3VestedTokenContract.contract.WatchLogs(opts, "Supply")
 	if err != nil {
 		return nil, err
@@ -2081,6 +2136,7 @@ type Nation3VestedTokenContractWithdraw struct {
 //
 // Solidity: event Withdraw(address indexed provider, uint256 value, uint256 ts)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterWithdraw(opts *bind.FilterOpts, provider []common.Address) (*Nation3VestedTokenContractWithdrawIterator, error) {
+
 	var providerRule []interface{}
 	for _, providerItem := range provider {
 		providerRule = append(providerRule, providerItem)
@@ -2097,6 +2153,7 @@ func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) FilterWit
 //
 // Solidity: event Withdraw(address indexed provider, uint256 value, uint256 ts)
 func (_Nation3VestedTokenContract *Nation3VestedTokenContractFilterer) WatchWithdraw(opts *bind.WatchOpts, sink chan<- *Nation3VestedTokenContractWithdraw, provider []common.Address) (event.Subscription, error) {
+
 	var providerRule []interface{}
 	for _, providerItem := range provider {
 		providerRule = append(providerRule, providerItem)

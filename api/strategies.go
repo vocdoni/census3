@@ -141,6 +141,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 				ChainID:      strategyToken.ChainID,
 				MinBalance:   new(big.Int).SetBytes(strategyToken.MinBalance).String(),
 				ChainAddress: strategyToken.ChainAddress,
+				ExternalID:   strategyToken.ExternalID,
 			}
 		}
 		strategiesResponse.Strategies = append(strategiesResponse.Strategies, strategyResponse)
@@ -224,6 +225,8 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 			StrategyID: uint64(strategyID),
 			TokenID:    common.HexToAddress(tokenData.ID).Bytes(),
 			MinBalance: minBalance.Bytes(),
+			ChainID:    tokenData.ChainID,
+			ExternalID: tokenData.ExternalID,
 		}); err != nil {
 			return ErrCantCreateStrategy.WithErr(err)
 		}
@@ -346,6 +349,7 @@ func (capi *census3API) importStrategyDump(dump []byte) (uint64, error) {
 			TokenID:    common.HexToAddress(token.ID).Bytes(),
 			MinBalance: minBalance.Bytes(),
 			ChainID:    token.ChainID,
+			ExternalID: token.ExternalID,
 		}); err != nil {
 			return 0, ErrCantCreateStrategy.WithErr(err)
 		}
@@ -465,6 +469,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 			ChainAddress: tokenData.ChainAddress,
 			MinBalance:   new(big.Int).SetBytes(tokenData.MinBalance).String(),
 			ChainID:      tokenData.ChainID,
+			ExternalID:   tokenData.ExternalID,
 		}
 	}
 	res, err := json.Marshal(strategy)
@@ -479,10 +484,30 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 // if the provided ID is wrong or empty, a 204 response if the token has not any
 // associated strategy or a 500 error if something fails.
 func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get contract address from the tokenID query param and decode check if
+	// it is provided, if not return an error
+	strAddress := ctx.URLParam("tokenID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	address := common.HexToAddress(strAddress)
+	// get chainID from query params and decode it as integer, if it's not
+	// provided or it's not a valid integer return an error
+	strChainID := ctx.Request.URL.Query().Get("chainID")
+	if strChainID == "" {
+		return ErrMalformedChainID.With("chainID is required")
+	}
+	chainID, err := strconv.Atoi(strChainID)
+	if err != nil {
+		return ErrMalformedChainID.WithErr(err)
+	} else if chainID < 0 {
+		return ErrMalformedChainID.With("chainID must be a positive number")
+	}
+	// get externalID from query params and decode it as string, it is optional
+	// so if it's not provided continue
+	externalID := ctx.Request.URL.Query().Get("externalID")
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokensStrategyTimeout)
 	defer cancel()
-	// get the tokenID provided
-	tokenID := ctx.URLParam("tokenID")
 	// create db transaction
 	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
 	if err != nil {
@@ -490,7 +515,12 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 	}
 	qtx := capi.db.QueriesRO.WithTx(tx)
 	// get strategies associated to the token provided
-	rows, err := qtx.StrategiesByTokenID(internalCtx, common.HexToAddress(tokenID).Bytes())
+	rows, err := qtx.StrategiesByTokenIDAndChainIDAndExternalID(internalCtx,
+		queries.StrategiesByTokenIDAndChainIDAndExternalIDParams{
+			TokenID:    address.Bytes(),
+			ChainID:    uint64(chainID),
+			ExternalID: externalID,
+		})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNoStrategies.WithErr(err)
@@ -520,6 +550,7 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 				ChainAddress: strategyToken.ChainAddress,
 				ChainID:      strategyToken.ChainID,
 				MinBalance:   new(big.Int).SetBytes(strategyToken.MinBalance).String(),
+				ExternalID:   strategyToken.ExternalID,
 			}
 		}
 		strategies.Strategies = append(strategies.Strategies, strategyResponse)

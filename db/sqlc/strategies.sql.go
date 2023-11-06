@@ -30,10 +30,11 @@ INSERT INTO strategy_tokens (
     strategy_id,
     token_id,
     chain_id,
-    min_balance
+    min_balance,
+    external_id
 )
 VALUES (
-    ?, ?, ?, ?
+    ?, ?, ?, ?, ?
 )
 `
 
@@ -42,6 +43,7 @@ type CreateStrategyTokenParams struct {
 	TokenID    []byte
 	ChainID    uint64
 	MinBalance []byte
+	ExternalID string
 }
 
 func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTokenParams) (sql.Result, error) {
@@ -50,6 +52,7 @@ func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTok
 		arg.TokenID,
 		arg.ChainID,
 		arg.MinBalance,
+		arg.ExternalID,
 	)
 }
 
@@ -168,15 +171,21 @@ func (q *Queries) PrevStrategiesPage(ctx context.Context, arg PrevStrategiesPage
 	return items, nil
 }
 
-const strategiesByTokenID = `-- name: StrategiesByTokenID :many
+const strategiesByTokenIDAndChainIDAndExternalID = `-- name: StrategiesByTokenIDAndChainIDAndExternalID :many
 SELECT s.id, s.predicate, s.alias, s.uri FROM strategies s
 JOIN strategy_tokens st ON st.strategy_id = s.id
-WHERE st.token_id = ?
+WHERE st.token_id = ? AND st.chain_id = ? AND st.external_id = ?
 ORDER BY s.id
 `
 
-func (q *Queries) StrategiesByTokenID(ctx context.Context, tokenID []byte) ([]Strategy, error) {
-	rows, err := q.db.QueryContext(ctx, strategiesByTokenID, tokenID)
+type StrategiesByTokenIDAndChainIDAndExternalIDParams struct {
+	TokenID    []byte
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) StrategiesByTokenIDAndChainIDAndExternalID(ctx context.Context, arg StrategiesByTokenIDAndChainIDAndExternalIDParams) ([]Strategy, error) {
+	rows, err := q.db.QueryContext(ctx, strategiesByTokenIDAndChainIDAndExternalID, arg.TokenID, arg.ChainID, arg.ExternalID)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +231,7 @@ func (q *Queries) StrategyByID(ctx context.Context, id uint64) (Strategy, error)
 }
 
 const strategyTokens = `-- name: StrategyTokens :many
-SELECT strategy_id, token_id, min_balance, chain_id
+SELECT strategy_id, token_id, min_balance, chain_id, external_id
 FROM strategy_tokens
 ORDER BY strategy_id, token_id
 `
@@ -241,6 +250,7 @@ func (q *Queries) StrategyTokens(ctx context.Context) ([]StrategyToken, error) {
 			&i.TokenID,
 			&i.MinBalance,
 			&i.ChainID,
+			&i.ExternalID,
 		); err != nil {
 			return nil, err
 		}
@@ -256,7 +266,7 @@ func (q *Queries) StrategyTokens(ctx context.Context) ([]StrategyToken, error) {
 }
 
 const strategyTokensByStrategyID = `-- name: StrategyTokensByStrategyID :many
-SELECT st.token_id as id, st.min_balance, t.symbol, t.chain_address, t.chain_id
+SELECT st.token_id as id, st.min_balance, t.symbol, t.chain_address, t.chain_id, t.external_id
 FROM strategy_tokens st
 JOIN tokens t ON t.id = st.token_id
 WHERE strategy_id = ?
@@ -269,6 +279,7 @@ type StrategyTokensByStrategyIDRow struct {
 	Symbol       string
 	ChainAddress string
 	ChainID      uint64
+	ExternalID   string
 }
 
 func (q *Queries) StrategyTokensByStrategyID(ctx context.Context, strategyID uint64) ([]StrategyTokensByStrategyIDRow, error) {
@@ -286,6 +297,7 @@ func (q *Queries) StrategyTokensByStrategyID(ctx context.Context, strategyID uin
 			&i.Symbol,
 			&i.ChainAddress,
 			&i.ChainID,
+			&i.ExternalID,
 		); err != nil {
 			return nil, err
 		}

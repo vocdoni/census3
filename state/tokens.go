@@ -18,6 +18,7 @@ var TokenTypeStringMap = map[TokenType]string{
 	CONTRACT_TYPE_CUSTOM_NATION3_VENATION: "nation3",
 	CONTRACT_TYPE_CUSTOM_ARAGON_WANT:      "want",
 	CONTRACT_TYPE_ERC721:                  "erc721",
+	CONTRACT_TYPE_POAP:                    "poap",
 }
 
 var TokenTypeIntMap = map[string]TokenType{
@@ -29,6 +30,7 @@ var TokenTypeIntMap = map[string]TokenType{
 	"nation3":      CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
 	"want":         CONTRACT_TYPE_CUSTOM_ARAGON_WANT,
 	"erc721burned": CONTRACT_TYPE_ERC721_BURNED,
+	"poap":         CONTRACT_TYPE_POAP,
 }
 
 func (c TokenType) String() string {

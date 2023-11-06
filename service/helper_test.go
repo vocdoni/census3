@@ -41,6 +41,7 @@ var (
 		common.HexToAddress("0xa2E4D94c5923A8dd99c5792A7B0436474c54e1E1"): new(big.Int).SetUint64(2000000000000000000),
 		common.HexToAddress("0x2a4636A5a1138e35F7f93e81FA56d3c970BC6777"): new(big.Int).SetUint64(1000000000000000000),
 	}
+	NoEventID = new(big.Int).SetBytes([]byte{})
 )
 
 type TestDB struct {
@@ -65,7 +66,7 @@ func (testdb *TestDB) Close(t *testing.T) {
 }
 
 func testTokenParams(id, name, symbol string, creationBlock, decimals, typeID uint64,
-	totalSupply int64, synced bool, chainID uint64,
+	totalSupply int64, synced bool, chainID uint64, externalID string,
 ) queries.CreateTokenParams {
 	return queries.CreateTokenParams{
 		ID:            common.HexToAddress(id).Bytes(),
@@ -77,5 +78,6 @@ func testTokenParams(id, name, symbol string, creationBlock, decimals, typeID ui
 		TypeID:        typeID,
 		Synced:        synced,
 		ChainID:       chainID,
+		ExternalID:    externalID,
 	}
 }

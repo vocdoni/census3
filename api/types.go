@@ -19,10 +19,11 @@ type APIInfo struct {
 }
 
 type CreateTokenRequest struct {
-	ID      string `json:"ID"`
-	Type    string `json:"type"`
-	Tags    string `json:"tags"`
-	ChainID uint64 `json:"chainID"`
+	ID         string `json:"ID"`
+	Type       string `json:"type"`
+	Tags       string `json:"tags"`
+	ChainID    uint64 `json:"chainID"`
+	ExternalID string `json:"ExternalID"`
 }
 
 type GetTokenStatusResponse struct {
@@ -45,6 +46,7 @@ type GetTokenResponse struct {
 	Tags            string                  `json:"tags,omitempty"`
 	ChainID         uint64                  `json:"chainID"`
 	ChainAddress    string                  `json:"chainAddress"`
+	ExternalID      string                  `json:"externalID,omitempty"`
 }
 
 type GetTokensItem struct {
@@ -56,6 +58,7 @@ type GetTokensItem struct {
 	Tags         string `json:"tags,omitempty"`
 	ChainID      uint64 `json:"chainID"`
 	ChainAddress string `json:"chainAddress"`
+	ExternalID   string `json:"externalID,omitempty"`
 }
 
 type GetTokensResponse struct {
@@ -112,6 +115,7 @@ type StrategyToken struct {
 	ChainID      uint64 `json:"chainID"`
 	MinBalance   string `json:"minBalance"`
 	ChainAddress string `json:"chainAddress"`
+	ExternalID   string `json:"externalID,omitempty"`
 }
 
 type CreateStrategyRequest struct {

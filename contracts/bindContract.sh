@@ -13,3 +13,4 @@ abi './erc/erc777/ERC777.abi' ERC777Contract './erc/erc777/erc777.go'
 
 abi './nation3/vestedToken/veNation.abi' Nation3VestedTokenContract './nation3/vestedToken/veNation.go'
 abi './aragon/want/want.abi' AragonWrappedANTTokenContract './aragon/want/want.go'
+abi './poap/poap.abi' POAPContract './poap/poap.go'

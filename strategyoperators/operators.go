@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
-	"go.vocdoni.io/dvote/log"
 )
 
 // AND method returns a AND operator function that can be used in a strategy
@@ -216,7 +215,6 @@ func (op *StrategyOperators) orOperator(iter *lexer.Iteration[*StrategyIteration
 	// get information about the current operation
 	symbolA, dataA := iter.A()
 	symbolB, dataB := iter.B()
-	log.Infow("or", "a", symbolA, "b", symbolB, "dataA", dataA, "dataB", dataB)
 	// no results for any component from previous operation, so get both data
 	// from the database using an OR SQL query
 	if dataA == nil && dataB == nil {

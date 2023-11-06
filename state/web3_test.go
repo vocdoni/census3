@@ -218,7 +218,7 @@ func TestUpdateTokenHolders(t *testing.T) {
 	c := qt.New(t)
 
 	th := new(TokenHolders)
-	th = th.Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
+	th = th.Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5, "")
 
 	w3 := Web3{}
 	ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Second)
@@ -288,8 +288,8 @@ func Test_commitTokenHolders(t *testing.T) {
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
 
 	hc := HoldersCandidates(MonkeysHolders)
-	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5)
-	c.Assert(w.commitTokenHolders(th, hc, MonkeysCreationBlock+500), qt.IsNil)
+	th := new(TokenHolders).Init(MonkeysAddress, CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5, "")
+	c.Assert(w.commitTokenHolders(th, hc, MonkeysCreationBlock+1000), qt.IsNil)
 
 	c.Assert(th.LastBlock(), qt.Equals, MonkeysCreationBlock)
 	for addr, balance := range hc {

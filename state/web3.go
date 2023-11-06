@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 
 	want "github.com/vocdoni/census3/contracts/aragon/want"
 	erc1155 "github.com/vocdoni/census3/contracts/erc/erc1155"
@@ -16,6 +16,7 @@ import (
 	erc721 "github.com/vocdoni/census3/contracts/erc/erc721"
 	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
 	venation "github.com/vocdoni/census3/contracts/nation3/vestedToken"
+	poap "github.com/vocdoni/census3/contracts/poap"
 
 	eth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -23,11 +24,13 @@ import (
 )
 
 var (
-	ErrUnknownTokenType    = fmt.Errorf("unknown contract type")
-	ErrTokenData           = fmt.Errorf("unable to get token data")
-	ErrNoImplementedMethod = fmt.Errorf("this method is not implemented for this token type")
-	ErrWrongBalanceOfArgs  = fmt.Errorf("wrong number of arguments for balanceOf function")
-	ErrNoNewBlocks         = fmt.Errorf("no new blocks")
+	ErrUnknownTokenType                = fmt.Errorf("unknown contract type")
+	ErrTokenData                       = fmt.Errorf("unable to get token data")
+	ErrNoImplementedMethod             = fmt.Errorf("this method is not implemented for this token type")
+	ErrWrongBalanceOfArgs              = fmt.Errorf("wrong number of arguments for balanceOf function")
+	ErrNoNewBlocks                     = fmt.Errorf("no new blocks")
+	ErrTransferLogsNotSupported        = fmt.Errorf("transferLogs not supported for this token type")
+	ErrCalcPartialBalancesNotSupported = fmt.Errorf("calcPartialBalances not supported for this token type")
 )
 
 // Web3 holds a reference to a web3 client and a contract, as
@@ -59,12 +62,16 @@ func (w *Web3) Init(ctx context.Context, web3Endpoint string,
 		CONTRACT_TYPE_ERC1155,
 		CONTRACT_TYPE_ERC777,
 		CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
-		CONTRACT_TYPE_CUSTOM_ARAGON_WANT:
+		CONTRACT_TYPE_CUSTOM_ARAGON_WANT,
+		CONTRACT_TYPE_POAP:
 		w.contractType = contractType
 	default:
 		return ErrUnknownTokenType
 	}
 	w.contractAddress = contractAddress
+	if w.contractType == CONTRACT_TYPE_POAP {
+		w.contractAddress = common.HexToAddress(CONTRACT_POAP_ADDRESS)
+	}
 	if w.contract, err = w.NewContract(); err != nil {
 		return err
 	}
@@ -81,6 +88,8 @@ func (w *Web3) NewContract() (interface{}, error) {
 		return erc20.NewERC20Contract(w.contractAddress, w.client)
 	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		return erc721.NewERC721Contract(w.contractAddress, w.client)
+	case CONTRACT_TYPE_POAP:
+		return poap.NewPOAPContract(w.contractAddress, w.client)
 	case CONTRACT_TYPE_ERC1155:
 		return erc1155.NewERC1155Contract(w.contractAddress, w.client)
 	case CONTRACT_TYPE_ERC777:
@@ -102,6 +111,9 @@ func (w *Web3) TokenName() (string, error) {
 		return caller.Name(nil)
 	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
+		return caller.Name(nil)
+	case CONTRACT_TYPE_POAP:
+		caller := w.contract.(*poap.POAPContract).POAPContractCaller
 		return caller.Name(nil)
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
@@ -127,6 +139,8 @@ func (w *Web3) TokenSymbol() (string, error) {
 	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.Symbol(nil)
+	case CONTRACT_TYPE_POAP:
+		return CONTRACT_POAP_SYMBOL, nil
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.Symbol(nil)
@@ -148,7 +162,7 @@ func (w *Web3) TokenDecimals() (uint8, error) {
 	case CONTRACT_TYPE_ERC20:
 		caller := w.contract.(*erc20.ERC20Contract).ERC20ContractCaller
 		return caller.Decimals(nil)
-	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
+	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED, CONTRACT_TYPE_POAP:
 		return 0, nil
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
@@ -177,6 +191,9 @@ func (w *Web3) TokenTotalSupply() (*big.Int, error) {
 		return caller.TotalSupply(nil)
 	case CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
 		return nil, nil
+	case CONTRACT_TYPE_POAP:
+		caller := w.contract.(*poap.POAPContract).POAPContractCaller
+		return caller.TotalSupply(nil)
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
 		return caller.TotalSupply(nil)
@@ -233,6 +250,8 @@ func (w *Web3) TokenBalanceOf(tokenHolderAddress common.Address, args ...interfa
 		caller := w.contract.(*erc721.ERC721Contract).ERC721ContractCaller
 		return caller.BalanceOf(nil, tokenHolderAddress)
 	case CONTRACT_TYPE_ERC721_BURNED:
+		return nil, ErrNoImplementedMethod
+	case CONTRACT_TYPE_POAP:
 		return nil, ErrNoImplementedMethod
 	case CONTRACT_TYPE_ERC777:
 		caller := w.contract.(*erc777.ERC777Contract).ERC777ContractCaller
@@ -423,7 +442,7 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 // getTransferLogs function queries to the web3 endpoint for the transfer logs
 // of the token provided, that are included in the range of blocks defined by
 // the from block number provided to the following number of blocks given.
-func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
+func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]gethTypes.Log, error) {
 	// create the filter query
 	query := eth.FilterQuery{
 		Addresses: []common.Address{w.contractAddress},
@@ -432,8 +451,11 @@ func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
 	}
 	// set the topics to filter depending on the contract type
 	switch w.contractType {
-	case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721, CONTRACT_TYPE_ERC721_BURNED:
+	case CONTRACT_TYPE_ERC20, CONTRACT_TYPE_ERC777, CONTRACT_TYPE_ERC721,
+		CONTRACT_TYPE_ERC721_BURNED:
 		query.Topics = [][]common.Hash{{common.HexToHash(LOG_TOPIC_ERC20_TRANSFER)}}
+	case CONTRACT_TYPE_POAP:
+		return nil, ErrTransferLogsNotSupported
 	case CONTRACT_TYPE_ERC1155:
 		query.Topics = [][]common.Hash{
 			{
@@ -474,7 +496,7 @@ func (w *Web3) transferLogs(fromBlock, nblocks uint64) ([]types.Log, error) {
 // This behaviour allows to keep track of the partial balance of each holder
 // candidate for a batch of logs or blocks, and then update the total balance
 // in a single operation.
-func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (HoldersCandidates, error) {
+func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog gethTypes.Log) (HoldersCandidates, error) {
 	// update the token holders state with the log data
 	switch w.contractType {
 	case CONTRACT_TYPE_ERC20:
@@ -538,6 +560,8 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog types.Log) (
 				hc[logData.From] = big.NewInt(1)
 			}
 		}
+	case CONTRACT_TYPE_POAP:
+		return nil, ErrCalcPartialBalancesNotSupported
 	case CONTRACT_TYPE_CUSTOM_NATION3_VENATION:
 		// This token contract is a bit special, token balances
 		// are updated every block based on the contract state.
@@ -606,9 +630,23 @@ func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates
 // current was created. It tries to calculate it using the first block (0) and
 // the current last block.
 func (w *Web3) ContractCreationBlock(ctx context.Context) (uint64, error) {
-	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
+	// check if the network is gnosis chain, if so, send the request with 0
+	// otherwise send the HeaderByNumber request with nil
+	lastBlockHeader := new(gethTypes.Header)
+	chainId, err := w.client.NetworkID(ctx)
 	if err != nil {
 		return 0, err
+	}
+	if chainId.Uint64() == 100 {
+		lastBlockHeader, err = w.client.HeaderByNumber(ctx, big.NewInt(0))
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		lastBlockHeader, err = w.client.HeaderByNumber(ctx, nil)
+		if err != nil {
+			return 0, err
+		}
 	}
 	return w.creationBlockInRange(ctx, 0, lastBlockHeader.Number.Uint64())
 }

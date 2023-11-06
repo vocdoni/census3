@@ -104,11 +104,12 @@ func mockedStrategyOperator(dataDir string) (*StrategyOperators, error) {
 		}
 		// if the token holder not exists, create it
 		_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
-			TokenID:  m.TokenID,
-			HolderID: m.HolderID,
-			BlockID:  1,
-			Balance:  m.Balance,
-			ChainID:  m.ChainID,
+			TokenID:    m.TokenID,
+			HolderID:   m.HolderID,
+			BlockID:    1,
+			Balance:    m.Balance,
+			ChainID:    m.ChainID,
+			ExternalID: "",
 		})
 		if err != nil {
 			return nil, err

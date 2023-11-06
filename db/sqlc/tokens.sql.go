@@ -24,10 +24,11 @@ INSERT INTO tokens (
     synced,
     tags,
     chain_id,
-    chain_address
+    chain_address,
+    external_id
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 )
 `
 
@@ -43,6 +44,7 @@ type CreateTokenParams struct {
 	Tags          string
 	ChainID       uint64
 	ChainAddress  string
+	ExternalID    string
 }
 
 func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.Result, error) {
@@ -58,6 +60,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.R
 		arg.Tags,
 		arg.ChainID,
 		arg.ChainAddress,
+		arg.ExternalID,
 	)
 }
 
@@ -94,8 +97,28 @@ func (q *Queries) ExistsTokenByChainID(ctx context.Context, arg ExistsTokenByCha
 	return exists, err
 }
 
+const existsTokenByChainIDAndExternalID = `-- name: ExistsTokenByChainIDAndExternalID :one
+SELECT EXISTS 
+    (SELECT id 
+    FROM tokens
+    WHERE id = ? AND chain_id = ? AND external_id = ?)
+`
+
+type ExistsTokenByChainIDAndExternalIDParams struct {
+	ID         annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) ExistsTokenByChainIDAndExternalID(ctx context.Context, arg ExistsTokenByChainIDAndExternalIDParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, existsTokenByChainIDAndExternalID, arg.ID, arg.ChainID, arg.ExternalID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listTokens = `-- name: ListTokens :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
 ORDER BY id ASC 
 LIMIT ?
 `
@@ -121,6 +144,7 @@ func (q *Queries) ListTokens(ctx context.Context, limit int32) ([]Token, error) 
 			&i.Tags,
 			&i.ChainID,
 			&i.ChainAddress,
+			&i.ExternalID,
 		); err != nil {
 			return nil, err
 		}
@@ -136,7 +160,7 @@ func (q *Queries) ListTokens(ctx context.Context, limit int32) ([]Token, error) 
 }
 
 const nextTokensPage = `-- name: NextTokensPage :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
 WHERE id >= ?
 ORDER BY id ASC 
 LIMIT ?
@@ -168,6 +192,7 @@ func (q *Queries) NextTokensPage(ctx context.Context, arg NextTokensPageParams) 
 			&i.Tags,
 			&i.ChainID,
 			&i.ChainAddress,
+			&i.ExternalID,
 		); err != nil {
 			return nil, err
 		}
@@ -183,8 +208,8 @@ func (q *Queries) NextTokensPage(ctx context.Context, arg NextTokensPageParams) 
 }
 
 const prevTokensPage = `-- name: PrevTokensPage :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address FROM (
-    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM (
+    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
     WHERE id <= ?
     ORDER BY id DESC
     LIMIT ?
@@ -217,6 +242,7 @@ func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) 
 			&i.Tags,
 			&i.ChainID,
 			&i.ChainAddress,
+			&i.ExternalID,
 		); err != nil {
 			return nil, err
 		}
@@ -232,7 +258,7 @@ func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) 
 }
 
 const tokenByID = `-- name: TokenByID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
 WHERE id = ?
 LIMIT 1
 `
@@ -252,12 +278,13 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 		&i.Tags,
 		&i.ChainID,
 		&i.ChainAddress,
+		&i.ExternalID,
 	)
 	return i, err
 }
 
 const tokenByIDAndChainID = `-- name: TokenByIDAndChainID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
 WHERE id = ? AND chain_id = ?
 LIMIT 1
 `
@@ -282,12 +309,45 @@ func (q *Queries) TokenByIDAndChainID(ctx context.Context, arg TokenByIDAndChain
 		&i.Tags,
 		&i.ChainID,
 		&i.ChainAddress,
+		&i.ExternalID,
+	)
+	return i, err
+}
+
+const tokenByIDAndChainIDAndExternalID = `-- name: TokenByIDAndChainIDAndExternalID :one
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
+WHERE id = ? AND chain_id = ? AND external_id = ?
+LIMIT 1
+`
+
+type TokenByIDAndChainIDAndExternalIDParams struct {
+	ID         annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) TokenByIDAndChainIDAndExternalID(ctx context.Context, arg TokenByIDAndChainIDAndExternalIDParams) (Token, error) {
+	row := q.db.QueryRowContext(ctx, tokenByIDAndChainIDAndExternalID, arg.ID, arg.ChainID, arg.ExternalID)
+	var i Token
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Symbol,
+		&i.Decimals,
+		&i.TotalSupply,
+		&i.CreationBlock,
+		&i.TypeID,
+		&i.Synced,
+		&i.Tags,
+		&i.ChainID,
+		&i.ChainAddress,
+		&i.ExternalID,
 	)
 	return i, err
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.chain_address, st.strategy_id, st.token_id, st.min_balance, st.chain_id FROM tokens t
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.chain_address, t.external_id, st.strategy_id, st.token_id, st.min_balance, st.chain_id, st.external_id FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
@@ -305,10 +365,12 @@ type TokensByStrategyIDRow struct {
 	Tags          string
 	ChainID       uint64
 	ChainAddress  string
+	ExternalID    string
 	StrategyID    uint64
 	TokenID       []byte
 	MinBalance    []byte
 	ChainID_2     uint64
+	ExternalID_2  string
 }
 
 func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]TokensByStrategyIDRow, error) {
@@ -332,10 +394,12 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]
 			&i.Tags,
 			&i.ChainID,
 			&i.ChainAddress,
+			&i.ExternalID,
 			&i.StrategyID,
 			&i.TokenID,
 			&i.MinBalance,
 			&i.ChainID_2,
+			&i.ExternalID_2,
 		); err != nil {
 			return nil, err
 		}
@@ -368,14 +432,23 @@ func (q *Queries) UpdateTokenCreationBlock(ctx context.Context, arg UpdateTokenC
 const updateTokenStatus = `-- name: UpdateTokenStatus :execresult
 UPDATE tokens
 SET synced = ?
-WHERE id = ?
+WHERE id = ? 
+    AND chain_id = ? 
+    AND external_id = ?
 `
 
 type UpdateTokenStatusParams struct {
-	Synced bool
-	ID     annotations.Address
+	Synced     bool
+	ID         annotations.Address
+	ChainID    uint64
+	ExternalID string
 }
 
 func (q *Queries) UpdateTokenStatus(ctx context.Context, arg UpdateTokenStatusParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateTokenStatus, arg.Synced, arg.ID)
+	return q.db.ExecContext(ctx, updateTokenStatus,
+		arg.Synced,
+		arg.ID,
+		arg.ChainID,
+		arg.ExternalID,
+	)
 }

@@ -18,9 +18,10 @@ import (
 )
 
 type Census3Config struct {
-	dataDir, logLevel, connectKey string
-	listOfWeb3Providers           []string
-	port                          int
+	dataDir, logLevel, connectKey  string
+	listOfWeb3Providers            []string
+	port                           int
+	poapAPIEndpoint, poapAuthToken string
 }
 
 func main() {
@@ -37,6 +38,8 @@ func main() {
 	flag.StringVar(&config.logLevel, "logLevel", "info", "log level (debug, info, warn, error)")
 	flag.IntVar(&config.port, "port", 7788, "HTTP port for the API")
 	flag.StringVar(&config.connectKey, "connectKey", "", "connect group key for IPFS connect")
+	flag.StringVar(&config.poapAPIEndpoint, "poapAPIEndpoint", "", "POAP API access token")
+	flag.StringVar(&config.poapAuthToken, "poapAuthToken", "", "POAP API access token")
 	var strWeb3Providers string
 	flag.StringVar(&strWeb3Providers, "web3Providers", "", "the list of URL's of available web3 providers")
 	flag.Parse()
@@ -68,6 +71,14 @@ func main() {
 		panic(err)
 	}
 	config.connectKey = pviper.GetString("connectKey")
+	if err := pviper.BindPFlag("poapAPIEndpoint", flag.Lookup("poapAPIEndpoint")); err != nil {
+		panic(err)
+	}
+	config.poapAPIEndpoint = pviper.GetString("poapAPIEndpoint")
+	if err := pviper.BindPFlag("poapAuthToken", flag.Lookup("poapAuthToken")); err != nil {
+		panic(err)
+	}
+	config.poapAuthToken = pviper.GetString("poapAuthToken")
 	if err := pviper.BindPFlag("web3Providers", flag.Lookup("web3Providers")); err != nil {
 		panic(err)
 	}
@@ -88,8 +99,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// start the holder scanner
-	hc, err := service.NewHoldersScanner(database, w3p)
+	// init POAP external provider
+	poapProvider := &service.POAPHolderProvider{
+		URI:         config.poapAPIEndpoint,
+		AccessToken: config.poapAuthToken,
+	}
+	if err := poapProvider.Init(); err != nil {
+		log.Fatal(err)
+	}
+	// start the holder scanner with the database and the external providers
+	externalProviders := map[state.TokenType]service.HolderProvider{
+		state.CONTRACT_TYPE_POAP: poapProvider,
+	}
+	hc, err := service.NewHoldersScanner(database, w3p, externalProviders)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -101,6 +123,7 @@ func main() {
 		DataDir:       config.dataDir,
 		Web3Providers: w3p,
 		GroupKey:      config.connectKey,
+		ExtProviders:  externalProviders,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -122,6 +145,11 @@ func main() {
 		}
 		if err := database.Close(); err != nil {
 			log.Fatal(err)
+		}
+		for _, provider := range externalProviders {
+			if err := provider.Close(); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}()
 	time.Sleep(5 * time.Second)

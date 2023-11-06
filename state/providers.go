@@ -46,12 +46,12 @@ func (w3p Web3Providers) ChainIDByShortName(shortName string) (uint64, bool) {
 // ChainAddress method returns a prefixed string of the hex address provided,
 // with the short name of the network identified by the chain id provided.
 // Read more here: https://eips.ethereum.org/EIPS/eip-3770
-func (w3p Web3Providers) ChainAddress(chainID uint64, hesAddress string) (string, bool) {
+func (w3p Web3Providers) ChainAddress(chainID uint64, hexAddress string) (string, bool) {
 	provider, ok := w3p[chainID]
 	if !ok {
 		return "", false
 	}
-	return fmt.Sprintf("%s:%s", provider.ShortName, hesAddress), true
+	return fmt.Sprintf("%s:%s", provider.ShortName, hexAddress), true
 }
 
 // CheckWeb3Providers function initializes a Web3Providers list checking the

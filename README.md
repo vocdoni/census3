@@ -31,6 +31,7 @@ The service suports the following token types:
 * ERC777
 * Nation3 (veNation)
 * wANT
+* POAP
 
 
 #### About censuses

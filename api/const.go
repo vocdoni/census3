@@ -22,5 +22,5 @@ const (
 )
 
 const (
-	defaultPageSize = int32(100)
+	defaultPageSize = int32(10)
 )

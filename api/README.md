@@ -6,6 +6,8 @@ Endpoints:
  - [Strategies](#strategies)
  - [Censuses](#censuses)
 
+---
+
 ## API Info
 
 ### GET `/info`
@@ -43,14 +45,24 @@ Show information about the API service.
 
 - ⚠️ errors:
 
-| HTTP Status | Message | Internal error |
+| HTTP Status | Message | Internal error |
 |:---:|:---|:---:|
 | 500 | `error encoding API info` | 5023 | 
+
+---
 
 ## Tokens
 
 ### GET `/tokens`
 List of already added tokens.
+
+**Pagination URL params**
+
+| URL key | Description | Example |
+|:---|:---|:---|
+| `pageSize` | (optional) Defines the number of results per page. By default, `100`. | `?pageSize=2` |
+| `nextCursor` | (optional) When is defined, it is used to get the page results, going forward. By default, `""`. | `?nextCursor=0x1234` |
+| `prevCursor` | (optional) When is defined, it is used to get the page results, going backwards. By default, `""`. | `?prevCursor=0x1234` |
 
 - 📥 response:
 
@@ -67,7 +79,12 @@ List of already added tokens.
             "chainID": 1,
             "chainAddress": "eth:0x1234" 
         }
-    ]
+    ],
+    "pagination": {
+        "nextCursor": "",
+        "prevCursor": "0x1234",
+        "pageSize": 100
+    }
 }
 ```
 
@@ -75,9 +92,10 @@ List of already added tokens.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 204 | `no tokens found` | 4007 |
+| 400 | `malformed pagination params` | 4022 |
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error encoding tokens` | 5011 | 
 
@@ -97,7 +115,7 @@ List the supported token types.
 
 - ⚠️ errors:    
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 500 | `error encoding supported tokens types` | 5012 | 
 
@@ -121,7 +139,7 @@ Triggers a new scan for the provided token, starting from the defined block.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed token information` | 4000 | 
 | 409 | `token already created` | 4009 | 
@@ -160,7 +178,7 @@ Returns the information about the token referenced by the provided ID.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed token information` | 4001 |
 | 400 | `malformed chain ID` | 4018 |
@@ -183,17 +201,27 @@ true|false
 
 - ⚠️ errors:
 
-| HTTP Status | Message | Internal error |
+| HTTP Status | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed token information` | 4001 |
 | 400 | `malformed chain ID` | 4018 |
 | 404 | `no token found` | 4003 |
 | 500 | `error getting token holders` | 5006 | 
 
+--- 
+
 ## Strategies
 
 ### GET `/strategies`
 Returns the ID's list of the strategies registered.
+
+**Pagination URL params**
+
+| URL key | Description | Example |
+|:---|:---|:---|
+| `pageSize` | (optional) Defines the number of results per page. By default, `100`. | `?pageSize=2` |
+| `nextCursor` | (optional) When is defined, it is used to get the page results, going forward. By default, `""`. | `?nextCursor=3` |
+| `prevCursor` | (optional) When is defined, it is used to get the page results, going backwards. By default, `""`. | `?prevCursor=1` |
 
 - 📥 response:
 
@@ -259,15 +287,21 @@ Returns the ID's list of the strategies registered.
                 }
             }
         }
-    ]
+    ],
+    "pagination": {
+        "nextCursor": "",
+        "prevCursor": "1",
+        "pageSize": 100
+    }
 }
 ```
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 204 | `-` | 4008 |
+| 400 | `malformed pagination params` | 4022 |
 | 500 | `error getting strategies information` | 5008 | 
 | 500 | `error encoding strategies` | 5016 | 
 
@@ -309,7 +343,7 @@ Stores a new strategy based on the defined combination of tokens provided, these
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 404 | `no token found` | 4003 | 
 | 400 | `malformed strategy provided` | 4014 |
@@ -331,7 +365,7 @@ Imports a strategy from IPFS downloading it with the `cid` provided in backgroun
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed strategy provided` | 4014 |
 | 500 | `error encoding strategy info` | 5015 | 
@@ -353,7 +387,7 @@ Returns the information of the census that are in the creation queue.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 404 | `strategy not found` | 4006 | 
 | 400 | `malformed queue ID` | 4011 | 
@@ -397,7 +431,7 @@ Returns the information of the strategy related to the provided ID.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed strategy ID, it must be an integer` | 4002 | 
 | 404 | `no strategy found with the ID provided` | 405 |
@@ -454,7 +488,7 @@ Returns ID's of the already created strategies including the `tokenAddress` prov
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 204 | `-` | 4008 |
 | 500 | `error getting strategies information` | 5008 | 
@@ -503,7 +537,7 @@ Returns if the provided strategy predicate is valid and well-formatted. If the p
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed strategy provided` | 4014 |
 | 400 | `the predicate provided is not valid` | 4015 | 
@@ -531,9 +565,11 @@ Returns the list of supported operators to build strategy predicates.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 500 | `error encoding supported strategy predicate operators` | 5027 | 
+
+---
 
 ## Censuses
 
@@ -560,7 +596,7 @@ Request the creation of a new census with the strategy provided for the `blockNu
 
 - ⚠️ errors :
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed strategy ID, it must be an integer` | 4002 | 
 | 500 | `error encoding census` | 5017 | 
@@ -583,7 +619,7 @@ Returns the information of the snapshots related to the provided ID.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed census ID, it must be a integer` | 4001 | 
 | 404 | `census not found` | 4006 | 
@@ -607,7 +643,7 @@ Returns the information of the census that are in the creation queue.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 404 | `census not found` | 4006 | 
 | 400 | `malformed queue ID` | 4011 | 
@@ -618,7 +654,7 @@ Returns the information of the census that are in the creation queue.
 
 <small>The request could response `OK 200` and at the same time includes an error because it is an error of the enqueued process and not of the request processing).</small>
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 404 | `no token holders found` | 4004 |
 | 404 | `no strategy found with the ID provided` | 4005 |
@@ -652,7 +688,7 @@ Returns a list of censusID for the strategy provided.
 
 - ⚠️ errors:
 
-| HTTP Status  | Message | Internal error |
+| HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 204 | `-` | 4007 |
 | 400 | `malformed census ID, it must be a integer` | 4001 | 

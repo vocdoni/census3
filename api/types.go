@@ -2,6 +2,12 @@ package api
 
 import "go.vocdoni.io/dvote/types"
 
+type Pagination struct {
+	NextCursor string `json:"nextCursor"`
+	PrevCursor string `json:"prevCursor"`
+	PageSize   int32  `json:"pageSize"`
+}
+
 type SupportedChain struct {
 	ChainID   uint64 `json:"chainID"`
 	ShortName string `json:"shortName"`
@@ -53,7 +59,8 @@ type GetTokensItem struct {
 }
 
 type GetTokensResponse struct {
-	Tokens []GetTokensItem `json:"tokens"`
+	Tokens     []GetTokensItem `json:"tokens"`
+	Pagination *Pagination     `json:"pagination"`
 }
 
 type TokenTypesResponse struct {
@@ -87,6 +94,13 @@ type GetCensusesResponse struct {
 	Censuses []*GetCensusResponse `json:"censuses"`
 }
 
+type GetStrategyToken struct {
+	ID         string `json:"ID"`
+	Name       string `json:"name"`
+	MinBalance string `json:"minBalance"`
+	Method     string `json:"method"`
+}
+
 type CensusQueueResponse struct {
 	Done   bool               `json:"done"`
 	Error  error              `json:"error"`
@@ -116,6 +130,7 @@ type GetStrategyResponse struct {
 
 type GetStrategiesResponse struct {
 	Strategies []*GetStrategyResponse `json:"strategies"`
+	Pagination *Pagination            `json:"pagination"`
 }
 
 type StrategyQueueResponse struct {

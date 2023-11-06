@@ -1,6 +1,21 @@
 -- name: ListTokens :many
 SELECT * FROM tokens
-ORDER BY type_id, name;
+ORDER BY id ASC 
+LIMIT ?;
+
+-- name: NextTokensPage :many
+SELECT * FROM tokens
+WHERE id >= sqlc.arg(page_cursor)
+ORDER BY id ASC 
+LIMIT ?;
+
+-- name: PrevTokensPage :many
+SELECT * FROM (
+    SELECT * FROM tokens
+    WHERE id <= sqlc.arg(page_cursor)
+    ORDER BY id DESC
+    LIMIT ?
+) as token ORDER BY token.id ASC;
 
 -- name: TokenByID :one
 SELECT * FROM tokens

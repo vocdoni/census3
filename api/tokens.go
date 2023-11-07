@@ -489,6 +489,9 @@ func (capi *census3API) isTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCont
 	} else if chainID < 0 {
 		return ErrMalformedChainID.With("chainID must be a positive number")
 	}
+	// get externalID from query params and decode it as string, it is optional
+	// so if it's not provided continue
+	externalID := ctx.Request.URL.Query().Get("externalID")
 	// get holder address from the holderID query param and decode check if
 	// it is provided, if not return an error
 	strHolderID := ctx.URLParam("holderID")
@@ -500,9 +503,10 @@ func (capi *census3API) isTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCont
 	defer cancel()
 
 	exists, err := capi.db.QueriesRO.ExistTokenHolder(internalCtx, queries.ExistTokenHolderParams{
-		TokenID:  address.Bytes(),
-		HolderID: holderID.Bytes(),
-		ChainID:  uint64(chainID),
+		TokenID:    address.Bytes(),
+		HolderID:   holderID.Bytes(),
+		ChainID:    uint64(chainID),
+		ExternalID: externalID,
 	})
 	if err != nil {
 		return ErrCantGetTokenHolders.WithErr(err)

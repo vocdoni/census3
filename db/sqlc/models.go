@@ -16,6 +16,11 @@ type Block struct {
 	RootHash  annotations.Hash
 }
 
+type CensusBlock struct {
+	CensusID uint64
+	BlockID  uint64
+}
+
 type Censuse struct {
 	ID         uint64
 	StrategyID uint64

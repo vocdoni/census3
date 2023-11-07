@@ -167,17 +167,24 @@ SELECT EXISTS (
     WHERE token_id = ? 
         AND holder_id = ?
         AND chain_id = ?
+        AND external_id = ?
 )
 `
 
 type ExistTokenHolderParams struct {
-	TokenID  annotations.Address
-	HolderID annotations.Address
-	ChainID  uint64
+	TokenID    annotations.Address
+	HolderID   annotations.Address
+	ChainID    uint64
+	ExternalID string
 }
 
 func (q *Queries) ExistTokenHolder(ctx context.Context, arg ExistTokenHolderParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, existTokenHolder, arg.TokenID, arg.HolderID, arg.ChainID)
+	row := q.db.QueryRowContext(ctx, existTokenHolder,
+		arg.TokenID,
+		arg.HolderID,
+		arg.ChainID,
+		arg.ExternalID,
+	)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err

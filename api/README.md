@@ -90,6 +90,7 @@ List of already added tokens.
 ```
 
 > If `tags` is empty, it will be ommited.
+
 > If `externalID` is empty, it will be ommited.
 
 - ⚠️ errors:
@@ -144,7 +145,8 @@ Triggers a new scan for the provided token, starting from the defined block.
 ```
 
 > `tags` attribute is *optional*.
-> `externalID` attribute is *optional*.
+
+> `externalID` URL parameter is *optional* by default, but required for external provided tokens like POAPs.
 
 - ⚠️ errors:
 
@@ -159,6 +161,8 @@ Triggers a new scan for the provided token, starting from the defined block.
 
 ### GET `/tokens/{tokenID}?chainID={chainID}&externalID={externalID}`
 Returns the information about the token referenced by the provided ID and chain ID, the external ID is optional.
+
+> `externalID` URL parameter is *optional* by default, but required for external provided tokens like POAPs.
 
 - 📥 response:
 
@@ -185,6 +189,7 @@ Returns the information about the token referenced by the provided ID and chain 
 ```
 
 > If `tags` is empty, it will be ommited.
+
 > If `externalID` is empty, it will be ommited.
 
 - ⚠️ errors:

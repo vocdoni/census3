@@ -56,6 +56,7 @@ SELECT EXISTS (
     WHERE token_id = ? 
         AND holder_id = ?
         AND chain_id = ?
+        AND external_id = ?
 );
 
 -- name: LastBlockByTokenID :one

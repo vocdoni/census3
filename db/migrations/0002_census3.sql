@@ -50,10 +50,17 @@ CREATE TABLE tokens_copy (
     chain_id INTEGER NOT NULL DEFAULT 0,
     chain_address TEXT NOT NULL DEFAULT '',
     external_id TEXT NULL DEFAULT '',
+    default_strategy INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (id, chain_id, external_id),
-    FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE
+    FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE,
+    FOREIGN KEY (default_strategy) REFERENCES strategies(id) ON DELETE CASCADE
 );
-INSERT INTO tokens_copy SELECT * FROM tokens;
+INSERT INTO tokens_copy (id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy) 
+SELECT * FROM (
+    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, (
+        SELECT strategy_id FROM strategy_tokens WHERE token_id = tokens.id AND strategy_tokens.chain_id = tokens.chain_id AND strategy_tokens.external_id = tokens.external_id LIMIT 1
+    ) AS default_strategy FROM tokens
+);
 DROP TABLE tokens;
 -- DROP INDEX IF EXISTS idx_tokens_type_id;
 ALTER TABLE tokens_copy RENAME TO tokens;

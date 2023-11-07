@@ -51,10 +51,11 @@ INSERT INTO tokens (
     tags,
     chain_id,
     chain_address,
-    external_id
+    external_id,
+    default_strategy
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0
 );
 
 -- name: UpdateTokenStatus :execresult
@@ -69,6 +70,13 @@ WHERE id = sqlc.arg(id)
 UPDATE tokens
 SET creation_block = sqlc.arg(creation_block)
 WHERE id = sqlc.arg(id);
+
+-- name: UpdateTokenDefaultStrategy :execresult
+UPDATE tokens
+SET default_strategy = sqlc.arg(default_strategy)
+WHERE id = sqlc.arg(id)
+    AND chain_id = sqlc.arg(chain_id)
+    AND external_id = sqlc.arg(external_id);
 
 -- name: ExistsToken :one
 SELECT EXISTS 

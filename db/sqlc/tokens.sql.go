@@ -25,10 +25,11 @@ INSERT INTO tokens (
     tags,
     chain_id,
     chain_address,
-    external_id
+    external_id,
+    default_strategy
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0
 )
 `
 
@@ -118,7 +119,7 @@ func (q *Queries) ExistsTokenByChainIDAndExternalID(ctx context.Context, arg Exi
 }
 
 const listTokens = `-- name: ListTokens :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy FROM tokens
 ORDER BY id ASC 
 LIMIT ?
 `
@@ -145,6 +146,7 @@ func (q *Queries) ListTokens(ctx context.Context, limit int32) ([]Token, error) 
 			&i.ChainID,
 			&i.ChainAddress,
 			&i.ExternalID,
+			&i.DefaultStrategy,
 		); err != nil {
 			return nil, err
 		}
@@ -160,7 +162,7 @@ func (q *Queries) ListTokens(ctx context.Context, limit int32) ([]Token, error) 
 }
 
 const nextTokensPage = `-- name: NextTokensPage :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy FROM tokens
 WHERE id >= ?
 ORDER BY id ASC 
 LIMIT ?
@@ -193,6 +195,7 @@ func (q *Queries) NextTokensPage(ctx context.Context, arg NextTokensPageParams) 
 			&i.ChainID,
 			&i.ChainAddress,
 			&i.ExternalID,
+			&i.DefaultStrategy,
 		); err != nil {
 			return nil, err
 		}
@@ -208,8 +211,8 @@ func (q *Queries) NextTokensPage(ctx context.Context, arg NextTokensPageParams) 
 }
 
 const prevTokensPage = `-- name: PrevTokensPage :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM (
-    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy FROM (
+    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy FROM tokens
     WHERE id <= ?
     ORDER BY id DESC
     LIMIT ?
@@ -243,6 +246,7 @@ func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) 
 			&i.ChainID,
 			&i.ChainAddress,
 			&i.ExternalID,
+			&i.DefaultStrategy,
 		); err != nil {
 			return nil, err
 		}
@@ -258,7 +262,7 @@ func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) 
 }
 
 const tokenByID = `-- name: TokenByID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy FROM tokens
 WHERE id = ?
 LIMIT 1
 `
@@ -279,12 +283,13 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 		&i.ChainID,
 		&i.ChainAddress,
 		&i.ExternalID,
+		&i.DefaultStrategy,
 	)
 	return i, err
 }
 
 const tokenByIDAndChainID = `-- name: TokenByIDAndChainID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy FROM tokens
 WHERE id = ? AND chain_id = ?
 LIMIT 1
 `
@@ -310,12 +315,13 @@ func (q *Queries) TokenByIDAndChainID(ctx context.Context, arg TokenByIDAndChain
 		&i.ChainID,
 		&i.ChainAddress,
 		&i.ExternalID,
+		&i.DefaultStrategy,
 	)
 	return i, err
 }
 
 const tokenByIDAndChainIDAndExternalID = `-- name: TokenByIDAndChainIDAndExternalID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy FROM tokens
 WHERE id = ? AND chain_id = ? AND external_id = ?
 LIMIT 1
 `
@@ -342,35 +348,37 @@ func (q *Queries) TokenByIDAndChainIDAndExternalID(ctx context.Context, arg Toke
 		&i.ChainID,
 		&i.ChainAddress,
 		&i.ExternalID,
+		&i.DefaultStrategy,
 	)
 	return i, err
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.chain_address, t.external_id, st.strategy_id, st.token_id, st.min_balance, st.chain_id, st.external_id FROM tokens t
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.chain_address, t.external_id, t.default_strategy, st.strategy_id, st.token_id, st.min_balance, st.chain_id, st.external_id FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
 `
 
 type TokensByStrategyIDRow struct {
-	ID            annotations.Address
-	Name          string
-	Symbol        string
-	Decimals      uint64
-	TotalSupply   annotations.BigInt
-	CreationBlock int64
-	TypeID        uint64
-	Synced        bool
-	Tags          string
-	ChainID       uint64
-	ChainAddress  string
-	ExternalID    string
-	StrategyID    uint64
-	TokenID       []byte
-	MinBalance    []byte
-	ChainID_2     uint64
-	ExternalID_2  string
+	ID              annotations.Address
+	Name            string
+	Symbol          string
+	Decimals        uint64
+	TotalSupply     annotations.BigInt
+	CreationBlock   int64
+	TypeID          uint64
+	Synced          bool
+	Tags            string
+	ChainID         uint64
+	ChainAddress    string
+	ExternalID      string
+	DefaultStrategy uint64
+	StrategyID      uint64
+	TokenID         []byte
+	MinBalance      []byte
+	ChainID_2       uint64
+	ExternalID_2    string
 }
 
 func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]TokensByStrategyIDRow, error) {
@@ -395,6 +403,7 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]
 			&i.ChainID,
 			&i.ChainAddress,
 			&i.ExternalID,
+			&i.DefaultStrategy,
 			&i.StrategyID,
 			&i.TokenID,
 			&i.MinBalance,
@@ -427,6 +436,30 @@ type UpdateTokenCreationBlockParams struct {
 
 func (q *Queries) UpdateTokenCreationBlock(ctx context.Context, arg UpdateTokenCreationBlockParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, updateTokenCreationBlock, arg.CreationBlock, arg.ID)
+}
+
+const updateTokenDefaultStrategy = `-- name: UpdateTokenDefaultStrategy :execresult
+UPDATE tokens
+SET default_strategy = ?
+WHERE id = ?
+    AND chain_id = ?
+    AND external_id = ?
+`
+
+type UpdateTokenDefaultStrategyParams struct {
+	DefaultStrategy uint64
+	ID              annotations.Address
+	ChainID         uint64
+	ExternalID      string
+}
+
+func (q *Queries) UpdateTokenDefaultStrategy(ctx context.Context, arg UpdateTokenDefaultStrategyParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateTokenDefaultStrategy,
+		arg.DefaultStrategy,
+		arg.ID,
+		arg.ChainID,
+		arg.ExternalID,
+	)
 }
 
 const updateTokenStatus = `-- name: UpdateTokenStatus :execresult

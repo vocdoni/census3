@@ -254,6 +254,14 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}); err != nil {
 		return ErrCantGetToken.WithErr(err)
 	}
+	if _, err := qtx.UpdateTokenDefaultStrategy(internalCtx, queries.UpdateTokenDefaultStrategyParams{
+		ID:              info.Address.Bytes(),
+		DefaultStrategy: uint64(strategyID),
+		ChainID:         req.ChainID,
+		ExternalID:      req.ExternalID,
+	}); err != nil {
+		return ErrCantGetToken.WithErr(err)
+	}
 	if err := tx.Commit(); err != nil {
 		return ErrCantGetToken.WithErr(err)
 	}
@@ -301,20 +309,6 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 			return ErrNotFoundToken.WithErr(err)
 		}
 		return ErrCantGetToken.WithErr(err)
-	}
-	// TODO: Only for the MVP, consider to remove it
-	tokenStrategies, err := capi.db.QueriesRO.StrategiesByTokenIDAndChainIDAndExternalID(internalCtx,
-		queries.StrategiesByTokenIDAndChainIDAndExternalIDParams{
-			TokenID:    address.Bytes(),
-			ChainID:    uint64(chainID),
-			ExternalID: externalID,
-		})
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return ErrCantGetToken.WithErr(err)
-	}
-	defaultStrategyID := uint64(0)
-	if len(tokenStrategies) > 0 {
-		defaultStrategyID = tokenStrategies[0].ID
 	}
 	// get last block with token information
 	atBlock, err := capi.db.QueriesRO.LastBlockByTokenID(internalCtx, address.Bytes())
@@ -368,7 +362,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		},
 		Tags: tokenData.Tags,
 		// TODO: Only for the MVP, consider to remove it
-		DefaultStrategy: defaultStrategyID,
+		DefaultStrategy: tokenData.DefaultStrategy,
 		ChainID:         tokenData.ChainID,
 		ChainAddress:    tokenData.ChainAddress,
 		ExternalID:      tokenData.ExternalID,

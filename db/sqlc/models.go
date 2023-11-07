@@ -47,18 +47,19 @@ type StrategyToken struct {
 }
 
 type Token struct {
-	ID            annotations.Address
-	Name          string
-	Symbol        string
-	Decimals      uint64
-	TotalSupply   annotations.BigInt
-	CreationBlock int64
-	TypeID        uint64
-	Synced        bool
-	Tags          string
-	ChainID       uint64
-	ChainAddress  string
-	ExternalID    string
+	ID              annotations.Address
+	Name            string
+	Symbol          string
+	Decimals        uint64
+	TotalSupply     annotations.BigInt
+	CreationBlock   int64
+	TypeID          uint64
+	Synced          bool
+	Tags            string
+	ChainID         uint64
+	ChainAddress    string
+	ExternalID      string
+	DefaultStrategy uint64
 }
 
 type TokenHolder struct {

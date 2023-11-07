@@ -161,6 +161,81 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// createDefaultTokenStrategy function creates a default strategy for the given
+// token. It creates a strategy with a single token and the predicate of the
+// token symbol. It returns the ID of the created strategy or an error if
+// something fails. It also uploads the strategy to IPFS and updates the
+// database with the IPFS URI and the default strategy of the token.
+func (capi *census3API) createDefaultTokenStrategy(ctx context.Context, qtx *queries.Queries,
+	address common.Address, chainID uint64, chainAddress, symbol, externalID string,
+) (uint64, error) {
+	// create a default strategy to support censuses over the holders of this
+	// single token
+	alias := fmt.Sprintf("Default strategy for token %s", symbol)
+	predicate := lexer.ScapeTokenSymbol(symbol)
+	res, err := qtx.CreateStategy(ctx, queries.CreateStategyParams{
+		Alias:     alias,
+		Predicate: predicate,
+	})
+	if err != nil {
+		return 0, err
+	}
+	strategyID, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	// create a strategy token to link the token with the strategy
+	if _, err := qtx.CreateStrategyToken(ctx, queries.CreateStrategyTokenParams{
+		StrategyID: uint64(strategyID),
+		TokenID:    address.Bytes(),
+		ChainID:    chainID,
+		MinBalance: big.NewInt(0).Bytes(),
+		ExternalID: externalID,
+	}); err != nil {
+		return 0, err
+	}
+	// encode and compose final strategy data using the response of GET
+	// strategy endpoint
+	strategyDump, err := json.Marshal(GetStrategyResponse{
+		ID:        uint64(strategyID),
+		Alias:     alias,
+		Predicate: predicate,
+		Tokens: map[string]*StrategyToken{
+			symbol: {
+				ID:           address.String(),
+				ChainID:      chainID,
+				MinBalance:   "0",
+				ExternalID:   externalID,
+				ChainAddress: chainAddress,
+			},
+		},
+	})
+	if err != nil {
+		return 0, err
+	}
+	// publish the strategy to IPFS and update the database
+	uri, err := capi.storage.Publish(ctx, strategyDump)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := qtx.UpdateStrategyIPFSUri(ctx, queries.UpdateStrategyIPFSUriParams{
+		ID:  uint64(strategyID),
+		Uri: capi.storage.URIprefix() + uri,
+	}); err != nil {
+		return 0, err
+	}
+	// update the token default strategy
+	if _, err := qtx.UpdateTokenDefaultStrategy(ctx, queries.UpdateTokenDefaultStrategyParams{
+		ID:              address.Bytes(),
+		DefaultStrategy: uint64(strategyID),
+		ChainID:         chainID,
+		ExternalID:      externalID,
+	}); err != nil {
+		return 0, err
+	}
+	return uint64(strategyID), nil
+}
+
 // createToken function creates a new token in the current database instance. It
 // first gets the token information from the network and then stores it in the
 // database. The new token created will be scanned from the block number
@@ -269,26 +344,10 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		}
 		return ErrCantCreateToken.WithErr(err)
 	}
-	// create a default strategy to support censuses over the holders of this
-	// single token
-	res, err := qtx.CreateStategy(internalCtx, queries.CreateStategyParams{
-		Alias:     fmt.Sprintf("Default strategy for token %s", info.Symbol),
-		Predicate: lexer.ScapeTokenSymbol(info.Symbol),
-	})
+	strategyID, err := capi.createDefaultTokenStrategy(internalCtx, qtx,
+		info.Address, req.ChainID, chainAddress, info.Symbol, req.ExternalID)
 	if err != nil {
-		return err
-	}
-	strategyID, err := res.LastInsertId()
-	if err != nil {
-		return err
-	}
-	if _, err := qtx.CreateStrategyToken(internalCtx, queries.CreateStrategyTokenParams{
-		StrategyID: uint64(strategyID),
-		TokenID:    info.Address.Bytes(),
-		ChainID:    req.ChainID,
-		MinBalance: big.NewInt(0).Bytes(),
-	}); err != nil {
-		return ErrCantGetToken.WithErr(err)
+		return ErrCantCreateToken.WithErr(err)
 	}
 	if _, err := qtx.UpdateTokenDefaultStrategy(internalCtx, queries.UpdateTokenDefaultStrategyParams{
 		ID:              info.Address.Bytes(),

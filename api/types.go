@@ -49,21 +49,9 @@ type GetTokenResponse struct {
 	ExternalID      string                  `json:"externalID,omitempty"`
 }
 
-type GetTokensItem struct {
-	ID           string `json:"ID"`
-	Type         string `json:"type"`
-	StartBlock   int64  `json:"startBlock"`
-	Name         string `json:"name"`
-	Symbol       string `json:"symbol"`
-	Tags         string `json:"tags,omitempty"`
-	ChainID      uint64 `json:"chainID"`
-	ChainAddress string `json:"chainAddress"`
-	ExternalID   string `json:"externalID,omitempty"`
-}
-
 type GetTokensResponse struct {
-	Tokens     []GetTokensItem `json:"tokens"`
-	Pagination *Pagination     `json:"pagination"`
+	Tokens     []GetTokenResponse `json:"tokens"`
+	Pagination *Pagination        `json:"pagination"`
 }
 
 type TokenTypesResponse struct {

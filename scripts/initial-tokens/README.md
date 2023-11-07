@@ -5,12 +5,12 @@
 **Create Python virtualenv and execute it**
 ```sh
 python3 -m venv ./venv
-source ./bin/activate
+source ./venv/bin/activate
 ```
 
 **Install requirements**
 ```sh
-pip install -r requirements
+pip install -r requirements.txt
 ```
 
 **Execute the script**
@@ -26,7 +26,6 @@ Tokens (ERC20):
  - UNI: 0x1f9840a85d5af5bf1d1762f925bdaddc4201f984 (mainnet)
  - AAVE: 0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9 (mainnet)
  - COMP: 0xc00e94cb662c3520282e6f5717214004a7f26888 (mainnet)
- - LAND: 0xF87E31492Faf9A91B02Ee0dEAAd50d51d56D5d4d (mainnet)
  - ZRX: 0xe41d2489571d322189246dafa5ebde1f4699f498 (mainnet)
  - MKR: 0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2 (mainnet)
  - FWB: 0x35bd01fc9d6d5d81ca9e055db88dc49aa2c699a8 (mainnet)
@@ -47,6 +46,7 @@ Tokens (ERC20):
 
 
 NFTs:
+ - Decentraland (LAND) 0xF87E31492Faf9A91B02Ee0dEAAd50d51d56D5d4d (mainnet)
  - BoredApeYachtClub (BAYC) 0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d
  - CryptoPunks (Ï¾) 0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB
  - Azuki (AZUKI) 0xED5AF388653567Af2F388E6224dC7C4b3241C544

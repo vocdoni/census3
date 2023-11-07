@@ -93,7 +93,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	// init response struct with the initial pagination information and empty
 	// list of tokens
 	tokensResponse := GetTokensResponse{
-		Tokens:     []GetTokensItem{},
+		Tokens:     []GetTokenResponse{},
 		Pagination: &Pagination{PageSize: pageSize},
 	}
 	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, cursor, goForward)
@@ -105,16 +105,52 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	// parse results from database to the response format
 	for _, tokenData := range rows {
-		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokensItem{
+		// get last block with token information
+		atBlock, err := capi.db.QueriesRO.LastBlockByTokenID(internalCtx, tokenData.ID)
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return ErrCantGetToken.WithErr(err)
+			}
+			atBlock = 0
+		}
+		// if the token is not synced, get the last block of the network to
+		// calculate the current scan progress
+		tokenProgress := 100
+		if !tokenData.Synced {
+			// get correct web3 uri provider
+			w3URI, exists := capi.w3p.URIByChainID(tokenData.ChainID)
+			if !exists {
+				return ErrChainIDNotSupported.With("chain ID not supported")
+			}
+			// get last block of the network, if something fails return progress 0
+			w3 := state.Web3{}
+			if err := w3.Init(internalCtx, w3URI, common.BytesToAddress(tokenData.ID),
+				state.TokenType(tokenData.TypeID)); err != nil {
+				return ErrInitializingWeb3.WithErr(err)
+			}
+			// fetch the last block header and calculate progress
+			lastBlockNumber, err := w3.LatestBlockNumber(internalCtx)
+			if err != nil {
+				return ErrCantGetLastBlockNumber.WithErr(err)
+			}
+			tokenProgress = int(float64(atBlock) / float64(lastBlockNumber) * 100)
+		}
+
+		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokenResponse{
 			ID:           common.BytesToAddress(tokenData.ID).String(),
 			Type:         state.TokenType(int(tokenData.TypeID)).String(),
 			Name:         tokenData.Name,
-			StartBlock:   tokenData.CreationBlock,
+			StartBlock:   uint64(tokenData.CreationBlock),
 			Tags:         tokenData.Tags,
 			Symbol:       tokenData.Symbol,
 			ChainID:      tokenData.ChainID,
 			ChainAddress: tokenData.ChainAddress,
 			ExternalID:   tokenData.ExternalID,
+			Status: &GetTokenStatusResponse{
+				AtBlock:  atBlock,
+				Synced:   tokenData.Synced,
+				Progress: tokenProgress,
+			},
 		})
 	}
 	// encode the response and send it

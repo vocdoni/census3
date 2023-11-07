@@ -141,6 +141,11 @@
             "chainID": 1
         },
         {
+            "id": "0xF87E31492Faf9A91B02Ee0dEAAd50d51d56D5d4d",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
             "type": "poap",
             "chainID": 1,
             "externalID": "77639"

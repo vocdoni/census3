@@ -449,12 +449,12 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address, c
 		for holder, balance := range externalBalances {
 			th.Append(holder, balance)
 		}
-		th.Synced()
 		blockNumber, err := provider.LatestBlockNumber(ctx, []byte(th.ExternalID))
 		if err != nil {
 			return false, err
 		}
 		th.BlockDone(blockNumber)
+		th.Synced()
 		return true, s.saveHolders(th)
 	}
 	// get correct web3 uri provider

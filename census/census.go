@@ -151,7 +151,6 @@ func (cdb *CensusDB) newTree(def *CensusDefinition) (*CensusDefinition, error) {
 	if err != nil {
 		return nil, err
 	}
-	def.tree.Publish()
 	return def, nil
 }
 

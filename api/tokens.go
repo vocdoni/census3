@@ -151,6 +151,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 				Synced:   tokenData.Synced,
 				Progress: tokenProgress,
 			},
+			DefaultStrategy: tokenData.DefaultStrategy,
 		})
 	}
 	// encode the response and send it

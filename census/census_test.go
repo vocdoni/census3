@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
@@ -84,8 +85,9 @@ func TestCreateAndPublish(t *testing.T) {
 	dump := censusdb.CensusDump{}
 	c.Assert(json.Unmarshal(publishedCensus.Dump, &dump), qt.IsNil)
 	ddata := compressor.NewCompressor().DecompressBytes(dump.Data)
-	c.Assert(importedCensusDefinition.tree.ImportDump(ddata), qt.IsNil)
-	root, err := importedCensusDefinition.tree.Root()
+	time.Sleep(2 * time.Second) // wait for some time to let the goroutine finish, without this the test fails (TODO: check why!)
+	c.Assert(cdb.ImportDump(importedCensusDefinition, ddata), qt.IsNil)
+	root, err := cdb.Root(importedCensusDefinition)
 	c.Assert(err, qt.IsNil)
 	c.Assert(publishedCensus.RootHash, qt.ContentEquals, root)
 

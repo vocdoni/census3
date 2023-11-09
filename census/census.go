@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -52,7 +53,11 @@ type CensusDefinition struct {
 	AuthToken  *uuid.UUID
 	MaxLevels  int
 	Holders    map[common.Address]*big.Int
-	tree       *censustree.Tree
+	// tree is the internal merkle tree used to store the census data.
+	// tree should never be accessed directly, since it might be racy.
+	// Instead use the methods provided by the CensusDB struct, which
+	// are protected by a mutex.
+	tree *censustree.Tree
 }
 
 // NewCensusDefinition function returns a populated census definition with
@@ -86,6 +91,7 @@ type PublishedCensus struct {
 type CensusDB struct {
 	treeDB  db.Database
 	storage storagelayer.Storage
+	lock    sync.Mutex
 }
 
 // NewCensusDB function instansiates an new internal tree database that will be
@@ -102,6 +108,8 @@ func NewCensusDB(dataDir string, storage storagelayer.Storage) (*CensusDB, error
 // provided and publishes it to IPFS. It needs to persist it temporaly into a
 // internal trees database.
 func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*PublishedCensus, error) {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
 	var err error
 	if def, err = cdb.newTree(def); err != nil {
 		return nil, ErrCreatingCensusTree
@@ -137,6 +145,20 @@ func (cdb *CensusDB) CreateAndPublish(def *CensusDefinition) (*PublishedCensus, 
 		return nil, ErrPruningCensusTree
 	}
 	return res, nil
+}
+
+// ImportDump function imports a census dump into the internal tree database.
+func (cdb *CensusDB) ImportDump(def *CensusDefinition, data []byte) error {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+	return def.tree.ImportDump(data)
+}
+
+// Root function returns the root hash of the census tree definition.
+func (cdb *CensusDB) Root(def *CensusDefinition) ([]byte, error) {
+	cdb.lock.Lock()
+	defer cdb.lock.Unlock()
+	return def.tree.Root()
 }
 
 // newTree function creates a new census tree based on the provided definition

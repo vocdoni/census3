@@ -46,14 +46,16 @@ VALUES (
     ?, ?, ?, ?, ?
 );
 
--- name: StrategyTokens :many
-SELECT *
-FROM strategy_tokens
-ORDER BY strategy_id, token_id;
 
 -- name: StrategyTokensByStrategyID :many
 SELECT st.token_id as id, st.min_balance, t.symbol, t.chain_address, t.chain_id, t.external_id
 FROM strategy_tokens st
-JOIN tokens t ON t.id = st.token_id
-WHERE strategy_id = ?
+JOIN tokens t ON t.id = st.token_id AND t.chain_id = st.chain_id AND t.external_id = st.external_id
+WHERE st.strategy_id = ?
 ORDER BY strategy_id, token_id;
+
+-- name: StrategyTokens :many
+SELECT st.token_id, st.min_balance, st.chain_id, st.external_id, t.chain_address, t.symbol
+FROM strategy_tokens st
+JOIN tokens t ON st.token_id = t.id AND st.chain_id = t.chain_id AND st.external_id = t.external_id
+WHERE st.strategy_id = ?;

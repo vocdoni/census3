@@ -231,26 +231,37 @@ func (q *Queries) StrategyByID(ctx context.Context, id uint64) (Strategy, error)
 }
 
 const strategyTokens = `-- name: StrategyTokens :many
-SELECT strategy_id, token_id, min_balance, chain_id, external_id
-FROM strategy_tokens
-ORDER BY strategy_id, token_id
+SELECT st.token_id, st.min_balance, st.chain_id, st.external_id, t.chain_address, t.symbol
+FROM strategy_tokens st
+JOIN tokens t ON st.token_id = t.id AND st.chain_id = t.chain_id AND st.external_id = t.external_id
+WHERE st.strategy_id = ?
 `
 
-func (q *Queries) StrategyTokens(ctx context.Context) ([]StrategyToken, error) {
-	rows, err := q.db.QueryContext(ctx, strategyTokens)
+type StrategyTokensRow struct {
+	TokenID      []byte
+	MinBalance   []byte
+	ChainID      uint64
+	ExternalID   string
+	ChainAddress string
+	Symbol       string
+}
+
+func (q *Queries) StrategyTokens(ctx context.Context, strategyID uint64) ([]StrategyTokensRow, error) {
+	rows, err := q.db.QueryContext(ctx, strategyTokens, strategyID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []StrategyToken
+	var items []StrategyTokensRow
 	for rows.Next() {
-		var i StrategyToken
+		var i StrategyTokensRow
 		if err := rows.Scan(
-			&i.StrategyID,
 			&i.TokenID,
 			&i.MinBalance,
 			&i.ChainID,
 			&i.ExternalID,
+			&i.ChainAddress,
+			&i.Symbol,
 		); err != nil {
 			return nil, err
 		}
@@ -268,8 +279,8 @@ func (q *Queries) StrategyTokens(ctx context.Context) ([]StrategyToken, error) {
 const strategyTokensByStrategyID = `-- name: StrategyTokensByStrategyID :many
 SELECT st.token_id as id, st.min_balance, t.symbol, t.chain_address, t.chain_id, t.external_id
 FROM strategy_tokens st
-JOIN tokens t ON t.id = st.token_id
-WHERE strategy_id = ?
+JOIN tokens t ON t.id = st.token_id AND t.chain_id = st.chain_id AND t.external_id = st.external_id
+WHERE st.strategy_id = ?
 ORDER BY strategy_id, token_id
 `
 

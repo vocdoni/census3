@@ -128,7 +128,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 			URI:       strategy.Uri,
 			Tokens:    make(map[string]*StrategyToken),
 		}
-		strategyTokens, err := qtx.StrategyTokensByStrategyID(internalCtx, strategy.ID)
+		strategyTokens, err := qtx.StrategyTokens(internalCtx, strategy.ID)
 		if err != nil {
 			return ErrCantGetStrategies.WithErr(err)
 		}
@@ -137,7 +137,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 				return ErrCantGetStrategies.With("invalid token symbol")
 			}
 			strategyResponse.Tokens[strategyToken.Symbol] = &StrategyToken{
-				ID:           common.BytesToAddress(strategyToken.ID).String(),
+				ID:           common.BytesToAddress(strategyToken.TokenID).String(),
 				ChainID:      strategyToken.ChainID,
 				MinBalance:   new(big.Int).SetBytes(strategyToken.MinBalance).String(),
 				ChainAddress: strategyToken.ChainAddress,
@@ -458,14 +458,14 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Tokens:    map[string]*StrategyToken{},
 	}
 	// get information of the strategy related tokens
-	tokensData, err := capi.db.QueriesRO.TokensByStrategyID(internalCtx, strategyData.ID)
+	tokensData, err := capi.db.QueriesRO.StrategyTokens(internalCtx, strategyData.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return ErrCantGetTokens.WithErr(err)
 	}
 	// parse and encode tokens information
 	for _, tokenData := range tokensData {
 		strategy.Tokens[tokenData.Symbol] = &StrategyToken{
-			ID:           common.BytesToAddress(tokenData.ID).String(),
+			ID:           common.BytesToAddress(tokenData.TokenID).String(),
 			ChainAddress: tokenData.ChainAddress,
 			MinBalance:   new(big.Int).SetBytes(tokenData.MinBalance).String(),
 			ChainID:      tokenData.ChainID,

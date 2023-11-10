@@ -9,7 +9,6 @@ import (
 	"math"
 	"math/big"
 	"strconv"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
@@ -145,6 +144,7 @@ func CreateAndPublishCensus(
 	}
 	// add the holders to the census tree
 	db.Lock()
+	defer db.Unlock()
 	if _, err := ref.Tree().AddBatch(holdersAddresses, holdersValues); err != nil {
 		return nil, "", nil, err
 	}
@@ -156,24 +156,23 @@ func CreateAndPublishCensus(
 	if err != nil {
 		return nil, "", nil, err
 	}
-	db.Unlock()
 	// generate the tree dump
 	dump, err := censusdb.BuildExportDump(root, data, opts.Type, censustree.DefaultMaxLevels)
 	if err != nil {
 		return nil, "", nil, err
 	}
 	// publish it on IPFS
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), publishCensusTimeout)
 	defer cancel()
 	uri, err := storage.Publish(ctx, dump)
 	if err != nil {
 		return nil, "", nil, err
 	}
 	db.Lock()
+	defer db.Unlock()
 	if err := db.Del(bID); err != nil {
 		return nil, "", nil, err
 	}
-	db.Unlock()
 	return root, uri, dump, nil
 }
 

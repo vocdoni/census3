@@ -77,14 +77,22 @@ func (q *Queries) ANDOperator(ctx context.Context, arg ANDOperatorParams) ([]AND
 	return items, nil
 }
 
-const countTokenHoldersByTokenID = `-- name: CountTokenHoldersByTokenID :one
+const countTokenHolders = `-- name: CountTokenHolders :one
 SELECT COUNT(holder_id) 
 FROM token_holders
 WHERE token_id = ?
+    AND chain_id = ?
+    AND external_id = ?
 `
 
-func (q *Queries) CountTokenHoldersByTokenID(ctx context.Context, tokenID annotations.Address) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countTokenHoldersByTokenID, tokenID)
+type CountTokenHoldersParams struct {
+	TokenID    annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) CountTokenHolders(ctx context.Context, arg CountTokenHoldersParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTokenHolders, arg.TokenID, arg.ChainID, arg.ExternalID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

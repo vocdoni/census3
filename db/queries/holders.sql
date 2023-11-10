@@ -66,10 +66,12 @@ WHERE token_id = ?
 ORDER BY block_id DESC
 LIMIT 1;
 
--- name: CountTokenHoldersByTokenID :one
+-- name: CountTokenHolders :one
 SELECT COUNT(holder_id) 
 FROM token_holders
-WHERE token_id = ?;
+WHERE token_id = ?
+    AND chain_id = ?
+    AND external_id = ?;
 
 -- name: CreateTokenHolder :execresult
 INSERT INTO token_holders (

@@ -130,3 +130,7 @@ type StrategyQueueResponse struct {
 	Error    error                `json:"error"`
 	Strategy *GetStrategyResponse `json:"strategy"`
 }
+
+type GetStrategySizeResponse struct {
+	Size int `json:"size"`
+}

@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/strategyoperators"
@@ -37,6 +38,10 @@ func (capi *census3API) initStrategiesHandlers() error {
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}", "GET",
 		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/size", "GET",
+		api.MethodAccessTypePublic, capi.estimateStrategySize); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/token/{tokenID}", "GET",
@@ -473,6 +478,59 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		}
 	}
 	res, err := json.Marshal(strategy)
+	if err != nil {
+		return ErrEncodeStrategy.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// estimateStrategySize function handler returns the estimated size of the
+// strategy identified by the ID provided. It returns a 400 error if the
+// provided ID is wrong or empty, a 404 error if the strategy is not found or a
+// 500 error if something fails. The size is calculated using the strategy
+// predicate.
+func (capi *census3API) estimateStrategySize(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get provided strategyID
+	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
+	if err != nil {
+		return ErrMalformedStrategyID.WithErr(err)
+	}
+	strategyID := uint64(iStrategyID)
+
+	internalCtx, cancel := context.WithTimeout(context.Background(), createAndPublishCensusTimeout)
+	defer cancel()
+	// begin a transaction for group sql queries
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetStrategy.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "holders transaction rollback failed")
+		}
+	}()
+	qtx := capi.db.QueriesRW.WithTx(tx)
+	strategy, err := qtx.StrategyByID(internalCtx, strategyID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFoundStrategy.WithErr(err)
+		}
+		return ErrCantGetStrategy.WithErr(err)
+	}
+	if strategy.Predicate == "" {
+		return ErrInvalidStrategyPredicate.With("empty predicate")
+	}
+	// init some variables to get computed in the following steps
+	strategyHolders, _, _, err := census.CalculateStrategyHolders(
+		internalCtx, capi.db.QueriesRO, capi.w3p, strategyID, strategy.Predicate)
+	if err != nil {
+		return ErrEvalStrategyPredicate.WithErr(err)
+	}
+	if len(strategyHolders) == 0 {
+		return ErrNoStrategyHolders
+	}
+	// encoding the result and response it
+	res, err := json.Marshal(GetStrategySizeResponse{Size: len(strategyHolders)})
 	if err != nil {
 		return ErrEncodeStrategy.WithErr(err)
 	}

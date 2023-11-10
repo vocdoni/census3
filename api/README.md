@@ -454,10 +454,33 @@ Returns the information of the strategy related to the provided ID.
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed strategy ID, it must be an integer` | 4002 | 
-| 404 | `no strategy found with the ID provided` | 405 |
+| 404 | `no strategy found with the ID provided` | 4005 |
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error getting strategy information` | 5007 | 
 | 500 | `error encoding strategy info` | 5015 | 
+
+### GET `/strategies/{strategyID}/size`
+Returns the estimated size of the resulting census based on the strategy related to the provided ID.
+
+- 📥 response:
+
+```json
+{
+    "size": 100
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed strategy ID, it must be an integer` | 4002 | 
+| 404 | `no strategy found with the ID provided` | 4005 |
+| 400 | `the predicate provided is not valid` | 4015 | 
+| 204 | `strategy has not registered holders` | 4017 |
+| 500 | `error getting strategy information` | 5007 | 
+| 500 | `error encoding strategy info` | 5015 | 
+| 500 | `error evaluating strategy predicate` | 5026 |
 
 ### GET `/strategies/token/{tokenID}?chainID={chainID}&externalID={externalID}`
 Returns ID's of the already created strategies including the `tokenAddress` provided.

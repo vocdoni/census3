@@ -236,7 +236,7 @@ var (
 	ErrEncodeQueueItem = apirest.APIerror{
 		Code:       5022,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
-		Err:        fmt.Errorf("error encoding census queue item"),
+		Err:        fmt.Errorf("error encoding queue item"),
 	}
 	ErrEncodeAPIInfo = apirest.APIerror{
 		Code:       5023,

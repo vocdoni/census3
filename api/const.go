@@ -1,6 +1,10 @@
 package api
 
-import "time"
+import (
+	"time"
+
+	"go.vocdoni.io/proto/build/go/models"
+)
 
 const (
 	// censuses
@@ -22,5 +26,7 @@ const (
 )
 
 const (
-	defaultPageSize = int32(10)
+	defaultPageSize     = int32(10)
+	defaultCensusType   = models.Census_ARBO_BLAKE2B
+	anonymousCensusType = models.Census_ARBO_POSEIDON
 )

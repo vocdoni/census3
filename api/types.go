@@ -125,8 +125,14 @@ type GetStrategiesResponse struct {
 	Pagination *Pagination            `json:"pagination"`
 }
 
-type StrategyQueueResponse struct {
+type ImportStrategyQueueResponse struct {
 	Done     bool                 `json:"done"`
 	Error    error                `json:"error"`
 	Strategy *GetStrategyResponse `json:"strategy"`
+}
+
+type GetStrategySizeResponse struct {
+	Done  bool  `json:"done"`
+	Error error `json:"error"`
+	Size  int   `json:"size"`
 }

@@ -74,6 +74,8 @@ List of already added tokens.
             "name": "Wrapped Aragon Network Token",
             "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
             "startBlock": 123456,
+            "size": 100,
+            "decimals": 18,
             "symbol": "wANT",
             "tags": "testTag1,testTag2",
             "chainID": 1,
@@ -170,6 +172,7 @@ Returns the information about the token referenced by the provided ID and chain 
 {
     "ID": "0x1324",
     "type": "erc20",
+    "size": 120,
     "decimals": 18,
     "startBlock": 123456,
     "symbol": "$",

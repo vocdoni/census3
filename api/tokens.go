@@ -135,10 +135,21 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			}
 			tokenProgress = int(float64(atBlock) / float64(lastBlockNumber) * 100)
 		}
-
+		// get token holders count
+		holders, err := capi.db.QueriesRO.CountTokenHolders(internalCtx,
+			queries.CountTokenHoldersParams{
+				TokenID:    tokenData.ID,
+				ChainID:    tokenData.ChainID,
+				ExternalID: tokenData.ExternalID,
+			})
+		if err != nil {
+			return ErrCantGetTokenCount.WithErr(err)
+		}
 		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokenResponse{
 			ID:           common.BytesToAddress(tokenData.ID).String(),
 			Type:         state.TokenType(int(tokenData.TypeID)).String(),
+			Decimals:     tokenData.Decimals,
+			Size:         uint64(holders),
 			Name:         tokenData.Name,
 			StartBlock:   uint64(tokenData.CreationBlock),
 			Tags:         tokenData.Tags,
@@ -437,7 +448,12 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	}
 
 	// get token holders count
-	holders, err := capi.db.QueriesRO.CountTokenHoldersByTokenID(internalCtx, address.Bytes())
+	holders, err := capi.db.QueriesRO.CountTokenHolders(internalCtx,
+		queries.CountTokenHoldersParams{
+			TokenID:    address.Bytes(),
+			ChainID:    uint64(chainID),
+			ExternalID: externalID,
+		})
 	if err != nil {
 		return ErrCantGetTokenCount.WithErr(err)
 	}

@@ -410,7 +410,7 @@ Returns the information of the census that are in the creation queue.
 | 404 | `strategy not found` | 4006 | 
 | 400 | `malformed queue ID` | 4011 | 
 | 500 | `error getting strategy information` | 5009 | 
-| 500 | `error encoding strategy queue item` | 5022 | 
+| 500 | `error encoding queue item` | 5022 | 
 
 - ⚠️ possible error values inside the body:
 
@@ -454,10 +454,66 @@ Returns the information of the strategy related to the provided ID.
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
 | 400 | `malformed strategy ID, it must be an integer` | 4002 | 
-| 404 | `no strategy found with the ID provided` | 405 |
+| 404 | `no strategy found with the ID provided` | 4005 |
 | 500 | `error getting tokens information` | 5005 | 
 | 500 | `error getting strategy information` | 5007 | 
 | 500 | `error encoding strategy info` | 5015 | 
+
+
+### GET `/strategies/{strategyID}/size`
+Returns the estimated size of the resulting census based on the strategy related to the queue ID.
+
+- 📥 response:
+
+```json
+{
+    "queueID": "0123456789abcdef0123456789abcdef01234567",
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed strategy ID, it must be an integer` | 4002 | 
+| 500 | `error encoding strategy info` | 5015 | 
+
+### GET `/strategies/{strategyID}/size/queue/{queueID}`
+Returns the estimated size of the resulting census based on the strategy related to the queue ID.
+
+- 📥 response:
+
+```json
+{
+    "done": true,
+    "error": {
+        "code": 0,
+        "err": "error message or null"
+    },
+    "size": 100
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 404 | `no strategy found with the ID provided` | 4005 |
+| 400 | `malformed queue ID` | 4020 | 
+| 500 | `error encoding queue item` | 5022 | 
+
+- ⚠️ possible error values inside the body:
+
+<small>The request could response `OK 200` and at the same time includes an error because it is an error of the enqueued process and not of the request processing).</small>
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 404 | `no strategy found with the ID provided` | 4005 |
+| 400 | `the predicate provided is not valid` | 4015 | 
+| 204 | `strategy has not registered holders` | 4017 |
+| 500 | `error getting strategy information` | 5007 | 
+| 500 | `error evaluating strategy predicate` | 5026 |
+
 
 ### GET `/strategies/token/{tokenID}?chainID={chainID}&externalID={externalID}`
 Returns ID's of the already created strategies including the `tokenAddress` provided.
@@ -669,7 +725,7 @@ Returns the information of the census that are in the creation queue.
 | 404 | `census not found` | 4006 | 
 | 400 | `malformed queue ID` | 4011 | 
 | 500 | `error getting census information` | 5009 | 
-| 500 | `error encoding census queue item` | 5022 | 
+| 500 | `error encoding queue item` | 5022 | 
 
 - ⚠️ possible error values inside the body:
 

@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/strategyoperators"
@@ -37,6 +38,14 @@ func (capi *census3API) initStrategiesHandlers() error {
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}", "GET",
 		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/size", "GET",
+		api.MethodAccessTypePublic, capi.launchStrategySizeEstimation); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/size/queue/{queueID}", "GET",
+		api.MethodAccessTypePublic, capi.enqueueStrategySizeEstimation); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/token/{tokenID}", "GET",
@@ -373,7 +382,7 @@ func (capi *census3API) enqueueImportStrategy(msg *api.APIdata, ctx *httprouter.
 		return ErrNotFoundStrategy.Withf("the ID %s does not exist in the queue", queueID)
 	}
 	// init the queue response
-	queueStrategy := StrategyQueueResponse{
+	queueStrategy := ImportStrategyQueueResponse{
 		Done:  done,
 		Error: err,
 	}
@@ -475,6 +484,112 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	res, err := json.Marshal(strategy)
 	if err != nil {
 		return ErrEncodeStrategy.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// launchStrategySizeEstimation function handler enqueues the estimation of the
+// size of the strategy identified by the ID provided. It returns an error if
+// the provided ID is wrong or if the queue item cannot be encoded.
+func (capi *census3API) launchStrategySizeEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get provided strategyID
+	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
+	if err != nil {
+		return ErrMalformedStrategyID.WithErr(err)
+	}
+	strategyID := uint64(iStrategyID)
+	// import the strategy from IPFS in background generating a queueID
+	queueID := capi.queue.Enqueue()
+	go func() {
+		size, err := capi.estimateStrategySize(strategyID)
+		if err != nil {
+			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+				log.Errorf("error updating import strategy queue %s", queueID)
+			}
+			return
+		}
+		queueData := map[string]any{"size": size}
+		if ok := capi.queue.Update(queueID, true, queueData, nil); !ok {
+			log.Errorf("error updating import strategy queue %s", queueID)
+		}
+	}()
+	// encode and send the queueID
+	res, err := json.Marshal(QueueResponse{QueueID: queueID})
+	if err != nil {
+		return ErrEncodeStrategy.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// estimateStrategySize function returns the estimated size of the
+// strategy identified by the ID provided. The size is calculated using the strategy
+// predicate. This method should be executed in background.
+func (capi *census3API) estimateStrategySize(strategyID uint64) (int, error) {
+	internalCtx, cancel := context.WithTimeout(context.Background(), createAndPublishCensusTimeout)
+	defer cancel()
+	// begin a transaction for group sql queries
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return 0, ErrCantGetStrategy.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "holders transaction rollback failed")
+		}
+	}()
+	strategy, err := capi.db.QueriesRO.StrategyByID(internalCtx, strategyID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, ErrNotFoundStrategy.WithErr(err)
+		}
+		return 0, ErrCantGetStrategy.WithErr(err)
+	}
+	if strategy.Predicate == "" {
+		return 0, ErrInvalidStrategyPredicate.With("empty predicate")
+	}
+	// calculate the strategy holders
+	strategyHolders, _, _, err := census.CalculateStrategyHolders(
+		internalCtx, capi.db.QueriesRO, capi.w3p, strategyID, strategy.Predicate)
+	if err != nil {
+		return 0, ErrEvalStrategyPredicate.WithErr(err)
+	}
+	if size := len(strategyHolders); size != 0 {
+		return size, nil
+	}
+	return 0, ErrNoStrategyHolders
+}
+
+// enqueueStrategySizeEstimation function handler dequeues the estimation of the
+// size of the strategy identified by the queue ID provided. It returns an error
+// if something fails with the queue item. The queue item, when the background
+// size estimation ends, will contain the size of the strategy or the error
+// occurred during the estimation.
+func (capi *census3API) enqueueStrategySizeEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// parse queueID from url
+	queueID := ctx.URLParam("queueID")
+	if queueID == "" {
+		return ErrMalformedStrategyQueueID
+	}
+	// try to get and check if the strategy is in the queue
+	exists, done, data, err := capi.queue.Done(queueID)
+	if !exists {
+		return ErrNotFoundStrategy.Withf("the ID %s does not exist in the queue", queueID)
+	}
+	// init the queue response
+	queueStrategy := GetStrategySizeResponse{
+		Done:  done,
+		Error: err,
+	}
+	// check if it is not finished or some error occurred
+	if done && err == nil {
+		queueStrategy.Size = data["size"].(int)
+		// remove the item from the queue
+		capi.queue.Dequeue(queueID)
+	}
+	// encode item response and send it
+	res, err := json.Marshal(queueStrategy)
+	if err != nil {
+		return ErrEncodeQueueItem.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

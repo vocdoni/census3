@@ -2,16 +2,19 @@ package api
 
 import (
 	"encoding/json"
+	"path/filepath"
 
-	"github.com/vocdoni/census3/census"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/queue"
 	"github.com/vocdoni/census3/service"
 	"github.com/vocdoni/census3/state"
+	"go.vocdoni.io/dvote/api/censusdb"
 	storagelayer "go.vocdoni.io/dvote/data"
 	"go.vocdoni.io/dvote/data/downloader"
 	"go.vocdoni.io/dvote/data/ipfs"
 	"go.vocdoni.io/dvote/data/ipfs/ipfsconnect"
+	vocdoniDB "go.vocdoni.io/dvote/db"
+	"go.vocdoni.io/dvote/db/metadb"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -30,7 +33,7 @@ type census3API struct {
 	conf         Census3APIConf
 	db           *db.DB
 	endpoint     *api.API
-	censusDB     *census.CensusDB
+	censusDB     *censusdb.CensusDB
 	queue        *queue.BackgroundQueue
 	w3p          state.Web3Providers
 	storage      storagelayer.Storage
@@ -73,10 +76,16 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 	// init the downloader using the storage layer
 	newAPI.downloader = downloader.NewDownloader(newAPI.storage)
 	newAPI.downloader.Start()
-	// init the census DB using the storage layer
-	if newAPI.censusDB, err = census.NewCensusDB(conf.DataDir, newAPI.storage); err != nil {
+	// init the database for the census trees
+	censusesDB, err := metadb.New(vocdoniDB.TypePebble, filepath.Join(conf.DataDir, "censusdb"))
+	if err != nil {
 		return nil, err
 	}
+	// init the censusDB of the API
+	if newAPI.censusDB = censusdb.NewCensusDB(censusesDB); err != nil {
+		return nil, err
+	}
+
 	// init handlers
 	if err := newAPI.initAPIHandlers(); err != nil {
 		return nil, err

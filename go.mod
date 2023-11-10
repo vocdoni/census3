@@ -6,12 +6,11 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2
 	github.com/ethereum/go-ethereum v1.13.4
 	github.com/frankban/quicktest v1.14.6
-	github.com/google/uuid v1.3.1
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/pressly/goose/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
-	go.vocdoni.io/dvote v1.10.0
+	go.vocdoni.io/dvote v1.10.1-0.20231110095515-fe24e1aa047a
 	go.vocdoni.io/proto v1.15.4-0.20231023165811-02adcc48142a
 )
 
@@ -89,6 +88,7 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20230821062121-407c9e7a662f // indirect
+	github.com/google/uuid v1.3.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.3 // indirect

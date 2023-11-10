@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
@@ -61,7 +60,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		URI:        capi.downloader.RemoteStorage.URIprefix() + currentCensus.Uri.String,
 		Size:       currentCensus.Size,
 		Weight:     new(big.Int).SetBytes(censusWeight).String(),
-		Anonymous:  currentCensus.CensusType == uint64(census.AnonymousCensusType),
+		Anonymous:  currentCensus.CensusType == uint64(anonymousCensusType),
 	})
 	if err != nil {
 		return ErrEncodeCensus.WithErr(err)
@@ -135,7 +134,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		return 0, ErrInvalidStrategyPredicate.With("empty predicate")
 	}
 	// init some variables to get computed in the following steps
-	strategyHolders, censusWeight, totalTokensBlockNumber, err := census.CalculateStrategyHolders(
+	strategyHolders, censusWeight, totalTokensBlockNumber, err := CalculateStrategyHolders(
 		internalCtx, capi.db.QueriesRO, capi.w3p, req.StrategyID, strategy.Predicate)
 	if err != nil {
 		return 0, ErrEvalStrategyPredicate.WithErr(err)
@@ -144,7 +143,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		return 0, ErrNoStrategyHolders
 	}
 	// compute the new censusId and censusType
-	newCensusID := census.InnerCensusID(totalTokensBlockNumber, req.StrategyID, req.Anonymous)
+	newCensusID := InnerCensusID(totalTokensBlockNumber, req.StrategyID, req.Anonymous)
 	// check if the census already exists
 	_, err = qtx.CensusByID(internalCtx, newCensusID)
 	if err != nil {
@@ -157,19 +156,22 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		return newCensusID, ErrCensusAlreadyExists
 	}
 	// check the censusType
-	censusType := census.DefaultCensusType
+	censusType := defaultCensusType
 	if req.Anonymous {
-		censusType = census.AnonymousCensusType
+		censusType = anonymousCensusType
 	}
 	// create a census tree and publish on IPFS
-	def := census.NewCensusDefinition(newCensusID, req.StrategyID, strategyHolders, req.Anonymous)
-	newCensus, err := capi.censusDB.CreateAndPublish(def)
+	root, uri, _, err := CreateAndPublishCensus(capi.censusDB, capi.storage, CensusOptions{
+		ID:      newCensusID,
+		Type:    censusType,
+		Holders: strategyHolders,
+	})
 	if err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	// save the new census in the SQL database
 	sqlURI := &sql.NullString{}
-	if err := sqlURI.Scan(newCensus.URI); err != nil {
+	if err := sqlURI.Scan(uri); err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	sqlCensusSize := &sql.NullInt64{}
@@ -181,10 +183,10 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	_, err = qtx.CreateCensus(internalCtx, queries.CreateCensusParams{
-		ID:         newCensus.ID,
+		ID:         newCensusID,
 		StrategyID: req.StrategyID,
 		CensusType: uint64(censusType),
-		MerkleRoot: newCensus.RootHash,
+		MerkleRoot: []byte(root),
 		Uri:        *sqlURI,
 		Size:       uint64(sqlCensusSize.Int64),
 		Weight:     *sqlCensusWeight,
@@ -196,7 +198,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	if err := tx.Commit(); err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
-	return newCensus.ID, nil
+	return newCensusID, nil
 }
 
 // enqueueCensus handler returns the current status of the queue item
@@ -250,7 +252,7 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 			URI:        capi.downloader.RemoteStorage.URIprefix() + currentCensus.Uri.String,
 			Size:       currentCensus.Size,
 			Weight:     censusWeight.String(),
-			Anonymous:  currentCensus.CensusType == uint64(census.AnonymousCensusType),
+			Anonymous:  currentCensus.CensusType == uint64(anonymousCensusType),
 		}
 		// remove the item from the queue
 		capi.queue.Dequeue(queueID)
@@ -300,7 +302,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 			URI:        capi.downloader.RemoteStorage.URIprefix() + censusInfo.Uri.String,
 			Size:       censusInfo.Size,
 			Weight:     censusWeight.String(),
-			Anonymous:  censusInfo.CensusType == uint64(census.AnonymousCensusType),
+			Anonymous:  censusInfo.CensusType == uint64(anonymousCensusType),
 		})
 	}
 	res, err := json.Marshal(censuses)

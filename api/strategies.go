@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vocdoni/census3/census"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/strategyoperators"
@@ -548,8 +547,8 @@ func (capi *census3API) estimateStrategySize(strategyID uint64) (int, error) {
 		return 0, ErrInvalidStrategyPredicate.With("empty predicate")
 	}
 	// calculate the strategy holders
-	strategyHolders, _, _, err := census.CalculateStrategyHolders(
-		internalCtx, capi.db.QueriesRO, capi.w3p, strategyID, strategy.Predicate)
+	strategyHolders, _, _, err := CalculateStrategyHolders(internalCtx,
+		capi.db.QueriesRO, capi.w3p, strategyID, strategy.Predicate)
 	if err != nil {
 		return 0, ErrEvalStrategyPredicate.WithErr(err)
 	}

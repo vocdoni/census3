@@ -1,11 +1,16 @@
 package api
 
-import "time"
+import (
+	"time"
+
+	"go.vocdoni.io/proto/build/go/models"
+)
 
 const (
 	// censuses
 	getCensusTimeout              = time.Second * 10
 	createAndPublishCensusTimeout = time.Minute * 10
+	publishCensusTimeout          = time.Second * 60
 	enqueueCensusCreationTimeout  = time.Second * 10
 	getStrategyCensusesTimeout    = time.Second * 10
 	// strategies
@@ -22,5 +27,7 @@ const (
 )
 
 const (
-	defaultPageSize = int32(10)
+	defaultPageSize     = int32(10)
+	defaultCensusType   = models.Census_ARBO_BLAKE2B
+	anonymousCensusType = models.Census_ARBO_POSEIDON
 )

@@ -209,6 +209,8 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p state.Web3Providers,
 	id uint64, predicate string,
 ) (map[common.Address]*big.Int, *big.Int, uint64, error) {
+	// TODO: write a benchmark and try to optimize this function
+
 	// init some variables to get computed in the following steps
 	censusWeight := new(big.Int)
 	strategyHolders := map[common.Address]*big.Int{}

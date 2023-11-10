@@ -65,6 +65,7 @@ func TestCreateAndPublish(t *testing.T) {
 	c.Assert(db.ImportTree(bID, dump), qt.IsNil)
 	// load the tree by id
 	ref, err := db.Load(bID, nil)
+	defer db.UnLoad()
 	c.Assert(err, qt.IsNil)
 	// check the root
 	importedRoot, err := ref.Tree().Root()
@@ -80,5 +81,4 @@ func TestCreateAndPublish(t *testing.T) {
 		c.Assert(err, qt.IsNil)
 		c.Assert(bytes.Equal(value, val), qt.IsTrue)
 	}
-	db.UnLoad()
 }

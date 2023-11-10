@@ -168,8 +168,6 @@ func CreateAndPublishCensus(
 	if err != nil {
 		return nil, "", nil, err
 	}
-	db.Lock()
-	defer db.Unlock()
 	if err := db.Del(bID); err != nil {
 		return nil, "", nil, err
 	}

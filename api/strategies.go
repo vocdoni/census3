@@ -51,7 +51,7 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.getTokenStrategies); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategies/predicate/parse", "POST",
+	if err := capi.endpoint.RegisterMethod("/strategies/predicate/validate", "POST",
 		api.MethodAccessTypePublic, capi.validateStrategyPredicate); err != nil {
 		return err
 	}

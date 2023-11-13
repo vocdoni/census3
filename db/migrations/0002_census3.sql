@@ -18,8 +18,6 @@ SELECT * FROM (
         SELECT token.chain_id FROM tokens AS token WHERE token.id = strategy_tokens.token_id
     ) AS chain_id FROM strategy_tokens
 );
-DROP INDEX IF EXISTS idx_strategy_tokens_strategy_id;
-DROP INDEX IF EXISTS idx_strategy_tokens_token_id;
 DROP TABLE strategy_tokens;
 ALTER TABLE strategy_tokens_copy RENAME TO strategy_tokens;
 CREATE INDEX idx_strategy_tokens_strategy_id ON strategy_tokens(strategy_id);
@@ -28,6 +26,7 @@ CREATE INDEX idx_strategy_tokens_token_id ON strategy_tokens(token_id);
 -- tokens table schema updates
 ALTER TABLE tokens ADD COLUMN chain_address TEXT NOT NULL DEFAULT '';
 ALTER TABLE tokens ADD COLUMN external_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE tokens ADD COLUMN icon_uri TEXT NOT NULL DEFAULT '';
 ALTER TABLE tokens RENAME COLUMN tag TO tags;
 UPDATE tokens SET name = '' WHERE name IS NULL;
 UPDATE tokens SET symbol = '' WHERE symbol IS NULL;
@@ -51,18 +50,18 @@ CREATE TABLE tokens_copy (
     chain_address TEXT NOT NULL DEFAULT '',
     external_id TEXT NULL DEFAULT '',
     default_strategy INTEGER NOT NULL DEFAULT 0,
+    icon_uri TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (id, chain_id, external_id),
     FOREIGN KEY (type_id) REFERENCES token_types(id) ON DELETE CASCADE,
     FOREIGN KEY (default_strategy) REFERENCES strategies(id) ON DELETE CASCADE
 );
-INSERT INTO tokens_copy (id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy) 
+INSERT INTO tokens_copy (id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri) 
 SELECT * FROM (
-    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, (
+    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, icon_uri, (
         SELECT strategy_id FROM strategy_tokens WHERE token_id = tokens.id AND strategy_tokens.chain_id = tokens.chain_id AND strategy_tokens.external_id = tokens.external_id LIMIT 1
     ) AS default_strategy FROM tokens
 );
 DROP TABLE tokens;
--- DROP INDEX IF EXISTS idx_tokens_type_id;
 ALTER TABLE tokens_copy RENAME TO tokens;
 CREATE INDEX idx_tokens_type_id ON tokens(type_id);
 
@@ -87,9 +86,6 @@ SELECT * FROM (
         SELECT token.chain_id FROM tokens AS token WHERE token.id = token_holders.token_id
     ) AS chain_id FROM token_holders
 );
--- DROP INDEX IF EXISTS idx_token_holders_token_id;
--- DROP INDEX IF EXISTS idx_token_holders_holder_id;
--- DROP INDEX IF EXISTS idx_token_holders_block_id;
 DROP TABLE token_holders;
 ALTER TABLE token_holders_copy RENAME TO token_holders;
 CREATE INDEX idx_token_holders_token_id ON token_holders(token_id);

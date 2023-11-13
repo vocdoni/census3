@@ -32,6 +32,7 @@ const (
 // endpoint to get the event info for an event ID.
 type EventAPIResponse struct {
 	FancyID string `json:"fancy_id"`
+	IconURI string `json:"image_url"`
 	Name    string `json:"name"`
 }
 
@@ -194,6 +195,14 @@ func (p *POAPHolderProvider) LatestBlockNumber(_ context.Context, id []byte) (ui
 		return snapshot.from, nil
 	}
 	return 0, fmt.Errorf("no snapshot found for eventID %s", eventID)
+}
+
+func (p *POAPHolderProvider) IconURI(_ context.Context, id []byte) (string, error) {
+	info, err := p.getEventInfo(string(id))
+	if err != nil {
+		return "", err
+	}
+	return info.IconURI, nil
 }
 
 // lastHolders returns the holders of the POAP eventID provided. It requests the

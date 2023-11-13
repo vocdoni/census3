@@ -213,6 +213,7 @@ func (w *Web3) TokenData() (*TokenData, error) {
 	td := &TokenData{
 		Address: w.contractAddress,
 		Type:    w.contractType,
+		IconURI: "",
 	}
 	var err error
 	if td.Name, err = w.TokenName(); err != nil {

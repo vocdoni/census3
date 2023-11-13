@@ -65,6 +65,7 @@ type Token struct {
 	ChainAddress    string
 	ExternalID      string
 	DefaultStrategy uint64
+	IconUri         string
 }
 
 type TokenHolder struct {

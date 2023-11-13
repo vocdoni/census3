@@ -603,7 +603,7 @@ func (q *Queries) TokenHoldersByTokenIDAndExternalID(ctx context.Context, arg To
 }
 
 const tokensByHolderID = `-- name: TokensByHolderID :many
-SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.chain_address, tokens.external_id, tokens.default_strategy
+SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.chain_address, tokens.external_id, tokens.default_strategy, tokens.icon_uri
 FROM tokens
 JOIN token_holders ON tokens.id = token_holders.token_id
 WHERE token_holders.holder_id = ?
@@ -632,6 +632,7 @@ func (q *Queries) TokensByHolderID(ctx context.Context, holderID annotations.Add
 			&i.ChainAddress,
 			&i.ExternalID,
 			&i.DefaultStrategy,
+			&i.IconUri,
 		); err != nil {
 			return nil, err
 		}

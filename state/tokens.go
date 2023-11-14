@@ -54,6 +54,7 @@ type TokenData struct {
 	Symbol      string
 	Decimals    uint64
 	TotalSupply *big.Int
+	IconURI     string
 }
 
 func (t *TokenData) String() string {

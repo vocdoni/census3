@@ -163,6 +163,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 				Progress: tokenProgress,
 			},
 			DefaultStrategy: tokenData.DefaultStrategy,
+			IconURI:         tokenData.IconUri,
 		})
 	}
 	// encode the response and send it
@@ -286,6 +287,10 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		if err != nil {
 			return ErrCantGetToken.WithErr(err)
 		}
+		iconURI, err := provider.IconURI(internalCtx, []byte(req.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
 		// build token information struct with the data from the external
 		// provider
 		info = &state.TokenData{
@@ -295,6 +300,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 			Symbol:      symbol,
 			Decimals:    decimals,
 			TotalSupply: totalSupply,
+			IconURI:     iconURI,
 		}
 	} else {
 		addr := common.HexToAddress(req.ID)
@@ -349,6 +355,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		ChainID:       req.ChainID,
 		ChainAddress:  chainAddress,
 		ExternalID:    req.ExternalID,
+		IconUri:       info.IconURI,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {

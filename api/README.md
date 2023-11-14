@@ -80,7 +80,8 @@ List of already added tokens.
             "tags": "testTag1,testTag2",
             "chainID": 1,
             "externalID": "", // used by POAP contracts
-            "chainAddress": "eth:0x1234" 
+            "chainAddress": "eth:0x1234",
+            "iconURI": "http://...png"
         }
     ],
     "pagination": {
@@ -187,7 +188,8 @@ Returns the information about the token referenced by the provided ID and chain 
     "tags": "testTag1,testTag2",
     "chainID": 1,
     "externalID": "",
-    "chainAddress": "eth:0x1234" 
+    "chainAddress": "eth:0x1234",
+    "iconURI": "http://...png"
 }
 ```
 
@@ -392,7 +394,7 @@ Imports a strategy from IPFS downloading it with the `cid` provided in backgroun
 | 500 | `error encoding strategy info` | 5015 | 
 
 ### GET `/strategies/import/queue/{queueID}`
-Returns the information of the census that are in the creation queue.
+Returns the information of the strategy that are in the creation queue.
 
 - 📥 response:
 ```json

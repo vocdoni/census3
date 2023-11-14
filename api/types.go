@@ -47,6 +47,7 @@ type GetTokenResponse struct {
 	ChainID         uint64                  `json:"chainID"`
 	ChainAddress    string                  `json:"chainAddress"`
 	ExternalID      string                  `json:"externalID,omitempty"`
+	IconURI         string                  `json:"iconURI,omitempty"`
 }
 
 type GetTokensResponse struct {

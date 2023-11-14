@@ -37,4 +37,5 @@ type HolderProvider interface {
 	BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error)
 	LatestBlockNumber(ctx context.Context, id []byte) (uint64, error)
 	CreationBlock(ctx context.Context, id []byte) (uint64, error)
+	IconURI(ctx context.Context, id []byte) (string, error)
 }

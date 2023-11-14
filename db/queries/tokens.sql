@@ -52,10 +52,11 @@ INSERT INTO tokens (
     chain_id,
     chain_address,
     external_id,
-    default_strategy
+    default_strategy,
+    icon_uri
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?
 );
 
 -- name: UpdateTokenStatus :execresult

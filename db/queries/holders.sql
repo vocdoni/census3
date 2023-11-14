@@ -109,14 +109,18 @@ SELECT token_holders.holder_id, token_holders.balance
 FROM token_holders
 WHERE token_holders.token_id = ? 
     AND token_holders.chain_id = ?
+    AND token_holders.external_id = ?
     AND token_holders.balance >= ?;
 
 -- name: TokenHoldersByStrategyID :many
-SELECT token_holders.holder_id, token_holders.balance
+SELECT token_holders.holder_id, token_holders.balance, strategy_tokens.min_balance
 FROM token_holders
-JOIN strategy_tokens ON strategy_tokens.token_id = token_holders.token_id
+JOIN strategy_tokens 
+    ON strategy_tokens.token_id = token_holders.token_id
+    AND strategy_tokens.chain_id = token_holders.chain_id
+    AND strategy_tokens.external_id = token_holders.external_id
 WHERE strategy_tokens.strategy_id = ?
-    AND token_holders.balance >= strategy_tokens.min_balance;
+    AND strategy_tokens.min_balance <= token_holders.balance;
 
 -- name: ANDOperator :many
 ;WITH holders_a as (
@@ -124,6 +128,7 @@ WHERE strategy_tokens.strategy_id = ?
     FROM token_holders th
     WHERE th.token_id = sqlc.arg(token_id_a) 
         AND th.chain_id = sqlc.arg(chain_id_a)
+        AND th.external_id = sqlc.arg(external_id_a)
         AND th.balance >= sqlc.arg(min_balance_a)
 ),
 holders_b as (
@@ -131,6 +136,7 @@ holders_b as (
     FROM token_holders th
     WHERE th.token_id = sqlc.arg(token_id_b) 
         AND th.chain_id = sqlc.arg(chain_id_b)
+        AND th.external_id = sqlc.arg(external_id_b)
         AND th.balance >= sqlc.arg(min_balance_b)
 )
 SELECT holders_a.holder_id, holders_a.balance as balance_a, holders_b.balance as balance_b
@@ -145,10 +151,12 @@ FROM (
     WHERE (
         th.token_id = sqlc.arg(token_id_a) 
         AND th.chain_id = sqlc.arg(chain_id_a)
+        AND th.external_id = sqlc.arg(external_id_a)
         AND th.balance >= sqlc.arg(min_balance_a)
     ) OR (
         th.token_id = sqlc.arg(token_id_b) 
         AND th.chain_id = sqlc.arg(chain_id_b)
+        AND th.external_id = sqlc.arg(external_id_b)
         AND th.balance >= sqlc.arg(min_balance_b)
     )
 ) as holder_ids
@@ -157,6 +165,7 @@ LEFT JOIN (
     FROM token_holders th_b
     WHERE th_b.token_id = sqlc.arg(token_id_a) 
         AND th_b.chain_id = sqlc.arg(chain_id_a)
+        AND th_b.external_id = sqlc.arg(external_id_a)
         AND th_b.balance >= sqlc.arg(min_balance_a)
 ) AS a ON holder_ids.holder_id = a.holder_id
 LEFT JOIN (
@@ -164,6 +173,7 @@ LEFT JOIN (
     FROM token_holders th_a
     WHERE th_a.token_id = sqlc.arg(token_id_b) 
         AND th_a.chain_id = sqlc.arg(chain_id_b)
+        AND th_a.external_id = sqlc.arg(external_id_b)
         AND th_a.balance >= sqlc.arg(min_balance_b)
 ) AS b ON holder_ids.holder_id = b.holder_id
 GROUP BY holder_ids.holder_id;

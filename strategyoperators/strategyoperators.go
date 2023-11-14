@@ -72,6 +72,7 @@ type TokenInformation struct {
 	ChainID    uint64
 	MinBalance string
 	Decimals   uint64
+	ExternalID string
 }
 
 // StrategyIteration struct represents the data that is passed to the operators
@@ -118,18 +119,18 @@ func (op *StrategyOperators) Map() []*lexer.Operator[*StrategyIteration] {
 // also decodes the address of the token and the min balance (by default 0). If
 // it does not contains any related token information or the decoding process
 // fails, returns an error.
-func (op *StrategyOperators) tokenInfoBySymbol(symbol string) (common.Address, uint64, *big.Int, error) {
+func (op *StrategyOperators) tokenInfoBySymbol(symbol string) (common.Address, uint64, *big.Int, string, error) {
 	tokenInfo, ok := op.tokensInfo[symbol]
 	if !ok {
-		return common.Address{}, 0, nil, fmt.Errorf("token symbol not found: %s", symbol)
+		return common.Address{}, 0, nil, "", fmt.Errorf("token symbol not found: %s", symbol)
 	}
 	minBalance := new(big.Int)
 	if tokenInfo.MinBalance != "" {
 		if _, ok := minBalance.SetString(tokenInfo.MinBalance, 10); !ok {
-			return common.Address{}, 0, nil, fmt.Errorf("error decoding min balance for %s", symbol)
+			return common.Address{}, 0, nil, "", fmt.Errorf("error decoding min balance for %s", symbol)
 		}
 	}
-	return common.HexToAddress(tokenInfo.ID), tokenInfo.ChainID, minBalance, nil
+	return common.HexToAddress(tokenInfo.ID), tokenInfo.ChainID, minBalance, tokenInfo.ExternalID, nil
 }
 
 // decimalsBySymbol method returns the decimals of the token identified by the
@@ -146,16 +147,17 @@ func (op *StrategyOperators) decimalsBySymbol(symbol string) (uint64, bool) {
 // information by this symbol, and then queries the database.
 func (op *StrategyOperators) holdersBySymbol(ctx context.Context, symbol string) (map[string]*big.Int, error) {
 	// get token information by its symbol
-	address, chainID, minBalance, err := op.tokenInfoBySymbol(symbol)
+	address, chainID, minBalance, externalID, err := op.tokenInfoBySymbol(symbol)
 	if err != nil {
 		return nil, err
 	}
 	// get token filtered information from the database
 	rows, err := op.db.TokenHoldersByTokenIDAndChainIDAndMinBalance(ctx,
 		queries.TokenHoldersByTokenIDAndChainIDAndMinBalanceParams{
-			TokenID: address.Bytes(),
-			ChainID: chainID,
-			Balance: minBalance.Bytes(),
+			TokenID:    address.Bytes(),
+			ChainID:    chainID,
+			Balance:    minBalance.Bytes(),
+			ExternalID: externalID,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbol, chainID)

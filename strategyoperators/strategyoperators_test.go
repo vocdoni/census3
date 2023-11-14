@@ -32,14 +32,16 @@ var mockedTokens = [][]byte{
 
 var mockedTokenInformation = map[string]*TokenInformation{
 	"A": {
-		ID:       common.BytesToAddress(mockedTokens[0]).String(),
-		Decimals: 18,
-		ChainID:  1,
+		ID:         common.BytesToAddress(mockedTokens[0]).String(),
+		Decimals:   18,
+		ChainID:    1,
+		ExternalID: "",
 	},
 	"B": {
-		ID:       common.BytesToAddress(mockedTokens[1]).String(),
-		Decimals: 18,
-		ChainID:  1,
+		ID:         common.BytesToAddress(mockedTokens[1]).String(),
+		Decimals:   18,
+		ChainID:    1,
+		ExternalID: "",
 	},
 	"C": {
 		ID:         common.BytesToAddress(mockedTokens[2]).String(),
@@ -149,7 +151,7 @@ func TestStrategyOperatorMap(t *testing.T) {
 	})
 	t.Run("tokenInfoBySymbol", func(t *testing.T) {
 		for symbol, info := range mockedTokenInformation {
-			address, chainID, minBalance, err := mso.tokenInfoBySymbol(symbol)
+			address, chainID, minBalance, _, err := mso.tokenInfoBySymbol(symbol)
 			c.Assert(err, qt.IsNil)
 			c.Assert(address.String(), qt.Equals, info.ID)
 			c.Assert(chainID, qt.Equals, info.ChainID)
@@ -166,9 +168,9 @@ func TestStrategyOperatorMap(t *testing.T) {
 			ChainID:    1,
 			MinBalance: "wrongNumber",
 		}
-		_, _, _, err := mso.tokenInfoBySymbol("Z")
+		_, _, _, _, err := mso.tokenInfoBySymbol("Z")
 		c.Assert(err, qt.IsNotNil)
-		_, _, _, err = mso.tokenInfoBySymbol("D")
+		_, _, _, _, err = mso.tokenInfoBySymbol("D")
 		c.Assert(err, qt.IsNotNil)
 	})
 	t.Run("decimalsBySymbol", func(t *testing.T) {

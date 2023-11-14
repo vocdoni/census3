@@ -278,6 +278,7 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p sta
 				ChainID:    token.ChainID,
 				MinBalance: new(big.Int).SetBytes(token.MinBalance).String(),
 				Decimals:   token.Decimals,
+				ExternalID: token.ExternalID,
 			}
 		}
 		// init the operators and the predicate evaluator

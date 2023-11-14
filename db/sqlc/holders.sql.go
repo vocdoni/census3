@@ -18,6 +18,7 @@ const aNDOperator = `-- name: ANDOperator :many
     FROM token_holders th
     WHERE th.token_id = ? 
         AND th.chain_id = ?
+        AND th.external_id = ?
         AND th.balance >= ?
 ),
 holders_b as (
@@ -25,6 +26,7 @@ holders_b as (
     FROM token_holders th
     WHERE th.token_id = ? 
         AND th.chain_id = ?
+        AND th.external_id = ?
         AND th.balance >= ?
 )
 SELECT holders_a.holder_id, holders_a.balance as balance_a, holders_b.balance as balance_b
@@ -35,9 +37,11 @@ INNER JOIN holders_b ON holders_a.holder_id = holders_b.holder_id
 type ANDOperatorParams struct {
 	TokenIDA    annotations.Address
 	ChainIDA    uint64
+	ExternalIDA string
 	MinBalanceA []byte
 	TokenIDB    annotations.Address
 	ChainIDB    uint64
+	ExternalIDB string
 	MinBalanceB []byte
 }
 
@@ -51,9 +55,11 @@ func (q *Queries) ANDOperator(ctx context.Context, arg ANDOperatorParams) ([]AND
 	rows, err := q.db.QueryContext(ctx, aNDOperator,
 		arg.TokenIDA,
 		arg.ChainIDA,
+		arg.ExternalIDA,
 		arg.MinBalanceA,
 		arg.TokenIDB,
 		arg.ChainIDB,
+		arg.ExternalIDB,
 		arg.MinBalanceB,
 	)
 	if err != nil {
@@ -221,10 +227,12 @@ FROM (
     WHERE (
         th.token_id = ? 
         AND th.chain_id = ?
+        AND th.external_id = ?
         AND th.balance >= ?
     ) OR (
         th.token_id = ? 
         AND th.chain_id = ?
+        AND th.external_id = ?
         AND th.balance >= ?
     )
 ) as holder_ids
@@ -233,6 +241,7 @@ LEFT JOIN (
     FROM token_holders th_b
     WHERE th_b.token_id = ? 
         AND th_b.chain_id = ?
+        AND th_b.external_id = ?
         AND th_b.balance >= ?
 ) AS a ON holder_ids.holder_id = a.holder_id
 LEFT JOIN (
@@ -240,6 +249,7 @@ LEFT JOIN (
     FROM token_holders th_a
     WHERE th_a.token_id = ? 
         AND th_a.chain_id = ?
+        AND th_a.external_id = ?
         AND th_a.balance >= ?
 ) AS b ON holder_ids.holder_id = b.holder_id
 GROUP BY holder_ids.holder_id
@@ -248,9 +258,11 @@ GROUP BY holder_ids.holder_id
 type OROperatorParams struct {
 	TokenIDA    annotations.Address
 	ChainIDA    uint64
+	ExternalIDA string
 	MinBalanceA []byte
 	TokenIDB    annotations.Address
 	ChainIDB    uint64
+	ExternalIDB string
 	MinBalanceB []byte
 }
 
@@ -264,15 +276,19 @@ func (q *Queries) OROperator(ctx context.Context, arg OROperatorParams) ([]OROpe
 	rows, err := q.db.QueryContext(ctx, oROperator,
 		arg.TokenIDA,
 		arg.ChainIDA,
+		arg.ExternalIDA,
 		arg.MinBalanceA,
 		arg.TokenIDB,
 		arg.ChainIDB,
+		arg.ExternalIDB,
 		arg.MinBalanceB,
 		arg.TokenIDA,
 		arg.ChainIDA,
+		arg.ExternalIDA,
 		arg.MinBalanceA,
 		arg.TokenIDB,
 		arg.ChainIDB,
+		arg.ExternalIDB,
 		arg.MinBalanceB,
 	)
 	if err != nil {
@@ -409,16 +425,20 @@ func (q *Queries) TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalID(ctx con
 }
 
 const tokenHoldersByStrategyID = `-- name: TokenHoldersByStrategyID :many
-SELECT token_holders.holder_id, token_holders.balance
+SELECT token_holders.holder_id, token_holders.balance, strategy_tokens.min_balance
 FROM token_holders
-JOIN strategy_tokens ON strategy_tokens.token_id = token_holders.token_id
+JOIN strategy_tokens 
+    ON strategy_tokens.token_id = token_holders.token_id
+    AND strategy_tokens.chain_id = token_holders.chain_id
+    AND strategy_tokens.external_id = token_holders.external_id
 WHERE strategy_tokens.strategy_id = ?
-    AND token_holders.balance >= strategy_tokens.min_balance
+    AND strategy_tokens.min_balance <= token_holders.balance
 `
 
 type TokenHoldersByStrategyIDRow struct {
-	HolderID annotations.Address
-	Balance  []byte
+	HolderID   annotations.Address
+	Balance    []byte
+	MinBalance []byte
 }
 
 func (q *Queries) TokenHoldersByStrategyID(ctx context.Context, strategyID uint64) ([]TokenHoldersByStrategyIDRow, error) {
@@ -430,7 +450,7 @@ func (q *Queries) TokenHoldersByStrategyID(ctx context.Context, strategyID uint6
 	var items []TokenHoldersByStrategyIDRow
 	for rows.Next() {
 		var i TokenHoldersByStrategyIDRow
-		if err := rows.Scan(&i.HolderID, &i.Balance); err != nil {
+		if err := rows.Scan(&i.HolderID, &i.Balance, &i.MinBalance); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -525,13 +545,15 @@ SELECT token_holders.holder_id, token_holders.balance
 FROM token_holders
 WHERE token_holders.token_id = ? 
     AND token_holders.chain_id = ?
+    AND token_holders.external_id = ?
     AND token_holders.balance >= ?
 `
 
 type TokenHoldersByTokenIDAndChainIDAndMinBalanceParams struct {
-	TokenID annotations.Address
-	ChainID uint64
-	Balance []byte
+	TokenID    annotations.Address
+	ChainID    uint64
+	ExternalID string
+	Balance    []byte
 }
 
 type TokenHoldersByTokenIDAndChainIDAndMinBalanceRow struct {
@@ -540,7 +562,12 @@ type TokenHoldersByTokenIDAndChainIDAndMinBalanceRow struct {
 }
 
 func (q *Queries) TokenHoldersByTokenIDAndChainIDAndMinBalance(ctx context.Context, arg TokenHoldersByTokenIDAndChainIDAndMinBalanceParams) ([]TokenHoldersByTokenIDAndChainIDAndMinBalanceRow, error) {
-	rows, err := q.db.QueryContext(ctx, tokenHoldersByTokenIDAndChainIDAndMinBalance, arg.TokenID, arg.ChainID, arg.Balance)
+	rows, err := q.db.QueryContext(ctx, tokenHoldersByTokenIDAndChainIDAndMinBalance,
+		arg.TokenID,
+		arg.ChainID,
+		arg.ExternalID,
+		arg.Balance,
+	)
 	if err != nil {
 		return nil, err
 	}

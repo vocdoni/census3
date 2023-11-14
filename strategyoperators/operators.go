@@ -323,11 +323,11 @@ func (op *StrategyOperators) andHoldersDBOperator(ctx context.Context,
 	symbolA, symbolB string,
 ) (map[string][2]*big.Int, error) {
 	// get both tokens information by their symbols
-	addressA, chainIDA, minBalanceA, err := op.tokenInfoBySymbol(symbolA)
+	addressA, chainIDA, minBalanceA, externalIDA, err := op.tokenInfoBySymbol(symbolA)
 	if err != nil {
 		return nil, err
 	}
-	addressB, chainIDB, minBalanceB, err := op.tokenInfoBySymbol(symbolB)
+	addressB, chainIDB, minBalanceB, externalIDB, err := op.tokenInfoBySymbol(symbolB)
 	if err != nil {
 		return nil, err
 	}
@@ -335,18 +335,22 @@ func (op *StrategyOperators) andHoldersDBOperator(ctx context.Context,
 	rows, err := op.db.ANDOperator(ctx, queries.ANDOperatorParams{
 		TokenIDA:    addressA.Bytes(),
 		ChainIDA:    chainIDA,
+		ExternalIDA: externalIDA,
 		TokenIDB:    addressB.Bytes(),
 		ChainIDB:    chainIDB,
+		ExternalIDB: externalIDB,
 		MinBalanceA: minBalanceA.Bytes(),
 		MinBalanceB: minBalanceB.Bytes(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error getting holders of tokens %s (chainID: %d) and %s (chainID: %d)",
-			symbolA, chainIDA, symbolB, chainIDB)
+		return nil, fmt.Errorf(
+			"error getting holders of %s (chainID: %d, externalID: %s) and %s (chainID: %d, externalID: %s)",
+			symbolA, chainIDA, externalIDA, symbolB, chainIDB, externalIDB)
 	}
 	if len(rows) == 0 {
-		return nil, fmt.Errorf("no holders of tokens %s (chainID: %d) and %s (chainID: %d)",
-			symbolA, chainIDA, symbolB, chainIDB)
+		return nil, fmt.Errorf(
+			"no holders found for %s (chainID: %d, externalID: %s) and %s (chainID: %d, externalID: %s)",
+			symbolA, chainIDA, externalIDA, symbolB, chainIDB, externalIDB)
 	}
 	// decode the results and return them
 	data := make(map[string][2]*big.Int)
@@ -370,11 +374,11 @@ func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
 	symbolA, symbolB string,
 ) (map[string][2]*big.Int, error) {
 	// get both tokens information by their symbols
-	addressA, chainIDA, minBalanceA, err := op.tokenInfoBySymbol(symbolA)
+	addressA, chainIDA, minBalanceA, externalIDA, err := op.tokenInfoBySymbol(symbolA)
 	if err != nil {
 		return nil, err
 	}
-	addressB, chainIDB, minBalanceB, err := op.tokenInfoBySymbol(symbolB)
+	addressB, chainIDB, minBalanceB, externalIDB, err := op.tokenInfoBySymbol(symbolB)
 	if err != nil {
 		return nil, err
 	}
@@ -382,18 +386,22 @@ func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
 	rows, err := op.db.OROperator(ctx, queries.OROperatorParams{
 		TokenIDA:    addressA.Bytes(),
 		ChainIDA:    chainIDA,
+		ExternalIDA: externalIDA,
 		TokenIDB:    addressB.Bytes(),
 		ChainIDB:    chainIDB,
+		ExternalIDB: externalIDB,
 		MinBalanceA: minBalanceA.Bytes(),
 		MinBalanceB: minBalanceB.Bytes(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error getting holders of tokens %s (chainID: %d) and %s (chainID: %d)",
-			symbolA, chainIDA, symbolB, chainIDB)
+		return nil, fmt.Errorf(
+			"error getting holders of %s (chainID: %d, externalID: %s) and %s (chainID: %d, externalID: %s)",
+			symbolA, chainIDA, externalIDA, symbolB, chainIDB, externalIDB)
 	}
 	if len(rows) == 0 {
-		return nil, fmt.Errorf("no holders of tokens %s (chainID: %d) and %s (chainID: %d)",
-			symbolA, chainIDA, symbolB, chainIDB)
+		return nil, fmt.Errorf(
+			"no holders found for %s (chainID: %d, externalID: %s) and %s (chainID: %d, externalID: %s)",
+			symbolA, chainIDA, externalIDA, symbolB, chainIDB, externalIDB)
 	}
 	// decode the results and return them
 	data := make(map[string][2]*big.Int)

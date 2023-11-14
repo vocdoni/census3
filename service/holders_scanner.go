@@ -301,12 +301,12 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			created++
 			continue
 		}
-		// if the holder already exists, calculate the holder balance with the
-		// current balance and the new one
-		currentBalance := new(big.Int).SetBytes(currentTokenHolder.Balance)
-		newBalance := new(big.Int).Add(currentBalance, balance)
+		// if the holder already exists, and has the same balance, skip it
+		if new(big.Int).SetBytes(currentTokenHolder.Balance).Cmp(balance) == 0 {
+			continue
+		}
 		// if the calculated balance is 0 delete it
-		if newBalance.Cmp(big.NewInt(0)) <= 0 {
+		if balance.Cmp(big.NewInt(0)) <= 0 {
 			_, err := qtx.DeleteTokenHolder(ctx,
 				queries.DeleteTokenHolderParams{
 					TokenID:    th.Address().Bytes(),
@@ -326,7 +326,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			HolderID:   holder.Bytes(),
 			BlockID:    currentTokenHolder.BlockID,
 			NewBlockID: th.LastBlock(),
-			Balance:    newBalance.Bytes(),
+			Balance:    balance.Bytes(),
 			ChainID:    th.ChainID,
 			ExternalID: th.ExternalID,
 		})
@@ -445,7 +445,6 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address, c
 		if err != nil {
 			return false, err
 		}
-		th.FlushHolders()
 		for holder, balance := range externalBalances {
 			th.Append(holder, balance)
 		}

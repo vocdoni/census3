@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.vocdoni.io/dvote/log"
@@ -59,9 +60,10 @@ type POAPSnapshot struct {
 // POAP API to get the list of POAPs for an event ID and calculate the balances
 // of the token holders from the last snapshot.
 type POAPHolderProvider struct {
-	URI         string
-	AccessToken string
-	snapshots   map[string]*POAPSnapshot
+	URI          string
+	AccessToken  string
+	snapshots    map[string]*POAPSnapshot
+	snapshotsMtx sync.RWMutex
 }
 
 // Decimals method is not implemented in the POAP external provider. By default
@@ -111,6 +113,7 @@ func (p *POAPHolderProvider) Init() error {
 		return fmt.Errorf("no POAP access token defined")
 	}
 	p.snapshots = make(map[string]*POAPSnapshot)
+	p.snapshotsMtx = sync.RWMutex{}
 	return nil
 }
 
@@ -119,6 +122,8 @@ func (p *POAPHolderProvider) Init() error {
 func (p *POAPHolderProvider) SetLastBalances(_ context.Context, id []byte,
 	balances map[common.Address]*big.Int, from uint64,
 ) error {
+	p.snapshotsMtx.Lock()
+	defer p.snapshotsMtx.Unlock()
 	p.snapshots[string(id)] = &POAPSnapshot{
 		from:     from,
 		snapshot: balances,
@@ -146,6 +151,8 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 	// calculate partials balances
 	partialBalances := p.calcPartials(eventID, newSnapshot)
 	// save snapshot
+	p.snapshotsMtx.Lock()
+	defer p.snapshotsMtx.Unlock()
 	p.snapshots[string(id)] = &POAPSnapshot{
 		from:     from,
 		snapshot: newSnapshot,
@@ -178,6 +185,8 @@ func (p *POAPHolderProvider) BalanceOf(_ context.Context, id []byte, addr common
 	// parse eventID from id
 	eventID := string(id)
 	// get the last stored snapshot
+	p.snapshotsMtx.RLock()
+	defer p.snapshotsMtx.RUnlock()
 	if snapshot, exist := p.snapshots[eventID]; exist {
 		if balance, exist := snapshot.snapshot[addr]; exist {
 			return balance, nil
@@ -191,6 +200,8 @@ func (p *POAPHolderProvider) LatestBlockNumber(_ context.Context, id []byte) (ui
 	// parse eventID from id
 	eventID := string(id)
 	// get the last stored snapshot
+	p.snapshotsMtx.RLock()
+	defer p.snapshotsMtx.RUnlock()
 	if snapshot, exist := p.snapshots[eventID]; exist {
 		return snapshot.from, nil
 	}
@@ -335,22 +346,32 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 //     balance of the new snapshot if the balance has changed
 func (p *POAPHolderProvider) calcPartials(eventID string, newSnapshot map[common.Address]*big.Int) map[common.Address]*big.Int {
 	// get current snapshot if exists
-	currentSnapshot := make(map[common.Address]*big.Int)
-	if current, exist := p.snapshots[eventID]; exist {
-		currentSnapshot = current.snapshot
+	p.snapshotsMtx.RLock()
+	defer p.snapshotsMtx.RUnlock()
+	current, exist := p.snapshots[eventID]
+	if !exist {
+		return newSnapshot
 	}
-	// calculate partials balances from current and new snapshots
-	partialsBalances := make(map[common.Address]*big.Int)
-	for addr, balance := range newSnapshot {
-		if currentBalance, exist := currentSnapshot[addr]; !exist || currentBalance.Cmp(balance) != 0 {
-			partialsBalances[addr] = balance
+	// calculate partials balances, if the address is not in the current
+	// snapshot, the partial balance will be the balance of the new snapshot
+	// if the address is in the current snapshot, the partial balance will be
+	// the difference between the balance of the new snapshot and the balance
+	// of the current snapshot
+	partialBalances := map[common.Address]*big.Int{}
+	for addr, newBalance := range newSnapshot {
+		currentBalance, alreadyExists := current.snapshot[addr]
+		if !alreadyExists {
+			partialBalances[addr] = newBalance
+			continue
+		}
+		partialBalances[addr] = new(big.Int).Sub(newBalance, currentBalance)
+	}
+	// add the addresses from the current snapshot that are not in the new
+	// snapshot with negative balance
+	for addr := range current.snapshot {
+		if currentBalance, exist := newSnapshot[addr]; !exist {
+			newSnapshot[addr] = new(big.Int).Neg(currentBalance)
 		}
 	}
-	// add zero balances for holders in current snapshot but not in new snapshot
-	for addr, currentBalance := range currentSnapshot {
-		if _, exist := newSnapshot[addr]; !exist {
-			partialsBalances[addr] = new(big.Int).Neg(currentBalance)
-		}
-	}
-	return partialsBalances
+	return partialBalances
 }

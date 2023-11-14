@@ -209,6 +209,16 @@
             "id": "0x1934E252f840aA98dfCe2b6205B3E45c41AeF830",
             "type": "erc20",
             "chainID": 1
+        },
+        {
+            "type": "poap",
+            "chainID": 1,
+            "externalID": "60695"
+        },
+        {
+            "type": "poap",
+            "chainID": 1,
+            "externalID": "36029"
         }
     ]
 }

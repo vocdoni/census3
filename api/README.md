@@ -64,22 +64,31 @@ List of already added tokens.
 | `nextCursor` | (optional) When is defined, it is used to get the page results, going forward. By default, `""`. | `?nextCursor=0x1234` |
 | `prevCursor` | (optional) When is defined, it is used to get the page results, going backwards. By default, `""`. | `?prevCursor=0x1234` |
 
+The maximus default page size is 10, but if you provide a page size of `-1`, the endpoint will return all the results, and it does not require to be paginated.
+
 - 📥 response:
 
 ```json
 {
     "tokens": [
         {
-            "ID": "0x1234",
-            "name": "Wrapped Aragon Network Token",
-            "type": "erc20|erc721|erc777|erc1155|nation3|wANT",
-            "startBlock": 123456,
-            "size": 100,
+            "ID": "0x1324",
+            "type": "erc20",
+            "size": 120,
             "decimals": 18,
-            "symbol": "wANT",
+            "startBlock": 123456,
+            "symbol": "$",
+            "totalSupply": "21323",
+            "name": "Amazing token",
+            "status": {
+                "atBlock": 12345,
+                "synced": true|false,
+                "progress": 87
+            },
+            "defaultStrategy": 1,
             "tags": "testTag1,testTag2",
             "chainID": 1,
-            "externalID": "", // used by POAP contracts
+            "externalID": "",
             "chainAddress": "eth:0x1234",
             "iconURI": "http://...png"
         }
@@ -87,7 +96,7 @@ List of already added tokens.
     "pagination": {
         "nextCursor": "",
         "prevCursor": "0x1234",
-        "pageSize": 100
+        "pageSize": 10
     }
 }
 ```
@@ -165,6 +174,8 @@ Triggers a new scan for the provided token, starting from the defined block.
 ### GET `/tokens/{tokenID}?chainID={chainID}&externalID={externalID}`
 Returns the information about the token referenced by the provided ID and chain ID, the external ID is optional.
 
+> `chainID` URL parameter is *mandatory*.
+
 > `externalID` URL parameter is *optional* by default, but required for external provided tokens like POAPs.
 
 - 📥 response:
@@ -211,8 +222,12 @@ Returns the information about the token referenced by the provided ID and chain 
 | 500 | `error getting number of token holders` | 5020 | 
 | 500 | `error getting last block number from web3 endpoint` | 5021 | 
 
-### GET `/tokens/{tokenID}/holders/{holderID}?chainID={chainID}`
-Returns if the holder ID is already registered in the database as a holder of the token ID and chain ID provided.
+### GET `/tokens/{tokenID}/holders/{holderID}?chainID={chainID}&externalID={externalID}`
+Returns if the holder ID is already registered in the database as a holder of the token ID and chain ID provided, the external ID is optional.
+
+> `chainID` URL parameter is *mandatory*.
+
+> `externalID` URL parameter is *optional* by default, but required for external provided tokens like POAPs.
 
 - 📥 response:
 
@@ -244,6 +259,8 @@ Returns the ID's list of the strategies registered.
 | `nextCursor` | (optional) When is defined, it is used to get the page results, going forward. By default, `""`. | `?nextCursor=3` |
 | `prevCursor` | (optional) When is defined, it is used to get the page results, going backwards. By default, `""`. | `?prevCursor=1` |
 
+The maximus default page size is 10, but if you provide a page size of `-1`, the endpoint will return all the results, and it does not require to be paginated
+
 - 📥 response:
 
 ```json
@@ -253,6 +270,7 @@ Returns the ID's list of the strategies registered.
             "ID": 1,
             "alias": "default MON strategy",
             "predicate": "MON",
+            "uri": "ipfs://...",
             "tokens": {
                 "MON": {
                     "ID": "0x1234",
@@ -266,6 +284,7 @@ Returns the ID's list of the strategies registered.
             "ID": 2,
             "alias": "default ANT strategy",
             "predicate": "ANT",
+            "uri": "ipfs://...",
             "tokens": {
                 "ANT": {
                     "ID": "0x1234",
@@ -278,6 +297,7 @@ Returns the ID's list of the strategies registered.
             "ID": 3,
             "alias": "default USDC strategy",
             "predicate": "USDC",
+            "uri": "ipfs://...",
             "tokens": {
                 "USDC": {
                     "ID": "0x1234",
@@ -290,6 +310,7 @@ Returns the ID's list of the strategies registered.
             "ID": 4,
             "alias": "strategy_alias",
             "predicate": "MON AND (ANT OR USDC)",
+            "uri": "ipfs://...",
             "tokens": {
                 "MON": {
                     "ID": "0x1234",
@@ -314,7 +335,7 @@ Returns the ID's list of the strategies registered.
     "pagination": {
         "nextCursor": "",
         "prevCursor": "1",
-        "pageSize": 100
+        "pageSize": 10
     }
 }
 ```
@@ -493,7 +514,7 @@ Returns the estimated size of the resulting census based on the strategy related
     "done": true,
     "error": {
         "code": 0,
-        "err": "error message or null"
+        "error": "error message or null"
     },
     "size": 100
 }
@@ -656,14 +677,13 @@ Returns the list of supported operators to build strategy predicates.
 ## Censuses
 
 ### POST `/censuses`
-Request the creation of a new census with the strategy provided for the `blockNumber` provided and returns the census ID.
+Request the creation of a new census with the strategy provided and returns the census ID.
      
 - 📤 request:
 
 ```json
 {
     "strategyID": 1,
-    "blockNumber": 123456,
     "anonymous": false
 }
 ```
@@ -689,7 +709,7 @@ Returns the information of the snapshots related to the provided ID.
 - 📥 response:
 ```json
 { 
-    "censusID": 2,
+    "ID": 2,
     "strategyID": 1,
     "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac",
     "uri": "ipfs://Qma....",
@@ -717,7 +737,7 @@ Returns the information of the census that are in the creation queue.
     "done": true,
     "error": {
         "code": 0,
-        "err": "error message or null"
+        "error": "error message or null"
     },
     "census": { /* <same_get_census_response> */ }
 }
@@ -756,7 +776,7 @@ Returns a list of censusID for the strategy provided.
 {
     "censuses": [ 
         { 
-            "censusID": 1,
+            "ID": 1,
             "strategyID": 1,
             "merkleRoot": "e3cb8941e25dcdb36fc21acbe5f6c5a42e0d4f89839ae94952f0ebbd9acd04ac",
             "uri": "ipfs://Qma....",

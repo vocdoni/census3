@@ -140,7 +140,7 @@ List the supported token types.
 | 500 | `error encoding supported tokens types` | 5012 | 
 
 ### POST `/tokens`
-Triggers a new scan for the provided token, starting from the defined block. 
+Creates a new token in the database to be scanned. It gets the token information from the provider associated to the token type defined. If the creation success the token will be scanned in the next scanner iteration. The scan process status can be checked getting the token information.
 
 **Important**: When a token is created, the API also creates a simple strategy with just the holders of that token, which is assigned to it as `defaultStrategy`.
 
@@ -397,7 +397,7 @@ Stores a new strategy based on the defined combination of tokens provided, these
 | 500 | `error creating strategy` | 5025 | 
 
 ### POST `/strategies/import/{cid}`
-Imports a strategy from IPFS downloading it with the `cid` provided in background.
+Imports a strategy from IPFS downloading it with the `cid` provided in background. The strategy import will fail if the strategy tokens are not previously created in the database.
 
 - 📥 response:
 
@@ -423,7 +423,7 @@ Returns the information of the strategy that are in the creation queue.
     "done": true,
     "error": {
         "code": 0,
-        "err": "error message or null"
+        "error": "error message or null"
     },
     "strategy": { /* <same_get_strategy_response> */ }
 }
@@ -487,7 +487,7 @@ Returns the information of the strategy related to the provided ID.
 
 
 ### GET `/strategies/{strategyID}/size`
-Returns the estimated size of the resulting census based on the strategy related to the queue ID.
+Enqueue the calculation of the size of a census generated for the provided strategy.
 
 - 📥 response:
 
@@ -542,7 +542,9 @@ Returns the estimated size of the resulting census based on the strategy related
 
 
 ### GET `/strategies/token/{tokenID}?chainID={chainID}&externalID={externalID}`
-Returns ID's of the already created strategies including the `tokenAddress` provided.
+Returns strategies registered that includes the token provided for the chain also provided, the external token id is an optional parameter.
+
+> `externalID` URL parameter is *optional* by default, but required for external provided tokens like POAPs.
 
 - 📥 response:
 
@@ -768,7 +770,7 @@ Returns the information of the census that are in the creation queue.
 | 500 | `error evaluating strategy predicate` | 5026 |
 
 ### GET `/censuses/strategy/{strategyID}`
-Returns a list of censusID for the strategy provided.
+Returns a list of censuses previously created for the strategy provided.
 
 - 📥 response:
 

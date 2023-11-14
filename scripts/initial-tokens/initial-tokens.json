@@ -26,11 +26,6 @@
             "chainID": 1
         },
         {
-            "id": "0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
             "id": "0x35bd01fc9d6d5d81ca9e055db88dc49aa2c699a8",
             "type": "erc20",
             "chainID": 1
@@ -159,6 +154,61 @@
             "type": "poap",
             "chainID": 1,
             "externalID": "37663"
+        },
+        {
+            "id": "0x932261f9Fc8DA46C4a22e31B45c4De60623848bF",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0xa45662638E9f3bbb7A6FeCb4B17853B7ba0F3a60",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0xD4307E0acD12CF46fD6cf93BC264f5D5D1598792",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0x5f4336f57cf41821522F1777321462B108De55C2",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0x4b10701bfd7bfedc47d50562b76b436fbb5bdb3b",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0x0632adcab8f12edd3b06f99dc6078fe1fedd32b0",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0x66747bdC903d17C586fA09eE5D6b54CC85bBEA45",
+            "type": "erc721",
+            "chainID": 10
+        },
+        {
+            "id": "0xe03Ef4B9db1A47464De84fb476f9bAf493B3E886",
+            "type": "erc721",
+            "chainID": 7777777
+        },
+        {
+            "type": "poap",
+            "chainID": 1,
+            "externalID": "103093"
+        },
+        {
+            "type": "poap",
+            "chainID": 1,
+            "externalID": "100245"
+        },
+        {
+            "id": "0x1934E252f840aA98dfCe2b6205B3E45c41AeF830",
+            "type": "erc20",
+            "chainID": 1
         }
     ]
 }

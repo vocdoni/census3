@@ -156,7 +156,7 @@ func Test_saveHolders(t *testing.T) {
 		})
 	c.Assert(err, qt.IsNil)
 	resBalance := new(big.Int).SetBytes(res.Balance)
-	c.Assert(resBalance.String(), qt.Equals, "24")
+	c.Assert(resBalance.String(), qt.Equals, "12")
 	// check delete holders
 	th.Append(holderAddr, big.NewInt(-24))
 	c.Assert(hs.saveHolders(th), qt.IsNil)

@@ -63,7 +63,7 @@ type POAPHolderProvider struct {
 	URI          string
 	AccessToken  string
 	snapshots    map[string]*POAPSnapshot
-	snapshotsMtx sync.RWMutex
+	snapshotsMtx *sync.RWMutex
 }
 
 // Decimals method is not implemented in the POAP external provider. By default
@@ -113,7 +113,7 @@ func (p *POAPHolderProvider) Init() error {
 		return fmt.Errorf("no POAP access token defined")
 	}
 	p.snapshots = make(map[string]*POAPSnapshot)
-	p.snapshotsMtx = sync.RWMutex{}
+	p.snapshotsMtx = &sync.RWMutex{}
 	return nil
 }
 
@@ -368,9 +368,9 @@ func (p *POAPHolderProvider) calcPartials(eventID string, newSnapshot map[common
 	}
 	// add the addresses from the current snapshot that are not in the new
 	// snapshot with negative balance
-	for addr := range current.snapshot {
-		if currentBalance, exist := newSnapshot[addr]; !exist {
-			newSnapshot[addr] = new(big.Int).Neg(currentBalance)
+	for addr, currentBalance := range current.snapshot {
+		if _, exist := newSnapshot[addr]; !exist {
+			partialBalances[addr] = new(big.Int).Neg(currentBalance)
 		}
 	}
 	return partialBalances

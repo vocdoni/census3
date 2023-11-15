@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"math/big"
+	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,7 +13,10 @@ import (
 func TestPOAPHolderProvider_calcPartials(t *testing.T) {
 	c := qt.New(t)
 	// create a new POAPHolderProvider
-	p := &POAPHolderProvider{}
+	p := &POAPHolderProvider{
+		snapshots:    make(map[string]*POAPSnapshot),
+		snapshotsMtx: &sync.RWMutex{},
+	}
 	p.snapshots = make(map[string]*POAPSnapshot)
 	// calculate the partial balances with the mocked current and new snapshots
 	eventID := "1234"
@@ -37,8 +41,9 @@ func TestPOAPHolderProvider_calcPartials(t *testing.T) {
 		common.HexToAddress("0x4"): big.NewInt(1), // add 0x4
 	}
 	expected := map[common.Address]*big.Int{
+		common.HexToAddress("0x1"): big.NewInt(0),
 		common.HexToAddress("0x2"): big.NewInt(-2),
-		common.HexToAddress("0x3"): big.NewInt(2),
+		common.HexToAddress("0x3"): big.NewInt(-1),
 		common.HexToAddress("0x4"): big.NewInt(1),
 	}
 	// check that the calcPartials method returns the expected results

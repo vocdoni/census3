@@ -42,7 +42,9 @@ type HoldersScanner struct {
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
-func NewHoldersScanner(db *db.DB, w3p state.Web3Providers, ext map[state.TokenType]HolderProvider, coolDown time.Duration) (*HoldersScanner, error) {
+func NewHoldersScanner(db *db.DB, w3p state.Web3Providers,
+	ext map[state.TokenType]HolderProvider, coolDown time.Duration,
+) (*HoldersScanner, error) {
 	if db == nil {
 		return nil, ErrNoDB
 	}

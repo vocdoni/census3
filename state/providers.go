@@ -54,6 +54,28 @@ func (w3p Web3Providers) ChainAddress(chainID uint64, hexAddress string) (string
 	return fmt.Sprintf("%s:%s", provider.ShortName, hexAddress), true
 }
 
+// CurrentBlockNumbers method returns a map of uint64-uint64, where the key is
+// the chainID and the value is the current block number of the network.
+func (w3p Web3Providers) CurrentBlockNumbers(ctx context.Context) (map[uint64]uint64, error) {
+	blockNumbers := make(map[uint64]uint64)
+	for _, provider := range w3p {
+		if _, ok := blockNumbers[provider.ChainID]; ok {
+			continue
+		}
+		cli, err := ethclient.Dial(provider.URI)
+		if err != nil {
+			return nil, fmt.Errorf("error dialing web3 provider uri '%s': %w", provider.URI, err)
+		}
+
+		blockNumber, err := cli.BlockNumber(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error getting the block number from %s network: %w", provider.Name, err)
+		}
+		blockNumbers[provider.ChainID] = blockNumber
+	}
+	return blockNumbers, nil
+}
+
 // CheckWeb3Providers function initializes a Web3Providers list checking the
 // web3 enpoint URI's provided as argument. It checks if the URI's are valid,
 // getting its chain ID's and then query to shortNameSourceURI endpoint to get

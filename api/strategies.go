@@ -39,12 +39,12 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/size", "GET",
-		api.MethodAccessTypePublic, capi.launchStrategySizeEstimation); err != nil {
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/estimation", "GET",
+		api.MethodAccessTypePublic, capi.launchStrategyEstimation); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/size/queue/{queueID}", "GET",
-		api.MethodAccessTypePublic, capi.enqueueStrategySizeEstimation); err != nil {
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/estimation/queue/{queueID}", "GET",
+		api.MethodAccessTypePublic, capi.enqueueStrategyEstimation); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/token/{tokenID}", "GET",
@@ -487,10 +487,10 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
-// launchStrategySizeEstimation function handler enqueues the estimation of the
+// launchStrategyEstimation function handler enqueues the estimation of the
 // size of the strategy identified by the ID provided. It returns an error if
 // the provided ID is wrong or if the queue item cannot be encoded.
-func (capi *census3API) launchStrategySizeEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+func (capi *census3API) launchStrategyEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get provided strategyID
 	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
 	if err != nil {
@@ -507,7 +507,10 @@ func (capi *census3API) launchStrategySizeEstimation(msg *api.APIdata, ctx *http
 			}
 			return
 		}
-		queueData := map[string]any{"size": size}
+		queueData := map[string]any{
+			"size":               uint64(size),
+			"timeToCreateCensus": TimeToCreateCensus(uint64(size)),
+		}
 		if ok := capi.queue.Update(queueID, true, queueData, nil); !ok {
 			log.Errorf("error updating import strategy queue %s", queueID)
 		}
@@ -558,12 +561,12 @@ func (capi *census3API) estimateStrategySize(strategyID uint64) (int, error) {
 	return 0, ErrNoStrategyHolders
 }
 
-// enqueueStrategySizeEstimation function handler dequeues the estimation of the
+// enqueueStrategyEstimation function handler dequeues the estimation of the
 // size of the strategy identified by the queue ID provided. It returns an error
 // if something fails with the queue item. The queue item, when the background
 // size estimation ends, will contain the size of the strategy or the error
 // occurred during the estimation.
-func (capi *census3API) enqueueStrategySizeEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+func (capi *census3API) enqueueStrategyEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// parse queueID from url
 	queueID := ctx.URLParam("queueID")
 	if queueID == "" {
@@ -575,13 +578,16 @@ func (capi *census3API) enqueueStrategySizeEstimation(msg *api.APIdata, ctx *htt
 		return ErrNotFoundStrategy.Withf("the ID %s does not exist in the queue", queueID)
 	}
 	// init the queue response
-	queueStrategy := GetStrategySizeResponse{
+	queueStrategy := GetStrategyEstimationResponse{
 		Done:  done,
 		Error: err,
 	}
 	// check if it is not finished or some error occurred
 	if done && err == nil {
-		queueStrategy.Size = data["size"].(int)
+		queueStrategy.Estimation = &StrategyEstimation{
+			Size:               data["size"].(uint64),
+			TimeToCreateCensus: data["timeToCreateCensus"].(uint64),
+		}
 		// remove the item from the queue
 		capi.queue.Dequeue(queueID)
 	}

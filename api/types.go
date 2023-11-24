@@ -132,8 +132,13 @@ type ImportStrategyQueueResponse struct {
 	Strategy *GetStrategyResponse `json:"strategy"`
 }
 
-type GetStrategySizeResponse struct {
-	Done  bool  `json:"done"`
-	Error error `json:"error"`
-	Size  int   `json:"size"`
+type StrategyEstimation struct {
+	Size               uint64 `json:"size"`
+	TimeToCreateCensus uint64 `json:"timeToCreateCensus"`
+}
+
+type GetStrategyEstimationResponse struct {
+	Done       bool                `json:"done"`
+	Error      error               `json:"error"`
+	Estimation *StrategyEstimation `json:"estimation"`
 }

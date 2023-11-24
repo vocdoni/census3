@@ -25,7 +25,7 @@ func TestNewHolderScanner(t *testing.T) {
 	w3p, err := state.CheckWeb3Providers([]string{web3uri})
 	c.Assert(err, qt.IsNil)
 
-	hs, err := NewHoldersScanner(testdb.db, w3p, nil)
+	hs, err := NewHoldersScanner(testdb.db, w3p, nil, 20)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(0))
 
@@ -38,11 +38,11 @@ func TestNewHolderScanner(t *testing.T) {
 	})
 	c.Assert(err, qt.IsNil)
 
-	hs, err = NewHoldersScanner(testdb.db, w3p, nil)
+	hs, err = NewHoldersScanner(testdb.db, w3p, nil, 20)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(1000))
 
-	_, err = NewHoldersScanner(nil, w3p, nil)
+	_, err = NewHoldersScanner(nil, w3p, nil, 20)
 	c.Assert(err, qt.IsNotNil)
 }
 
@@ -58,7 +58,7 @@ func TestHolderScannerStart(t *testing.T) {
 	defer testdb.Close(t)
 
 	twg.Add(1)
-	hs, err := NewHoldersScanner(testdb.db, w3p, nil)
+	hs, err := NewHoldersScanner(testdb.db, w3p, nil, 20)
 	c.Assert(err, qt.IsNil)
 	go func() {
 		hs.Start(ctx)
@@ -78,7 +78,7 @@ func Test_tokenAddresses(t *testing.T) {
 	w3p, err := state.CheckWeb3Providers([]string{web3uri})
 	c.Assert(err, qt.IsNil)
 
-	hs, err := NewHoldersScanner(testdb.db, w3p, nil)
+	hs, err := NewHoldersScanner(testdb.db, w3p, nil, 20)
 	c.Assert(err, qt.IsNil)
 
 	res, err := hs.tokenAddresses()
@@ -117,7 +117,7 @@ func Test_saveHolders(t *testing.T) {
 	w3p, err := state.CheckWeb3Providers([]string{web3uri})
 	c.Assert(err, qt.IsNil)
 
-	hs, err := NewHoldersScanner(testdb.db, w3p, nil)
+	hs, err := NewHoldersScanner(testdb.db, w3p, nil, 20)
 	c.Assert(err, qt.IsNil)
 
 	th := new(state.TokenHolders).Init(MonkeysAddress, state.CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5, "")
@@ -177,7 +177,7 @@ func Test_scanHolders(t *testing.T) {
 	w3p, err := state.CheckWeb3Providers([]string{web3uri})
 	c.Assert(err, qt.IsNil)
 
-	hs, err := NewHoldersScanner(testdb.db, w3p, nil)
+	hs, err := NewHoldersScanner(testdb.db, w3p, nil, 20)
 	c.Assert(err, qt.IsNil)
 
 	// token does not exists
@@ -214,7 +214,7 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	w3p, err := state.CheckWeb3Providers([]string{web3uri})
 	c.Assert(err, qt.IsNil)
 
-	hs, err := NewHoldersScanner(testdb.db, w3p, nil)
+	hs, err := NewHoldersScanner(testdb.db, w3p, nil, 20)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.calcTokenCreationBlock(context.Background(), MonkeysAddress, 5), qt.IsNotNil)
 

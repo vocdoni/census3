@@ -36,12 +36,15 @@ type HoldersScanner struct {
 	db           *db.DB
 	lastBlock    uint64
 	extProviders map[state.TokenType]HolderProvider
+	coolDown     time.Duration
 }
 
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
-func NewHoldersScanner(db *db.DB, w3p state.Web3Providers, ext map[state.TokenType]HolderProvider) (*HoldersScanner, error) {
+func NewHoldersScanner(db *db.DB, w3p state.Web3Providers,
+	ext map[state.TokenType]HolderProvider, coolDown time.Duration,
+) (*HoldersScanner, error) {
 	if db == nil {
 		return nil, ErrNoDB
 	}
@@ -51,6 +54,7 @@ func NewHoldersScanner(db *db.DB, w3p state.Web3Providers, ext map[state.TokenTy
 		tokens:       []*state.TokenHolders{},
 		db:           db,
 		extProviders: ext,
+		coolDown:     coolDown,
 	}
 	// get latest analyzed block
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -106,7 +110,7 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 				"duration", time.Since(startTime).Seconds(),
 				"atSync", atSyncGlobal)
 			if atSyncGlobal {
-				time.Sleep(scanSleepTimeOnceSync)
+				time.Sleep(s.coolDown)
 			} else {
 				time.Sleep(scanSleepTime)
 			}

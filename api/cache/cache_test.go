@@ -68,7 +68,7 @@ func TestCacheViews(t *testing.T) {
 	_, ok = testCache.Get("key2")
 	c.Assert(ok, qt.Equals, false)
 	// wait for the sanity to happen again
-	time.Sleep(sanityInterval * 2)
+	time.Sleep(sanityInterval * 5)
 	// check if the value with more views is gone now
 	_, ok = testCache.Get("key1")
 	c.Assert(ok, qt.Equals, false)

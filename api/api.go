@@ -50,7 +50,7 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 		w3p:          conf.Web3Providers,
 		queue:        queue.NewBackgroundQueue(),
 		extProviders: conf.ExtProviders,
-		cache:        cache.NewCache(),
+		cache:        cache.DefaultCache(),
 	}
 	// get the current chainID
 	log.Infow("starting API", "chainID-web3Providers", conf.Web3Providers)
@@ -88,7 +88,6 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 	if newAPI.censusDB = censusdb.NewCensusDB(censusesDB); err != nil {
 		return nil, err
 	}
-
 	// init handlers
 	if err := newAPI.initAPIHandlers(); err != nil {
 		return nil, err
@@ -107,6 +106,7 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 
 func (capi *census3API) Stop() error {
 	capi.downloader.Stop()
+	capi.cache.Destroy()
 	if err := capi.storage.Stop(); err != nil {
 		return err
 	}

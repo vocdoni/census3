@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 
+	"github.com/vocdoni/census3/api/cache"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/queue"
 	"github.com/vocdoni/census3/service"
@@ -39,6 +40,7 @@ type census3API struct {
 	storage      storagelayer.Storage
 	downloader   *downloader.Downloader
 	extProviders map[state.TokenType]service.HolderProvider
+	cache        *cache.Cache
 }
 
 func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
@@ -48,6 +50,7 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 		w3p:          conf.Web3Providers,
 		queue:        queue.NewBackgroundQueue(),
 		extProviders: conf.ExtProviders,
+		cache:        cache.NewCache(),
 	}
 	// get the current chainID
 	log.Infow("starting API", "chainID-web3Providers", conf.Web3Providers)

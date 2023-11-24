@@ -27,7 +27,8 @@ const (
 )
 
 const (
-	defaultPageSize     = int32(10)
-	defaultCensusType   = models.Census_ARBO_BLAKE2B
-	anonymousCensusType = models.Census_ARBO_POSEIDON
+	defaultPageSize               = int32(10)
+	defaultCensusType             = models.Census_ARBO_BLAKE2B
+	anonymousCensusType           = models.Census_ARBO_POSEIDON
+	strategyHoldersCacheThreshold = 500
 )

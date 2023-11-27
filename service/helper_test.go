@@ -11,15 +11,6 @@ import (
 	queries "github.com/vocdoni/census3/db/sqlc"
 )
 
-const defaultWeb3testUri = "https://eth-goerli.api.onfinality.io/public"
-
-func web3testUri() string {
-	if uri := os.Getenv("WEB3_URI"); uri != "" {
-		return uri
-	}
-	return defaultWeb3testUri
-}
-
 var (
 	MonkeysAddress        = common.HexToAddress("0xF530280176385AF31177D78BbFD5eA3f6D07488A")
 	MonkeysCreationBlock  = uint64(8901659)

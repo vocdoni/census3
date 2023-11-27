@@ -15,10 +15,12 @@ import (
 	"github.com/vocdoni/census3/state"
 )
 
-var web3endpoint, _ = web3.TestNetworkEndpoint()
-var web3Endpoints web3.NetworkEndpoints = map[uint64]*web3.NetworkEndpoint{
-	web3endpoint.ChainID: web3endpoint,
-}
+var (
+	web3endpoint, _ = web3.TestNetworkEndpoint()
+	web3Endpoints   = map[uint64]*web3.NetworkEndpoint{
+		web3endpoint.ChainID: web3endpoint,
+	}
+)
 
 func TestNewHolderScanner(t *testing.T) {
 	c := qt.New(t)

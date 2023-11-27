@@ -17,6 +17,7 @@ import (
 	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
 	venation "github.com/vocdoni/census3/contracts/nation3/vestedToken"
 	poap "github.com/vocdoni/census3/contracts/poap"
+	"github.com/vocdoni/census3/service/web3"
 
 	eth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -45,12 +46,15 @@ type Web3 struct {
 }
 
 // Init creates and client connection and connects to contract given its address
-func (w *Web3) Init(ctx context.Context, web3Endpoint string,
+func (w *Web3) Init(ctx context.Context, web3Endpoint *web3.NetworkEndpoint,
 	contractAddress common.Address, contractType TokenType,
 ) error {
 	var err error
 	// connect to ethereum endpoint
-	w.client, err = ethclient.Dial(web3Endpoint)
+	if web3Endpoint == nil {
+		return fmt.Errorf("web3 endpoint is nil")
+	}
+	w.client, err = web3Endpoint.GetClient(3)
 	if err != nil {
 		return err
 	}

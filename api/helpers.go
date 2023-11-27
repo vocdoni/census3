@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
+	"github.com/vocdoni/census3/service/web3"
 	"github.com/vocdoni/census3/state"
 	"github.com/vocdoni/census3/strategyoperators"
 	"go.vocdoni.io/dvote/api/censusdb"
@@ -206,7 +207,7 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 // The evaluator uses the strategy operators to evaluate the predicate which
 // uses the database queries to get the token holders and their balances, and
 // combines them.
-func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p state.Web3Providers,
+func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p web3.NetworkEndpoints,
 	id uint64, predicate string,
 ) (map[common.Address]*big.Int, *big.Int, uint64, error) {
 	// TODO: write a benchmark and try to optimize this function
@@ -235,12 +236,12 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p sta
 	// number, used to create the census id.
 	totalTokensBlockNumber := uint64(0)
 	for _, token := range strategyTokens {
-		w3uri, exists := w3p[token.ChainID]
+		w3endpoint, exists := w3p.EndpointByChainID(token.ChainID)
 		if !exists {
-			return nil, nil, 0, err
+			return nil, nil, 0, fmt.Errorf("web3 endpoint not found for chain id %d", token.ChainID)
 		}
 		w3 := state.Web3{}
-		if err := w3.Init(ctx, w3uri.URI, common.BytesToAddress(token.ID), state.TokenType(token.TypeID)); err != nil {
+		if err := w3.Init(ctx, w3endpoint, common.BytesToAddress(token.ID), state.TokenType(token.TypeID)); err != nil {
 			return nil, nil, 0, err
 		}
 		currentBlockNumber, err := w3.LatestBlockNumber(ctx)

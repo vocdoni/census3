@@ -13,6 +13,8 @@ import (
 	"github.com/vocdoni/census3/api"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/service"
+	"github.com/vocdoni/census3/service/poap"
+	"github.com/vocdoni/census3/service/web3"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/log"
 )
@@ -96,7 +98,7 @@ func main() {
 		log.Fatal("no web3 providers defined")
 	}
 	// check if the web3 providers are valid
-	w3p, err := state.CheckWeb3Providers(config.listOfWeb3Providers)
+	w3p, err := web3.InitNetworkEndpoints(config.listOfWeb3Providers)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -106,7 +108,7 @@ func main() {
 		log.Fatal(err)
 	}
 	// init POAP external provider
-	poapProvider := &service.POAPHolderProvider{
+	poapProvider := &poap.POAPHolderProvider{
 		URI:         config.poapAPIEndpoint,
 		AccessToken: config.poapAuthToken,
 	}

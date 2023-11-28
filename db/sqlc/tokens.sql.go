@@ -122,20 +122,42 @@ func (q *Queries) ExistsTokenByChainIDAndExternalID(ctx context.Context, arg Exi
 }
 
 const listTokens = `-- name: ListTokens :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri FROM tokens
-ORDER BY id ASC 
-LIMIT ?
+SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.chain_address, tokens.external_id, tokens.default_strategy, tokens.icon_uri, (
+    SELECT MAX(block_id) AS last_block
+    FROM token_holders
+    WHERE token_id = tokens.id 
+        AND chain_id = tokens.chain_id 
+        AND external_id = tokens.external_id
+) FROM tokens
 `
 
-func (q *Queries) ListTokens(ctx context.Context, limit int32) ([]Token, error) {
-	rows, err := q.db.QueryContext(ctx, listTokens, limit)
+type ListTokensRow struct {
+	ID              annotations.Address
+	Name            string
+	Symbol          string
+	Decimals        uint64
+	TotalSupply     annotations.BigInt
+	CreationBlock   int64
+	TypeID          uint64
+	Synced          bool
+	Tags            string
+	ChainID         uint64
+	ChainAddress    string
+	ExternalID      string
+	DefaultStrategy uint64
+	IconUri         string
+	LastBlock       interface{}
+}
+
+func (q *Queries) ListTokens(ctx context.Context) ([]ListTokensRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTokens)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Token
+	var items []ListTokensRow
 	for rows.Next() {
-		var i Token
+		var i ListTokensRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -151,6 +173,7 @@ func (q *Queries) ListTokens(ctx context.Context, limit int32) ([]Token, error) 
 			&i.ExternalID,
 			&i.DefaultStrategy,
 			&i.IconUri,
+			&i.LastBlock,
 		); err != nil {
 			return nil, err
 		}

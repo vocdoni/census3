@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -140,7 +141,7 @@ func (s *HoldersScanner) tokenAddresses() ([]scanToken, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// get tokens from the database
-	tokens, err := s.db.QueriesRO.ListTokens(ctx, -1)
+	tokens, err := s.db.QueriesRO.ListTokens(ctx)
 	// if error raises and is no rows error return nil results, if it is not
 	// return the error.
 	if err != nil {
@@ -149,6 +150,45 @@ func (s *HoldersScanner) tokenAddresses() ([]scanToken, error) {
 		}
 		return nil, err
 	}
+	// get the current block number of every chain
+	currentBlockNumbers, err := s.w3p.CurrentBlockNumbers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, token := range tokens {
+		log.Infow("unsorted token",
+			"token", token.ID,
+			"chainID", token.ChainID,
+			"lastBlock", token.LastBlock,
+			"currentChainBlock", currentBlockNumbers[token.ChainID],
+		)
+	}
+	// sort tokens by nearest to be synced, that is, the tokens that have the
+	// minimum difference between the current block of its chain and the last
+	// block scanned by the scanner (retrieved from the database as LastBlock)
+	sort.Slice(tokens, func(i, j int) bool {
+		iLastBlock := uint64(0)
+		if tokens[i].LastBlock != nil {
+			iLastBlock = uint64(tokens[i].LastBlock.(int64))
+		}
+		jLastBlock := uint64(0)
+		if tokens[j].LastBlock != nil {
+			jLastBlock = uint64(tokens[j].LastBlock.(int64))
+		}
+		iBlocksReamining := currentBlockNumbers[tokens[i].ChainID] - uint64(iLastBlock)
+		jBlocksReamining := currentBlockNumbers[tokens[j].ChainID] - uint64(jLastBlock)
+		return iBlocksReamining < jBlocksReamining
+	})
+	for _, token := range tokens {
+		log.Infow("sorted token",
+			"token", token.ID,
+			"chainID", token.ChainID,
+			"lastBlock", token.LastBlock,
+			"currentChainBlock", currentBlockNumbers[token.ChainID],
+		)
+	}
+
 	// parse and return token addresses
 	results := []scanToken{}
 	for _, token := range tokens {

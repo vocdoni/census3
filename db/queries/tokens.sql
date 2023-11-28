@@ -1,7 +1,11 @@
 -- name: ListTokens :many
-SELECT * FROM tokens
-ORDER BY id ASC 
-LIMIT ?;
+SELECT tokens.*, (
+    SELECT MAX(block_id) AS last_block
+    FROM token_holders
+    WHERE token_id = tokens.id 
+        AND chain_id = tokens.chain_id 
+        AND external_id = tokens.external_id
+) FROM tokens;
 
 -- name: NextTokensPage :many
 SELECT * FROM tokens

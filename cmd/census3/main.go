@@ -13,6 +13,8 @@ import (
 	"github.com/vocdoni/census3/api"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/service"
+	"github.com/vocdoni/census3/service/poap"
+	"github.com/vocdoni/census3/service/web3"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/log"
 )
@@ -22,6 +24,7 @@ type Census3Config struct {
 	listOfWeb3Providers            []string
 	port                           int
 	poapAPIEndpoint, poapAuthToken string
+	scannerCoolDown                time.Duration
 }
 
 func main() {
@@ -42,6 +45,7 @@ func main() {
 	flag.StringVar(&config.poapAuthToken, "poapAuthToken", "", "POAP API access token")
 	var strWeb3Providers string
 	flag.StringVar(&strWeb3Providers, "web3Providers", "", "the list of URL's of available web3 providers")
+	flag.DurationVar(&config.scannerCoolDown, "scannerCoolDown", 120*time.Second, "the time to wait before next scanner iteration")
 	flag.Parse()
 	// init viper to read config file
 	pviper := viper.New()
@@ -83,6 +87,10 @@ func main() {
 		panic(err)
 	}
 	config.listOfWeb3Providers = strings.Split(pviper.GetString("web3Providers"), ",")
+	if err := pviper.BindPFlag("scannerCoolDown", flag.Lookup("scannerCoolDown")); err != nil {
+		panic(err)
+	}
+	config.scannerCoolDown = pviper.GetDuration("scannerCoolDown")
 	// init logger
 	log.Init(config.logLevel, "stdout", nil)
 	// check if the web3 providers are defined
@@ -90,7 +98,7 @@ func main() {
 		log.Fatal("no web3 providers defined")
 	}
 	// check if the web3 providers are valid
-	w3p, err := state.CheckWeb3Providers(config.listOfWeb3Providers)
+	w3p, err := web3.InitNetworkEndpoints(config.listOfWeb3Providers)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,7 +108,7 @@ func main() {
 		log.Fatal(err)
 	}
 	// init POAP external provider
-	poapProvider := &service.POAPHolderProvider{
+	poapProvider := &poap.POAPHolderProvider{
 		URI:         config.poapAPIEndpoint,
 		AccessToken: config.poapAuthToken,
 	}
@@ -111,7 +119,7 @@ func main() {
 	externalProviders := map[state.TokenType]service.HolderProvider{
 		state.CONTRACT_TYPE_POAP: poapProvider,
 	}
-	hc, err := service.NewHoldersScanner(database, w3p, externalProviders)
+	hc, err := service.NewHoldersScanner(database, w3p, externalProviders, config.scannerCoolDown)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -284,7 +284,26 @@ func (capi *census3API) launchStrategyImport(msg *api.APIdata, ctx *httprouter.H
 	// import the strategy from IPFS in background generating a queueID
 	queueID := capi.queue.Enqueue()
 	go func() {
+		internalCtx, cancel := context.WithTimeout(context.Background(), getStrategyTimeout)
+		defer cancel()
+		// check if the strategy exists in the database using the IPFS URI
 		ipfsURI := fmt.Sprintf("%s%s", capi.downloader.RemoteStorage.URIprefix(), ipfsCID)
+		exists, err := capi.db.QueriesRO.ExistsStrategyByURI(internalCtx, ipfsURI)
+		if err != nil {
+			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+				log.Errorf("error updating import strategy queue %s", queueID)
+			}
+			return
+		}
+		if exists {
+			err := ErrCantImportStrategy.WithErr(fmt.Errorf("strategy already exists"))
+			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+				log.Errorf("error updating import strategy queue %s", queueID)
+			}
+			return
+		}
+		// download the strategy from IPFS and import it into the database if it
+		// does not exist
 		capi.downloader.AddToQueue(ipfsURI, func(_ string, dump []byte) {
 			strategyID, err := capi.importStrategyDump(ipfsURI, dump)
 			if err != nil {
@@ -311,10 +330,14 @@ func (capi *census3API) importStrategyDump(ipfsURI string, dump []byte) (uint64,
 	// init the internal context
 	internalCtx, cancel := context.WithTimeout(context.Background(), importStrategyTimeout)
 	defer cancel()
-
+	// decode strategy
 	importedStrategy := GetStrategyResponse{}
 	if err := json.Unmarshal(dump, &importedStrategy); err != nil {
 		return 0, ErrCantImportStrategy.WithErr(err)
+	}
+	// check if the strategy includes any token
+	if len(importedStrategy.Tokens) == 0 {
+		return 0, ErrCantImportStrategy.With("the imported strategy does not include any token")
 	}
 	log.Debugw("importing strategy", "strategy", importedStrategy)
 	// init db transaction

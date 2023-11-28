@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"encoding/binary"
 	"errors"
@@ -301,4 +302,12 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p web
 		return nil, nil, totalTokensBlockNumber, nil
 	}
 	return strategyHolders, censusWeight, totalTokensBlockNumber, nil
+}
+
+type CacheKey [16]byte
+
+// EncCacheKey encodes the key to a string to be used as a map key, it uses md5
+// to ensure the key is always the same length
+func EncCacheKey(key string) CacheKey {
+	return md5.Sum([]byte(key))
 }

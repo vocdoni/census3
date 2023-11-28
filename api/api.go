@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 
-	"github.com/vocdoni/census3/api/cache"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/queue"
 	"github.com/vocdoni/census3/service"
@@ -41,23 +41,26 @@ type census3API struct {
 	storage      storagelayer.Storage
 	downloader   *downloader.Downloader
 	extProviders map[state.TokenType]service.HolderProvider
-	cache        *cache.Cache
+	cache        *lru.Cache[CacheKey, any]
 }
 
 func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
+	cache, err := lru.New[CacheKey, any](apiCacheSize)
+	if err != nil {
+		return nil, err
+	}
 	newAPI := &census3API{
 		conf:         conf,
 		db:           db,
 		w3p:          conf.Web3Providers,
 		queue:        queue.NewBackgroundQueue(),
 		extProviders: conf.ExtProviders,
-		cache:        cache.DefaultCache(),
+		cache:        cache,
 	}
 	// get the current chainID
 	log.Infow("starting API", "web3Providers", conf.Web3Providers.String())
 
 	// create a new http router with the hostname and port provided in the conf
-	var err error
 	r := httprouter.HTTProuter{}
 	if err = r.Init(conf.Hostname, conf.Port); err != nil {
 		return nil, err
@@ -107,7 +110,7 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 
 func (capi *census3API) Stop() error {
 	capi.downloader.Stop()
-	capi.cache.Destroy()
+	capi.cache.Purge()
 	if err := capi.storage.Stop(); err != nil {
 		return err
 	}

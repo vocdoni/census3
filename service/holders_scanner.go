@@ -16,6 +16,7 @@ import (
 
 	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/service/web3"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/log"
 )
@@ -30,7 +31,7 @@ var (
 // the tokens stored on the database (located on 'dataDir/dbFilename'). It
 // keeps the database updated scanning the network using the web3 endpoint.
 type HoldersScanner struct {
-	w3p          state.Web3Providers
+	w3p          web3.NetworkEndpoints
 	tokens       []*state.TokenHolders
 	mutex        sync.RWMutex
 	db           *db.DB
@@ -42,7 +43,7 @@ type HoldersScanner struct {
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
-func NewHoldersScanner(db *db.DB, w3p state.Web3Providers,
+func NewHoldersScanner(db *db.DB, w3p web3.NetworkEndpoints,
 	ext map[state.TokenType]HolderProvider, coolDown time.Duration,
 ) (*HoldersScanner, error) {
 	if db == nil {
@@ -231,13 +232,13 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		}
 	} else {
 		// get correct web3 uri provider
-		w3URI, exists := s.w3p.URIByChainID(th.ChainID)
+		w3Endpoint, exists := s.w3p.EndpointByChainID(th.ChainID)
 		if !exists {
 			return fmt.Errorf("chain ID not supported")
 		}
 		// init web3 contract state
 		w3 := state.Web3{}
-		if err := w3.Init(ctx, w3URI, th.Address(), th.Type()); err != nil {
+		if err := w3.Init(ctx, w3Endpoint, th.Address(), th.Type()); err != nil {
 			return err
 		}
 		// get current block number timestamp and root hash, required parameters to
@@ -461,7 +462,7 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address, c
 		return true, s.saveHolders(th)
 	}
 	// get correct web3 uri provider
-	w3URI, exists := s.w3p.URIByChainID(th.ChainID)
+	w3URI, exists := s.w3p.EndpointByChainID(th.ChainID)
 	if !exists {
 		return false, fmt.Errorf("chain ID not supported")
 	}
@@ -515,7 +516,7 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, addr common
 	}
 	ttype := state.TokenType(tokenInfo.TypeID)
 	// get correct web3 uri provider
-	w3URI, exists := s.w3p.URIByChainID(tokenInfo.ChainID)
+	w3URI, exists := s.w3p.EndpointByChainID(tokenInfo.ChainID)
 	if !exists {
 		return fmt.Errorf("chain ID not supported")
 	}

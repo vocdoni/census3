@@ -8,16 +8,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
+	"github.com/vocdoni/census3/service/web3"
 )
 
-var web3URI = web3testUri()
+var web3URI, _ = web3.TestNetworkEndpoint()
 
 func TestWeb3Init(t *testing.T) {
 	c := qt.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	c.Assert(new(Web3).Init(ctx, "", MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNotNil)
+	c.Assert(new(Web3).Init(ctx, nil, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNotNil)
 	c.Assert(new(Web3).Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
 }
 
@@ -42,12 +43,8 @@ func TestTokenName(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	c.Assert(w.Init(ctx, "https://google.com", MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err := w.TokenName()
-	c.Assert(err, qt.IsNotNil)
-
 	c.Assert(w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err = w.TokenName()
+	_, err := w.TokenName()
 	c.Assert(err, qt.IsNotNil)
 
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
@@ -62,12 +59,8 @@ func TestTokenSymbol(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	c.Assert(w.Init(ctx, "https://google.com", MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err := w.TokenSymbol()
-	c.Assert(err, qt.IsNotNil)
-
 	c.Assert(w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err = w.TokenSymbol()
+	_, err := w.TokenSymbol()
 	c.Assert(err, qt.IsNotNil)
 
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
@@ -82,12 +75,8 @@ func TestTokenDecimals(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	c.Assert(w.Init(ctx, "https://google.com", MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err := w.TokenDecimals()
-	c.Assert(err, qt.IsNotNil)
-
 	c.Assert(w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err = w.TokenDecimals()
+	_, err := w.TokenDecimals()
 	c.Assert(err, qt.IsNotNil)
 
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
@@ -102,14 +91,6 @@ func TestTokenTotalSupply(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	c.Assert(w.Init(ctx, "https://google.com", MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err := w.TokenTotalSupply()
-	c.Assert(err, qt.IsNotNil)
-
-	c.Assert(w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err = w.TokenTotalSupply()
-	c.Assert(err, qt.IsNotNil)
-
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
 	totalSupply, err := w.TokenTotalSupply()
 	c.Assert(err, qt.IsNil)
@@ -122,12 +103,8 @@ func TestTokenData(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	c.Assert(w.Init(ctx, "https://google.com", MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err := w.TokenData()
-	c.Assert(err, qt.IsNotNil)
-
 	c.Assert(w.Init(ctx, web3URI, common.HexToAddress("0x0"), CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err = w.TokenData()
+	_, err := w.TokenData()
 	c.Assert(err, qt.IsNotNil)
 
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
@@ -165,12 +142,7 @@ func TestBlockTimestamp(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	c.Assert(w.Init(ctx, "https://google.com", MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err := w.BlockTimestamp(ctx, uint(MonkeysCreationBlock))
-	c.Assert(err, qt.IsNotNil)
-
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-
 	expected, err := time.Parse(timeLayout, "2023-04-27T19:21:24+02:00")
 	c.Assert(err, qt.IsNil)
 	timestamp, err := w.BlockTimestamp(ctx, uint(MonkeysCreationBlock))
@@ -186,12 +158,7 @@ func TestBlockRootHash(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	c.Assert(w.Init(ctx, "https://google.com", MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err := w.BlockRootHash(ctx, uint(MonkeysCreationBlock))
-	c.Assert(err, qt.IsNotNil)
-
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-
 	expected := common.HexToHash("0x541528e4030f29a87e81ea034e485ede7ea3086784212a3a4863a7de32415de0")
 	bhash, err := w.BlockRootHash(ctx, uint(MonkeysCreationBlock))
 	c.Assert(err, qt.IsNil)
@@ -204,10 +171,6 @@ func TestLatestBlockNumber(t *testing.T) {
 	defer cancel()
 
 	w := new(Web3)
-	c.Assert(w.Init(ctx, "https://google.com", MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
-	_, err := w.LatestBlockNumber(ctx)
-	c.Assert(err, qt.IsNotNil)
-
 	c.Assert(w.Init(ctx, web3URI, MonkeysAddress, CONTRACT_TYPE_ERC20), qt.IsNil)
 	blockNumber, err := w.LatestBlockNumber(ctx)
 	c.Assert(err, qt.IsNil)

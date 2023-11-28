@@ -8,6 +8,7 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/queue"
 	"github.com/vocdoni/census3/service"
+	"github.com/vocdoni/census3/service/web3"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/api/censusdb"
 	storagelayer "go.vocdoni.io/dvote/data"
@@ -26,7 +27,7 @@ type Census3APIConf struct {
 	Port          int
 	DataDir       string
 	GroupKey      string
-	Web3Providers state.Web3Providers
+	Web3Providers web3.NetworkEndpoints
 	ExtProviders  map[state.TokenType]service.HolderProvider
 }
 
@@ -36,7 +37,7 @@ type census3API struct {
 	endpoint     *api.API
 	censusDB     *censusdb.CensusDB
 	queue        *queue.BackgroundQueue
-	w3p          state.Web3Providers
+	w3p          web3.NetworkEndpoints
 	storage      storagelayer.Storage
 	downloader   *downloader.Downloader
 	extProviders map[state.TokenType]service.HolderProvider
@@ -53,7 +54,7 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 		cache:        cache.DefaultCache(),
 	}
 	// get the current chainID
-	log.Infow("starting API", "chainID-web3Providers", conf.Web3Providers)
+	log.Infow("starting API", "web3Providers", conf.Web3Providers.String())
 
 	// create a new http router with the hostname and port provided in the conf
 	var err error

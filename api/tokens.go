@@ -118,7 +118,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		tokenProgress := 100
 		if !tokenData.Synced {
 			// get correct web3 uri provider
-			w3URI, exists := capi.w3p.URIByChainID(tokenData.ChainID)
+			w3URI, exists := capi.w3p.EndpointByChainID(tokenData.ChainID)
 			if !exists {
 				return ErrChainIDNotSupported.With("chain ID not supported")
 			}
@@ -308,7 +308,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		// database
 		w3 := state.Web3{}
 		// get correct web3 uri provider
-		w3URI, exists := capi.w3p.URIByChainID(req.ChainID)
+		w3URI, exists := capi.w3p.EndpointByChainID(req.ChainID)
 		if !exists {
 			return ErrChainIDNotSupported.With("chain ID not supported")
 		}
@@ -437,7 +437,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	tokenProgress := 100
 	if !tokenData.Synced {
 		// get correct web3 uri provider
-		w3URI, exists := capi.w3p.URIByChainID(tokenData.ChainID)
+		w3URI, exists := capi.w3p.EndpointByChainID(tokenData.ChainID)
 		if !exists {
 			return ErrChainIDNotSupported.With("chain ID not supported")
 		}

@@ -2,7 +2,6 @@ package state
 
 import (
 	"math/big"
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -28,17 +27,4 @@ var (
 		common.HexToAddress("0xa2E4D94c5923A8dd99c5792A7B0436474c54e1E1"): new(big.Int).SetUint64(2000000000000000000),
 		common.HexToAddress("0x2a4636A5a1138e35F7f93e81FA56d3c970BC6777"): new(big.Int).SetUint64(1000000000000000000),
 	}
-	DefaultWeb3Provider = Web3Provider{
-		ChainID:   5,
-		Name:      "Goerli",
-		ShortName: "gor",
-		URI:       "https://eth-goerli.api.onfinality.io/public",
-	}
 )
-
-func web3testUri() string {
-	if uri := os.Getenv("WEB3_URI"); uri != "" {
-		return uri
-	}
-	return DefaultWeb3Provider.URI
-}

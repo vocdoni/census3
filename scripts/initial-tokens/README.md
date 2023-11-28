@@ -1,21 +1,9 @@
 # Initial tokens creation script
 
 ### Use
-
-**Create Python virtualenv and execute it**
-```sh
-python3 -m venv ./venv
-source ./venv/bin/activate
-```
-
-**Install requirements**
-```sh
-pip install -r requirements.txt
-```
-
 **Execute the script**
 ```sh
-python3 initial-tokens.py --tokens=./initial-tokens.json --endpoint https://census3-dev.vocdoni.net/api
+sh initial-tokens.sh --tokens=./initial-tokens.json --endpoint https://census3-dev.vocdoni.net/api
 ```
 
 
@@ -43,17 +31,22 @@ Tokens (ERC20):
  - YAM: 0x0aacfbec6a24756c20d41914f2caba817c0d8521 (mainnet)
  - SDT: 0x73968b9a57c6e53d41345fd57a6e6ae27d6cdb2f (mainnet)
  - GDAO: 0x515d7e9d75e2b76db60f8a051cd890eba23286bc (mainnet)
+ - CODE: 0xb24cd494faE4C180A89975F1328Eab2a7D5d8f11 (mainnet)
 
 
 NFTs:
  - Decentraland (LAND) 0xF87E31492Faf9A91B02Ee0dEAAd50d51d56D5d4d (mainnet)
- - BoredApeYachtClub (BAYC) 0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d
- - CryptoPunks (Ï¾) 0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB
- - Azuki (AZUKI) 0xED5AF388653567Af2F388E6224dC7C4b3241C544
- - Otherdeed (OTHR) 0x34d85c9CDeB23FA97cb08333b511ac86E1C4E258
- - Moonbirds (MOONBIRD) 0x23581767a106ae21c074b2276D25e5C3e136a68b
- - Doodles (DOODLE) 0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e
- - Hashmasks (HM) 0xC2C747E0F7004F9E8817Db2ca4997657a7746928
+ - BoredApeYachtClub (BAYC) 0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d (mainnet)
+ - CryptoPunks (Ï¾) 0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB (mainnet)
+ - Azuki (AZUKI) 0xED5AF388653567Af2F388E6224dC7C4b3241C544 (mainnet)
+ - Otherdeed (OTHR) 0x34d85c9CDeB23FA97cb08333b511ac86E1C4E258 (mainnet)
+ - Moonbirds (MOONBIRD) 0x23581767a106ae21c074b2276D25e5C3e136a68b (mainnet)
+ - Doodles (DOODLE) 0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e (mainnet)
+ - Hashmasks (HM) 0xC2C747E0F7004F9E8817Db2ca4997657a7746928 (mainnet)
+ - CloneX (CloneX) 0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B (mainnet)
+ - DesignerDAO (DSGN) 0xA03298E553Cd0370eD9DD182B0679366b3a0F5fe (base)
+ - Purple (PRPL) 0xAeD75D1e5c1821E2EC29D5d24b794b13C34c5d63 (mainnet)
+ - Vybz (VYBZ) 0xd74702fb587fAE4567688868c9D197521920dda9 (mainnet)
 
 POAPs:
  - GitPOAP: Early Adopter (POAPID: 5909945) (EventID: 77639)

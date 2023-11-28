@@ -219,6 +219,31 @@
             "type": "poap",
             "chainID": 1,
             "externalID": "36029"
+        },
+        {
+            "id": "0xb24cd494faE4C180A89975F1328Eab2a7D5d8f11",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "id": "0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0xA03298E553Cd0370eD9DD182B0679366b3a0F5fe",
+            "type": "erc721",
+            "chainID": 8453
+        },
+        {
+            "id": "0xAeD75D1e5c1821E2EC29D5d24b794b13C34c5d63",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0xd74702fb587fAE4567688868c9D197521920dda9",
+            "type": "erc721",
+            "chainID": 1
         }
     ]
 }

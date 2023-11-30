@@ -32,6 +32,7 @@ Tokens (ERC20):
  - SDT: 0x73968b9a57c6e53d41345fd57a6e6ae27d6cdb2f (mainnet)
  - GDAO: 0x515d7e9d75e2b76db60f8a051cd890eba23286bc (mainnet)
  - CODE: 0xb24cd494faE4C180A89975F1328Eab2a7D5d8f11 (mainnet)
+ - DIVA: 0xbfabde619ed5c4311811cf422562709710db587d (mainnet)
 
 
 NFTs:

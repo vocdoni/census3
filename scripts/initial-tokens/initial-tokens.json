@@ -244,6 +244,11 @@
             "id": "0xd74702fb587fAE4567688868c9D197521920dda9",
             "type": "erc721",
             "chainID": 1
+        },
+        {
+            "id": "0xbfabde619ed5c4311811cf422562709710db587d",
+            "type": "erc20",
+            "chainID": 1
         }
     ]
 }

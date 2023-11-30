@@ -100,3 +100,11 @@ SELECT EXISTS
     (SELECT id 
     FROM tokens
     WHERE id = ? AND chain_id = ? AND external_id = ?);
+
+-- name: ExistsAndUnique :one
+SELECT COUNT(*) AS num_of_tokens
+FROM tokens WHERE id = ? AND chain_id = ? AND external_id = ?
+HAVING num_of_tokens = 1;
+
+-- name: DeleteToken :execresult
+DELETE FROM tokens WHERE id = ? AND chain_id = ? AND external_id = ?;

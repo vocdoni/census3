@@ -12,8 +12,10 @@ import (
 	"go.vocdoni.io/dvote/api/censusdb"
 	"go.vocdoni.io/dvote/censustree"
 	storagelayer "go.vocdoni.io/dvote/data"
+	"go.vocdoni.io/dvote/data/ipfs"
 	vocdoniDB "go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/db/metadb"
+	"go.vocdoni.io/dvote/types"
 )
 
 var testHolders = map[common.Address]*big.Int{
@@ -36,9 +38,8 @@ func testDBAndStorage(t *testing.T) (*censusdb.CensusDB, storagelayer.Storage) {
 	c := qt.New(t)
 	tempDir := t.TempDir()
 
-	ipfsConfig := storagelayer.IPFSNewConfig(tempDir)
-	storage, err := storagelayer.Init(storagelayer.IPFS, ipfsConfig)
-	c.Assert(err, qt.IsNil)
+	storage := new(ipfs.Handler)
+	c.Assert(storage.Init(&types.DataStore{Datadir: tempDir}), qt.IsNil)
 
 	// init the database for the census trees
 	censusesDB, err := metadb.New(vocdoniDB.TypePebble, filepath.Join(tempDir, "tempcensusdb"))

@@ -155,15 +155,6 @@ func (s *HoldersScanner) tokenAddresses() ([]scanToken, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	for _, token := range tokens {
-		log.Infow("unsorted token",
-			"token", token.ID,
-			"chainID", token.ChainID,
-			"lastBlock", token.LastBlock,
-			"currentChainBlock", currentBlockNumbers[token.ChainID],
-		)
-	}
 	// sort tokens by nearest to be synced, that is, the tokens that have the
 	// minimum difference between the current block of its chain and the last
 	// block scanned by the scanner (retrieved from the database as LastBlock)
@@ -180,14 +171,6 @@ func (s *HoldersScanner) tokenAddresses() ([]scanToken, error) {
 		jBlocksReamining := currentBlockNumbers[tokens[j].ChainID] - uint64(jLastBlock)
 		return iBlocksReamining < jBlocksReamining
 	})
-	for _, token := range tokens {
-		log.Infow("sorted token",
-			"token", token.ID,
-			"chainID", token.ChainID,
-			"lastBlock", token.LastBlock,
-			"currentChainBlock", currentBlockNumbers[token.ChainID],
-		)
-	}
 
 	// parse and return token addresses
 	results := []scanToken{}

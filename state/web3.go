@@ -635,23 +635,9 @@ func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates
 // current was created. It tries to calculate it using the first block (0) and
 // the current last block.
 func (w *Web3) ContractCreationBlock(ctx context.Context) (uint64, error) {
-	// check if the network is gnosis chain, if so, send the request with 0
-	// otherwise send the HeaderByNumber request with nil
-	lastBlockHeader := new(gethTypes.Header)
-	chainId, err := w.client.NetworkID(ctx)
+	lastBlockHeader, err := w.client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, err
-	}
-	if chainId.Uint64() == 100 {
-		lastBlockHeader, err = w.client.HeaderByNumber(ctx, big.NewInt(0))
-		if err != nil {
-			return 0, err
-		}
-	} else {
-		lastBlockHeader, err = w.client.HeaderByNumber(ctx, nil)
-		if err != nil {
-			return 0, err
-		}
 	}
 	return w.creationBlockInRange(ctx, 0, lastBlockHeader.Number.Uint64())
 }
@@ -667,7 +653,7 @@ func (w *Web3) creationBlockInRange(ctx context.Context, start, end uint64) (uin
 	// code at this block
 	midBlock := (start + end) / 2
 	codeLen, err := w.SourceCodeLenAt(ctx, midBlock)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), fmt.Sprintf("No state available for block %d", midBlock)) {
 		return 0, err
 	}
 	// if any code is found, keep trying with the lower half of blocks until

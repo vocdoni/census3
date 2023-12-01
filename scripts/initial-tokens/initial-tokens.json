@@ -232,7 +232,7 @@
         },
         {
             "id": "0xA03298E553Cd0370eD9DD182B0679366b3a0F5fe",
-            "type": "erc721",
+            "type": "erc20",
             "chainID": 8453
         },
         {

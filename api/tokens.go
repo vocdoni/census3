@@ -458,6 +458,9 @@ func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		}); err != nil {
 		return ErrCantDeleteToken.WithErr(err)
 	}
+	if err := tx.Commit(); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 

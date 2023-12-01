@@ -46,7 +46,6 @@ VALUES (
     ?, ?, ?, ?, ?
 );
 
-
 -- name: StrategyTokensByStrategyID :many
 SELECT st.token_id as id, st.min_balance, t.symbol, t.chain_address, t.chain_id, t.external_id
 FROM strategy_tokens st
@@ -64,3 +63,6 @@ WHERE st.strategy_id = ?;
 DELETE FROM strategies WHERE id IN (
     SELECT strategy_id FROM strategy_tokens WHERE token_id = ? AND chain_id = ? AND external_id = ?
 );
+
+-- name: DeleteStrategyTokensByToken :execresult
+DELETE FROM strategy_tokens WHERE token_id = ? AND chain_id = ? AND external_id = ?;

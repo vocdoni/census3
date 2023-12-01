@@ -420,7 +420,7 @@ func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrCantGetTokens.WithErr(err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
 			log.Errorw(err, "error rolling back tokens transaction")
 		}
 	}()
@@ -433,12 +433,22 @@ func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}); err != nil {
 		return ErrNotFoundToken.WithErr(err)
 	}
-	// delete the token
-	if _, err := qtx.DeleteToken(internalCtx, queries.DeleteTokenParams{
-		ID:         address.Bytes(),
-		ChainID:    uint64(chainID),
-		ExternalID: externalID,
-	}); err != nil {
+	// delete the token holders
+	if _, err := qtx.DeleteTokenHoldersByTokenIDAndChainIDAndExternalID(internalCtx,
+		queries.DeleteTokenHoldersByTokenIDAndChainIDAndExternalIDParams{
+			TokenID:    address.Bytes(),
+			ChainID:    uint64(chainID),
+			ExternalID: externalID,
+		}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	// delete strategies tokens
+	if _, err := qtx.DeleteStrategyTokensByToken(internalCtx,
+		queries.DeleteStrategyTokensByTokenParams{
+			TokenID:    address.Bytes(),
+			ChainID:    uint64(chainID),
+			ExternalID: externalID,
+		}); err != nil {
 		return ErrCantDeleteToken.WithErr(err)
 	}
 	// delete its strategies
@@ -449,13 +459,12 @@ func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}); err != nil {
 		return ErrCantDeleteToken.WithErr(err)
 	}
-	// delete the token holders
-	if _, err := qtx.DeleteTokenHoldersByTokenIDAndChainIDAndExternalID(internalCtx,
-		queries.DeleteTokenHoldersByTokenIDAndChainIDAndExternalIDParams{
-			TokenID:    address.Bytes(),
-			ChainID:    uint64(chainID),
-			ExternalID: externalID,
-		}); err != nil {
+	// delete the token
+	if _, err := qtx.DeleteToken(internalCtx, queries.DeleteTokenParams{
+		ID:         address.Bytes(),
+		ChainID:    uint64(chainID),
+		ExternalID: externalID,
+	}); err != nil {
 		return ErrCantDeleteToken.WithErr(err)
 	}
 	if err := tx.Commit(); err != nil {

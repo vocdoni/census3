@@ -249,6 +249,26 @@
             "id": "0xbfabde619ed5c4311811cf422562709710db587d",
             "type": "erc20",
             "chainID": 1
+        },
+        {
+            "id": "0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "id": "0x900dB999074d9277c5DA2A43F252D74366230DA0",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "id": "0x288b0d27914D020ba5779850FB17C67158B042F1",
+            "type": "erc20",
+            "chainID": 100
+        },
+        {
+            "id": "0xfFBAbEb49be77E5254333d5fdfF72920B989425f",
+            "type": "erc20",
+            "chainID": 100
         }
     ]
 }

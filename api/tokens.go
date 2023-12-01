@@ -32,6 +32,10 @@ func (capi *census3API) initTokenHandlers() error {
 		api.MethodAccessTypePublic, capi.getToken); err != nil {
 		return err
 	}
+	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}", "DELETE",
+		api.MethodAccessTypeAdmin, capi.deleteToken); err != nil {
+		return err
+	}
 	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/holders/{holderID}", "GET",
 		api.MethodAccessTypePublic, capi.isTokenHolder); err != nil {
 		return err
@@ -378,6 +382,81 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	if err := tx.Commit(); err != nil {
 		return ErrCantGetToken.WithErr(err)
+	}
+	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
+}
+
+// deleteToken function handler deletes the token with the given ID from the
+// database. It returns a 400 error if the provided ID is wrong or empty, a 404
+// error if the token is not found or a 500 error if something fails. This
+// endpoint is protected for admin.
+func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get contract address from the tokenID query param and decode check if
+	// it is provided, if not return an error
+	strAddress := ctx.URLParam("tokenID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	address := common.HexToAddress(strAddress)
+	// get chainID from query params and decode it as integer, if it's not
+	// provided or it's not a valid integer return an error
+	strChainID := ctx.Request.URL.Query().Get("chainID")
+	if strChainID == "" {
+		return ErrMalformedChainID.With("chainID is required")
+	}
+	chainID, err := strconv.Atoi(strChainID)
+	if err != nil {
+		return ErrMalformedChainID.WithErr(err)
+	} else if chainID < 0 {
+		return ErrMalformedChainID.With("chainID must be a positive number")
+	}
+	// get externalID from query params and decode it as string, it is optional
+	// so if it's not provided continue
+	externalID := ctx.Request.URL.Query().Get("externalID")
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createTokenTimeout)
+	defer cancel()
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetTokens.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorw(err, "error rolling back tokens transaction")
+		}
+	}()
+	qtx := capi.db.QueriesRO.WithTx(tx)
+	// check if the token exists in the database
+	if _, err := qtx.ExistsAndUnique(internalCtx, queries.ExistsAndUniqueParams{
+		ID:         address.Bytes(),
+		ChainID:    uint64(chainID),
+		ExternalID: externalID,
+	}); err != nil {
+		return ErrNotFoundToken.WithErr(err)
+	}
+	// delete the token
+	if _, err := qtx.DeleteToken(internalCtx, queries.DeleteTokenParams{
+		ID:         address.Bytes(),
+		ChainID:    uint64(chainID),
+		ExternalID: externalID,
+	}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	// delete its strategies
+	if _, err := qtx.DeleteStrategiesByToken(internalCtx, queries.DeleteStrategiesByTokenParams{
+		TokenID:    address.Bytes(),
+		ChainID:    uint64(chainID),
+		ExternalID: externalID,
+	}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	// delete the token holders
+	if _, err := qtx.DeleteTokenHoldersByTokenIDAndChainIDAndExternalID(internalCtx,
+		queries.DeleteTokenHoldersByTokenIDAndChainIDAndExternalIDParams{
+			TokenID:    address.Bytes(),
+			ChainID:    uint64(chainID),
+			ExternalID: externalID,
+		}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
 	}
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }

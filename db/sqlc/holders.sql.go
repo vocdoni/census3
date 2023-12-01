@@ -174,6 +174,20 @@ func (q *Queries) DeleteTokenHolder(ctx context.Context, arg DeleteTokenHolderPa
 	)
 }
 
+const deleteTokenHoldersByTokenIDAndChainIDAndExternalID = `-- name: DeleteTokenHoldersByTokenIDAndChainIDAndExternalID :execresult
+DELETE FROM token_holders WHERE token_id = ? AND chain_id = ? AND external_id = ?
+`
+
+type DeleteTokenHoldersByTokenIDAndChainIDAndExternalIDParams struct {
+	TokenID    annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) DeleteTokenHoldersByTokenIDAndChainIDAndExternalID(ctx context.Context, arg DeleteTokenHoldersByTokenIDAndChainIDAndExternalIDParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteTokenHoldersByTokenIDAndChainIDAndExternalID, arg.TokenID, arg.ChainID, arg.ExternalID)
+}
+
 const existTokenHolder = `-- name: ExistTokenHolder :one
 SELECT EXISTS (
     SELECT holder_id 

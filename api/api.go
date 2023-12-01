@@ -20,6 +20,7 @@ import (
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
+	"go.vocdoni.io/dvote/types"
 )
 
 type Census3APIConf struct {
@@ -29,6 +30,7 @@ type Census3APIConf struct {
 	GroupKey      string
 	Web3Providers web3.NetworkEndpoints
 	ExtProviders  map[state.TokenType]service.HolderProvider
+	AdminToken    string
 }
 
 type census3API struct {
@@ -69,10 +71,11 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 	if newAPI.endpoint, err = api.NewAPI(&r, "/api"); err != nil {
 		return nil, err
 	}
+	// set admin token
+	newAPI.endpoint.SetAdminToken(conf.AdminToken)
 	// init the IPFS service and the storage layer and connect them
-	ipfsConfig := storagelayer.IPFSNewConfig(conf.DataDir)
-	newAPI.storage, err = storagelayer.Init(storagelayer.IPFS, ipfsConfig)
-	if err != nil {
+	newAPI.storage = new(ipfs.Handler)
+	if err = newAPI.storage.Init(&types.DataStore{Datadir: conf.DataDir}); err != nil {
 		return nil, err
 	}
 	var ipfsConn *ipfsconnect.IPFSConnect

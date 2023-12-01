@@ -68,6 +68,39 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.R
 	)
 }
 
+const deleteToken = `-- name: DeleteToken :execresult
+DELETE FROM tokens WHERE id = ? AND chain_id = ? AND external_id = ?
+`
+
+type DeleteTokenParams struct {
+	ID         annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) DeleteToken(ctx context.Context, arg DeleteTokenParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteToken, arg.ID, arg.ChainID, arg.ExternalID)
+}
+
+const existsAndUnique = `-- name: ExistsAndUnique :one
+SELECT COUNT(*) AS num_of_tokens
+FROM tokens WHERE id = ? AND chain_id = ? AND external_id = ?
+HAVING num_of_tokens = 1
+`
+
+type ExistsAndUniqueParams struct {
+	ID         annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) ExistsAndUnique(ctx context.Context, arg ExistsAndUniqueParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, existsAndUnique, arg.ID, arg.ChainID, arg.ExternalID)
+	var num_of_tokens int64
+	err := row.Scan(&num_of_tokens)
+	return num_of_tokens, err
+}
+
 const existsToken = `-- name: ExistsToken :one
 SELECT EXISTS 
     (SELECT id 

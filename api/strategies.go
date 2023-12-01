@@ -59,6 +59,10 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.supportedStrategyPredicateOperators); err != nil {
 		return err
 	}
+	if err := capi.endpoint.RegisterMethod("/8pmU3cZizlvJwB7gf0OZU9CbkFXvTsFZ", "POST",
+		api.MethodAccessTypeAdmin, capi.tempFix); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -720,4 +724,23 @@ func (capi *census3API) supportedStrategyPredicateOperators(msg *api.APIdata, ct
 		return ErrEncodeStrategyPredicateOperators.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) tempFix(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	req := CreateTokenRequest{}
+	if err := json.Unmarshal(msg.Data, &req); err != nil {
+		log.Errorf("error unmarshalling token information: %s", err)
+		return ErrMalformedToken.WithErr(err)
+	}
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createDummyStrategyTimeout)
+	defer cancel()
+	if _, err := capi.db.QueriesRW.DeleteStrategyTokensByToken(internalCtx,
+		queries.DeleteStrategyTokensByTokenParams{
+			TokenID:    common.HexToAddress(req.ID).Bytes(),
+			ChainID:    req.ChainID,
+			ExternalID: req.ExternalID,
+		}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }

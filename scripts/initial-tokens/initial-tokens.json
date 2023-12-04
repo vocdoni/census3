@@ -269,6 +269,21 @@
             "id": "0xfFBAbEb49be77E5254333d5fdfF72920B989425f",
             "type": "erc20",
             "chainID": 100
+        },
+        {
+            "id": "0xFCFa3b066981027516121bd27a9B1cBb9C00c5Fd",
+            "type": "erc20",
+            "chainID": 5
+        },
+        {
+            "id": "0x0D7DeA5922535087078dd3D7c554EA9f2655d4cB",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "id": "0x0000000000000000000000000000000000001010",
+            "type": "erc20",
+            "chainID": 137
         }
     ]
 }

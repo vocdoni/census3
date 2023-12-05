@@ -67,6 +67,9 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 	if err = r.Init(conf.Hostname, conf.Port); err != nil {
 		return nil, err
 	}
+	// expose metrics endpoint
+	r.ExposePrometheusEndpoint("/metrics")
+
 	// init API using the http router created
 	if newAPI.endpoint, err = api.NewAPI(&r, "/api"); err != nil {
 		return nil, err

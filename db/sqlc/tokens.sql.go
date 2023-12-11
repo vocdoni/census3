@@ -8,6 +8,7 @@ package queries
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/vocdoni/census3/db/annotations"
 )
@@ -154,43 +155,22 @@ func (q *Queries) ExistsTokenByChainIDAndExternalID(ctx context.Context, arg Exi
 	return exists, err
 }
 
-const listTokens = `-- name: ListTokens :many
-SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.chain_address, tokens.external_id, tokens.default_strategy, tokens.icon_uri, (
-    SELECT MAX(block_id) AS last_block
-    FROM token_holders
-    WHERE token_id = tokens.id 
-        AND chain_id = tokens.chain_id 
-        AND external_id = tokens.external_id
-) FROM tokens
+const listLastNoSyncedTokens = `-- name: ListLastNoSyncedTokens :many
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at FROM tokens 
+WHERE strftime('%s', 'now') - strftime('%s', created_at) <= 600
+    AND synced = 0
+ORDER BY created_at DESC
 `
 
-type ListTokensRow struct {
-	ID              annotations.Address
-	Name            string
-	Symbol          string
-	Decimals        uint64
-	TotalSupply     annotations.BigInt
-	CreationBlock   int64
-	TypeID          uint64
-	Synced          bool
-	Tags            string
-	ChainID         uint64
-	ChainAddress    string
-	ExternalID      string
-	DefaultStrategy uint64
-	IconUri         string
-	LastBlock       interface{}
-}
-
-func (q *Queries) ListTokens(ctx context.Context) ([]ListTokensRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTokens)
+func (q *Queries) ListLastNoSyncedTokens(ctx context.Context) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, listLastNoSyncedTokens)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListTokensRow
+	var items []Token
 	for rows.Next() {
-		var i ListTokensRow
+		var i Token
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -206,6 +186,77 @@ func (q *Queries) ListTokens(ctx context.Context) ([]ListTokensRow, error) {
 			&i.ExternalID,
 			&i.DefaultStrategy,
 			&i.IconUri,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOldNoSyncedTokens = `-- name: ListOldNoSyncedTokens :many
+SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.chain_address, tokens.external_id, tokens.default_strategy, tokens.icon_uri, tokens.created_at, (
+    SELECT MAX(block_id) AS last_block
+    FROM token_holders
+    WHERE token_id = tokens.id 
+        AND chain_id = tokens.chain_id 
+        AND external_id = tokens.external_id
+) FROM tokens 
+WHERE strftime('%s', 'now') - strftime('%s', created_at) > 600
+    AND synced = 0
+`
+
+type ListOldNoSyncedTokensRow struct {
+	ID              annotations.Address
+	Name            string
+	Symbol          string
+	Decimals        uint64
+	TotalSupply     annotations.BigInt
+	CreationBlock   int64
+	TypeID          uint64
+	Synced          bool
+	Tags            string
+	ChainID         uint64
+	ChainAddress    string
+	ExternalID      string
+	DefaultStrategy uint64
+	IconUri         string
+	CreatedAt       time.Time
+	LastBlock       interface{}
+}
+
+func (q *Queries) ListOldNoSyncedTokens(ctx context.Context) ([]ListOldNoSyncedTokensRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOldNoSyncedTokens)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOldNoSyncedTokensRow
+	for rows.Next() {
+		var i ListOldNoSyncedTokensRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Symbol,
+			&i.Decimals,
+			&i.TotalSupply,
+			&i.CreationBlock,
+			&i.TypeID,
+			&i.Synced,
+			&i.Tags,
+			&i.ChainID,
+			&i.ChainAddress,
+			&i.ExternalID,
+			&i.DefaultStrategy,
+			&i.IconUri,
+			&i.CreatedAt,
 			&i.LastBlock,
 		); err != nil {
 			return nil, err
@@ -221,8 +272,51 @@ func (q *Queries) ListTokens(ctx context.Context) ([]ListTokensRow, error) {
 	return items, nil
 }
 
+const listSyncedTokens = `-- name: ListSyncedTokens :many
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at FROM tokens WHERE synced = 1
+`
+
+func (q *Queries) ListSyncedTokens(ctx context.Context) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, listSyncedTokens)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Token
+	for rows.Next() {
+		var i Token
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Symbol,
+			&i.Decimals,
+			&i.TotalSupply,
+			&i.CreationBlock,
+			&i.TypeID,
+			&i.Synced,
+			&i.Tags,
+			&i.ChainID,
+			&i.ChainAddress,
+			&i.ExternalID,
+			&i.DefaultStrategy,
+			&i.IconUri,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const nextTokensPage = `-- name: NextTokensPage :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at FROM tokens
 WHERE id >= ?
 ORDER BY id ASC 
 LIMIT ?
@@ -257,6 +351,7 @@ func (q *Queries) NextTokensPage(ctx context.Context, arg NextTokensPageParams) 
 			&i.ExternalID,
 			&i.DefaultStrategy,
 			&i.IconUri,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -272,8 +367,8 @@ func (q *Queries) NextTokensPage(ctx context.Context, arg NextTokensPageParams) 
 }
 
 const prevTokensPage = `-- name: PrevTokensPage :many
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri FROM (
-    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at FROM (
+    SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at FROM tokens
     WHERE id <= ?
     ORDER BY id DESC
     LIMIT ?
@@ -309,6 +404,7 @@ func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) 
 			&i.ExternalID,
 			&i.DefaultStrategy,
 			&i.IconUri,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -324,7 +420,7 @@ func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) 
 }
 
 const tokenByID = `-- name: TokenByID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at FROM tokens
 WHERE id = ?
 LIMIT 1
 `
@@ -347,12 +443,13 @@ func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token,
 		&i.ExternalID,
 		&i.DefaultStrategy,
 		&i.IconUri,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const tokenByIDAndChainID = `-- name: TokenByIDAndChainID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at FROM tokens
 WHERE id = ? AND chain_id = ?
 LIMIT 1
 `
@@ -380,12 +477,13 @@ func (q *Queries) TokenByIDAndChainID(ctx context.Context, arg TokenByIDAndChain
 		&i.ExternalID,
 		&i.DefaultStrategy,
 		&i.IconUri,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const tokenByIDAndChainIDAndExternalID = `-- name: TokenByIDAndChainIDAndExternalID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri FROM tokens
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at FROM tokens
 WHERE id = ? AND chain_id = ? AND external_id = ?
 LIMIT 1
 `
@@ -414,12 +512,13 @@ func (q *Queries) TokenByIDAndChainIDAndExternalID(ctx context.Context, arg Toke
 		&i.ExternalID,
 		&i.DefaultStrategy,
 		&i.IconUri,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
-SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.chain_address, t.external_id, t.default_strategy, t.icon_uri, st.strategy_id, st.token_id, st.min_balance, st.chain_id, st.external_id FROM tokens t
+SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.chain_address, t.external_id, t.default_strategy, t.icon_uri, t.created_at, st.strategy_id, st.token_id, st.min_balance, st.chain_id, st.external_id FROM tokens t
 JOIN strategy_tokens st ON st.token_id = t.id
 WHERE st.strategy_id = ?
 ORDER BY t.name
@@ -440,6 +539,7 @@ type TokensByStrategyIDRow struct {
 	ExternalID      string
 	DefaultStrategy uint64
 	IconUri         string
+	CreatedAt       time.Time
 	StrategyID      uint64
 	TokenID         []byte
 	MinBalance      []byte
@@ -471,6 +571,7 @@ func (q *Queries) TokensByStrategyID(ctx context.Context, strategyID uint64) ([]
 			&i.ExternalID,
 			&i.DefaultStrategy,
 			&i.IconUri,
+			&i.CreatedAt,
 			&i.StrategyID,
 			&i.TokenID,
 			&i.MinBalance,

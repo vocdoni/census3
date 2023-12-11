@@ -140,14 +140,40 @@ type scanToken struct {
 func (s *HoldersScanner) tokenAddresses() ([]scanToken, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// get tokens from the database
-	tokens, err := s.db.QueriesRO.ListTokens(ctx)
-	// if error raises and is no rows error return nil results, if it is not
-	// return the error.
+	tx, err := s.db.RW.BeginTx(ctx, nil)
 	if err != nil {
-		if errors.Is(sql.ErrNoRows, err) {
-			return nil, nil
+		return nil, err
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorf("error rolling back transaction when scanner get token addresses: %v", err)
 		}
+	}()
+	qtx := s.db.QueriesRW.WithTx(tx)
+	results := []scanToken{}
+	// get last created tokens from the database to scan them first
+	lastNotSyncedTokens, err := qtx.ListLastNoSyncedTokens(ctx)
+	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+		return nil, err
+	}
+	// parse last not synced token addresses
+	for _, token := range lastNotSyncedTokens {
+		scanTokenData := scanToken{
+			addr:       common.BytesToAddress(token.ID),
+			ready:      token.CreationBlock > 0,
+			chainID:    token.ChainID,
+			externalID: []byte{},
+		}
+		provider, isExternal := s.extProviders[state.TokenType(token.TypeID)]
+		if isExternal {
+			scanTokenData.holderProvider = provider
+			scanTokenData.externalID = []byte(token.ExternalID)
+		}
+		results = append(results, scanTokenData)
+	}
+	// get old tokens from the database
+	oldNotSyncedTokens, err := qtx.ListOldNoSyncedTokens(ctx)
+	if err != nil && !errors.Is(sql.ErrNoRows, err) {
 		return nil, err
 	}
 	// get the current block number of every chain
@@ -155,26 +181,44 @@ func (s *HoldersScanner) tokenAddresses() ([]scanToken, error) {
 	if err != nil {
 		return nil, err
 	}
-	// sort tokens by nearest to be synced, that is, the tokens that have the
-	// minimum difference between the current block of its chain and the last
-	// block scanned by the scanner (retrieved from the database as LastBlock)
-	sort.Slice(tokens, func(i, j int) bool {
+	// sort old not synced tokens by nearest to be synced, that is, the tokens
+	// that have the minimum difference between the current block of its chain
+	// and the last block scanned by the scanner (retrieved from the database
+	// as LastBlock)
+	sort.Slice(oldNotSyncedTokens, func(i, j int) bool {
 		iLastBlock := uint64(0)
-		if tokens[i].LastBlock != nil {
-			iLastBlock = uint64(tokens[i].LastBlock.(int64))
+		if oldNotSyncedTokens[i].LastBlock != nil {
+			iLastBlock = uint64(oldNotSyncedTokens[i].LastBlock.(int64))
 		}
 		jLastBlock := uint64(0)
-		if tokens[j].LastBlock != nil {
-			jLastBlock = uint64(tokens[j].LastBlock.(int64))
+		if oldNotSyncedTokens[j].LastBlock != nil {
+			jLastBlock = uint64(oldNotSyncedTokens[j].LastBlock.(int64))
 		}
-		iBlocksReamining := currentBlockNumbers[tokens[i].ChainID] - uint64(iLastBlock)
-		jBlocksReamining := currentBlockNumbers[tokens[j].ChainID] - uint64(jLastBlock)
+		iBlocksReamining := currentBlockNumbers[oldNotSyncedTokens[i].ChainID] - uint64(iLastBlock)
+		jBlocksReamining := currentBlockNumbers[oldNotSyncedTokens[j].ChainID] - uint64(jLastBlock)
 		return iBlocksReamining < jBlocksReamining
 	})
-
-	// parse and return token addresses
-	results := []scanToken{}
-	for _, token := range tokens {
+	// parse old not synced token addresses
+	for _, token := range oldNotSyncedTokens {
+		scanTokenData := scanToken{
+			addr:       common.BytesToAddress(token.ID),
+			ready:      token.CreationBlock > 0,
+			chainID:    token.ChainID,
+			externalID: []byte{},
+		}
+		provider, isExternal := s.extProviders[state.TokenType(token.TypeID)]
+		if isExternal {
+			scanTokenData.holderProvider = provider
+			scanTokenData.externalID = []byte(token.ExternalID)
+		}
+		results = append(results, scanTokenData)
+	}
+	// get last created tokens from the database to scan them first
+	syncedTokens, err := qtx.ListSyncedTokens(ctx)
+	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+		return nil, err
+	}
+	for _, token := range syncedTokens {
 		scanTokenData := scanToken{
 			addr:       common.BytesToAddress(token.ID),
 			ready:      token.CreationBlock > 0,

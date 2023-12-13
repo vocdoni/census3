@@ -486,8 +486,8 @@ Returns the information of the strategy related to the provided ID.
 | 500 | `error encoding strategy info` | 5015 | 
 
 
-### GET `/strategies/{strategyID}/size`
-Enqueue the calculation of the size of a census generated for the provided strategy.
+### GET `/strategies/{strategyID}/estimation`
+Enqueue the estimation of size and time (in milliseconds) to create the census generated for the provided strategy.
 
 - 📥 response:
 
@@ -504,8 +504,8 @@ Enqueue the calculation of the size of a census generated for the provided strat
 | 400 | `malformed strategy ID, it must be an integer` | 4002 | 
 | 500 | `error encoding strategy info` | 5015 | 
 
-### GET `/strategies/{strategyID}/size/queue/{queueID}`
-Returns the estimated size of the resulting census based on the strategy related to the queue ID.
+### GET `/strategies/{strategyID}/estimation/queue/{queueID}`
+Returns the estimation of size and time (in milliseconds) to create the census generated for the strategy related to the queue ID.
 
 - 📥 response:
 
@@ -516,7 +516,10 @@ Returns the estimated size of the resulting census based on the strategy related
         "code": 0,
         "error": "error message or null"
     },
-    "size": 100
+    "estimation": {
+        "size": 15000,
+        "timeToCreateCensus": 10900
+    }
 }
 ```
 

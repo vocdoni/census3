@@ -6,6 +6,7 @@ package queries
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/vocdoni/census3/db/annotations"
 )
@@ -66,6 +67,7 @@ type Token struct {
 	ExternalID      string
 	DefaultStrategy uint64
 	IconUri         string
+	CreatedAt       time.Time
 }
 
 type TokenHolder struct {

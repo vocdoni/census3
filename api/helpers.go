@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"encoding/binary"
 	"errors"
@@ -331,4 +332,12 @@ func TimeToCreateCensus(size uint64) uint64 {
 		seconds = 1
 	}
 	return uint64(seconds * 1000) // milliseconds
+}
+
+type CacheKey [16]byte
+
+// EncCacheKey encodes the key to a string to be used as a map key, it uses md5
+// to ensure the key is always the same length
+func EncCacheKey(key string) CacheKey {
+	return md5.Sum([]byte(key))
 }

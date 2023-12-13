@@ -105,6 +105,24 @@ func (nps NetworkEndpoints) String() string {
 	return fmt.Sprintf("%v", shortNames)
 }
 
+// CurrentBlockNumbers method returns a map of uint64-uint64, where the key is
+// the chainID and the value is the current block number of the network.
+func (nps NetworkEndpoints) CurrentBlockNumbers(ctx context.Context) (map[uint64]uint64, error) {
+	blockNumbers := make(map[uint64]uint64)
+	for _, endpoint := range nps {
+		cli, err := endpoint.GetClient(DefaultMaxRetries)
+		if err != nil {
+			return nil, err
+		}
+		blockNumber, err := cli.BlockNumber(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error getting the block number from %s network: %w", endpoint.Name, err)
+		}
+		blockNumbers[endpoint.ChainID] = blockNumber
+	}
+	return blockNumbers, nil
+}
+
 // InitNetworkEndpoints function initializes a NetworkEndpoints list checking
 // the web3 enpoint URI's provided as argument. It checks if the URI's are
 // valid, getting its chain ID's and then query to shortNameSourceURI endpoint

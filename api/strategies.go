@@ -529,6 +529,11 @@ func (capi *census3API) launchStrategyEstimation(msg *api.APIdata, ctx *httprout
 func (capi *census3API) estimateStrategySize(strategyID uint64) (int, error) {
 	internalCtx, cancel := context.WithTimeout(context.Background(), createAndPublishCensusTimeout)
 	defer cancel()
+	// check if the strategy size is already cached
+	cacheKey := EncCacheKey(fmt.Sprintf("strategy%d", strategyID))
+	if size, exists := capi.cache.Get(cacheKey); exists {
+		return size.(int), nil
+	}
 	// begin a transaction for group sql queries
 	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
@@ -556,6 +561,11 @@ func (capi *census3API) estimateStrategySize(strategyID uint64) (int, error) {
 		return 0, ErrEvalStrategyPredicate.WithErr(err)
 	}
 	if size := len(strategyHolders); size != 0 {
+		// cache the strategy if the estimated size is greater than the
+		// threshold
+		if size > strategyHoldersCacheThreshold {
+			capi.cache.Add(cacheKey, size)
+		}
 		return size, nil
 	}
 	return 0, ErrNoStrategyHolders

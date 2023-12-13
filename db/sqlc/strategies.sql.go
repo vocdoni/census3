@@ -56,6 +56,36 @@ func (q *Queries) CreateStrategyToken(ctx context.Context, arg CreateStrategyTok
 	)
 }
 
+const deleteStrategiesByToken = `-- name: DeleteStrategiesByToken :execresult
+DELETE FROM strategies WHERE id IN (
+    SELECT strategy_id FROM strategy_tokens WHERE token_id = ? AND chain_id = ? AND external_id = ?
+)
+`
+
+type DeleteStrategiesByTokenParams struct {
+	TokenID    []byte
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) DeleteStrategiesByToken(ctx context.Context, arg DeleteStrategiesByTokenParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteStrategiesByToken, arg.TokenID, arg.ChainID, arg.ExternalID)
+}
+
+const deleteStrategyTokensByToken = `-- name: DeleteStrategyTokensByToken :execresult
+DELETE FROM strategy_tokens WHERE token_id = ? AND chain_id = ? AND external_id = ?
+`
+
+type DeleteStrategyTokensByTokenParams struct {
+	TokenID    []byte
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) DeleteStrategyTokensByToken(ctx context.Context, arg DeleteStrategyTokensByTokenParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteStrategyTokensByToken, arg.TokenID, arg.ChainID, arg.ExternalID)
+}
+
 const listStrategies = `-- name: ListStrategies :many
 SELECT id, predicate, alias, uri FROM strategies
 ORDER BY id

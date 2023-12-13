@@ -112,6 +112,9 @@ WHERE token_holders.token_id = ?
     AND token_holders.external_id = ?
     AND token_holders.balance >= ?;
 
+-- name: DeleteTokenHoldersByTokenIDAndChainIDAndExternalID :execresult
+DELETE FROM token_holders WHERE token_id = ? AND chain_id = ? AND external_id = ?;
+
 -- name: TokenHoldersByStrategyID :many
 SELECT token_holders.holder_id, token_holders.balance, strategy_tokens.min_balance
 FROM token_holders

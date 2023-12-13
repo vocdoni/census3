@@ -268,4 +268,9 @@ var (
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error importing strategy"),
 	}
+	ErrCantDeleteToken = apirest.APIerror{
+		Code:       5029,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error deleting token"),
+	}
 )

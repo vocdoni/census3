@@ -219,6 +219,71 @@
             "type": "poap",
             "chainID": 1,
             "externalID": "36029"
+        },
+        {
+            "id": "0xb24cd494faE4C180A89975F1328Eab2a7D5d8f11",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "id": "0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0xA03298E553Cd0370eD9DD182B0679366b3a0F5fe",
+            "type": "erc20",
+            "chainID": 8453
+        },
+        {
+            "id": "0xAeD75D1e5c1821E2EC29D5d24b794b13C34c5d63",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0xd74702fb587fAE4567688868c9D197521920dda9",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "id": "0xbfabde619ed5c4311811cf422562709710db587d",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "id": "0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "id": "0x900dB999074d9277c5DA2A43F252D74366230DA0",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "id": "0x288b0d27914D020ba5779850FB17C67158B042F1",
+            "type": "erc20",
+            "chainID": 100
+        },
+        {
+            "id": "0xfFBAbEb49be77E5254333d5fdfF72920B989425f",
+            "type": "erc20",
+            "chainID": 100
+        },
+        {
+            "id": "0xFCFa3b066981027516121bd27a9B1cBb9C00c5Fd",
+            "type": "erc20",
+            "chainID": 5
+        },
+        {
+            "id": "0x0D7DeA5922535087078dd3D7c554EA9f2655d4cB",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "id": "0x0000000000000000000000000000000000001010",
+            "type": "erc20",
+            "chainID": 137
         }
     ]
 }

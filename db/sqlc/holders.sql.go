@@ -174,6 +174,20 @@ func (q *Queries) DeleteTokenHolder(ctx context.Context, arg DeleteTokenHolderPa
 	)
 }
 
+const deleteTokenHoldersByTokenIDAndChainIDAndExternalID = `-- name: DeleteTokenHoldersByTokenIDAndChainIDAndExternalID :execresult
+DELETE FROM token_holders WHERE token_id = ? AND chain_id = ? AND external_id = ?
+`
+
+type DeleteTokenHoldersByTokenIDAndChainIDAndExternalIDParams struct {
+	TokenID    annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) DeleteTokenHoldersByTokenIDAndChainIDAndExternalID(ctx context.Context, arg DeleteTokenHoldersByTokenIDAndChainIDAndExternalIDParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteTokenHoldersByTokenIDAndChainIDAndExternalID, arg.TokenID, arg.ChainID, arg.ExternalID)
+}
+
 const existTokenHolder = `-- name: ExistTokenHolder :one
 SELECT EXISTS (
     SELECT holder_id 
@@ -630,7 +644,7 @@ func (q *Queries) TokenHoldersByTokenIDAndExternalID(ctx context.Context, arg To
 }
 
 const tokensByHolderID = `-- name: TokensByHolderID :many
-SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.chain_address, tokens.external_id, tokens.default_strategy, tokens.icon_uri
+SELECT tokens.id, tokens.name, tokens.symbol, tokens.decimals, tokens.total_supply, tokens.creation_block, tokens.type_id, tokens.synced, tokens.tags, tokens.chain_id, tokens.chain_address, tokens.external_id, tokens.default_strategy, tokens.icon_uri, tokens.created_at
 FROM tokens
 JOIN token_holders ON tokens.id = token_holders.token_id
 WHERE token_holders.holder_id = ?
@@ -660,6 +674,7 @@ func (q *Queries) TokensByHolderID(ctx context.Context, holderID annotations.Add
 			&i.ExternalID,
 			&i.DefaultStrategy,
 			&i.IconUri,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

@@ -39,6 +39,10 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
 		return err
 	}
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/holders", "GET",
+		api.MethodAccessTypeAdmin, capi.listStrategyHolders); err != nil {
+		return err
+	}
 	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/estimation", "GET",
 		api.MethodAccessTypePublic, capi.launchStrategyEstimation); err != nil {
 		return err
@@ -483,6 +487,34 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	res, err := json.Marshal(strategy)
 	if err != nil {
 		return ErrEncodeStrategy.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// listStrategyHolders function handler returns the list of the holders of the
+// strategy ID provided. It returns a 400 error if the provided
+func (capi *census3API) listStrategyHolders(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get provided strategyID
+	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
+	if err != nil {
+		return ErrMalformedStrategyID.WithErr(err)
+	}
+	strategyID := uint64(iStrategyID)
+	// get token information from the database
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategyTimeout)
+	defer cancel()
+	// get token holders by strategyID
+	holders, err := capi.db.QueriesRO.TokenHoldersByStrategyID(internalCtx, strategyID)
+	if err != nil {
+		return ErrCantGetStrategy.WithErr(err)
+	}
+	holderList := map[string]string{}
+	for _, holder := range holders {
+		holderList[common.BytesToAddress(holder.HolderID).String()] = new(big.Int).SetBytes(holder.Balance).String()
+	}
+	res, err := json.Marshal(holderList)
+	if err != nil {
+		return ErrEncodeTokenHolders.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

@@ -5,7 +5,7 @@ ALTER TABLE strategy_tokens ADD COLUMN external_id BLOB NOT NULL DEFAULT '';
 CREATE TABLE strategy_tokens_copy (
     strategy_id INTEGER NOT NULL,
     token_id BLOB NOT NULL,
-    min_balance BLOB NOT NULL,
+    min_balance TEXT NOT NULL,
     chain_id INTEGER NOT NULL,
     external_id TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (strategy_id, token_id, chain_id, external_id),
@@ -71,7 +71,7 @@ ALTER TABLE token_holders ADD COLUMN external_id TEXT NOT NULL DEFAULT '';
 CREATE TABLE token_holders_copy (
     token_id BLOB NOT NULL,
     holder_id BLOB NOT NULL,
-    balance BLOB NOT NULL,
+    balance TEXT NOT NULL,
     block_id INTEGER NOT NULL,
     chain_id INTEGER NOT NULL,
     external_id TEXT NULL DEFAULT '',

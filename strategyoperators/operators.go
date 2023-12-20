@@ -339,8 +339,8 @@ func (op *StrategyOperators) andHoldersDBOperator(ctx context.Context,
 		TokenIDB:    addressB.Bytes(),
 		ChainIDB:    chainIDB,
 		ExternalIDB: externalIDB,
-		MinBalanceA: minBalanceA.Bytes(),
-		MinBalanceB: minBalanceB.Bytes(),
+		MinBalanceA: minBalanceA.String(),
+		MinBalanceB: minBalanceB.String(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -355,10 +355,15 @@ func (op *StrategyOperators) andHoldersDBOperator(ctx context.Context,
 	// decode the results and return them
 	data := make(map[string][2]*big.Int)
 	for _, r := range rows {
-		data[common.BytesToAddress(r.HolderID).String()] = [2]*big.Int{
-			new(big.Int).SetBytes(r.BalanceA),
-			new(big.Int).SetBytes(r.BalanceB),
+		balanceA, ok := new(big.Int).SetString(r.BalanceA, 10)
+		if !ok {
+			return nil, fmt.Errorf("error decoding balanceA: %s", r.BalanceA)
 		}
+		balanceB, ok := new(big.Int).SetString(r.BalanceB, 10)
+		if !ok {
+			return nil, fmt.Errorf("error decoding balanceB: %s", r.BalanceB)
+		}
+		data[common.BytesToAddress(r.HolderID).String()] = [2]*big.Int{balanceA, balanceB}
 	}
 	return data, nil
 }
@@ -390,8 +395,8 @@ func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
 		TokenIDB:    addressB.Bytes(),
 		ChainIDB:    chainIDB,
 		ExternalIDB: externalIDB,
-		MinBalanceA: minBalanceA.Bytes(),
-		MinBalanceB: minBalanceB.Bytes(),
+		MinBalanceA: minBalanceA.String(),
+		MinBalanceB: minBalanceB.String(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -406,10 +411,15 @@ func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
 	// decode the results and return them
 	data := make(map[string][2]*big.Int)
 	for _, r := range rows {
-		data[common.BytesToAddress(r.HolderID).String()] = [2]*big.Int{
-			new(big.Int).SetBytes(r.BalanceA),
-			new(big.Int).SetBytes(r.BalanceB),
+		balanceA, ok := new(big.Int).SetString(r.BalanceA, 10)
+		if !ok {
+			return nil, fmt.Errorf("error decoding balanceA: %s", r.BalanceA)
 		}
+		balanceB, ok := new(big.Int).SetString(r.BalanceB, 10)
+		if !ok {
+			return nil, fmt.Errorf("error decoding balanceB: %s", r.BalanceB)
+		}
+		data[common.BytesToAddress(r.HolderID).String()] = [2]*big.Int{balanceA, balanceB}
 	}
 	return data, nil
 }

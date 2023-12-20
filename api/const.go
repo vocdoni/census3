@@ -21,7 +21,7 @@ const (
 	getStrategyTimeout           = time.Second * 10
 	getTokensStrategyTimeout     = time.Second * 10
 	// tokens
-	getTokensTimeout   = time.Second * 10
+	getTokensTimeout   = time.Second * 20
 	createTokenTimeout = time.Second * 10
 	getTokenTimeout    = time.Second * 15
 )

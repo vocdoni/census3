@@ -59,7 +59,7 @@ CREATE TABLE holders (
 CREATE TABLE token_holders (
     token_id BLOB NOT NULL,
     holder_id BLOB NOT NULL,
-    balance BLOB NOT NULL,
+    balance TEXT NOT NULL,
     block_id INTEGER NOT NULL,
     PRIMARY KEY (token_id, holder_id, block_id),
     FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE,
@@ -73,7 +73,7 @@ CREATE INDEX idx_token_holders_block_id ON token_holders(block_id);
 CREATE TABLE strategy_tokens (
     strategy_id INTEGER NOT NULL,
     token_id BLOB NOT NULL,
-    min_balance BLOB NOT NULL,
+    min_balance TEXT NOT NULL,
     method_hash BLOB NOT NULL,
     PRIMARY KEY (strategy_id, token_id),
     FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE,

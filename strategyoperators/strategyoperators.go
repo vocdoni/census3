@@ -156,7 +156,7 @@ func (op *StrategyOperators) holdersBySymbol(ctx context.Context, symbol string)
 		queries.TokenHoldersByTokenIDAndChainIDAndMinBalanceParams{
 			TokenID:    address.Bytes(),
 			ChainID:    chainID,
-			Balance:    minBalance.Bytes(),
+			Balance:    minBalance.String(),
 			ExternalID: externalID,
 		})
 	if err != nil {
@@ -168,7 +168,11 @@ func (op *StrategyOperators) holdersBySymbol(ctx context.Context, symbol string)
 	// decode the resulting addresses
 	data := map[string]*big.Int{}
 	for _, r := range rows {
-		data[common.BytesToAddress(r.HolderID).String()] = new(big.Int).SetBytes(r.Balance)
+		balance, ok := new(big.Int).SetString(r.Balance, 10)
+		if !ok {
+			return nil, fmt.Errorf("error decoding balance of token %s on chainID %d", symbol, chainID)
+		}
+		data[common.BytesToAddress(r.HolderID).String()] = balance
 	}
 	return data, nil
 }

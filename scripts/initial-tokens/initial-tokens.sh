@@ -49,5 +49,6 @@ fi
 # Reading and processing the JSON file
 token_data=$(jq -c '.tokens[]' "$tokens")
 while read -r line; do
+    echo "Sending POST request with body: $line"
     send_post_request "$endpoint" "$line"
 done <<< "$token_data"

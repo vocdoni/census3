@@ -542,7 +542,7 @@ type TokensByStrategyIDRow struct {
 	CreatedAt       time.Time
 	StrategyID      uint64
 	TokenID         []byte
-	MinBalance      []byte
+	MinBalance      string
 	ChainID_2       uint64
 	ExternalID_2    string
 }

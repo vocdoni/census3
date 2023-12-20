@@ -149,7 +149,8 @@ func Test_saveHolders(t *testing.T) {
 			ChainID:  th.ChainID,
 		})
 	c.Assert(err, qt.IsNil)
-	resBalance := new(big.Int).SetBytes(res.Balance)
+	resBalance, ok := new(big.Int).SetString(res.Balance, 10)
+	c.Assert(ok, qt.IsTrue)
 	c.Assert(resBalance.String(), qt.Equals, "12")
 	// check delete holders
 	th.Append(holderAddr, big.NewInt(-24))
@@ -192,7 +193,9 @@ func Test_scanHolders(t *testing.T) {
 	for _, holder := range res {
 		balance, ok := MonkeysHolders[common.BytesToAddress(holder.ID)]
 		c.Assert(ok, qt.IsTrue)
-		c.Assert(new(big.Int).SetBytes(holder.Balance).String(), qt.ContentEquals, balance.String())
+		currentBalance, ok := new(big.Int).SetString(holder.Balance, 10)
+		c.Assert(ok, qt.IsTrue)
+		c.Assert(currentBalance, qt.ContentEquals, balance.String())
 	}
 }
 

@@ -71,7 +71,8 @@ SELECT COUNT(holder_id)
 FROM token_holders
 WHERE token_id = ?
     AND chain_id = ?
-    AND external_id = ?;
+    AND external_id = ?
+    AND balance >= ?;
 
 -- name: CreateTokenHolder :execresult
 INSERT INTO token_holders (
@@ -100,7 +101,6 @@ WHERE token_id = sqlc.arg(token_id)
 DELETE FROM token_holders
 WHERE token_id = sqlc.arg(token_id) 
     AND holder_id = sqlc.arg(holder_id) 
-    AND block_id = sqlc.arg(block_id)
     AND chain_id = sqlc.arg(chain_id)
     AND external_id = sqlc.arg(external_id);
 

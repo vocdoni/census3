@@ -138,7 +138,7 @@ func Test_saveHolders(t *testing.T) {
 			ChainID:  th.ChainID,
 		})
 	c.Assert(err, qt.IsNil)
-	c.Assert([]byte(res.Balance), qt.ContentEquals, holderBalance.Bytes())
+	c.Assert(res.Balance, qt.ContentEquals, holderBalance.String)
 	// check update holders
 	th.Append(holderAddr, holderBalance)
 	c.Assert(hs.saveHolders(th), qt.IsNil)
@@ -195,7 +195,7 @@ func Test_scanHolders(t *testing.T) {
 		c.Assert(ok, qt.IsTrue)
 		currentBalance, ok := new(big.Int).SetString(holder.Balance, 10)
 		c.Assert(ok, qt.IsTrue)
-		c.Assert(currentBalance, qt.ContentEquals, balance.String())
+		c.Assert(currentBalance.String(), qt.ContentEquals, balance.String())
 	}
 }
 

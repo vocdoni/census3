@@ -108,6 +108,9 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 	if err := newAPI.initStrategiesHandlers(); err != nil {
 		return nil, err
 	}
+	if err := newAPI.initHoldersHandlers(); err != nil {
+		return nil, err
+	}
 	return newAPI, nil
 }
 

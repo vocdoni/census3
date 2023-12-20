@@ -138,7 +138,7 @@ func Test_saveHolders(t *testing.T) {
 			ChainID:  th.ChainID,
 		})
 	c.Assert(err, qt.IsNil)
-	c.Assert(res.Balance, qt.ContentEquals, holderBalance.String)
+	c.Assert(res.Balance, qt.ContentEquals, holderBalance.String())
 	// check update holders
 	th.Append(holderAddr, holderBalance)
 	c.Assert(hs.saveHolders(th), qt.IsNil)

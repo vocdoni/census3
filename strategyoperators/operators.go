@@ -355,11 +355,11 @@ func (op *StrategyOperators) andHoldersDBOperator(ctx context.Context,
 	// decode the results and return them
 	data := make(map[string][2]*big.Int)
 	for _, r := range rows {
-		balanceA, ok := new(big.Int).SetString(r.BalanceA, 10)
+		balanceA, ok := new(big.Int).SetString(r.BalanceA.(string), 10)
 		if !ok {
 			return nil, fmt.Errorf("error decoding balanceA: %s", r.BalanceA)
 		}
-		balanceB, ok := new(big.Int).SetString(r.BalanceB, 10)
+		balanceB, ok := new(big.Int).SetString(r.BalanceB.(string), 10)
 		if !ok {
 			return nil, fmt.Errorf("error decoding balanceB: %s", r.BalanceB)
 		}
@@ -411,11 +411,11 @@ func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
 	// decode the results and return them
 	data := make(map[string][2]*big.Int)
 	for _, r := range rows {
-		balanceA, ok := new(big.Int).SetString(r.BalanceA, 10)
+		balanceA, ok := new(big.Int).SetString(r.BalanceA.(string), 10)
 		if !ok {
 			return nil, fmt.Errorf("error decoding balanceA: %s", r.BalanceA)
 		}
-		balanceB, ok := new(big.Int).SetString(r.BalanceB, 10)
+		balanceB, ok := new(big.Int).SetString(r.BalanceB.(string), 10)
 		if !ok {
 			return nil, fmt.Errorf("error decoding balanceB: %s", r.BalanceB)
 		}

@@ -78,7 +78,9 @@ func (capi *census3API) launchHoldersAtLastBlock(msg *api.APIdata, ctx *httprout
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
-func (capi *census3API) listHoldersAtLastBlock(address common.Address, chainID uint64, externalID string) (map[string]string, uint64, error) {
+func (capi *census3API) listHoldersAtLastBlock(address common.Address,
+	chainID uint64, externalID string,
+) (map[string]string, uint64, error) {
 	// get token information from the database
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
@@ -95,11 +97,12 @@ func (capi *census3API) listHoldersAtLastBlock(address common.Address, chainID u
 		return nil, 0, ErrCantGetToken.WithErr(err)
 	}
 	// get token holders count
-	holders, err := capi.db.QueriesRO.TokenHoldersByTokenIDAndChainIDAndExternalID(internalCtx, queries.TokenHoldersByTokenIDAndChainIDAndExternalIDParams{
-		TokenID:    address.Bytes(),
-		ChainID:    chainID,
-		ExternalID: externalID,
-	})
+	holders, err := capi.db.QueriesRO.TokenHoldersByTokenIDAndChainIDAndExternalID(internalCtx,
+		queries.TokenHoldersByTokenIDAndChainIDAndExternalIDParams{
+			TokenID:    address.Bytes(),
+			ChainID:    chainID,
+			ExternalID: externalID,
+		})
 	if err != nil {
 		return nil, 0, ErrCantGetTokenHolders.WithErr(err)
 	}

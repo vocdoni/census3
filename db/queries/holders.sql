@@ -142,12 +142,12 @@ holders_b as (
         AND th.external_id = sqlc.arg(external_id_b)
         AND th.balance >= sqlc.arg(min_balance_b)
 )
-SELECT holders_a.holder_id, holders_a.balance as balance_a, holders_b.balance as balance_b
+SELECT holders_a.holder_id, IFNULL(holders_a.balance, '0') as balance_a, IFNULL(holders_b.balance, '0') as balance_b
 FROM holders_a
 INNER JOIN holders_b ON holders_a.holder_id = holders_b.holder_id;
 
 -- name: OROperator :many
-SELECT holder_ids.holder_id, a.balance AS balance_a, b.balance AS balance_b
+SELECT holder_ids.holder_id, IFNULL(a.balance, '0') AS balance_a, IFNULL(b.balance, '0') AS balance_b
 FROM (
     SELECT th.holder_id
     FROM token_holders th

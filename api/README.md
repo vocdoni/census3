@@ -74,17 +74,12 @@ The maximus default page size is 10, but if you provide a page size of `-1`, the
         {
             "ID": "0x1324",
             "type": "erc20",
-            "size": 120,
             "decimals": 18,
             "startBlock": 123456,
             "symbol": "$",
             "totalSupply": "21323",
             "name": "Amazing token",
-            "status": {
-                "atBlock": 12345,
-                "synced": true|false,
-                "progress": 87
-            },
+            "synced": true|false,
             "defaultStrategy": 1,
             "tags": "testTag1,testTag2",
             "chainID": 1,

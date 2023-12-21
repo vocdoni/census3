@@ -1,1215 +1,355 @@
 {
     "tokens": [
         {
-            "ID": "0x71616E8C62aDF18C0645188AE04b90b446a860A7",
+            "ID": "0xc944E90C64B2c07662A292be6244BDf05Cda44a7",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x781f9F05ceCCAC891fCDFFFeA88BD7E9C12715d8",
+            "ID": "0x4d224452801ACEd8B2F0aebE155379bb5D594381",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0xdEC9e0604C6975c29F5E933b9f9eD3471380081E",
+            "ID": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x035760015BF7960a4bF79815455455eB81DD22C1",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x081943F71B1Fa8F673FFBa1e03fCE273A40e15CE",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x092FcB0A179CCcF8Ea30b0F28ba622367e376A4B",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x0A1b009a283D23541dBf62f5794EeDCa19BF0A1A",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x12e191e893f2F76d09C2968c8Cf32D9bA12f2E71",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x159bb6d1d7FFcB3089E9A586020Ef827AB9375F0",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x1B167F7C48Ecb065844e53a488424A43FC36029F",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x1BA3d2E6351F69642BF60a25bD563b92ddC5Bc48",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x1DB09F339984D3B5eeB0C480b621d73Bec747045",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x1Dbea5acfF6B212E0A7B4E3AaF0736a1B413F6Eb",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x1DDe1546a23e15190b95ea59752A16c625cA2f7D",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x1E1b07161519E941c9cf8534914Aa93B34C25451",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x20BfF8fAB9E92D667FB17EFE3Fda77234053F82E",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x21549e0A805bB6d764F6Ff3500da6c9AB3E14da0",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x21FAfa11266E50E37401E50dDe218531eD186BE2",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x23e0bDeEfdc93F81AF38FA618437A760E8B89CcF",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x249cf622cE210c1072Be302e8A9dC1FC4AFC4908",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x24d918CbBB3c5D6cd0D0eb37C2fFAe72969474F8",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x2738A6371F269d09489651a88d3654e4285651f0",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x275F9a9551270de2a94685c8c26adEBfF6083Aa0",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x278123140995F45e678278717F83490F7bCf3f2B",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x281C1EA423a7428A41421D6a454e14Af544e633B",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x2aCbdd3edc5963E496bCf60EE3E1f573cCCaa3e3",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x2bc686D8eB8f6A1f3c50CAF492F2cE1F85941142",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x2C9cE49304BaF3e8FE987F0A6151Ac4628753838",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x2dB6917f5b7A0C03dC109A0E818D9cfC31e2132E",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x2ef7A49CB45e7DF96E073f52D89c545247fc26Af",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x329769B82097DBe07959843DB43e6A57764Bff0e",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x36476D4fdd6EF824E0678893b5B33E4dD790Fe15",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x3a8028F7ED004D2E8B236baa63ff887E52Fd01a3",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x3d9d5Da0A0d69f12fF24F734E6187227a40B2Ca9",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x41FBCcE2C8fb705daDA12774f263d55a7f2b5453",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x42b4e27DFc7bf70f8c964338B5dd218D4e77c319",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x43fc9eEE6dF490B1e6e3ED8023B1a2C8214533Be",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x4645a5e5C98EB40C10Efc4c6F2d9691B6d330E55",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x492751e64E747961772906aa558A16FBdA88f4bf",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x54757D1d16fd58760c86B7ccEB15cCc7b7513a4A",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x5632c2F79B46c116af45Db68371de1144DfCa9Ca",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x56736f981D15C2D8412B9e6a6ee7a61F782Ce3E0",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x5EbA89bd770DA24cd071A224ee9454B53c48D39b",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x60C608565A0ece3f55245774D6049afB231B74DB",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x614610584Ec819d5CD31ed52fbdA26099ba0AD1E",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x62eF05FA708612e077186a8D8CB018c2D968EA81",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x62f63644351F49fD2FD8216BF5512EbD1eba9DE0",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x64a52285F2c0103fC57C1cd82a275cd15BD9c0e4",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x6982fEBA185E34cF6049B8D63f71f31b7cd37822",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x6ed5B5Fe89a13348Be97Cd16A3110B8dcb8F439E",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x728dFc25472F7263D2d8ab72eD37eDB1c2380910",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x7291cFa4DC482E6E92f4EE4EED130B7BaA75c0Cf",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x7377aD1a045e22cEc4C158CdA1fe49EF54FA13c9",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x73B5486e4253F970E6D2fD4f94dFe24A80fa9d8C",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x76Ad0AAf2e13618ac145fbCeDbaFF5EC0d1DB270",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x76E871b15A614A49F8B41C782eAE5Bfba03768A1",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x76ffAa4d2279EA1cf4Bb79e72aC554BbA1F0C010",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x7A11EECBFdD67ec2078C7A8C2557934E86004433",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x7D3F42E8D87E68795CF428fe9CD236a414231B2e",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x7eEcfb50B9daed34fF598E918dd0420e40eAC605",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x83a3cA6487b3FA15972F1A9cF617aC0378276685",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x849cd6149C620a79a3c95105695c316F92Ee2F00",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x8BB0b82E6115d82B17f226D594E934971438c8b0",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x8Ee575c1a6aD57524590A571Dc77c1F7CF67566B",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x90249f463C68064635Fb7C6D8De818d363aAf832",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x9270dccCBFE05cD049D8cC1E08E14d9Ce265366e",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x9376E5A6D8716ceD85AFD650244367247EE29690",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x984036DB8CB17A2605936f8A8F422d95bCDd671A",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x98ECce01d33FFc7BFF638a310f6371912d1162f3",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x9a84c44986Ec5aa6304924304a25EbD88dA4D28A",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x9bBc2a391FCf7F2c90c854ACB14E70f9aDF9beFF",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x9EB7076b066b23255DC77D1a22147c480d9Fd08E",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x9F3FA36E4595C36D36218c4b40de3B82bf8752f5",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xa121d306f4C84c247fc95D071F47153Ebc737b24",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xa40470b7c367A39C69126bEFDBD2dB797274c564",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xA517aE8016DC15Be0B23a52e94BFa1df544eD771",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xa96a09a925294245500DA965690b3DeDD62EC263",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xAbb69649b90C0A7A4cb24f08810f55f0Bfd70593",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xAd5EF04372b3CDf044CD1e54e296f1b09ba5bAE3",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xAF40f030b79c0e588D1f8eeb254e8441Ef263545",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xAfD6e7330bE4424E9416637FB71C08C0f8177095",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xB0c00DbED781f798EC42ACDAA03706E314b50009",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xb0D678e12021991ce48DF08861d564d3867aa9e1",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xB1f35E97D3687Bb932a99072E10f767141789A27",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xb4188eC81bd7f2452Eb00A5C36a661970808f1E6",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xb41B8818DdF20326eB918AFb4f8c3A4b5E3b2976",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xb52F1A2e1688987014588E61BB64567dBE065b81",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xb6b59b3fa1ce026209BBE538E4b455ABF3173D32",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xB9789c74D02815A3D0D4b4Df817f7AA0F7AEFD58",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xb9f72170bDC53f8E680bD7F402aabdfA4C755810",
+            "ID": "0xE41d2489571d322189246DaFA5ebDe1F4699F498",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xc1aea38b3f1aA09740aD12B613Af47F20cF4A04c",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xC1e2A416ea16d2d7FDc8Ff0890C60109a262A176",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xc22c76B714CF17B50D6B07618ff70481450B1c26",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xc34e7cCd490632747Beb1209eb61B8426fb7A9BC",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xC4878f9DFfEbB94cCCf1B8CcA916C84fBD7a563c",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xc69213A9F299239EAEBd6c6299503D6EFCd4B429",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xC9947fA4C5F213d8f8d6751b5f95729368C49C85",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xCB40a93774e4FEaB9051cBd8f9Eb3D9a8e843EC6",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xce69a849d2Eb3aCc2d994928D3242166E8c724ca",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xD2F0744fcbB6469135257bd8209146c8Ed100BD8",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xd821d34151754eC2c01676d871C2fef101a26d30",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xd936B753590bb833CFdE8dfA69b9e3c3DdA07547",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xE39964cC0233Ed017F054f4469b4a50Ee5290870",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xE4489208A290A257313334472a6D4D06A6EcE692",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xe4fBbB0B11b3B48D10B4753a1D2c00244b247b33",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xe505884A0e46cDE70c460adf9d1792BFB390C4bC",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xe553a030D7d4A3Ee8e8Fb52E6ABee42F7C1A3465",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xe5C97c3d4109032d7e275b2f82FD935A1485f886",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xE68C30e2a8E6C42f21d503feb2A210d045589631",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xe6ac6B0A3a8031d5Aa3e7a949Af4bdf43Ff57D07",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xE8e509DCb80B6EfFF75cb7Ad069526562E35b682",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xE950BFf90e2050821abC12F4E3156C9806Cc454E",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xe972B3AD9520e6f6BdB116Bc318c682A9afdC23f",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xEafeFEf4Fb70eDFbc64248D80f5cf82f73dbb212",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xEbfb5F129290d2b9656E6617b63954D19f7838d1",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xeDAEC4cBc2D23679954E37E4b67144dC595DdCf8",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xeE8DAAb7bF09e3f208A53fb5Acc88b02504558F5",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xeF4cC1398ceA68a2Ab648cF130fa36189D93B7BA",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xF036dbFAd248B16B1C4DffEdF0144Aaf259babf9",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xF2B6E8B00a6dda35139078fa7cB789a8A80582e1",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xf695160F32d73dFdC2ae99fccA62E863b9BDd366",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xfCCd07250d95E07Eaf6cc75321555C70061F4259",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xFCFa3b066981027516121bd27a9B1cBb9C00c5Fd",
+            "ID": "0xc00e94Cb662C3520282E6f5717214004A7f26888",
             "type": "erc20",
-            "chainID": 5
+            "chainID": 1
         },
         {
-            "ID": "0x05c709DF026e59FA3ecF18215369B6c23769DeFf",
+            "ID": "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x06f2536836fC6E956B2D1E28fb3F252EF14f9ABB",
+            "ID": "0xD533a949740bb3306d119CC777fa900bA034cd52",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x08Dbd95dFE1efE4eC10E95F803aF22f8431a5149",
+            "ID": "0x111111111117dC0aa78b770fA6A738034120C302",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x0b545e15ae277b5793f7935a407001e1626ae1AA",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0xD4307E0acD12CF46fD6cf93BC264f5D5D1598792",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0x0d15d7c17B0699f65Eae96faacE984Ca819ff3a6",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0x932261f9Fc8DA46C4a22e31B45c4De60623848bF",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0x1182eBBb5280Aa007e0200eBf158f767A43299F0",
+            "ID": "0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x1714fa6eECDe9b3Fff23710ad0FA5568b75bF209",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0x34d85c9CDeB23FA97cb08333b511ac86E1C4E258",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0x18e2782bF9b0a1056B5af2fCcE08C013b64c04c8",
+            "ID": "0x0000000000000000000000000000000000001010",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 137
         },
         {
-            "ID": "0x1c0AB4eF63530E00D8505E7650aE9C064f129614",
-            "type": "erc20",
+            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
+            "type": "poap",
             "chainID": 1,
-            "tags": "aragon,dao"
+            "externalID": "151249"
         },
         {
-            "ID": "0x26b6685434f2Bb781bFc84bB5F1EC23E4aC2da42",
+            "ID": "0xFca59Cd816aB1eaD66534D82bc21E7515cE441CF",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x39259d89805758365123a884cBD4781635c0ec03",
+            "ID": "0x0b38210ea11411557c13457D4dA7dC6ea731B88a",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x48D5828F0e2c0bDec8B0ED4043FB339E3131311b",
+            "ID": "0x77FbA179C79De5B7653F68b5039Af940AdA60ce0",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x4AE1C64da15fac9003F8C2ebBDA5788EEd6987F4",
+            "ID": "0xc7283b66Eb1EB5FB86327f08e1B5816b0720212B",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x51dD1b1d66559d227D3642f1170E01541b2569Ba",
+            "ID": "0xa117000000f279D81A1D3cc75430fAA017FA5A2e",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x72c2E8120d9Dd5fb7072b4Ffe16b6824ADC8053c",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0x72E43FbfBE80b46d76b57f1682E6aEc93DeCbeeb",
+            "ID": "0xD291E7a03283640FDc51b121aC401383A46cC623",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x7604fB940b31c988405847Cc2dB7A90938B529fC",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0x94A67589032020C9281A19B120456ffA2A3D7B3a",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0xB07DaEf27754Dac50A1062aAF96f857E0e758F32",
+            "ID": "0x2ba592F78dB6436527729929AAf6c908497cB200",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xb305413AD639f5a0718782ED773765e006c0fC13",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0xbd3dedD80d02A5051fa04E3E4Ce87a6B45dc8263",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0x23581767a106ae21c074b2276D25e5C3e136a68b",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0xBDB98AB0973E48B16448E7709d91F4f2454cFD5C",
+            "ID": "0x0AaCfbeC6a24756c20D41914F2caba817C0d8521",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xBef6dE56B08fc501025D02C41da887F81E23074b",
+            "ID": "0x3593D125a4f7849a1B059E64F4517A86Dd60c95d",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xD14a2e3ED505128Bc3cE5a2b5E2a089349476e9c",
+            "ID": "0xF5581dFeFD8Fb0e4aeC526bE659CFaB1f8c781dA",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xDbD5eEFd00EDe14C469C21D2f4ee14d473E3D2E2",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0xF87E31492Faf9A91B02Ee0dEAAd50d51d56D5d4d",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0x1A68329b22bb06E9490076868f0Cc892002CdFa3",
+            "ID": "0x35bD01FC9d6D5D81CA9E055Db88Dc49aa2c699A8",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x3A1034193Cc1A319CA66d6A47A46778F0881FFE1",
-            "type": "erc20",
+            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
+            "type": "poap",
             "chainID": 1,
-            "tags": "aragon,dao"
+            "externalID": "103093"
         },
         {
-            "ID": "0x578eB57f926050D405DB859Cc7ce7773dba09A4c",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0xC2C747E0F7004F9E8817Db2ca4997657a7746928",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0x5AC83BfbFcebb3397A40fD259dBE7a4bE04237d3",
+            "ID": "0x73968b9a57c6E53d41345FD57a6E6ae27d6CDB2F",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x63677b9F25431E361F15019637533B4228cdc3eF",
+            "ID": "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x73b4cf92d6F52aF603BD65Ac277a042e82b256A6",
+            "ID": "0x875773784Af8135eA0ef43b5a374AaD105c5D39e",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0x846a473b7db159C0E8e098Ae3Ce889e7b4201271",
-            "type": "erc20",
+            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
+            "type": "poap",
             "chainID": 1,
-            "tags": "aragon,dao"
+            "externalID": "101413"
         },
         {
-            "ID": "0xa17c4F0618De266b07E0017CAd2dB3F5Ad9ab0dE",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0x5f4336f57cf41821522F1777321462B108De55C2",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0xB13bAFd0D00BE22fbfb350BBc5A99CB002Bf35bb",
+            "ID": "0x50327c6c5a14DCaDE707ABad2E27eB517df87AB5",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xb30afEc57eAddEd8aFDd32f849402598193a01E5",
+            "ID": "0xBFAbdE619ed5C4311811cF422562709710DB587d",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xB6AdE2bff2C5443BB9c6A7B6aFaD034FD52EAd95",
-            "type": "erc20",
+            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
+            "type": "poap",
             "chainID": 1,
-            "tags": "aragon,dao"
+            "externalID": "100245"
         },
         {
-            "ID": "0xBe40282450bD29DEcdF9611d69c7860Bf8F8eaFd",
+            "ID": "0xd7C1EB0fe4A30d3B2a846C04aa6300888f087A5F",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xcea1d096608C1c3E4361E396876EedcA5a98E236",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0x4b10701Bfd7BFEdc47d50562b76b436fbB5BdB3B",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0xCFb50ae8e53749223bF49CBB8ba4111028C8cD53",
+            "ID": "0xb24cd494faE4C180A89975F1328Eab2a7D5d8f11",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xE54C0054d93205D50995273f469ef736Fe79A827",
+            "ID": "0x515d7E9D75E2b76DB60F8a051Cd890eBa23286Bc",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
-            "ID": "0xf1e9ea5C6f65E4a7EE13a49a757579fF5E9C1aC4",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0x0632aDCab8F12edD3b06F99Dc6078FE1FEDD32B0",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0x167b1BA2c6Ef6b23bdb2948C6d119Bbe18b8cd0c",
-            "type": "erc20",
+            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
+            "type": "poap",
             "chainID": 1,
-            "tags": "aragon,dao"
+            "externalID": "60695"
         },
         {
-            "ID": "0x288b0d27914D020ba5779850FB17C67158B042F1",
+            "ID": "0xfFBAbEb49be77E5254333d5fdfF72920B989425f",
             "type": "erc20",
             "chainID": 100
         },
         {
-            "ID": "0x46e44f29B6251f038d811aF2F1AC7Fb9Fdf4EF27",
+            "ID": "0x1A3e75d00AEa904d3ba5ed76EfD07697c7f53C94",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x76A87F7eF0ecC6cf7d23408F3E90e4256e93CCc1",
+            "ID": "0x5d07F52aE5f779422447C2A32F58c93A15E7d6F2",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xc924fDD170aB3Ed5E48bbeff07A1E2B198F019eB",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xFC75C5aE1F29cab334eE1a52CEE95c7Be78A81f5",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xC1F667BeB4F2461C94F450C2E22e22e40ed36F07",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xCf29C53410706411BD9AE0825a022fD02723a47F",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xd0137BAC0d2332bF9B41242537C03D8813B1F03F",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xD2f861C090A366065014C4070CD341622944FEC4",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x06B485A742076cA8E3F960e5A7b0d976dd3E4Df6",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x703A3D52B1C93064eedF3bF30D4D080EA5dF32ff",
-            "type": "erc20",
-            "chainID": 80001
-        },
-        {
-            "ID": "0x75e9e9c65A324D42E5ff61077222Ebc41c0718ec",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x85E5C3dCA8C82f8eA06689E41348C9A065ff9488",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x8B1d22b09Eb817117Acf2534BF7f10ECaFE76886",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x4F89d18aFc19f5737dc4C97fe00128A215949672",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x4F3e989e6483C1b924Ce8cF2C3FEED27AA1D48E4",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x8da1522cFF9942E9eFaC1d63e661903a0168231F",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
             "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
             "type": "poap",
             "chainID": 1,
-            "externalID": "159775"
+            "externalID": "36029"
         },
         {
-            "ID": "0x0a830e9F2BAa2Ebaf8d33C0806283dEA9C08952f",
+            "ID": "0xe03Ef4B9db1A47464De84fb476f9bAf493B3E886",
+            "type": "erc721",
+            "chainID": 7777777
+        },
+        {
+            "ID": "0x1934E252f840aA98dfCe2b6205B3E45c41AeF830",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "ID": "0xFde00bD1Da57349b0DF85F134b18124266F3bC5b",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x3B798F65E12f54FEf9B2Ce198c5A027E841641A7",
+            "ID": "0x66747bdC903d17C586fA09eE5D6b54CC85bBEA45",
+            "type": "erc721",
+            "chainID": 10
+        },
+        {
+            "ID": "0xa45662638E9f3bbb7A6FeCb4B17853B7ba0F3a60",
+            "type": "erc721",
+            "chainID": 1
+        },
+        {
+            "ID": "0xe29797910D413281d2821D5d9a989262c8121CC2",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x8D85ae130021F5C81095e9a005086A0FE22A1c2f",
+            "ID": "0x900dB999074d9277c5DA2A43F252D74366230DA0",
             "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x9e6fdA9C9aBaA1B302de1cD42c931c8EaCCF82bB",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x6F6BD92f8C585d6087ddADd335AE6F4E5Bd16B36",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x9578E8Ccf5f8E5A5189af767F8Bd378e7Ca6C086",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x0A16A0c5C95E4623C63d615fC238935a8221fC68",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xCfBd3201C3A3814a16f0985F544ce068f3408dcc",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "chainID": 1
         },
         {
             "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
             "type": "poap",
             "chainID": 1,
-            "externalID": "159927"
+            "externalID": "77639"
         },
         {
-            "ID": "0x62074A02716d9e0088435DbdA99Ed86f48E88D9D",
+            "ID": "0x39B0E13A29c2A27ce88ceBD21262A232b0633613",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x9A3d0A183f147Ae6166E06667ddB02498296f321",
+            "ID": "0x0D7DeA5922535087078dd3D7c554EA9f2655d4cB",
+            "type": "erc20",
+            "chainID": 1
+        },
+        {
+            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
+            "type": "poap",
+            "chainID": 1,
+            "externalID": "159945"
+        },
+        {
+            "ID": "0x885d7f09DbD93204C0dad95f5e226B0966e6fA9b",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0xA03298E553Cd0370eD9DD182B0679366b3a0F5fe",
-            "type": "erc20",
-            "chainID": 8453
-        },
-        {
-            "ID": "0x8AC9c5A5359cEB128Ac339A83B1288a0CA70B5bb",
+            "ID": "0xC3d2675aE844aB277536402c478031770071d9e4",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x917a5b94D074d6028F5bE568BB7C175b1199c46A",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
+            "ID": "0xd74702fb587fAE4567688868c9D197521920dda9",
+            "type": "erc721",
+            "chainID": 1
         },
         {
-            "ID": "0xbcc7fb30488E58a231fe95d0CBD5E9d9e88e9D4D",
-            "type": "erc20",
+            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
+            "type": "poap",
             "chainID": 1,
-            "tags": "aragon,dao"
+            "externalID": "37663"
         },
         {
-            "ID": "0x40031f9a928DdBa0653a0139b0FcffbA3EfD58b7",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x937EFa4a5Ff9d65785691b70a1136aAf8aDA7e62",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0xF334dfc61EC055647543e5e35577c70789278079",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x77F00048ba9A5D137f77EFd257d9df8AA7c5bd48",
-            "type": "erc20",
-            "chainID": 1,
-            "tags": "aragon,dao"
-        },
-        {
-            "ID": "0x8858B9fE999bd628e84d7031fFDE9e26D46F4B8c",
+            "ID": "0x0c0e5A08A0ba87AE55fc9886EEdAA03E3285490c",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
@@ -1221,7 +361,66 @@
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x0c0e5A08A0ba87AE55fc9886EEdAA03E3285490c",
+            "ID": "0x8858B9fE999bd628e84d7031fFDE9e26D46F4B8c",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x77F00048ba9A5D137f77EFd257d9df8AA7c5bd48",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xF334dfc61EC055647543e5e35577c70789278079",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x937EFa4a5Ff9d65785691b70a1136aAf8aDA7e62",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x40031f9a928DdBa0653a0139b0FcffbA3EfD58b7",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xbcc7fb30488E58a231fe95d0CBD5E9d9e88e9D4D",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x917a5b94D074d6028F5bE568BB7C175b1199c46A",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x8AC9c5A5359cEB128Ac339A83B1288a0CA70B5bb",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xA03298E553Cd0370eD9DD182B0679366b3a0F5fe",
+            "type": "erc20",
+            "chainID": 8453
+        },
+        {
+            "ID": "0x9A3d0A183f147Ae6166E06667ddB02498296f321",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x62074A02716d9e0088435DbdA99Ed86f48E88D9D",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
@@ -1230,21 +429,52 @@
             "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
             "type": "poap",
             "chainID": 1,
-            "externalID": "37663"
+            "externalID": "159927"
         },
         {
-            "ID": "0xd74702fb587fAE4567688868c9D197521920dda9",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0xC3d2675aE844aB277536402c478031770071d9e4",
+            "ID": "0xCfBd3201C3A3814a16f0985F544ce068f3408dcc",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x885d7f09DbD93204C0dad95f5e226B0966e6fA9b",
+            "ID": "0x0A16A0c5C95E4623C63d615fC238935a8221fC68",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x9578E8Ccf5f8E5A5189af767F8Bd378e7Ca6C086",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x6F6BD92f8C585d6087ddADd335AE6F4E5Bd16B36",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x9e6fdA9C9aBaA1B302de1cD42c931c8EaCCF82bB",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x8D85ae130021F5C81095e9a005086A0FE22A1c2f",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x3B798F65E12f54FEf9B2Ce198c5A027E841641A7",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x0a830e9F2BAa2Ebaf8d33C0806283dEA9C08952f",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
@@ -1253,323 +483,1093 @@
             "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
             "type": "poap",
             "chainID": 1,
-            "externalID": "159945"
+            "externalID": "159775"
         },
         {
-            "ID": "0x0D7DeA5922535087078dd3D7c554EA9f2655d4cB",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x39B0E13A29c2A27ce88ceBD21262A232b0633613",
+            "ID": "0x8da1522cFF9942E9eFaC1d63e661903a0168231F",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
-            "type": "poap",
-            "chainID": 1,
-            "externalID": "77639"
-        },
-        {
-            "ID": "0x900dB999074d9277c5DA2A43F252D74366230DA0",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xe29797910D413281d2821D5d9a989262c8121CC2",
+            "ID": "0x4F3e989e6483C1b924Ce8cF2C3FEED27AA1D48E4",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0xa45662638E9f3bbb7A6FeCb4B17853B7ba0F3a60",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0x66747bdC903d17C586fA09eE5D6b54CC85bBEA45",
-            "type": "erc721",
-            "chainID": 10
-        },
-        {
-            "ID": "0xFde00bD1Da57349b0DF85F134b18124266F3bC5b",
+            "ID": "0x4F89d18aFc19f5737dc4C97fe00128A215949672",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0x1934E252f840aA98dfCe2b6205B3E45c41AeF830",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xe03Ef4B9db1A47464De84fb476f9bAf493B3E886",
-            "type": "erc721",
-            "chainID": 7777777
-        },
-        {
-            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
-            "type": "poap",
-            "chainID": 1,
-            "externalID": "36029"
-        },
-        {
-            "ID": "0x5d07F52aE5f779422447C2A32F58c93A15E7d6F2",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x1A3e75d00AEa904d3ba5ed76EfD07697c7f53C94",
+            "ID": "0x8B1d22b09Eb817117Acf2534BF7f10ECaFE76886",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0xfFBAbEb49be77E5254333d5fdfF72920B989425f",
+            "ID": "0x85E5C3dCA8C82f8eA06689E41348C9A065ff9488",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x75e9e9c65A324D42E5ff61077222Ebc41c0718ec",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x703A3D52B1C93064eedF3bF30D4D080EA5dF32ff",
+            "type": "erc20",
+            "chainID": 80001
+        },
+        {
+            "ID": "0x06B485A742076cA8E3F960e5A7b0d976dd3E4Df6",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xD2f861C090A366065014C4070CD341622944FEC4",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xd0137BAC0d2332bF9B41242537C03D8813B1F03F",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xCf29C53410706411BD9AE0825a022fD02723a47F",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xC1F667BeB4F2461C94F450C2E22e22e40ed36F07",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xFC75C5aE1F29cab334eE1a52CEE95c7Be78A81f5",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xc924fDD170aB3Ed5E48bbeff07A1E2B198F019eB",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x76A87F7eF0ecC6cf7d23408F3E90e4256e93CCc1",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x46e44f29B6251f038d811aF2F1AC7Fb9Fdf4EF27",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x288b0d27914D020ba5779850FB17C67158B042F1",
             "type": "erc20",
             "chainID": 100
         },
         {
-            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
-            "type": "poap",
-            "chainID": 1,
-            "externalID": "60695"
-        },
-        {
-            "ID": "0x0632aDCab8F12edD3b06F99Dc6078FE1FEDD32B0",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0x515d7E9D75E2b76DB60F8a051Cd890eBa23286Bc",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xb24cd494faE4C180A89975F1328Eab2a7D5d8f11",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x4b10701Bfd7BFEdc47d50562b76b436fbB5BdB3B",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0xd7C1EB0fe4A30d3B2a846C04aa6300888f087A5F",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
-            "type": "poap",
-            "chainID": 1,
-            "externalID": "100245"
-        },
-        {
-            "ID": "0xBFAbdE619ed5C4311811cF422562709710DB587d",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x50327c6c5a14DCaDE707ABad2E27eB517df87AB5",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x5f4336f57cf41821522F1777321462B108De55C2",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
-            "type": "poap",
-            "chainID": 1,
-            "externalID": "101413"
-        },
-        {
-            "ID": "0x875773784Af8135eA0ef43b5a374AaD105c5D39e",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x73968b9a57c6E53d41345FD57a6E6ae27d6CDB2F",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xC2C747E0F7004F9E8817Db2ca4997657a7746928",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
-            "type": "poap",
-            "chainID": 1,
-            "externalID": "103093"
-        },
-        {
-            "ID": "0x35bD01FC9d6D5D81CA9E055Db88Dc49aa2c699A8",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xF87E31492Faf9A91B02Ee0dEAAd50d51d56D5d4d",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0xF5581dFeFD8Fb0e4aeC526bE659CFaB1f8c781dA",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x3593D125a4f7849a1B059E64F4517A86Dd60c95d",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x0AaCfbeC6a24756c20D41914F2caba817C0d8521",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x23581767a106ae21c074b2276D25e5C3e136a68b",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0xED5AF388653567Af2F388E6224dC7C4b3241C544",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0x2ba592F78dB6436527729929AAf6c908497cB200",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0xD291E7a03283640FDc51b121aC401383A46cC623",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x49cF6f5d44E70224e2E23fDcdd2C053F30aDA28B",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0xa117000000f279D81A1D3cc75430fAA017FA5A2e",
+            "ID": "0x167b1BA2c6Ef6b23bdb2948C6d119Bbe18b8cd0c",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0xc7283b66Eb1EB5FB86327f08e1B5816b0720212B",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x77FbA179C79De5B7653F68b5039Af940AdA60ce0",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x0b38210ea11411557c13457D4dA7dC6ea731B88a",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xFca59Cd816aB1eaD66534D82bc21E7515cE441CF",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x22C1f6050E56d2876009903609a2cC3fEf83B415",
-            "type": "poap",
-            "chainID": 1,
-            "externalID": "151249"
-        },
-        {
-            "ID": "0x0000000000000000000000000000000000001010",
-            "type": "erc20",
-            "chainID": 137
-        },
-        {
-            "ID": "0x34d85c9CDeB23FA97cb08333b511ac86E1C4E258",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x932261f9Fc8DA46C4a22e31B45c4De60623848bF",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0xD4307E0acD12CF46fD6cf93BC264f5D5D1598792",
-            "type": "erc721",
-            "chainID": 1
-        },
-        {
-            "ID": "0x111111111117dC0aa78b770fA6A738034120C302",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xD533a949740bb3306d119CC777fa900bA034cd52",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xc00e94Cb662C3520282E6f5717214004A7f26888",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0xE41d2489571d322189246DaFA5ebDe1F4699F498",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
-            "type": "erc20",
-            "chainID": 1
-        },
-        {
-            "ID": "0x4d224452801ACEd8B2F0aebE155379bb5D594381",
+            "ID": "0xf1e9ea5C6f65E4a7EE13a49a757579fF5E9C1aC4",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"
         },
         {
-            "ID": "0xc944E90C64B2c07662A292be6244BDf05Cda44a7",
+            "ID": "0xE54C0054d93205D50995273f469ef736Fe79A827",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xCFb50ae8e53749223bF49CBB8ba4111028C8cD53",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xcea1d096608C1c3E4361E396876EedcA5a98E236",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xBe40282450bD29DEcdF9611d69c7860Bf8F8eaFd",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xB6AdE2bff2C5443BB9c6A7B6aFaD034FD52EAd95",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xb30afEc57eAddEd8aFDd32f849402598193a01E5",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xB13bAFd0D00BE22fbfb350BBc5A99CB002Bf35bb",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xa17c4F0618De266b07E0017CAd2dB3F5Ad9ab0dE",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x846a473b7db159C0E8e098Ae3Ce889e7b4201271",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x73b4cf92d6F52aF603BD65Ac277a042e82b256A6",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x63677b9F25431E361F15019637533B4228cdc3eF",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x5AC83BfbFcebb3397A40fD259dBE7a4bE04237d3",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x578eB57f926050D405DB859Cc7ce7773dba09A4c",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x3A1034193Cc1A319CA66d6A47A46778F0881FFE1",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1A68329b22bb06E9490076868f0Cc892002CdFa3",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xDbD5eEFd00EDe14C469C21D2f4ee14d473E3D2E2",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xD14a2e3ED505128Bc3cE5a2b5E2a089349476e9c",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xBef6dE56B08fc501025D02C41da887F81E23074b",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xBDB98AB0973E48B16448E7709d91F4f2454cFD5C",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xbd3dedD80d02A5051fa04E3E4Ce87a6B45dc8263",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xb305413AD639f5a0718782ED773765e006c0fC13",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xB07DaEf27754Dac50A1062aAF96f857E0e758F32",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x94A67589032020C9281A19B120456ffA2A3D7B3a",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x7604fB940b31c988405847Cc2dB7A90938B529fC",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x72E43FbfBE80b46d76b57f1682E6aEc93DeCbeeb",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x72c2E8120d9Dd5fb7072b4Ffe16b6824ADC8053c",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x51dD1b1d66559d227D3642f1170E01541b2569Ba",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x4AE1C64da15fac9003F8C2ebBDA5788EEd6987F4",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x48D5828F0e2c0bDec8B0ED4043FB339E3131311b",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x39259d89805758365123a884cBD4781635c0ec03",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x26b6685434f2Bb781bFc84bB5F1EC23E4aC2da42",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1c0AB4eF63530E00D8505E7650aE9C064f129614",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x18e2782bF9b0a1056B5af2fCcE08C013b64c04c8",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1714fa6eECDe9b3Fff23710ad0FA5568b75bF209",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1182eBBb5280Aa007e0200eBf158f767A43299F0",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x0d15d7c17B0699f65Eae96faacE984Ca819ff3a6",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x0b545e15ae277b5793f7935a407001e1626ae1AA",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x08Dbd95dFE1efE4eC10E95F803aF22f8431a5149",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x06f2536836fC6E956B2D1E28fb3F252EF14f9ABB",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x05c709DF026e59FA3ecF18215369B6c23769DeFf",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xFCFa3b066981027516121bd27a9B1cBb9C00c5Fd",
+            "type": "erc20",
+            "chainID": 5
+        },
+        {
+            "ID": "0xfCCd07250d95E07Eaf6cc75321555C70061F4259",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xf695160F32d73dFdC2ae99fccA62E863b9BDd366",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xF2B6E8B00a6dda35139078fa7cB789a8A80582e1",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xF036dbFAd248B16B1C4DffEdF0144Aaf259babf9",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xeF4cC1398ceA68a2Ab648cF130fa36189D93B7BA",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xeE8DAAb7bF09e3f208A53fb5Acc88b02504558F5",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xeDAEC4cBc2D23679954E37E4b67144dC595DdCf8",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xEbfb5F129290d2b9656E6617b63954D19f7838d1",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xEafeFEf4Fb70eDFbc64248D80f5cf82f73dbb212",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xe972B3AD9520e6f6BdB116Bc318c682A9afdC23f",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xE950BFf90e2050821abC12F4E3156C9806Cc454E",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xE8e509DCb80B6EfFF75cb7Ad069526562E35b682",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xe6ac6B0A3a8031d5Aa3e7a949Af4bdf43Ff57D07",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xE68C30e2a8E6C42f21d503feb2A210d045589631",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xe5C97c3d4109032d7e275b2f82FD935A1485f886",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xe553a030D7d4A3Ee8e8Fb52E6ABee42F7C1A3465",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xe505884A0e46cDE70c460adf9d1792BFB390C4bC",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xe4fBbB0B11b3B48D10B4753a1D2c00244b247b33",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xE4489208A290A257313334472a6D4D06A6EcE692",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xE39964cC0233Ed017F054f4469b4a50Ee5290870",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xd936B753590bb833CFdE8dfA69b9e3c3DdA07547",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xd821d34151754eC2c01676d871C2fef101a26d30",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xD2F0744fcbB6469135257bd8209146c8Ed100BD8",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xce69a849d2Eb3aCc2d994928D3242166E8c724ca",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xCB40a93774e4FEaB9051cBd8f9Eb3D9a8e843EC6",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xC9947fA4C5F213d8f8d6751b5f95729368C49C85",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xc69213A9F299239EAEBd6c6299503D6EFCd4B429",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xC4878f9DFfEbB94cCCf1B8CcA916C84fBD7a563c",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xc34e7cCd490632747Beb1209eb61B8426fb7A9BC",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xc22c76B714CF17B50D6B07618ff70481450B1c26",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xC1e2A416ea16d2d7FDc8Ff0890C60109a262A176",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xc1aea38b3f1aA09740aD12B613Af47F20cF4A04c",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xb9f72170bDC53f8E680bD7F402aabdfA4C755810",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xB9789c74D02815A3D0D4b4Df817f7AA0F7AEFD58",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xb6b59b3fa1ce026209BBE538E4b455ABF3173D32",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xb52F1A2e1688987014588E61BB64567dBE065b81",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xb41B8818DdF20326eB918AFb4f8c3A4b5E3b2976",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xb4188eC81bd7f2452Eb00A5C36a661970808f1E6",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xB1f35E97D3687Bb932a99072E10f767141789A27",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xb0D678e12021991ce48DF08861d564d3867aa9e1",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xB0c00DbED781f798EC42ACDAA03706E314b50009",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xAfD6e7330bE4424E9416637FB71C08C0f8177095",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xAF40f030b79c0e588D1f8eeb254e8441Ef263545",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xAd5EF04372b3CDf044CD1e54e296f1b09ba5bAE3",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xAbb69649b90C0A7A4cb24f08810f55f0Bfd70593",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xa96a09a925294245500DA965690b3DeDD62EC263",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xA517aE8016DC15Be0B23a52e94BFa1df544eD771",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xa40470b7c367A39C69126bEFDBD2dB797274c564",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xa121d306f4C84c247fc95D071F47153Ebc737b24",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x9F3FA36E4595C36D36218c4b40de3B82bf8752f5",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x9EB7076b066b23255DC77D1a22147c480d9Fd08E",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x9bBc2a391FCf7F2c90c854ACB14E70f9aDF9beFF",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x9a84c44986Ec5aa6304924304a25EbD88dA4D28A",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x98ECce01d33FFc7BFF638a310f6371912d1162f3",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x984036DB8CB17A2605936f8A8F422d95bCDd671A",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x9376E5A6D8716ceD85AFD650244367247EE29690",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x9270dccCBFE05cD049D8cC1E08E14d9Ce265366e",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x90249f463C68064635Fb7C6D8De818d363aAf832",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x8Ee575c1a6aD57524590A571Dc77c1F7CF67566B",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x8BB0b82E6115d82B17f226D594E934971438c8b0",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x849cd6149C620a79a3c95105695c316F92Ee2F00",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x83a3cA6487b3FA15972F1A9cF617aC0378276685",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x7eEcfb50B9daed34fF598E918dd0420e40eAC605",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x7D3F42E8D87E68795CF428fe9CD236a414231B2e",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x7A11EECBFdD67ec2078C7A8C2557934E86004433",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x76ffAa4d2279EA1cf4Bb79e72aC554BbA1F0C010",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x76E871b15A614A49F8B41C782eAE5Bfba03768A1",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x76Ad0AAf2e13618ac145fbCeDbaFF5EC0d1DB270",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x73B5486e4253F970E6D2fD4f94dFe24A80fa9d8C",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x7377aD1a045e22cEc4C158CdA1fe49EF54FA13c9",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x7291cFa4DC482E6E92f4EE4EED130B7BaA75c0Cf",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x728dFc25472F7263D2d8ab72eD37eDB1c2380910",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x6ed5B5Fe89a13348Be97Cd16A3110B8dcb8F439E",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x6982fEBA185E34cF6049B8D63f71f31b7cd37822",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x64a52285F2c0103fC57C1cd82a275cd15BD9c0e4",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x62f63644351F49fD2FD8216BF5512EbD1eba9DE0",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x62eF05FA708612e077186a8D8CB018c2D968EA81",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x614610584Ec819d5CD31ed52fbdA26099ba0AD1E",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x60C608565A0ece3f55245774D6049afB231B74DB",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x5EbA89bd770DA24cd071A224ee9454B53c48D39b",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x56736f981D15C2D8412B9e6a6ee7a61F782Ce3E0",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x5632c2F79B46c116af45Db68371de1144DfCa9Ca",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x54757D1d16fd58760c86B7ccEB15cCc7b7513a4A",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x492751e64E747961772906aa558A16FBdA88f4bf",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x4645a5e5C98EB40C10Efc4c6F2d9691B6d330E55",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x43fc9eEE6dF490B1e6e3ED8023B1a2C8214533Be",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x42b4e27DFc7bf70f8c964338B5dd218D4e77c319",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x41FBCcE2C8fb705daDA12774f263d55a7f2b5453",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x3d9d5Da0A0d69f12fF24F734E6187227a40B2Ca9",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x3a8028F7ED004D2E8B236baa63ff887E52Fd01a3",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x36476D4fdd6EF824E0678893b5B33E4dD790Fe15",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x329769B82097DBe07959843DB43e6A57764Bff0e",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x2ef7A49CB45e7DF96E073f52D89c545247fc26Af",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x2dB6917f5b7A0C03dC109A0E818D9cfC31e2132E",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x2C9cE49304BaF3e8FE987F0A6151Ac4628753838",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x2bc686D8eB8f6A1f3c50CAF492F2cE1F85941142",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x2aCbdd3edc5963E496bCf60EE3E1f573cCCaa3e3",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x281C1EA423a7428A41421D6a454e14Af544e633B",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x278123140995F45e678278717F83490F7bCf3f2B",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x275F9a9551270de2a94685c8c26adEBfF6083Aa0",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x2738A6371F269d09489651a88d3654e4285651f0",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x24d918CbBB3c5D6cd0D0eb37C2fFAe72969474F8",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x249cf622cE210c1072Be302e8A9dC1FC4AFC4908",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x23e0bDeEfdc93F81AF38FA618437A760E8B89CcF",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x21FAfa11266E50E37401E50dDe218531eD186BE2",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x21549e0A805bB6d764F6Ff3500da6c9AB3E14da0",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x20BfF8fAB9E92D667FB17EFE3Fda77234053F82E",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1E1b07161519E941c9cf8534914Aa93B34C25451",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1DDe1546a23e15190b95ea59752A16c625cA2f7D",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1Dbea5acfF6B212E0A7B4E3AaF0736a1B413F6Eb",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1DB09F339984D3B5eeB0C480b621d73Bec747045",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1BA3d2E6351F69642BF60a25bD563b92ddC5Bc48",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x1B167F7C48Ecb065844e53a488424A43FC36029F",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x159bb6d1d7FFcB3089E9A586020Ef827AB9375F0",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x12e191e893f2F76d09C2968c8Cf32D9bA12f2E71",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x0A1b009a283D23541dBf62f5794EeDCa19BF0A1A",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x092FcB0A179CCcF8Ea30b0F28ba622367e376A4B",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x081943F71B1Fa8F673FFBa1e03fCE273A40e15CE",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x035760015BF7960a4bF79815455455eB81DD22C1",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0xdEC9e0604C6975c29F5E933b9f9eD3471380081E",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x781f9F05ceCCAC891fCDFFFeA88BD7E9C12715d8",
+            "type": "erc20",
+            "chainID": 1,
+            "tags": "aragon,dao"
+        },
+        {
+            "ID": "0x71616E8C62aDF18C0645188AE04b90b446a860A7",
             "type": "erc20",
             "chainID": 1,
             "tags": "aragon,dao"

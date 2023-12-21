@@ -50,9 +50,26 @@ type GetTokenResponse struct {
 	IconURI         string                  `json:"iconURI,omitempty"`
 }
 
+type GetTokensItemResponse struct {
+	ID              string `json:"ID"`
+	Type            string `json:"type"`
+	Decimals        uint64 `json:"decimals"`
+	StartBlock      uint64 `json:"startBlock"`
+	Symbol          string `json:"symbol"`
+	TotalSupply     string `json:"totalSupply"`
+	Name            string `json:"name"`
+	Synced          bool   `json:"synced"`
+	DefaultStrategy uint64 `json:"defaultStrategy,omitempty"`
+	Tags            string `json:"tags,omitempty"`
+	ChainID         uint64 `json:"chainID"`
+	ChainAddress    string `json:"chainAddress"`
+	ExternalID      string `json:"externalID,omitempty"`
+	IconURI         string `json:"iconURI,omitempty"`
+}
+
 type GetTokensResponse struct {
-	Tokens     []GetTokenResponse `json:"tokens"`
-	Pagination *Pagination        `json:"pagination"`
+	Tokens     []GetTokensItemResponse `json:"tokens"`
+	Pagination *Pagination             `json:"pagination"`
 }
 
 type TokenTypesResponse struct {

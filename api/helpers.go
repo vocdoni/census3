@@ -265,7 +265,10 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p web
 		// parse holders addresses and balances
 		for _, holder := range holders {
 			holderAddr := common.BytesToAddress(holder.HolderID)
-			holderBalance := new(big.Int).SetBytes(holder.Balance)
+			holderBalance, ok := new(big.Int).SetString(holder.Balance, 10)
+			if !ok {
+				return nil, nil, totalTokensBlockNumber, fmt.Errorf("error decoding balance of holder %s", holderAddr.String())
+			}
 			if _, exists := strategyHolders[holderAddr]; !exists {
 				strategyHolders[holderAddr] = holderBalance
 				censusWeight = new(big.Int).Add(censusWeight, holderBalance)
@@ -278,7 +281,7 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p web
 			tokensInfo[token.Symbol] = &strategyoperators.TokenInformation{
 				ID:         common.BytesToAddress(token.ID).String(),
 				ChainID:    token.ChainID,
-				MinBalance: new(big.Int).SetBytes(token.MinBalance).String(),
+				MinBalance: token.MinBalance,
 				Decimals:   token.Decimals,
 				ExternalID: token.ExternalID,
 			}

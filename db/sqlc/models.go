@@ -47,7 +47,7 @@ type Strategy struct {
 type StrategyToken struct {
 	StrategyID uint64
 	TokenID    []byte
-	MinBalance []byte
+	MinBalance string
 	ChainID    uint64
 	ExternalID string
 }
@@ -73,7 +73,7 @@ type Token struct {
 type TokenHolder struct {
 	TokenID    annotations.Address
 	HolderID   annotations.Address
-	Balance    []byte
+	Balance    string
 	BlockID    uint64
 	ChainID    uint64
 	ExternalID string

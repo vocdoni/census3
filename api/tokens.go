@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/state"
@@ -145,6 +146,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 				TokenID:    tokenData.ID,
 				ChainID:    tokenData.ChainID,
 				ExternalID: tokenData.ExternalID,
+				Balance:    big.NewInt(1).String(),
 			})
 		if err != nil {
 			return ErrCantGetTokenCount.WithErr(err)
@@ -206,7 +208,7 @@ func (capi *census3API) createDefaultTokenStrategy(ctx context.Context, qtx *que
 		StrategyID: uint64(strategyID),
 		TokenID:    address.Bytes(),
 		ChainID:    chainID,
-		MinBalance: big.NewInt(0).Bytes(),
+		MinBalance: big.NewInt(1).String(),
 		ExternalID: externalID,
 	}); err != nil {
 		return 0, err
@@ -341,9 +343,9 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	if !ok {
 		return ErrChainIDNotSupported.Withf("chainID: %d, tokenID: %s", req.ChainID, req.ID)
 	}
-	totalSupply := big.NewInt(0).Bytes()
+	totalSupply := big.NewInt(0).String()
 	if info.TotalSupply != nil {
-		totalSupply = info.TotalSupply.Bytes()
+		totalSupply = info.TotalSupply.String()
 	}
 	qtx := capi.db.QueriesRW.WithTx(tx)
 	_, err = qtx.CreateToken(internalCtx, queries.CreateTokenParams{
@@ -351,7 +353,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Name:          info.Name,
 		Symbol:        info.Symbol,
 		Decimals:      info.Decimals,
-		TotalSupply:   totalSupply,
+		TotalSupply:   annotations.BigInt(totalSupply),
 		CreationBlock: 0,
 		TypeID:        uint64(tokenType),
 		Synced:        false,
@@ -544,13 +546,13 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		}
 		tokenProgress = int(float64(atBlock) / float64(lastBlockNumber) * 100)
 	}
-
 	// get token holders count
 	holders, err := capi.db.QueriesRO.CountTokenHolders(internalCtx,
 		queries.CountTokenHoldersParams{
 			TokenID:    address.Bytes(),
 			ChainID:    uint64(chainID),
 			ExternalID: externalID,
+			Balance:    big.NewInt(1).String(),
 		})
 	if err != nil {
 		return ErrCantGetTokenCount.WithErr(err)
@@ -563,7 +565,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		Size:        uint64(holders),
 		Name:        tokenData.Name,
 		Symbol:      tokenData.Symbol,
-		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply).String(),
+		TotalSupply: string(tokenData.TotalSupply),
 		StartBlock:  uint64(tokenData.CreationBlock),
 		Status: &GetTokenStatusResponse{
 			AtBlock:  atBlock,

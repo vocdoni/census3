@@ -42,7 +42,7 @@ type CreateStrategyTokenParams struct {
 	StrategyID uint64
 	TokenID    []byte
 	ChainID    uint64
-	MinBalance []byte
+	MinBalance string
 	ExternalID string
 }
 
@@ -269,7 +269,7 @@ WHERE st.strategy_id = ?
 
 type StrategyTokensRow struct {
 	TokenID      []byte
-	MinBalance   []byte
+	MinBalance   string
 	ChainID      uint64
 	ExternalID   string
 	ChainAddress string
@@ -316,7 +316,7 @@ ORDER BY strategy_id, token_id
 
 type StrategyTokensByStrategyIDRow struct {
 	ID           []byte
-	MinBalance   []byte
+	MinBalance   string
 	Symbol       string
 	ChainAddress string
 	ChainID      uint64

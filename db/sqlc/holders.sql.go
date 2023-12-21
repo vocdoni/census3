@@ -29,7 +29,7 @@ holders_b as (
         AND th.external_id = ?
         AND th.balance >= ?
 )
-SELECT holders_a.holder_id, holders_a.balance as balance_a, holders_b.balance as balance_b
+SELECT holders_a.holder_id, IFNULL(holders_a.balance, '0') as balance_a, IFNULL(holders_b.balance, '0') as balance_b
 FROM holders_a
 INNER JOIN holders_b ON holders_a.holder_id = holders_b.holder_id
 `
@@ -38,17 +38,17 @@ type ANDOperatorParams struct {
 	TokenIDA    annotations.Address
 	ChainIDA    uint64
 	ExternalIDA string
-	MinBalanceA []byte
+	MinBalanceA string
 	TokenIDB    annotations.Address
 	ChainIDB    uint64
 	ExternalIDB string
-	MinBalanceB []byte
+	MinBalanceB string
 }
 
 type ANDOperatorRow struct {
 	HolderID []byte
-	BalanceA []byte
-	BalanceB []byte
+	BalanceA interface{}
+	BalanceB interface{}
 }
 
 func (q *Queries) ANDOperator(ctx context.Context, arg ANDOperatorParams) ([]ANDOperatorRow, error) {
@@ -89,16 +89,23 @@ FROM token_holders
 WHERE token_id = ?
     AND chain_id = ?
     AND external_id = ?
+    AND balance >= ?
 `
 
 type CountTokenHoldersParams struct {
 	TokenID    annotations.Address
 	ChainID    uint64
 	ExternalID string
+	Balance    string
 }
 
 func (q *Queries) CountTokenHolders(ctx context.Context, arg CountTokenHoldersParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countTokenHolders, arg.TokenID, arg.ChainID, arg.ExternalID)
+	row := q.db.QueryRowContext(ctx, countTokenHolders,
+		arg.TokenID,
+		arg.ChainID,
+		arg.ExternalID,
+		arg.Balance,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -130,7 +137,7 @@ VALUES (
 type CreateTokenHolderParams struct {
 	TokenID    annotations.Address
 	HolderID   annotations.Address
-	Balance    []byte
+	Balance    string
 	BlockID    uint64
 	ChainID    uint64
 	ExternalID string
@@ -151,7 +158,6 @@ const deleteTokenHolder = `-- name: DeleteTokenHolder :execresult
 DELETE FROM token_holders
 WHERE token_id = ? 
     AND holder_id = ? 
-    AND block_id = ?
     AND chain_id = ?
     AND external_id = ?
 `
@@ -159,7 +165,6 @@ WHERE token_id = ?
 type DeleteTokenHolderParams struct {
 	TokenID    annotations.Address
 	HolderID   annotations.Address
-	BlockID    uint64
 	ChainID    uint64
 	ExternalID string
 }
@@ -168,7 +173,6 @@ func (q *Queries) DeleteTokenHolder(ctx context.Context, arg DeleteTokenHolderPa
 	return q.db.ExecContext(ctx, deleteTokenHolder,
 		arg.TokenID,
 		arg.HolderID,
-		arg.BlockID,
 		arg.ChainID,
 		arg.ExternalID,
 	)
@@ -234,7 +238,7 @@ func (q *Queries) LastBlockByTokenID(ctx context.Context, tokenID annotations.Ad
 }
 
 const oROperator = `-- name: OROperator :many
-SELECT holder_ids.holder_id, a.balance AS balance_a, b.balance AS balance_b
+SELECT holder_ids.holder_id, IFNULL(a.balance, '0') AS balance_a, IFNULL(b.balance, '0') AS balance_b
 FROM (
     SELECT th.holder_id
     FROM token_holders th
@@ -273,17 +277,17 @@ type OROperatorParams struct {
 	TokenIDA    annotations.Address
 	ChainIDA    uint64
 	ExternalIDA string
-	MinBalanceA []byte
+	MinBalanceA string
 	TokenIDB    annotations.Address
 	ChainIDB    uint64
 	ExternalIDB string
-	MinBalanceB []byte
+	MinBalanceB string
 }
 
 type OROperatorRow struct {
 	HolderID annotations.Address
-	BalanceA []byte
-	BalanceB []byte
+	BalanceA interface{}
+	BalanceB interface{}
 }
 
 func (q *Queries) OROperator(ctx context.Context, arg OROperatorParams) ([]OROperatorRow, error) {
@@ -341,7 +345,7 @@ type TokenHolderByTokenIDAndBlockIDAndHolderIDParams struct {
 
 type TokenHolderByTokenIDAndBlockIDAndHolderIDRow struct {
 	ID      annotations.Address
-	Balance []byte
+	Balance string
 }
 
 func (q *Queries) TokenHolderByTokenIDAndBlockIDAndHolderID(ctx context.Context, arg TokenHolderByTokenIDAndBlockIDAndHolderIDParams) (TokenHolderByTokenIDAndBlockIDAndHolderIDRow, error) {
@@ -370,7 +374,7 @@ type TokenHolderByTokenIDAndHolderIDRow struct {
 	ID         annotations.Address
 	TokenID    annotations.Address
 	HolderID   annotations.Address
-	Balance    []byte
+	Balance    string
 	BlockID    uint64
 	ChainID    uint64
 	ExternalID string
@@ -412,7 +416,7 @@ type TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalIDRow struct {
 	ID         annotations.Address
 	TokenID    annotations.Address
 	HolderID   annotations.Address
-	Balance    []byte
+	Balance    string
 	BlockID    uint64
 	ChainID    uint64
 	ExternalID string
@@ -451,8 +455,8 @@ WHERE strategy_tokens.strategy_id = ?
 
 type TokenHoldersByStrategyIDRow struct {
 	HolderID   annotations.Address
-	Balance    []byte
-	MinBalance []byte
+	Balance    string
+	MinBalance string
 }
 
 func (q *Queries) TokenHoldersByStrategyID(ctx context.Context, strategyID uint64) ([]TokenHoldersByStrategyIDRow, error) {
@@ -487,7 +491,7 @@ WHERE token_holders.token_id = ?
 
 type TokenHoldersByTokenIDRow struct {
 	ID      annotations.Address
-	Balance []byte
+	Balance string
 }
 
 func (q *Queries) TokenHoldersByTokenID(ctx context.Context, tokenID annotations.Address) ([]TokenHoldersByTokenIDRow, error) {
@@ -528,7 +532,7 @@ type TokenHoldersByTokenIDAndChainIDAndExternalIDParams struct {
 
 type TokenHoldersByTokenIDAndChainIDAndExternalIDRow struct {
 	ID      annotations.Address
-	Balance []byte
+	Balance string
 }
 
 func (q *Queries) TokenHoldersByTokenIDAndChainIDAndExternalID(ctx context.Context, arg TokenHoldersByTokenIDAndChainIDAndExternalIDParams) ([]TokenHoldersByTokenIDAndChainIDAndExternalIDRow, error) {
@@ -567,12 +571,12 @@ type TokenHoldersByTokenIDAndChainIDAndMinBalanceParams struct {
 	TokenID    annotations.Address
 	ChainID    uint64
 	ExternalID string
-	Balance    []byte
+	Balance    string
 }
 
 type TokenHoldersByTokenIDAndChainIDAndMinBalanceRow struct {
 	HolderID annotations.Address
-	Balance  []byte
+	Balance  string
 }
 
 func (q *Queries) TokenHoldersByTokenIDAndChainIDAndMinBalance(ctx context.Context, arg TokenHoldersByTokenIDAndChainIDAndMinBalanceParams) ([]TokenHoldersByTokenIDAndChainIDAndMinBalanceRow, error) {
@@ -617,7 +621,7 @@ type TokenHoldersByTokenIDAndExternalIDParams struct {
 
 type TokenHoldersByTokenIDAndExternalIDRow struct {
 	ID      annotations.Address
-	Balance []byte
+	Balance string
 }
 
 func (q *Queries) TokenHoldersByTokenIDAndExternalID(ctx context.Context, arg TokenHoldersByTokenIDAndExternalIDParams) ([]TokenHoldersByTokenIDAndExternalIDRow, error) {
@@ -701,7 +705,7 @@ WHERE token_id = ?
 `
 
 type UpdateTokenHolderBalanceParams struct {
-	Balance    []byte
+	Balance    string
 	NewBlockID uint64
 	TokenID    annotations.Address
 	HolderID   annotations.Address

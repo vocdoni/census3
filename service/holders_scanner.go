@@ -140,12 +140,12 @@ type scanToken struct {
 func (s *HoldersScanner) tokenAddresses() ([]scanToken, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	tx, err := s.db.RW.BeginTx(ctx, nil)
+	tx, err := s.db.RO.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
 			log.Errorf("error rolling back transaction when scanner get token addresses: %v", err)
 		}
 	}()
@@ -354,6 +354,11 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			if !errors.Is(sql.ErrNoRows, err) {
 				return err
 			}
+			// if the token holder not exists and the balance is 0 or less, skip
+			// it
+			if balance.Cmp(big.NewInt(0)) != 1 {
+				continue
+			}
 			_, err = qtx.CreateHolder(ctx, holder.Bytes())
 			if err != nil && !strings.Contains(err.Error(), "UNIQUE constraint failed") {
 				return err
@@ -363,7 +368,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 				TokenID:    th.Address().Bytes(),
 				HolderID:   holder.Bytes(),
 				BlockID:    th.LastBlock(),
-				Balance:    balance.Bytes(),
+				Balance:    balance.String(),
 				ChainID:    th.ChainID,
 				ExternalID: th.ExternalID,
 			})
@@ -373,32 +378,34 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 			created++
 			continue
 		}
-		// if the holder already exists, and has the same balance, skip it
-		if new(big.Int).SetBytes(currentTokenHolder.Balance).Cmp(balance) == 0 {
-			continue
-		}
-		// if the calculated balance is 0 delete it
-		if balance.Cmp(big.NewInt(0)) <= 0 {
-			_, err := qtx.DeleteTokenHolder(ctx,
-				queries.DeleteTokenHolderParams{
-					TokenID:    th.Address().Bytes(),
-					HolderID:   holder.Bytes(),
-					ChainID:    th.ChainID,
-					ExternalID: th.ExternalID,
-				})
-			if err != nil {
+		// if the calculated balance is 0 or less delete it
+		if balance.Cmp(big.NewInt(0)) != 1 {
+			if _, err := qtx.DeleteTokenHolder(ctx, queries.DeleteTokenHolderParams{
+				TokenID:    th.Address().Bytes(),
+				HolderID:   holder.Bytes(),
+				ChainID:    th.ChainID,
+				ExternalID: th.ExternalID,
+			}); err != nil {
 				return fmt.Errorf("error deleting token holder: %w", err)
 			}
 			deleted++
 			continue
 		}
-		// if the calculated balance is not 0, update it
+		// if the calculated balance is the same as the current balance, skip it
+		currentBalance, ok := new(big.Int).SetString(currentTokenHolder.Balance, 10)
+		if !ok {
+			return fmt.Errorf("error parsing current balance: %w", err)
+		}
+		if currentBalance.Cmp(balance) == 0 {
+			continue
+		}
+		// if the calculated balance is not 0 or less, update it
 		_, err = qtx.UpdateTokenHolderBalance(ctx, queries.UpdateTokenHolderBalanceParams{
 			TokenID:    th.Address().Bytes(),
 			HolderID:   holder.Bytes(),
 			BlockID:    currentTokenHolder.BlockID,
 			NewBlockID: th.LastBlock(),
-			Balance:    balance.Bytes(),
+			Balance:    balance.String(),
 			ChainID:    th.ChainID,
 			ExternalID: th.ExternalID,
 		})
@@ -448,7 +455,11 @@ func (s *HoldersScanner) cachedToken(ctx context.Context, addr common.Address,
 			}
 			token.FlushHolders()
 			for _, holder := range tokenHolders {
-				token.Append(common.BytesToAddress(holder.ID), new(big.Int).SetBytes(holder.Balance))
+				balance, ok := new(big.Int).SetString(holder.Balance, 10)
+				if !ok {
+					return nil, fmt.Errorf("error parsing balance: %w", err)
+				}
+				token.Append(common.BytesToAddress(holder.ID), balance)
 			}
 			s.tokens[index] = token
 			return token, nil
@@ -480,7 +491,11 @@ func (s *HoldersScanner) cachedToken(ctx context.Context, addr common.Address,
 		return nil, err
 	}
 	for _, holder := range tokenHolders {
-		th.Append(common.BytesToAddress(holder.ID), new(big.Int).SetBytes(holder.Balance))
+		balance, ok := new(big.Int).SetString(holder.Balance, 10)
+		if !ok {
+			return nil, fmt.Errorf("error parsing balance: %w", err)
+		}
+		th.Append(common.BytesToAddress(holder.ID), balance)
 	}
 	s.tokens = append(s.tokens, th)
 	return th, nil

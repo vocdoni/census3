@@ -21,7 +21,7 @@ type mockedTokenHolder struct {
 	TokenID  []byte
 	HolderID []byte
 	ChainID  uint64
-	Balance  []byte
+	Balance  string
 }
 
 var mockedTokens = [][]byte{
@@ -62,25 +62,25 @@ var mockedTokenHolders = []mockedTokenHolder{
 		HolderID: mockedHolders[0],
 		TokenID:  mockedTokens[0],
 		ChainID:  1,
-		Balance:  big.NewInt(2000000000000000000).Bytes(),
+		Balance:  big.NewInt(2000000000000000000).String(),
 	},
 	{
 		HolderID: mockedHolders[0],
 		TokenID:  mockedTokens[1],
 		ChainID:  1,
-		Balance:  big.NewInt(4000000000000000000).Bytes(),
+		Balance:  big.NewInt(4000000000000000000).String(),
 	},
 	{
 		HolderID: mockedHolders[1],
 		TokenID:  mockedTokens[0],
 		ChainID:  1,
-		Balance:  big.NewInt(6000000000000000000).Bytes(),
+		Balance:  big.NewInt(6000000000000000000).String(),
 	},
 	{
 		HolderID: mockedHolders[2],
 		TokenID:  mockedTokens[1],
 		ChainID:  1,
-		Balance:  big.NewInt(3000000000000000000).Bytes(),
+		Balance:  big.NewInt(3000000000000000000).String(),
 	},
 }
 

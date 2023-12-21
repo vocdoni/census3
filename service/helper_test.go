@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
 	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
 )
 
@@ -64,7 +66,7 @@ func testTokenParams(id, name, symbol string, creationBlock, decimals, typeID ui
 		Name:          name,
 		Symbol:        symbol,
 		Decimals:      decimals,
-		TotalSupply:   new(big.Int).SetInt64(int64(totalSupply)).Bytes(),
+		TotalSupply:   annotations.BigInt(fmt.Sprint(totalSupply)),
 		CreationBlock: int64(creationBlock),
 		TypeID:        typeID,
 		Synced:        synced,

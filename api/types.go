@@ -142,3 +142,15 @@ type GetStrategyEstimationResponse struct {
 	Error      error               `json:"error"`
 	Estimation *StrategyEstimation `json:"estimation"`
 }
+
+type TokenHoldersAtBlock struct {
+	BlockNumber uint64            `json:"blockNumber"`
+	Size        int               `json:"size"`
+	Holders     map[string]string `json:"holders"`
+}
+
+type GetHoldersAtLastBlockResponse struct {
+	Done           bool                 `json:"done"`
+	Error          error                `json:"error"`
+	HoldersAtBlock *TokenHoldersAtBlock `json:"holdersAtBlock"`
+}

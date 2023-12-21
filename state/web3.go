@@ -374,7 +374,6 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				"to", fromBlockNumber+blocks,
 				"chainID", th.ChainID,
 			)
-
 			// get transfer logs for the following n blocks
 			logs, err := w.transferLogs(fromBlockNumber, blocks)
 			if err != nil {
@@ -386,45 +385,35 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 				}
 				return 0, err
 			}
-			fromBlockNumber += blocks
 			// after updating the starter block number for the next iteration,
 			// if there are no logs, mark the starter block as done and proceed
 			// to the next iteration.
 			if len(logs) == 0 {
+				fromBlockNumber += blocks
 				th.BlockDone(fromBlockNumber)
 				continue
 			}
 			logCount += len(logs)
-			blocksToSave := make(map[uint64]bool)
 			// iterate over the logs and update the token holders state
 			for _, currentLog := range logs {
-				currentLogBlockNumber := currentLog.BlockNumber
-				// If the current log block number is already scanned proceed to
-				// the next iteration.
-				if _, ok := newBlocksMap[currentLogBlockNumber]; !ok {
-					if th.HasBlock(currentLogBlockNumber) {
-						log.Debugf("found already processed block %d", fromBlockNumber)
-						continue
-					}
-				}
 				// update the holders candidates with the current log
 				holdersCandidates, err = w.calcPartialBalances(holdersCandidates, currentLog)
 				if err != nil {
 					return fromBlockNumber, err
 				}
-				blocksToSave[currentLogBlockNumber] = true
+				currentLogBlockNumber := currentLog.BlockNumber
 				newBlocksMap[currentLogBlockNumber] = true
 				th.BlockDone(currentLogBlockNumber)
 			}
+			fromBlockNumber += blocks
+			th.BlockDone(fromBlockNumber)
 			// check if we need to exit because max logs reached for iteration
 			if len(holdersCandidates) > MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION {
 				log.Debug("MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION limit reached... stop scanning")
-				th.BlockDone(fromBlockNumber)
 				return fromBlockNumber, w.commitTokenHolders(th, holdersCandidates, fromBlockNumber)
 			}
 			if logCount > MAX_SCAN_LOGS_PER_ITERATION {
 				log.Debug("MAX_SCAN_LOGS_PER_ITERATION limit reached... stop scanning")
-				th.BlockDone(fromBlockNumber)
 				return fromBlockNumber, w.commitTokenHolders(th, holdersCandidates, fromBlockNumber)
 			}
 		}
@@ -622,11 +611,9 @@ func (w *Web3) calcPartialBalances(hc HoldersCandidates, currentLog gethTypes.Lo
 func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates, blockNumber uint64) error {
 	// remove null address from candidates
 	delete(candidates, common.HexToAddress(NULL_ADDRESS))
-	// delete holder candidates without funds
+	// update the token holders state with the candidates data
 	for addr, balance := range candidates {
-		if balance.Cmp(big.NewInt(0)) != 0 {
-			th.Append(addr, balance)
-		}
+		th.Append(addr, balance)
 	}
 	return nil
 }

@@ -112,11 +112,11 @@ func (nps NetworkEndpoints) CurrentBlockNumbers(ctx context.Context) (map[uint64
 	for _, endpoint := range nps {
 		cli, err := endpoint.GetClient(DefaultMaxRetries)
 		if err != nil {
-			return nil, err
+			return blockNumbers, err
 		}
 		blockNumber, err := cli.BlockNumber(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("error getting the block number from %s network: %w", endpoint.Name, err)
+			return blockNumbers, fmt.Errorf("error getting the block number from %s network: %w", endpoint.Name, err)
 		}
 		blockNumbers[endpoint.ChainID] = blockNumber
 	}

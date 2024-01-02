@@ -205,7 +205,7 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
 	hs.tokens = append(hs.tokens, new(state.TokenHolders).Init(MonkeysAddress, state.CONTRACT_TYPE_ERC20, 0, 5, ""))
 	c.Assert(err, qt.IsNil)
-	c.Assert(hs.calcTokenCreationBlock(context.Background(), 05), qt.IsNotNil)
+	c.Assert(hs.calcTokenCreationBlock(context.Background(), 5), qt.IsNotNil)
 
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysCreationBlock,

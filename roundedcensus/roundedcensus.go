@@ -100,78 +100,6 @@ func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) ([]*P
 	return roundedCensus, accuracy, nil
 }
 
-// roundGap calculate the gap between privacy thresholds for the accuracy loop.
-// It returns the gap as a percentage of the current privacy threshold. The gap
-// is calculated as 5% of the current privacy threshold, rounded to the nearest
-// integer. If the gap is less than 1, it returns 1. The privacy threshold is
-// increased by the gap in each iteration of the accuracy loop.
-func roundGap(x int64) int64 {
-	gap := float64(x) * 0.05
-	if gap < 1 {
-		return 1
-	}
-	return int64(math.Round(gap))
-}
-
-// roundGroups rounds the balances within each group to the lowest value in the group.
-func roundGroups(groups [][]*Participant) []*Participant {
-	roundedCensus := []*Participant{}
-	for _, group := range groups {
-		if len(group) == 0 {
-			continue
-		}
-		lowestBalance := roundToFirstCommonDigit(group)
-		for _, participant := range group {
-			roundedCensus = append(roundedCensus, &Participant{Address: participant.Address, Balance: lowestBalance})
-		}
-	}
-	return roundedCensus
-}
-
-// calculateAccuracy computes the accuracy of the rounding process.
-func calculateAccuracy(original, rounded []*Participant) float64 {
-	var totalOriginal, totalRounded big.Int
-	for i := range original {
-		totalOriginal.Add(&totalOriginal, original[i].Balance)
-		totalRounded.Add(&totalRounded, rounded[i].Balance)
-	}
-	totalOriginalFloat := new(big.Float).SetInt(&totalOriginal)
-	if totalOriginalFloat.Cmp(big.NewFloat(0)) == 0 {
-		return 0
-	}
-	lostWeight := new(big.Float).Sub(totalOriginalFloat, new(big.Float).SetInt(&totalRounded))
-	accuracy, _ := new(big.Float).Quo(lostWeight, totalOriginalFloat).Float64()
-	return 100 - (accuracy * 100)
-}
-
-// groupAndRoundCensus groups the cleanedParticipants and rounds their balances.
-func groupAndRoundCensus(participants []*Participant, privacyThreshold int64, groupBalanceDiff *big.Int) []*Participant {
-	sort.Sort(ByBalance(participants))
-	var groups [][]*Participant
-	var currentGroup []*Participant
-	for i, participant := range participants {
-		if len(currentGroup) == 0 {
-			currentGroup = append(currentGroup, participant)
-		} else {
-			lastParticipant := currentGroup[len(currentGroup)-1]
-			balanceDiff := new(big.Int).Abs(new(big.Int).Sub(participant.Balance, lastParticipant.Balance))
-
-			if int64(len(currentGroup)) < privacyThreshold || balanceDiff.Cmp(groupBalanceDiff) <= 0 {
-				currentGroup = append(currentGroup, participant)
-			} else {
-				groups = append(groups, currentGroup)
-				currentGroup = []*Participant{participant}
-			}
-		}
-		// Ensure the last group is added
-		if i == len(participants)-1 {
-			groups = append(groups, currentGroup)
-		}
-	}
-	roundedCensus := roundGroups(groups)
-	return roundedCensus
-}
-
 // zScore identifies and returns outliers based on a specified z-score
 // threshold. The z-score is the number of standard deviations from the mean a
 // data point is. For example, a z-score of 2 means the data point is 2 standard
@@ -220,6 +148,54 @@ func zScore(participants []*Participant, threshold float64) ([]*Participant, []*
 	return newParticipants, outliers
 }
 
+// groupAndRoundCensus groups the cleanedParticipants and rounds their balances.
+func groupAndRoundCensus(participants []*Participant, privacyThreshold int64, groupBalanceDiff *big.Int) []*Participant {
+	sort.Sort(ByBalance(participants))
+	var groups [][]*Participant
+	var currentGroup []*Participant
+	for i, participant := range participants {
+		if len(currentGroup) == 0 {
+			currentGroup = append(currentGroup, participant)
+		} else {
+			lastParticipant := currentGroup[len(currentGroup)-1]
+			balanceDiff := new(big.Int).Abs(new(big.Int).Sub(participant.Balance, lastParticipant.Balance))
+
+			if int64(len(currentGroup)) < privacyThreshold || balanceDiff.Cmp(groupBalanceDiff) <= 0 {
+				currentGroup = append(currentGroup, participant)
+			} else {
+				groups = append(groups, currentGroup)
+				currentGroup = []*Participant{participant}
+			}
+		}
+		// Ensure the last group is added
+		if i == len(participants)-1 {
+			groups = append(groups, currentGroup)
+		}
+	}
+	roundedCensus := roundGroups(groups)
+	return roundedCensus
+}
+
+// roundGroups rounds the balances within each group to the lowest value in the group.
+func roundGroups(groups [][]*Participant) []*Participant {
+	roundedCensus := []*Participant{}
+	for _, group := range groups {
+		if len(group) == 0 {
+			continue
+		}
+		lowestBalance := roundToFirstCommonDigit(group)
+		for _, participant := range group {
+			roundedCensus = append(roundedCensus, &Participant{Address: participant.Address, Balance: lowestBalance})
+		}
+	}
+	return roundedCensus
+}
+
+// roundToFirstCommonDigit rounds a list of balances to the lowest common value
+// within that list. It returns the lowest common value rounded down to the first
+// common digit. If no common digit is found, it returns the minimum balance.
+// For example, if the list is [100, 200, 300], the result will be 100. If the
+// list is [1125, 1120, 1130], the result will be 1100.
 func roundToFirstCommonDigit(participants []*Participant) *big.Int {
 	// check if at least two numbers is provided
 	if len(participants) == 0 {
@@ -231,16 +207,19 @@ func roundToFirstCommonDigit(participants []*Participant) *big.Int {
 	// get the minimun length of any number
 	sBalances := []string{}
 	minBalance := participants[0].Balance
-	minLenght := int64(len(participants[0].Balance.String()))
+	minLength := int64(len(participants[0].Balance.String()))
 	for _, n := range participants {
 		sBalances = append(sBalances, n.Balance.String())
-		if l := int64(len(n.Balance.String())); l < minLenght {
-			minLenght = l
+		if l := int64(len(n.Balance.String())); l < minLength {
+			minLength = l
 			minBalance = n.Balance
 		}
 	}
-
-	firstCommonByte := int64(minLenght - 1)
+	// find the first common digit from the right between the minimun balance and
+	// any other balance. if no common digit is found, the result will be the
+	// minimum balance. if a common digit is found, the result will be the minimum
+	// balance rounded down to the first common digit
+	firstCommonByte := int64(minLength - 1)
 	for firstCommonByte >= 0 {
 		commonNumber := true
 		currentNumber := sBalances[0][firstCommonByte]
@@ -252,7 +231,7 @@ func roundToFirstCommonDigit(participants []*Participant) *big.Int {
 		}
 		if commonNumber {
 			firstCommonByte++
-			padding := new(big.Int).Exp(big.NewInt(10), big.NewInt(minLenght-firstCommonByte), nil)
+			padding := new(big.Int).Exp(big.NewInt(10), big.NewInt(minLength-firstCommonByte), nil)
 			rounded := new(big.Int)
 			rounded.SetString(sBalances[0][:firstCommonByte], 10)
 			return rounded.Mul(rounded, padding)
@@ -260,4 +239,33 @@ func roundToFirstCommonDigit(participants []*Participant) *big.Int {
 		firstCommonByte--
 	}
 	return minBalance
+}
+
+// roundGap calculate the gap between privacy thresholds for the accuracy loop.
+// It returns the gap as a percentage of the current privacy threshold. The gap
+// is calculated as 5% of the current privacy threshold, rounded to the nearest
+// integer. If the gap is less than 1, it returns 1. The privacy threshold is
+// increased by the gap in each iteration of the accuracy loop.
+func roundGap(x int64) int64 {
+	gap := float64(x) * 0.05
+	if gap < 1 {
+		return 1
+	}
+	return int64(math.Round(gap))
+}
+
+// calculateAccuracy computes the accuracy of the rounding process.
+func calculateAccuracy(original, rounded []*Participant) float64 {
+	var totalOriginal, totalRounded big.Int
+	for i := range original {
+		totalOriginal.Add(&totalOriginal, original[i].Balance)
+		totalRounded.Add(&totalRounded, rounded[i].Balance)
+	}
+	totalOriginalFloat := new(big.Float).SetInt(&totalOriginal)
+	if totalOriginalFloat.Cmp(big.NewFloat(0)) == 0 {
+		return 0
+	}
+	lostWeight := new(big.Float).Sub(totalOriginalFloat, new(big.Float).SetInt(&totalRounded))
+	accuracy, _ := new(big.Float).Quo(lostWeight, totalOriginalFloat).Float64()
+	return 100 - (accuracy * 100)
 }

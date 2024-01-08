@@ -481,8 +481,8 @@ Returns the information of the strategy related to the provided ID.
 | 500 | `error encoding strategy info` | 5015 | 
 
 
-### GET `/strategies/{strategyID}/estimation`
-Enqueue the estimation of size and time (in milliseconds) to create the census generated for the provided strategy.
+### GET `/strategies/{strategyID}/estimation?anonymous={true|false}`
+Enqueue the estimation of size and time (in milliseconds) to create the census generated for the provided strategy. It also calculates the accuracy of the resulting census, it could be different to 100% if the census will be anonymous.
 
 - 📥 response:
 
@@ -513,7 +513,8 @@ Returns the estimation of size and time (in milliseconds) to create the census g
     },
     "estimation": {
         "size": 15000,
-        "timeToCreateCensus": 10900
+        "timeToCreateCensus": 10900,
+        "accuracy": 100.0,
     }
 }
 ```
@@ -715,7 +716,8 @@ Returns the information of the snapshots related to the provided ID.
     "uri": "ipfs://Qma....",
     "size": 1000,
     "weight": "200000000000000000000",
-    "anonymous": true
+    "anonymous": true,
+    "accuracy": 100.0
 }
 ```
 
@@ -782,7 +784,8 @@ Returns a list of censuses previously created for the strategy provided.
             "uri": "ipfs://Qma....",
             "size": 1000,
             "weight": "200000000000000000000",
-            "anonymous": true
+            "anonymous": true,
+            "accuracy": 100.0
         }
     ]
 }

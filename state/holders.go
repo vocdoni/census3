@@ -52,6 +52,13 @@ func (h *TokenHolders) Type() TokenType {
 	return h.ctype
 }
 
+// IsReady function returns if the given TokenHolders is ready to be scanned.
+// It means that the last block number is greater than 0, at least it will be
+// the creation block of the token.
+func (h *TokenHolders) IsReady() bool {
+	return h.lastBlock.Load() > 0
+}
+
 // Holders function returns the given TokenHolders current token holders
 // addresses and its balances.
 func (h *TokenHolders) Holders() HoldersCandidates {

@@ -126,6 +126,9 @@ func zScore(participants []*Participant, threshold float64) ([]*Participant, []*
 	}
 	stdDev = new(big.Float).Quo(stdDev, n)
 	stdDev = new(big.Float).Sqrt(stdDev)
+	if stdDev.Cmp(big.NewFloat(0)) == 0 {
+		return participants, []*Participant{}
+	}
 	// calculate z-score for each value to determine outliers
 	outliers := make([]*Participant, 0)
 	newParticipants := make([]*Participant, 0)
@@ -133,10 +136,6 @@ func zScore(participants []*Participant, threshold float64) ([]*Participant, []*
 		// z-score = (value - mean) / standard deviation
 		fBalance := new(big.Float).SetInt(p.Balance)
 		diff := new(big.Float).Sub(fBalance, mean)
-		if stdDev.Cmp(big.NewFloat(0)) == 0 {
-			newParticipants = append(newParticipants, p)
-			continue
-		}
 		zScore := new(big.Float).Quo(diff, stdDev)
 		// if z-score is greater than threshold, it is an outlier
 		if zScore.Abs(zScore).Cmp(big.NewFloat(threshold)) > 0 {
@@ -172,73 +171,24 @@ func groupAndRoundCensus(participants []*Participant, privacyThreshold int64, gr
 			groups = append(groups, currentGroup)
 		}
 	}
-	roundedCensus := roundGroups(groups)
+	roundedCensus := flatAndRoundGroups(groups)
 	return roundedCensus
 }
 
-// roundGroups rounds the balances within each group to the lowest value in the group.
-func roundGroups(groups [][]*Participant) []*Participant {
+// flatAndRoundGroups function iterate over formed groups and round their
+// balances using the lowest group balance. The function returns the list of
+// participants with rounded balances flattened.
+func flatAndRoundGroups(groups [][]*Participant) []*Participant {
 	roundedCensus := []*Participant{}
 	for _, group := range groups {
 		if len(group) == 0 {
 			continue
 		}
-		lowestBalance := roundToFirstCommonDigit(group)
 		for _, participant := range group {
-			roundedCensus = append(roundedCensus, &Participant{Address: participant.Address, Balance: lowestBalance})
+			roundedCensus = append(roundedCensus, &Participant{Address: participant.Address, Balance: group[0].Balance})
 		}
 	}
 	return roundedCensus
-}
-
-// roundToFirstCommonDigit rounds a list of balances to the lowest common value
-// within that list. It returns the lowest common value rounded down to the first
-// common digit. If no common digit is found, it returns the minimum balance.
-// For example, if the list is [100, 200, 300], the result will be 100. If the
-// list is [1125, 1120, 1130], the result will be 1100.
-func roundToFirstCommonDigit(participants []*Participant) *big.Int {
-	// check if at least two numbers is provided
-	if len(participants) == 0 {
-		return big.NewInt(0)
-	}
-	if len(participants) == 1 {
-		return participants[0].Balance
-	}
-	// get the minimun length of any number
-	sBalances := []string{}
-	minBalance := participants[0].Balance
-	minLength := int64(len(participants[0].Balance.String()))
-	for _, n := range participants {
-		sBalances = append(sBalances, n.Balance.String())
-		if l := int64(len(n.Balance.String())); l < minLength {
-			minLength = l
-			minBalance = n.Balance
-		}
-	}
-	// find the first common digit from the right between the minimun balance and
-	// any other balance. if no common digit is found, the result will be the
-	// minimum balance. if a common digit is found, the result will be the minimum
-	// balance rounded down to the first common digit
-	firstCommonByte := int64(minLength - 1)
-	for firstCommonByte >= 0 {
-		commonNumber := true
-		currentNumber := sBalances[0][firstCommonByte]
-		for _, n := range sBalances[1:] {
-			if n[firstCommonByte] != currentNumber {
-				commonNumber = false
-				break
-			}
-		}
-		if commonNumber {
-			firstCommonByte++
-			padding := new(big.Int).Exp(big.NewInt(10), big.NewInt(minLength-firstCommonByte), nil)
-			rounded := new(big.Int)
-			rounded.SetString(sBalances[0][:firstCommonByte], 10)
-			return rounded.Mul(rounded, padding)
-		}
-		firstCommonByte--
-	}
-	return minBalance
 }
 
 // roundGap calculate the gap between privacy thresholds for the accuracy loop.
@@ -256,16 +206,16 @@ func roundGap(x int64) int64 {
 
 // calculateAccuracy computes the accuracy of the rounding process.
 func calculateAccuracy(original, rounded []*Participant) float64 {
-	var totalOriginal, totalRounded big.Int
+	totalOriginal, totalRounded := new(big.Int), new(big.Int)
 	for i := range original {
-		totalOriginal.Add(&totalOriginal, original[i].Balance)
-		totalRounded.Add(&totalRounded, rounded[i].Balance)
+		totalOriginal.Add(totalOriginal, original[i].Balance)
+		totalRounded.Add(totalRounded, rounded[i].Balance)
 	}
-	totalOriginalFloat := new(big.Float).SetInt(&totalOriginal)
+	totalOriginalFloat := new(big.Float).SetInt(totalOriginal)
 	if totalOriginalFloat.Cmp(big.NewFloat(0)) == 0 {
 		return 0
 	}
-	lostWeight := new(big.Float).Sub(totalOriginalFloat, new(big.Float).SetInt(&totalRounded))
+	lostWeight := new(big.Float).Sub(totalOriginalFloat, new(big.Float).SetInt(totalRounded))
 	accuracy, _ := new(big.Float).Quo(lostWeight, totalOriginalFloat).Float64()
 	return 100 - (accuracy * 100)
 }

@@ -173,7 +173,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		}
 		res, accuracy, err := roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig)
 		if err != nil {
-			log.Errorf("min accuracy couldn't be reached: %.2f: %v", accuracy, err)
+			log.Errorf("min accuracy couldn't be reached for strategy %d: %.2f: %v", req.StrategyID, accuracy, err)
 		}
 		// update the census holders with the rounded balances and the final accuracy
 		strategyHolders = map[common.Address]*big.Int{}

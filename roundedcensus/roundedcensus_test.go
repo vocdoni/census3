@@ -228,6 +228,8 @@ func Test_calculateAccuracy(t *testing.T) {
 		{Address: "0x1", Balance: big.NewInt(0)},
 		{Address: "0x1", Balance: big.NewInt(0)},
 	}
-	c.Assert(calculateAccuracy(originalParticipants, roundedParticipants) > 9.9, qt.IsTrue, qt.Commentf("accuracy should be greater than 19.9"))
-	c.Assert(calculateAccuracy(originalParticipants, roundedParticipants) <= 10, qt.IsTrue, qt.Commentf("and also should be less or equal than 20"))
+	c.Assert(calculateAccuracy(originalParticipants, roundedParticipants) > 9.9, qt.IsTrue,
+		qt.Commentf("accuracy should be greater than 19.9"))
+	c.Assert(calculateAccuracy(originalParticipants, roundedParticipants) <= 10, qt.IsTrue,
+		qt.Commentf("and also should be less or equal than 20"))
 }

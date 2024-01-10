@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/roundedcensus"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
@@ -221,6 +223,11 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	if err := tx.Commit(); err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
+	// update metrics
+	internal.TotalNumberOfCensuses.Inc()
+	internal.NumberOfCensusesByType.GetOrCreateCounter(fmt.Sprintf("%s%d",
+		internal.NumberOfCensusesByTypePrefix, censusType,
+	)).Inc()
 	return newCensusID, nil
 }
 

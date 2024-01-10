@@ -27,3 +27,8 @@ var (
 	// number of censuses by type (anonymous or not)
 	NumberOfCensusesByType = metrics.NewSet()
 )
+
+func init() {
+	metrics.RegisterSet(LastAnalysedBlockByChain)
+	metrics.RegisterSet(NumberOfCensusesByType)
+}

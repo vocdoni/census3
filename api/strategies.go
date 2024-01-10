@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/roundedcensus"
 	"github.com/vocdoni/census3/strategyoperators"
@@ -273,6 +274,9 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 	if err := tx.Commit(); err != nil {
 		return ErrCantCreateStrategy.WithErr(err)
 	}
+	// update metrics
+	internal.TotalNumberOfStrategies.Inc()
+	internal.NewStrategiesByTime.Update(1)
 	response, err := json.Marshal(map[string]any{"strategyID": strategyID})
 	if err != nil {
 		return ErrEncodeStrategy.WithErr(err)
@@ -371,6 +375,8 @@ func (capi *census3API) importStrategyDump(dump []byte) (uint64, error) {
 	if err := tx.Commit(); err != nil {
 		return 0, ErrCantCreateStrategy.WithErr(err)
 	}
+	internal.TotalNumberOfStrategies.Inc()
+	internal.NewStrategiesByTime.Update(1)
 	return uint64(strategyID), nil
 }
 

@@ -17,6 +17,7 @@ import (
 	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
 	venation "github.com/vocdoni/census3/contracts/nation3/vestedToken"
 	poap "github.com/vocdoni/census3/contracts/poap"
+	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/service/web3"
 
 	eth "github.com/ethereum/go-ethereum"
@@ -407,6 +408,9 @@ func (w *Web3) UpdateTokenHolders(ctx context.Context, th *TokenHolders) (uint64
 			}
 			fromBlockNumber += blocks
 			th.BlockDone(fromBlockNumber)
+			// update metrics
+			internal.TotalNumberOfTransfers.Add(len(logs))
+			internal.TransfersByTime.Update(float64(len(logs)))
 			// check if we need to exit because max logs reached for iteration
 			if len(holdersCandidates) > MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION {
 				log.Debug("MAX_NEW_HOLDER_CANDIDATES_PER_ITERATION limit reached... stop scanning")
@@ -614,6 +618,12 @@ func (w *Web3) commitTokenHolders(th *TokenHolders, candidates HoldersCandidates
 	// update the token holders state with the candidates data
 	for addr, balance := range candidates {
 		th.Append(addr, balance)
+	}
+	// update last analysed block metric
+	lastBlockCounter := internal.LastAnalysedBlockByChain.GetOrCreateCounter(
+		fmt.Sprintf("%s%d", internal.LastAnalysedBlockByChainPrefix, th.ChainID))
+	if lastBlockCounter.Get() < blockNumber {
+		lastBlockCounter.Set(blockNumber)
 	}
 	return nil
 }

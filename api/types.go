@@ -97,6 +97,7 @@ type GetCensusResponse struct {
 	Size       uint64         `json:"size"`
 	Weight     string         `json:"weight"`
 	Anonymous  bool           `json:"anonymous"`
+	Accuracy   float64        `json:"accuracy"`
 }
 
 type GetCensusesResponse struct {
@@ -150,8 +151,9 @@ type ImportStrategyQueueResponse struct {
 }
 
 type StrategyEstimation struct {
-	Size               uint64 `json:"size"`
-	TimeToCreateCensus uint64 `json:"timeToCreateCensus"`
+	Size               uint64  `json:"size"`
+	TimeToCreateCensus uint64  `json:"timeToCreateCensus"`
+	Accuracy           float64 `json:"accuracy"`
 }
 
 type GetStrategyEstimationResponse struct {

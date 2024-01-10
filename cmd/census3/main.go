@@ -158,8 +158,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	go hc.Start(ctx)
 
-	metrics.NewCounter(fmt.Sprintf("census3_info{version=%q}",
-		internal.Version)).Set(1)
+	metrics.NewCounter(fmt.Sprintf("census3_info{version=%q,chains=%q}",
+		internal.Version, w3p.String())).Set(1)
 
 	// wait for SIGTERM
 	c := make(chan os.Signal, 1)

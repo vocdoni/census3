@@ -530,10 +530,8 @@ func (capi *census3API) launchStrategyEstimation(msg *api.APIdata, ctx *httprout
 		return ErrMalformedStrategyID.WithErr(err)
 	}
 	strategyID := uint64(iStrategyID)
-	anonymous := false
-	if anonymousCensus := ctx.Request.URL.Query().Get("anonymous"); anonymousCensus == "true" {
-		anonymous = true
-	}
+	// get anonymous from query params and decode it as boolean
+	anonymous := ctx.Request.URL.Query().Get("anonymous") == "true"
 	// import the strategy from IPFS in background generating a queueID
 	queueID := capi.queue.Enqueue()
 	go func() {

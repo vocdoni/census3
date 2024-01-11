@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/httprouter"
@@ -339,6 +340,11 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	if err := tx.Commit(); err != nil {
 		return ErrCantGetToken.WithErr(err)
 	}
+	// update metrics
+	internal.TotalNumberOfTokens.Inc()
+	internal.NewTokensByTime.Update(1)
+	internal.TotalNumberOfStrategies.Inc()
+	internal.NewStrategiesByTime.Update(1)
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 
@@ -408,12 +414,23 @@ func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrCantDeleteToken.WithErr(err)
 	}
 	// delete its strategies
-	if _, err := qtx.DeleteStrategiesByToken(internalCtx, queries.DeleteStrategiesByTokenParams{
+	res, err := qtx.DeleteStrategiesByToken(internalCtx, queries.DeleteStrategiesByTokenParams{
 		TokenID:    address.Bytes(),
 		ChainID:    uint64(chainID),
 		ExternalID: externalID,
-	}); err != nil {
+	})
+	if err != nil {
 		return ErrCantDeleteToken.WithErr(err)
+	}
+	deletedStrategies, err := res.RowsAffected()
+	if err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	currentStrategies := internal.TotalNumberOfStrategies.Get()
+	if uDeletedStrategies := uint64(deletedStrategies); currentStrategies > uDeletedStrategies {
+		currentStrategies -= uDeletedStrategies
+	} else {
+		currentStrategies = 0
 	}
 	// delete the token
 	if _, err := qtx.DeleteToken(internalCtx, queries.DeleteTokenParams{
@@ -426,6 +443,9 @@ func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	if err := tx.Commit(); err != nil {
 		return ErrCantDeleteToken.WithErr(err)
 	}
+	// update metrics
+	internal.TotalNumberOfTokens.Dec()
+	internal.TotalNumberOfStrategies.Set(currentStrategies)
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 

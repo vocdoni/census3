@@ -86,6 +86,17 @@ func (q *Queries) DeleteStrategyTokensByToken(ctx context.Context, arg DeleteStr
 	return q.db.ExecContext(ctx, deleteStrategyTokensByToken, arg.TokenID, arg.ChainID, arg.ExternalID)
 }
 
+const existsStrategyByURI = `-- name: ExistsStrategyByURI :one
+SELECT EXISTS(SELECT 1 FROM strategies WHERE uri = ?)
+`
+
+func (q *Queries) ExistsStrategyByURI(ctx context.Context, uri string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, existsStrategyByURI, uri)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listStrategies = `-- name: ListStrategies :many
 SELECT id, predicate, alias, uri FROM strategies
 ORDER BY id

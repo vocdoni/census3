@@ -9,6 +9,7 @@ require (
 	github.com/frankban/quicktest v1.14.6
 	github.com/google/uuid v1.4.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/ipfs/go-cid v0.4.1
 	github.com/mattn/go-sqlite3 v1.14.18
 	github.com/pressly/goose/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
@@ -109,7 +110,6 @@ require (
 	github.com/ipfs/go-bitfield v1.1.0 // indirect
 	github.com/ipfs/go-block-format v0.2.0 // indirect
 	github.com/ipfs/go-blockservice v0.5.1 // indirect
-	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipfs/go-cidutil v0.1.0 // indirect
 	github.com/ipfs/go-datastore v0.6.0 // indirect
 	github.com/ipfs/go-ds-badger v0.3.0 // indirect

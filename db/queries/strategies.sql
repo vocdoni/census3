@@ -46,6 +46,9 @@ VALUES (
     ?, ?, ?, ?, ?
 );
 
+-- name: ExistsStrategyByURI :one
+SELECT EXISTS(SELECT 1 FROM strategies WHERE uri = ?);
+
 -- name: StrategyTokensByStrategyID :many
 SELECT st.token_id as id, st.min_balance, t.symbol, t.chain_address, t.chain_id, t.external_id
 FROM strategy_tokens st

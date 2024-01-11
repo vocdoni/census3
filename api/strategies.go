@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	gocid "github.com/ipfs/go-cid"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/roundedcensus"
@@ -285,6 +286,12 @@ func (capi *census3API) launchStrategyImport(msg *api.APIdata, ctx *httprouter.H
 	ipfsCID := ctx.URLParam("cID")
 	if ipfsCID == "" {
 		return ErrMalformedStrategy.With("no IPFS cID provided")
+	}
+	// check if the cID is valid
+	if cid, err := gocid.Decode(ipfsCID); err != nil {
+		return ErrMalformedStrategy.WithErr(err)
+	} else {
+		ipfsCID = cid.String()
 	}
 	// import the strategy from IPFS in background generating a queueID
 	queueID := capi.queue.Enqueue()

@@ -4,6 +4,6 @@ type (
 	Address    []byte
 	Hash       []byte
 	MethodHash []byte
-	BigInt     []byte
+	BigInt     string
 	Bytes      []byte
 )

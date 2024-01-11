@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"encoding/binary"
 	"errors"
@@ -264,7 +265,10 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p web
 		// parse holders addresses and balances
 		for _, holder := range holders {
 			holderAddr := common.BytesToAddress(holder.HolderID)
-			holderBalance := new(big.Int).SetBytes(holder.Balance)
+			holderBalance, ok := new(big.Int).SetString(holder.Balance, 10)
+			if !ok {
+				return nil, nil, totalTokensBlockNumber, fmt.Errorf("error decoding balance of holder %s", holderAddr.String())
+			}
 			if _, exists := strategyHolders[holderAddr]; !exists {
 				strategyHolders[holderAddr] = holderBalance
 				censusWeight = new(big.Int).Add(censusWeight, holderBalance)
@@ -277,7 +281,7 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p web
 			tokensInfo[token.Symbol] = &strategyoperators.TokenInformation{
 				ID:         common.BytesToAddress(token.ID).String(),
 				ChainID:    token.ChainID,
-				MinBalance: new(big.Int).SetBytes(token.MinBalance).String(),
+				MinBalance: token.MinBalance,
 				Decimals:   token.Decimals,
 				ExternalID: token.ExternalID,
 			}
@@ -301,4 +305,42 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p web
 		return nil, nil, totalTokensBlockNumber, nil
 	}
 	return strategyHolders, censusWeight, totalTokensBlockNumber, nil
+}
+
+// TimeToCreateCensus function returns the estimated time to create a census
+// based on the number of holders. It uses a linear regression to estimate the
+// time to create a census based on the number of holders. The regression was
+// calculated using the census3 data (11/24/2023).
+func TimeToCreateCensus(size uint64) uint64 {
+	// The equation would be:
+	// 	seconds = m × size + c
+	// Where:
+	// 	* seconds is the estimated time to create a census
+	// 	* size is the number of holders of the census
+	// 	* m is the slope of the line (coefficient).
+	// 	* c is the y-intercept (constant).
+	// Based on the census3 data (11/24/2023), the value of m and c are:
+	// 	* m = 0.0008017991071149796
+	// 	* c = -1.1262389976474412
+
+	// To reproduce the constants, use the following python snippet:
+	// 	import numpy as np
+	//	A = np.array([...])
+	//	B = np.array([...])
+	//	m, c = np.polyfit(A, B, 1)
+	m := 0.0008017991071149796
+	c := -1.1262389976474412
+	seconds := m*float64(size) + c
+	if seconds < 0 {
+		seconds = 1
+	}
+	return uint64(seconds * 1000) // milliseconds
+}
+
+type CacheKey [16]byte
+
+// EncCacheKey encodes the key to a string to be used as a map key, it uses md5
+// to ensure the key is always the same length
+func EncCacheKey(key string) CacheKey {
+	return md5.Sum([]byte(key))
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
+	"github.com/vocdoni/census3/roundedcensus"
 	"github.com/vocdoni/census3/strategyoperators"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
@@ -39,12 +40,16 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.getStrategy); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/size", "GET",
-		api.MethodAccessTypePublic, capi.launchStrategySizeEstimation); err != nil {
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/holders", "GET",
+		api.MethodAccessTypeAdmin, capi.listStrategyHolders); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/size/queue/{queueID}", "GET",
-		api.MethodAccessTypePublic, capi.enqueueStrategySizeEstimation); err != nil {
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/estimation", "GET",
+		api.MethodAccessTypePublic, capi.launchStrategyEstimation); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/estimation/queue/{queueID}", "GET",
+		api.MethodAccessTypePublic, capi.enqueueStrategyEstimation); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/token/{tokenID}", "GET",
@@ -147,7 +152,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 			strategyResponse.Tokens[strategyToken.Symbol] = &StrategyToken{
 				ID:           common.BytesToAddress(strategyToken.TokenID).String(),
 				ChainID:      strategyToken.ChainID,
-				MinBalance:   new(big.Int).SetBytes(strategyToken.MinBalance).String(),
+				MinBalance:   strategyToken.MinBalance,
 				ChainAddress: strategyToken.ChainAddress,
 				ExternalID:   strategyToken.ExternalID,
 			}
@@ -221,8 +226,8 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 			return ErrNotFoundToken.Withf("the token with symbol %s not found", symbol)
 		}
 		// decode the min balance for the current token if it is provided,
-		// if not use zero
-		minBalance := new(big.Int)
+		// if not use one
+		minBalance := big.NewInt(1)
 		if tokenData.MinBalance != "" {
 			if _, ok := minBalance.SetString(tokenData.MinBalance, 10); !ok {
 				return ErrEncodeStrategy.Withf("error with %s minBalance", symbol)
@@ -232,7 +237,7 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 		if _, err := qtx.CreateStrategyToken(internalCtx, queries.CreateStrategyTokenParams{
 			StrategyID: uint64(strategyID),
 			TokenID:    common.HexToAddress(tokenData.ID).Bytes(),
-			MinBalance: minBalance.Bytes(),
+			MinBalance: minBalance.String(),
 			ChainID:    tokenData.ChainID,
 			ExternalID: tokenData.ExternalID,
 		}); err != nil {
@@ -400,7 +405,7 @@ func (capi *census3API) importStrategyDump(ipfsURI string, dump []byte) (uint64,
 		if _, err := qtx.CreateStrategyToken(internalCtx, queries.CreateStrategyTokenParams{
 			StrategyID: uint64(strategyID),
 			TokenID:    common.HexToAddress(token.ID).Bytes(),
-			MinBalance: minBalance.Bytes(),
+			MinBalance: minBalance.String(),
 			ChainID:    token.ChainID,
 			ExternalID: token.ExternalID,
 		}); err != nil {
@@ -466,7 +471,7 @@ func (capi *census3API) enqueueImportStrategy(msg *api.APIdata, ctx *httprouter.
 			queueStrategy.Strategy.Tokens[tokenData.Symbol] = &StrategyToken{
 				ID:           common.BytesToAddress(tokenData.ID).String(),
 				ChainAddress: tokenData.ChainAddress,
-				MinBalance:   new(big.Int).SetBytes(tokenData.MinBalance).String(),
+				MinBalance:   tokenData.MinBalance,
 				ChainID:      tokenData.ChainID,
 			}
 		}
@@ -520,7 +525,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		strategy.Tokens[tokenData.Symbol] = &StrategyToken{
 			ID:           common.BytesToAddress(tokenData.TokenID).String(),
 			ChainAddress: tokenData.ChainAddress,
-			MinBalance:   new(big.Int).SetBytes(tokenData.MinBalance).String(),
+			MinBalance:   tokenData.MinBalance,
 			ChainID:      tokenData.ChainID,
 			ExternalID:   tokenData.ExternalID,
 		}
@@ -532,27 +537,61 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
-// launchStrategySizeEstimation function handler enqueues the estimation of the
-// size of the strategy identified by the ID provided. It returns an error if
-// the provided ID is wrong or if the queue item cannot be encoded.
-func (capi *census3API) launchStrategySizeEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+// listStrategyHolders function handler returns the list of the holders of the
+// strategy ID provided. It returns a 400 error if the provided
+func (capi *census3API) listStrategyHolders(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get provided strategyID
 	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
 	if err != nil {
 		return ErrMalformedStrategyID.WithErr(err)
 	}
 	strategyID := uint64(iStrategyID)
+	// get token information from the database
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategyTimeout)
+	defer cancel()
+	// get token holders by strategyID
+	holders, err := capi.db.QueriesRO.TokenHoldersByStrategyID(internalCtx, strategyID)
+	if err != nil {
+		return ErrCantGetStrategy.WithErr(err)
+	}
+	holderList := map[string]string{}
+	for _, holder := range holders {
+		holderList[common.BytesToAddress(holder.HolderID).String()] = holder.Balance
+	}
+	res, err := json.Marshal(holderList)
+	if err != nil {
+		return ErrEncodeTokenHolders.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// launchStrategyEstimation function handler enqueues the estimation of the
+// size of the strategy identified by the ID provided. It returns an error if
+// the provided ID is wrong or if the queue item cannot be encoded.
+func (capi *census3API) launchStrategyEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get provided strategyID
+	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
+	if err != nil {
+		return ErrMalformedStrategyID.WithErr(err)
+	}
+	strategyID := uint64(iStrategyID)
+	// get anonymous from query params and decode it as boolean
+	anonymous := ctx.Request.URL.Query().Get("anonymous") == "true"
 	// import the strategy from IPFS in background generating a queueID
 	queueID := capi.queue.Enqueue()
 	go func() {
-		size, err := capi.estimateStrategySize(strategyID)
+		size, accuracy, err := capi.estimateStrategySizeAndAccuracy(strategyID, anonymous)
 		if err != nil {
 			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
 				log.Errorf("error updating import strategy queue %s", queueID)
 			}
 			return
 		}
-		queueData := map[string]any{"size": size}
+		queueData := map[string]any{
+			"size":               uint64(size),
+			"timeToCreateCensus": TimeToCreateCensus(uint64(size)),
+			"accuracy":           accuracy,
+		}
 		if ok := capi.queue.Update(queueID, true, queueData, nil); !ok {
 			log.Errorf("error updating import strategy queue %s", queueID)
 		}
@@ -565,16 +604,33 @@ func (capi *census3API) launchStrategySizeEstimation(msg *api.APIdata, ctx *http
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
-// estimateStrategySize function returns the estimated size of the
+// estimateStrategySizeAndAccuracy function returns the estimated size of the
 // strategy identified by the ID provided. The size is calculated using the strategy
 // predicate. This method should be executed in background.
-func (capi *census3API) estimateStrategySize(strategyID uint64) (int, error) {
+func (capi *census3API) estimateStrategySizeAndAccuracy(strategyID uint64, anonymous bool) (int, float64, error) {
 	internalCtx, cancel := context.WithTimeout(context.Background(), createAndPublishCensusTimeout)
 	defer cancel()
+	// check if the strategy size is already cached
+	cacheKey := EncCacheKey(fmt.Sprintf("strategy%d-%t", strategyID, anonymous))
+	if rawData, exists := capi.cache.Get(cacheKey); exists {
+		data, ok := rawData.(map[string]any)
+		if !ok {
+			return 0, 0, ErrCantGetStrategy.With("invalid cache data")
+		}
+		size, ok := data["size"].(int)
+		if !ok {
+			return 0, 0, ErrCantGetStrategy.With("invalid cache data")
+		}
+		accuracy, ok := data["accuracy"].(float64)
+		if !ok {
+			return 0, 0, ErrCantGetStrategy.With("invalid cache data")
+		}
+		return size, accuracy, nil
+	}
 	// begin a transaction for group sql queries
 	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
-		return 0, ErrCantGetStrategy.WithErr(err)
+		return 0, 0, ErrCantGetStrategy.WithErr(err)
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
@@ -584,31 +640,55 @@ func (capi *census3API) estimateStrategySize(strategyID uint64) (int, error) {
 	strategy, err := capi.db.QueriesRO.StrategyByID(internalCtx, strategyID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, ErrNotFoundStrategy.WithErr(err)
+			return 0, 0, ErrNotFoundStrategy.WithErr(err)
 		}
-		return 0, ErrCantGetStrategy.WithErr(err)
+		return 0, 0, ErrCantGetStrategy.WithErr(err)
 	}
 	if strategy.Predicate == "" {
-		return 0, ErrInvalidStrategyPredicate.With("empty predicate")
+		return 0, 0, ErrInvalidStrategyPredicate.With("empty predicate")
 	}
 	// calculate the strategy holders
 	strategyHolders, _, _, err := CalculateStrategyHolders(internalCtx,
 		capi.db.QueriesRO, capi.w3p, strategyID, strategy.Predicate)
 	if err != nil {
-		return 0, ErrEvalStrategyPredicate.WithErr(err)
+		return 0, 0, ErrEvalStrategyPredicate.WithErr(err)
 	}
 	if size := len(strategyHolders); size != 0 {
-		return size, nil
+		accuracy := 100.0
+		// if the census is anonymous, group and round the census to get the
+		// final accuracy, to do that we need to convert the strategy holders
+		// map to a slice of census participants
+		if anonymous {
+			censusParticipants := []*roundedcensus.Participant{}
+			for address, balance := range strategyHolders {
+				censusParticipants = append(censusParticipants, &roundedcensus.Participant{
+					Address: address.Hex(),
+					Balance: balance,
+				})
+			}
+			// calculate the accuracy of the census and return it with the size
+			_, accuracy, _ = roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig)
+		}
+		// cache the strategy if the estimated size is greater than the
+		// threshold
+		if size > strategyHoldersCacheThreshold {
+			capi.cache.Add(cacheKey, map[string]any{
+				"size":     size,
+				"accuracy": accuracy,
+			})
+		}
+		// return the size and resulting accuracy
+		return size, accuracy, nil
 	}
-	return 0, ErrNoStrategyHolders
+	return 0, 0, ErrNoStrategyHolders
 }
 
-// enqueueStrategySizeEstimation function handler dequeues the estimation of the
+// enqueueStrategyEstimation function handler dequeues the estimation of the
 // size of the strategy identified by the queue ID provided. It returns an error
 // if something fails with the queue item. The queue item, when the background
 // size estimation ends, will contain the size of the strategy or the error
 // occurred during the estimation.
-func (capi *census3API) enqueueStrategySizeEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+func (capi *census3API) enqueueStrategyEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// parse queueID from url
 	queueID := ctx.URLParam("queueID")
 	if queueID == "" {
@@ -620,13 +700,17 @@ func (capi *census3API) enqueueStrategySizeEstimation(msg *api.APIdata, ctx *htt
 		return ErrNotFoundStrategy.Withf("the ID %s does not exist in the queue", queueID)
 	}
 	// init the queue response
-	queueStrategy := GetStrategySizeResponse{
+	queueStrategy := GetStrategyEstimationResponse{
 		Done:  done,
 		Error: err,
 	}
 	// check if it is not finished or some error occurred
 	if done && err == nil {
-		queueStrategy.Size = data["size"].(int)
+		queueStrategy.Estimation = &StrategyEstimation{
+			Size:               data["size"].(uint64),
+			TimeToCreateCensus: data["timeToCreateCensus"].(uint64),
+			Accuracy:           data["accuracy"].(float64),
+		}
 		// remove the item from the queue
 		capi.queue.Dequeue(queueID)
 	}
@@ -708,7 +792,7 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 				ID:           common.BytesToAddress(strategyToken.ID).String(),
 				ChainAddress: strategyToken.ChainAddress,
 				ChainID:      strategyToken.ChainID,
-				MinBalance:   new(big.Int).SetBytes(strategyToken.MinBalance).String(),
+				MinBalance:   strategyToken.MinBalance,
 				ExternalID:   strategyToken.ExternalID,
 			}
 		}

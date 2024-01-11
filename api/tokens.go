@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
 	"github.com/vocdoni/census3/state"
@@ -30,6 +31,10 @@ func (capi *census3API) initTokenHandlers() error {
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}", "GET",
 		api.MethodAccessTypePublic, capi.getToken); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}", "DELETE",
+		api.MethodAccessTypeAdmin, capi.deleteToken); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/holders/{holderID}", "GET",
@@ -93,7 +98,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	// init response struct with the initial pagination information and empty
 	// list of tokens
 	tokensResponse := GetTokensResponse{
-		Tokens:     []GetTokenResponse{},
+		Tokens:     []GetTokensItemResponse{},
 		Pagination: &Pagination{PageSize: pageSize},
 	}
 	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, cursor, goForward)
@@ -105,63 +110,18 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	// parse results from database to the response format
 	for _, tokenData := range rows {
-		// get last block with token information
-		atBlock, err := capi.db.QueriesRO.LastBlockByTokenID(internalCtx, tokenData.ID)
-		if err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				return ErrCantGetToken.WithErr(err)
-			}
-			atBlock = 0
-		}
-		// if the token is not synced, get the last block of the network to
-		// calculate the current scan progress
-		tokenProgress := 100
-		if !tokenData.Synced {
-			// get correct web3 uri provider
-			w3URI, exists := capi.w3p.EndpointByChainID(tokenData.ChainID)
-			if !exists {
-				return ErrChainIDNotSupported.With("chain ID not supported")
-			}
-			// get last block of the network, if something fails return progress 0
-			w3 := state.Web3{}
-			if err := w3.Init(internalCtx, w3URI, common.BytesToAddress(tokenData.ID),
-				state.TokenType(tokenData.TypeID)); err != nil {
-				return ErrInitializingWeb3.WithErr(err)
-			}
-			// fetch the last block header and calculate progress
-			lastBlockNumber, err := w3.LatestBlockNumber(internalCtx)
-			if err != nil {
-				return ErrCantGetLastBlockNumber.WithErr(err)
-			}
-			tokenProgress = int(float64(atBlock) / float64(lastBlockNumber) * 100)
-		}
-		// get token holders count
-		holders, err := capi.db.QueriesRO.CountTokenHolders(internalCtx,
-			queries.CountTokenHoldersParams{
-				TokenID:    tokenData.ID,
-				ChainID:    tokenData.ChainID,
-				ExternalID: tokenData.ExternalID,
-			})
-		if err != nil {
-			return ErrCantGetTokenCount.WithErr(err)
-		}
-		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokenResponse{
-			ID:           common.BytesToAddress(tokenData.ID).String(),
-			Type:         state.TokenType(int(tokenData.TypeID)).String(),
-			Decimals:     tokenData.Decimals,
-			Size:         uint64(holders),
-			Name:         tokenData.Name,
-			StartBlock:   uint64(tokenData.CreationBlock),
-			Tags:         tokenData.Tags,
-			Symbol:       tokenData.Symbol,
-			ChainID:      tokenData.ChainID,
-			ChainAddress: tokenData.ChainAddress,
-			ExternalID:   tokenData.ExternalID,
-			Status: &GetTokenStatusResponse{
-				AtBlock:  atBlock,
-				Synced:   tokenData.Synced,
-				Progress: tokenProgress,
-			},
+		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokensItemResponse{
+			ID:              common.BytesToAddress(tokenData.ID).String(),
+			Type:            state.TokenType(int(tokenData.TypeID)).String(),
+			Decimals:        tokenData.Decimals,
+			Name:            tokenData.Name,
+			StartBlock:      uint64(tokenData.CreationBlock),
+			Tags:            tokenData.Tags,
+			Symbol:          tokenData.Symbol,
+			ChainID:         tokenData.ChainID,
+			ChainAddress:    tokenData.ChainAddress,
+			ExternalID:      tokenData.ExternalID,
+			Synced:          tokenData.Synced,
 			DefaultStrategy: tokenData.DefaultStrategy,
 			IconURI:         tokenData.IconUri,
 		})
@@ -202,7 +162,7 @@ func (capi *census3API) createDefaultTokenStrategy(ctx context.Context, qtx *que
 		StrategyID: uint64(strategyID),
 		TokenID:    address.Bytes(),
 		ChainID:    chainID,
-		MinBalance: big.NewInt(0).Bytes(),
+		MinBalance: big.NewInt(1).String(),
 		ExternalID: externalID,
 	}); err != nil {
 		return 0, err
@@ -337,9 +297,9 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	if !ok {
 		return ErrChainIDNotSupported.Withf("chainID: %d, tokenID: %s", req.ChainID, req.ID)
 	}
-	totalSupply := big.NewInt(0).Bytes()
+	totalSupply := big.NewInt(0).String()
 	if info.TotalSupply != nil {
-		totalSupply = info.TotalSupply.Bytes()
+		totalSupply = info.TotalSupply.String()
 	}
 	qtx := capi.db.QueriesRW.WithTx(tx)
 	_, err = qtx.CreateToken(internalCtx, queries.CreateTokenParams{
@@ -347,7 +307,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Name:          info.Name,
 		Symbol:        info.Symbol,
 		Decimals:      info.Decimals,
-		TotalSupply:   totalSupply,
+		TotalSupply:   annotations.BigInt(totalSupply),
 		CreationBlock: 0,
 		TypeID:        uint64(tokenType),
 		Synced:        false,
@@ -378,6 +338,93 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	if err := tx.Commit(); err != nil {
 		return ErrCantGetToken.WithErr(err)
+	}
+	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
+}
+
+// deleteToken function handler deletes the token with the given ID from the
+// database. It returns a 400 error if the provided ID is wrong or empty, a 404
+// error if the token is not found or a 500 error if something fails. This
+// endpoint is protected for admin.
+func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get contract address from the tokenID query param and decode check if
+	// it is provided, if not return an error
+	strAddress := ctx.URLParam("tokenID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	address := common.HexToAddress(strAddress)
+	// get chainID from query params and decode it as integer, if it's not
+	// provided or it's not a valid integer return an error
+	strChainID := ctx.Request.URL.Query().Get("chainID")
+	if strChainID == "" {
+		return ErrMalformedChainID.With("chainID is required")
+	}
+	chainID, err := strconv.Atoi(strChainID)
+	if err != nil {
+		return ErrMalformedChainID.WithErr(err)
+	} else if chainID < 0 {
+		return ErrMalformedChainID.With("chainID must be a positive number")
+	}
+	// get externalID from query params and decode it as string, it is optional
+	// so if it's not provided continue
+	externalID := ctx.Request.URL.Query().Get("externalID")
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createTokenTimeout)
+	defer cancel()
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetTokens.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "error rolling back tokens transaction")
+		}
+	}()
+	qtx := capi.db.QueriesRO.WithTx(tx)
+	// check if the token exists in the database
+	if _, err := qtx.ExistsAndUnique(internalCtx, queries.ExistsAndUniqueParams{
+		ID:         address.Bytes(),
+		ChainID:    uint64(chainID),
+		ExternalID: externalID,
+	}); err != nil {
+		return ErrNotFoundToken.WithErr(err)
+	}
+	// delete the token holders
+	if _, err := qtx.DeleteTokenHoldersByTokenIDAndChainIDAndExternalID(internalCtx,
+		queries.DeleteTokenHoldersByTokenIDAndChainIDAndExternalIDParams{
+			TokenID:    address.Bytes(),
+			ChainID:    uint64(chainID),
+			ExternalID: externalID,
+		}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	// delete strategies tokens
+	if _, err := qtx.DeleteStrategyTokensByToken(internalCtx,
+		queries.DeleteStrategyTokensByTokenParams{
+			TokenID:    address.Bytes(),
+			ChainID:    uint64(chainID),
+			ExternalID: externalID,
+		}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	// delete its strategies
+	if _, err := qtx.DeleteStrategiesByToken(internalCtx, queries.DeleteStrategiesByTokenParams{
+		TokenID:    address.Bytes(),
+		ChainID:    uint64(chainID),
+		ExternalID: externalID,
+	}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	// delete the token
+	if _, err := qtx.DeleteToken(internalCtx, queries.DeleteTokenParams{
+		ID:         address.Bytes(),
+		ChainID:    uint64(chainID),
+		ExternalID: externalID,
+	}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	if err := tx.Commit(); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
 	}
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
@@ -453,13 +500,13 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		}
 		tokenProgress = int(float64(atBlock) / float64(lastBlockNumber) * 100)
 	}
-
 	// get token holders count
 	holders, err := capi.db.QueriesRO.CountTokenHolders(internalCtx,
 		queries.CountTokenHoldersParams{
 			TokenID:    address.Bytes(),
 			ChainID:    uint64(chainID),
 			ExternalID: externalID,
+			Balance:    big.NewInt(1).String(),
 		})
 	if err != nil {
 		return ErrCantGetTokenCount.WithErr(err)
@@ -472,7 +519,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		Size:        uint64(holders),
 		Name:        tokenData.Name,
 		Symbol:      tokenData.Symbol,
-		TotalSupply: new(big.Int).SetBytes(tokenData.TotalSupply).String(),
+		TotalSupply: string(tokenData.TotalSupply),
 		StartBlock:  uint64(tokenData.CreationBlock),
 		Status: &GetTokenStatusResponse{
 			AtBlock:  atBlock,

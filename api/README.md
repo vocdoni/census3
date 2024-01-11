@@ -74,17 +74,12 @@ The maximus default page size is 10, but if you provide a page size of `-1`, the
         {
             "ID": "0x1324",
             "type": "erc20",
-            "size": 120,
             "decimals": 18,
             "startBlock": 123456,
             "symbol": "$",
             "totalSupply": "21323",
             "name": "Amazing token",
-            "status": {
-                "atBlock": 12345,
-                "synced": true|false,
-                "progress": 87
-            },
+            "synced": true|false,
             "defaultStrategy": 1,
             "tags": "testTag1,testTag2",
             "chainID": 1,
@@ -486,8 +481,8 @@ Returns the information of the strategy related to the provided ID.
 | 500 | `error encoding strategy info` | 5015 | 
 
 
-### GET `/strategies/{strategyID}/size`
-Enqueue the calculation of the size of a census generated for the provided strategy.
+### GET `/strategies/{strategyID}/estimation?anonymous={true|false}`
+Enqueue the estimation of size and time (in milliseconds) to create the census generated for the provided strategy. It also calculates the accuracy of the resulting census, it could be different to 100% if the census will be anonymous.
 
 - 📥 response:
 
@@ -504,8 +499,8 @@ Enqueue the calculation of the size of a census generated for the provided strat
 | 400 | `malformed strategy ID, it must be an integer` | 4002 | 
 | 500 | `error encoding strategy info` | 5015 | 
 
-### GET `/strategies/{strategyID}/size/queue/{queueID}`
-Returns the estimated size of the resulting census based on the strategy related to the queue ID.
+### GET `/strategies/{strategyID}/estimation/queue/{queueID}`
+Returns the estimation of size and time (in milliseconds) to create the census generated for the strategy related to the queue ID.
 
 - 📥 response:
 
@@ -516,7 +511,11 @@ Returns the estimated size of the resulting census based on the strategy related
         "code": 0,
         "error": "error message or null"
     },
-    "size": 100
+    "estimation": {
+        "size": 15000,
+        "timeToCreateCensus": 10900,
+        "accuracy": 100.0,
+    }
 }
 ```
 
@@ -717,7 +716,8 @@ Returns the information of the snapshots related to the provided ID.
     "uri": "ipfs://Qma....",
     "size": 1000,
     "weight": "200000000000000000000",
-    "anonymous": true
+    "anonymous": true,
+    "accuracy": 100.0
 }
 ```
 
@@ -784,7 +784,8 @@ Returns a list of censuses previously created for the strategy provided.
             "uri": "ipfs://Qma....",
             "size": 1000,
             "weight": "200000000000000000000",
-            "anonymous": true
+            "anonymous": true,
+            "accuracy": 100.0
         }
     ]
 }

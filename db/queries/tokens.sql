@@ -1,7 +1,22 @@
--- name: ListTokens :many
-SELECT * FROM tokens
-ORDER BY id ASC 
-LIMIT ?;
+-- name: ListLastNoSyncedTokens :many
+SELECT * FROM tokens 
+WHERE strftime('%s', 'now') - strftime('%s', created_at) <= 600
+    AND synced = 0
+ORDER BY created_at DESC;
+
+-- name: ListOldNoSyncedTokens :many
+SELECT tokens.*, (
+    SELECT MAX(block_id) AS last_block
+    FROM token_holders
+    WHERE token_id = tokens.id 
+        AND chain_id = tokens.chain_id 
+        AND external_id = tokens.external_id
+) FROM tokens 
+WHERE strftime('%s', 'now') - strftime('%s', created_at) > 600
+    AND synced = 0;
+
+-- name: ListSyncedTokens :many
+SELECT * FROM tokens WHERE synced = 1;
 
 -- name: NextTokensPage :many
 SELECT * FROM tokens
@@ -96,3 +111,11 @@ SELECT EXISTS
     (SELECT id 
     FROM tokens
     WHERE id = ? AND chain_id = ? AND external_id = ?);
+
+-- name: ExistsAndUnique :one
+SELECT COUNT(*) AS num_of_tokens
+FROM tokens WHERE id = ? AND chain_id = ? AND external_id = ?
+HAVING num_of_tokens = 1;
+
+-- name: DeleteToken :execresult
+DELETE FROM tokens WHERE id = ? AND chain_id = ? AND external_id = ?;

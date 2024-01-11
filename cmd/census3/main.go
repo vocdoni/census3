@@ -2,16 +2,20 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/VictoriaMetrics/metrics"
+	"github.com/google/uuid"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/vocdoni/census3/api"
 	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/service"
 	"github.com/vocdoni/census3/service/poap"
 	"github.com/vocdoni/census3/service/web3"
@@ -25,6 +29,7 @@ type Census3Config struct {
 	port                           int
 	poapAPIEndpoint, poapAuthToken string
 	scannerCoolDown                time.Duration
+	adminToken                     string
 }
 
 func main() {
@@ -46,6 +51,7 @@ func main() {
 	var strWeb3Providers string
 	flag.StringVar(&strWeb3Providers, "web3Providers", "", "the list of URL's of available web3 providers")
 	flag.DurationVar(&config.scannerCoolDown, "scannerCoolDown", 120*time.Second, "the time to wait before next scanner iteration")
+	flag.StringVar(&config.adminToken, "adminToken", "", "the admin UUID token for the API")
 	flag.Parse()
 	// init viper to read config file
 	pviper := viper.New()
@@ -91,6 +97,10 @@ func main() {
 		panic(err)
 	}
 	config.scannerCoolDown = pviper.GetDuration("scannerCoolDown")
+	if err := pviper.BindPFlag("adminToken", flag.Lookup("adminToken")); err != nil {
+		panic(err)
+	}
+	config.adminToken = pviper.GetString("adminToken")
 	// init logger
 	log.Init(config.logLevel, "stdout", nil)
 	// check if the web3 providers are defined
@@ -123,7 +133,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	// if the admin token is not defined, generate a random one
+	if config.adminToken != "" {
+		if _, err := uuid.Parse(config.adminToken); err != nil {
+			log.Fatal("bad admin token format, it must be a valid UUID")
+		}
+	} else {
+		config.adminToken = uuid.New().String()
+		log.Infof("no admin token defined, using a random one: %s", config.adminToken)
+	}
 	// Start the API
 	apiService, err := api.Init(database, api.Census3APIConf{
 		Hostname:      "0.0.0.0",
@@ -132,12 +150,16 @@ func main() {
 		Web3Providers: w3p,
 		GroupKey:      config.connectKey,
 		ExtProviders:  externalProviders,
+		AdminToken:    config.adminToken,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	go hc.Start(ctx)
+
+	metrics.NewCounter(fmt.Sprintf("census3_info{version=%q}",
+		internal.Version)).Set(1)
 
 	// wait for SIGTERM
 	c := make(chan os.Signal, 1)

@@ -61,3 +61,11 @@ SELECT st.token_id, st.min_balance, st.chain_id, st.external_id, t.chain_address
 FROM strategy_tokens st
 JOIN tokens t ON st.token_id = t.id AND st.chain_id = t.chain_id AND st.external_id = t.external_id
 WHERE st.strategy_id = ?;
+
+-- name: DeleteStrategiesByToken :execresult
+DELETE FROM strategies WHERE id IN (
+    SELECT strategy_id FROM strategy_tokens WHERE token_id = ? AND chain_id = ? AND external_id = ?
+);
+
+-- name: DeleteStrategyTokensByToken :execresult
+DELETE FROM strategy_tokens WHERE token_id = ? AND chain_id = ? AND external_id = ?;

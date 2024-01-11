@@ -50,9 +50,26 @@ type GetTokenResponse struct {
 	IconURI         string                  `json:"iconURI,omitempty"`
 }
 
+type GetTokensItemResponse struct {
+	ID              string `json:"ID"`
+	Type            string `json:"type"`
+	Decimals        uint64 `json:"decimals"`
+	StartBlock      uint64 `json:"startBlock"`
+	Symbol          string `json:"symbol"`
+	TotalSupply     string `json:"totalSupply"`
+	Name            string `json:"name"`
+	Synced          bool   `json:"synced"`
+	DefaultStrategy uint64 `json:"defaultStrategy,omitempty"`
+	Tags            string `json:"tags,omitempty"`
+	ChainID         uint64 `json:"chainID"`
+	ChainAddress    string `json:"chainAddress"`
+	ExternalID      string `json:"externalID,omitempty"`
+	IconURI         string `json:"iconURI,omitempty"`
+}
+
 type GetTokensResponse struct {
-	Tokens     []GetTokenResponse `json:"tokens"`
-	Pagination *Pagination        `json:"pagination"`
+	Tokens     []GetTokensItemResponse `json:"tokens"`
+	Pagination *Pagination             `json:"pagination"`
 }
 
 type TokenTypesResponse struct {
@@ -80,6 +97,7 @@ type GetCensusResponse struct {
 	Size       uint64         `json:"size"`
 	Weight     string         `json:"weight"`
 	Anonymous  bool           `json:"anonymous"`
+	Accuracy   float64        `json:"accuracy"`
 }
 
 type GetCensusesResponse struct {
@@ -132,8 +150,26 @@ type ImportStrategyQueueResponse struct {
 	Strategy *GetStrategyResponse `json:"strategy"`
 }
 
-type GetStrategySizeResponse struct {
-	Done  bool  `json:"done"`
-	Error error `json:"error"`
-	Size  int   `json:"size"`
+type StrategyEstimation struct {
+	Size               uint64  `json:"size"`
+	TimeToCreateCensus uint64  `json:"timeToCreateCensus"`
+	Accuracy           float64 `json:"accuracy"`
+}
+
+type GetStrategyEstimationResponse struct {
+	Done       bool                `json:"done"`
+	Error      error               `json:"error"`
+	Estimation *StrategyEstimation `json:"estimation"`
+}
+
+type TokenHoldersAtBlock struct {
+	BlockNumber uint64            `json:"blockNumber"`
+	Size        int               `json:"size"`
+	Holders     map[string]string `json:"holders"`
+}
+
+type GetHoldersAtLastBlockResponse struct {
+	Done           bool                 `json:"done"`
+	Error          error                `json:"error"`
+	HoldersAtBlock *TokenHoldersAtBlock `json:"holdersAtBlock"`
 }

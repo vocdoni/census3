@@ -227,27 +227,24 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	tokenType := state.TokenTypeFromString(req.Type)
 	if provider, exists := capi.extProviders[tokenType]; exists {
 		// get token information from the external provider
-		address, err := provider.Address(internalCtx, []byte(req.ExternalID))
+		address := provider.Address()
+		name, err := provider.Name([]byte(req.ExternalID))
 		if err != nil {
 			return ErrCantGetToken.WithErr(err)
 		}
-		name, err := provider.Name(internalCtx, []byte(req.ExternalID))
+		symbol, err := provider.Symbol([]byte(req.ExternalID))
 		if err != nil {
 			return ErrCantGetToken.WithErr(err)
 		}
-		symbol, err := provider.Symbol(internalCtx, []byte(req.ExternalID))
+		decimals, err := provider.Decimals([]byte(req.ExternalID))
 		if err != nil {
 			return ErrCantGetToken.WithErr(err)
 		}
-		decimals, err := provider.Decimals(internalCtx, []byte(req.ExternalID))
+		totalSupply, err := provider.TotalSupply([]byte(req.ExternalID))
 		if err != nil {
 			return ErrCantGetToken.WithErr(err)
 		}
-		totalSupply, err := provider.TotalSupply(internalCtx, []byte(req.ExternalID))
-		if err != nil {
-			return ErrCantGetToken.WithErr(err)
-		}
-		iconURI, err := provider.IconURI(internalCtx, []byte(req.ExternalID))
+		iconURI, err := provider.IconURI([]byte(req.ExternalID))
 		if err != nil {
 			return ErrCantGetToken.WithErr(err)
 		}

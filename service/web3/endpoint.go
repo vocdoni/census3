@@ -36,10 +36,10 @@ func (n *NetworkEndpoint) GetClient(maxRetries int) (*ethclient.Client, error) {
 // GetChainIDByURI function returns the chainID of the web3 provider URI
 // provided. It dials the URI and gets the chainID from the web3 endpoint,
 // using the context provided and the GetClient method with the
-// DefaultMaxRetries value.
+// DefaultMaxWeb3ClientRetries value.
 func GetChainIDByURI(ctx context.Context, uri string) (uint64, error) {
 	n := &NetworkEndpoint{URIs: []string{uri}}
-	cli, err := n.GetClient(DefaultMaxRetries)
+	cli, err := n.GetClient(DefaultMaxWeb3ClientRetries)
 	if err != nil {
 		return 0, err
 	}
@@ -110,7 +110,7 @@ func (nps NetworkEndpoints) String() string {
 func (nps NetworkEndpoints) CurrentBlockNumbers(ctx context.Context) (map[uint64]uint64, error) {
 	blockNumbers := make(map[uint64]uint64)
 	for _, endpoint := range nps {
-		cli, err := endpoint.GetClient(DefaultMaxRetries)
+		cli, err := endpoint.GetClient(DefaultMaxWeb3ClientRetries)
 		if err != nil {
 			return blockNumbers, err
 		}

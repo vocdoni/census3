@@ -116,7 +116,7 @@ func (capi *census3API) listHoldersAtLastBlock(address common.Address,
 	if !exists {
 		return nil, 0, ErrChainIDNotSupported.With("chain ID not supported")
 	}
-	w3, err := w3URI.GetClient(web3.DefaultMaxRetries)
+	w3, err := w3URI.GetClient(web3.DefaultMaxWeb3ClientRetries)
 	if err != nil {
 		return nil, 0, ErrInitializingWeb3.WithErr(err)
 	}

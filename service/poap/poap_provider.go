@@ -27,6 +27,7 @@ const (
 	POAP_URI = "/event/%s/poaps"
 	// POAP_CONTRACT_ADDRESS is the address of the POAP contract.
 	POAP_CONTRACT_ADDRESS = "0x22c1f6050e56d2876009903609a2cc3fef83b415"
+	POAP_CONTRACT_TYPE    = uint64(10000)
 )
 
 // EventAPIResponse is the struct that stores the response of the POAP API
@@ -64,42 +65,6 @@ type POAPHolderProvider struct {
 	AccessToken  string
 	snapshots    map[string]*POAPSnapshot
 	snapshotsMtx *sync.RWMutex
-}
-
-// Decimals method is not implemented in the POAP external provider. By default
-// it returns 0 and nil error.
-func (p *POAPHolderProvider) Decimals(_ context.Context, _ []byte) (uint64, error) {
-	return 0, nil
-}
-
-// TotalSupply method is not implemented in the POAP external provider. By
-// default it returns 0 and nil error.
-func (p *POAPHolderProvider) TotalSupply(_ context.Context, _ []byte) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-// BlockTimestamp method is not implemented in the POAP external provider. By
-// default it returns an empty string and nil error.
-func (p *POAPHolderProvider) BlockTimestamp(_ context.Context, _ uint64) (string, error) {
-	return "", nil
-}
-
-// BlockRootHash method is not implemented in the POAP external provider. By
-// default it returns an empty bytes slice and nil error.
-func (p *POAPHolderProvider) BlockRootHash(_ context.Context, _ uint64) ([]byte, error) {
-	return []byte{}, nil
-}
-
-// CreationBlock method is not implemented in the POAP external provider. By
-// default it returns 0 and nil error.
-func (p *POAPHolderProvider) CreationBlock(_ context.Context, _ []byte) (uint64, error) {
-	return 0, nil
-}
-
-// Close method is not implemented in the POAP external provider. By default it
-// returns nil error.
-func (p *POAPHolderProvider) Close() error {
-	return nil
 }
 
 // Init initializes the POAP external provider with the database provided.
@@ -161,11 +126,25 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 	return partialBalances, nil
 }
 
-func (p *POAPHolderProvider) Address(_ context.Context, _ []byte) (common.Address, error) {
-	return common.HexToAddress(POAP_CONTRACT_ADDRESS), nil
+// Close method is not implemented in the POAP external provider. By default it
+// returns nil error.
+func (p *POAPHolderProvider) Close() error {
+	return nil
 }
 
-func (p *POAPHolderProvider) Name(_ context.Context, id []byte) (string, error) {
+func (p *POAPHolderProvider) Address() common.Address {
+	return common.HexToAddress(POAP_CONTRACT_ADDRESS)
+}
+
+func (p *POAPHolderProvider) Type() uint64 {
+	return POAP_CONTRACT_TYPE
+}
+
+func (p *POAPHolderProvider) NetworkID() uint64 {
+	return 1
+}
+
+func (p *POAPHolderProvider) Name(id []byte) (string, error) {
 	info, err := p.getEventInfo(string(id))
 	if err != nil {
 		return "", err
@@ -173,7 +152,7 @@ func (p *POAPHolderProvider) Name(_ context.Context, id []byte) (string, error) 
 	return info.Name, nil
 }
 
-func (p *POAPHolderProvider) Symbol(_ context.Context, id []byte) (string, error) {
+func (p *POAPHolderProvider) Symbol(id []byte) (string, error) {
 	info, err := p.getEventInfo(string(id))
 	if err != nil {
 		return "", err
@@ -181,7 +160,19 @@ func (p *POAPHolderProvider) Symbol(_ context.Context, id []byte) (string, error
 	return fmt.Sprintf("%s:%s", POAP_SYMBOL_PREFIX, info.FancyID), nil
 }
 
-func (p *POAPHolderProvider) BalanceOf(_ context.Context, id []byte, addr common.Address) (*big.Int, error) {
+// Decimals method is not implemented in the POAP external provider. By default
+// it returns 0 and nil error.
+func (p *POAPHolderProvider) Decimals(_ []byte) (uint64, error) {
+	return 0, nil
+}
+
+// TotalSupply method is not implemented in the POAP external provider. By
+// default it returns 0 and nil error.
+func (p *POAPHolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (p *POAPHolderProvider) BalanceOf(id []byte, addr common.Address) (*big.Int, error) {
 	// parse eventID from id
 	eventID := string(id)
 	// get the last stored snapshot
@@ -196,6 +187,18 @@ func (p *POAPHolderProvider) BalanceOf(_ context.Context, id []byte, addr common
 	return nil, fmt.Errorf("no snapshot found for eventID %s", eventID)
 }
 
+// BlockTimestamp method is not implemented in the POAP external provider. By
+// default it returns an empty string and nil error.
+func (p *POAPHolderProvider) BlockTimestamp(_ context.Context, _ uint64) (string, error) {
+	return "", nil
+}
+
+// BlockRootHash method is not implemented in the POAP external provider. By
+// default it returns an empty bytes slice and nil error.
+func (p *POAPHolderProvider) BlockRootHash(_ context.Context, _ uint64) ([]byte, error) {
+	return []byte{}, nil
+}
+
 func (p *POAPHolderProvider) LatestBlockNumber(_ context.Context, id []byte) (uint64, error) {
 	// parse eventID from id
 	eventID := string(id)
@@ -208,7 +211,13 @@ func (p *POAPHolderProvider) LatestBlockNumber(_ context.Context, id []byte) (ui
 	return 0, fmt.Errorf("no snapshot found for eventID %s", eventID)
 }
 
-func (p *POAPHolderProvider) IconURI(_ context.Context, id []byte) (string, error) {
+// CreationBlock method is not implemented in the POAP external provider. By
+// default it returns 0 and nil error.
+func (p *POAPHolderProvider) CreationBlock(_ context.Context, _ []byte) (uint64, error) {
+	return 0, nil
+}
+
+func (p *POAPHolderProvider) IconURI(id []byte) (string, error) {
 	info, err := p.getEventInfo(string(id))
 	if err != nil {
 		return "", err

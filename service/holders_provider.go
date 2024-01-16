@@ -27,15 +27,17 @@ type HolderProvider interface {
 	// Close closes the provider and its internal structures.
 	Close() error
 	// Token realated methods
-	Address(ctx context.Context, id []byte) (common.Address, error)
-	Name(ctx context.Context, id []byte) (string, error)
-	Symbol(ctx context.Context, id []byte) (string, error)
-	Decimals(ctx context.Context, id []byte) (uint64, error)
-	TotalSupply(ctx context.Context, id []byte) (*big.Int, error)
-	BalanceOf(ctx context.Context, id []byte, addr common.Address) (*big.Int, error)
+	Address() common.Address
+	Type() uint64
+	NetworkID() uint64
+	Name(id []byte) (string, error)
+	Symbol(id []byte) (string, error)
+	Decimals(id []byte) (uint64, error)
+	TotalSupply(id []byte) (*big.Int, error)
+	BalanceOf(id []byte, addr common.Address) (*big.Int, error)
 	BlockTimestamp(ctx context.Context, blockNumber uint64) (string, error)
 	BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error)
 	LatestBlockNumber(ctx context.Context, id []byte) (uint64, error)
 	CreationBlock(ctx context.Context, id []byte) (uint64, error)
-	IconURI(ctx context.Context, id []byte) (string, error)
+	IconURI(id []byte) (string, error)
 }

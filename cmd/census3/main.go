@@ -2,17 +2,20 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/VictoriaMetrics/metrics"
 	"github.com/google/uuid"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/vocdoni/census3/api"
 	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/service"
 	"github.com/vocdoni/census3/service/poap"
 	"github.com/vocdoni/census3/service/web3"
@@ -154,6 +157,9 @@ func main() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	go hc.Start(ctx)
+
+	metrics.NewCounter(fmt.Sprintf("census3_info{version=%q,chains=%q}",
+		internal.Version, w3p.String())).Set(1)
 
 	// wait for SIGTERM
 	c := make(chan os.Signal, 1)

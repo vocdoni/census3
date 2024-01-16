@@ -5,10 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/internal"
+	"github.com/vocdoni/census3/roundedcensus"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -61,6 +65,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		Size:       currentCensus.Size,
 		Weight:     new(big.Int).SetBytes(censusWeight).String(),
 		Anonymous:  currentCensus.CensusType == uint64(anonymousCensusType),
+		Accuracy:   currentCensus.Accuracy,
 	})
 	if err != nil {
 		return ErrEncodeCensus.WithErr(err)
@@ -157,8 +162,27 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	}
 	// check the censusType
 	censusType := defaultCensusType
+	finalAccuracy := 100.0
 	if req.Anonymous {
 		censusType = anonymousCensusType
+		// Round census balances using the default configuration
+		censusParticipants := []*roundedcensus.Participant{}
+		for address, balance := range strategyHolders {
+			censusParticipants = append(censusParticipants, &roundedcensus.Participant{
+				Address: address.String(),
+				Balance: balance,
+			})
+		}
+		res, accuracy, err := roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig)
+		if err != nil {
+			log.Errorf("min accuracy couldn't be reached for strategy %d: %.2f: %v", req.StrategyID, accuracy, err)
+		}
+		// update the census holders with the rounded balances and the final accuracy
+		strategyHolders = map[common.Address]*big.Int{}
+		for _, participant := range res {
+			strategyHolders[common.HexToAddress(participant.Address)] = participant.Balance
+		}
+		finalAccuracy = accuracy
 	}
 	// create a census tree and publish on IPFS
 	root, uri, _, err := CreateAndPublishCensus(capi.censusDB, capi.storage, CensusOptions{
@@ -191,6 +215,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		Size:       uint64(sqlCensusSize.Int64),
 		Weight:     *sqlCensusWeight,
 		QueueID:    qID,
+		Accuracy:   finalAccuracy,
 	})
 	if err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
@@ -198,6 +223,11 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	if err := tx.Commit(); err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
+	// update metrics
+	internal.TotalNumberOfCensuses.Inc()
+	internal.NumberOfCensusesByType.GetOrCreateCounter(fmt.Sprintf("%s%d",
+		internal.NumberOfCensusesByTypePrefix, censusType,
+	)).Inc()
 	return newCensusID, nil
 }
 
@@ -253,6 +283,7 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 			Size:       currentCensus.Size,
 			Weight:     censusWeight.String(),
 			Anonymous:  currentCensus.CensusType == uint64(anonymousCensusType),
+			Accuracy:   currentCensus.Accuracy,
 		}
 		// remove the item from the queue
 		capi.queue.Dequeue(queueID)
@@ -303,6 +334,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 			Size:       censusInfo.Size,
 			Weight:     censusWeight.String(),
 			Anonymous:  censusInfo.CensusType == uint64(anonymousCensusType),
+			Accuracy:   censusInfo.Accuracy,
 		})
 	}
 	res, err := json.Marshal(censuses)

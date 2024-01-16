@@ -17,8 +17,9 @@ INSERT INTO censuses (
     size, 
     weight,
     census_type,
-    queue_id
+    queue_id,
+    accuracy
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?
 );

@@ -2,7 +2,7 @@ FROM golang:1.21.1 AS builder
 
 WORKDIR /src
 COPY . .
-RUN go build -o=census3 -ldflags="-s -w" ./cmd/census3
+RUN go build -o=census3 -ldflags="-s -w  -X=github.com/vocdoni/census3/internal.Version=$(git describe --always --tags --dirty --match='v[0-9]*')" ./cmd/census3
 
 FROM debian:bookworm-slim
 

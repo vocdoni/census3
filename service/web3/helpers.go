@@ -10,6 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+func TokenTypeFromString(s string) uint64 {
+	if c, ok := TokenTypeIntMap[s]; ok {
+		return c
+	}
+	return CONTRACT_TYPE_UNKNOWN
+}
+
 // creationBlockInRange function finds the block number of a contract between
 // the bounds provided as start and end blocks.
 func creationBlockInRange(client *ethclient.Client, ctx context.Context, addr common.Address, start, end uint64) (uint64, error) {

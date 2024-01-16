@@ -9,7 +9,6 @@ import (
 	"github.com/vocdoni/census3/queue"
 	"github.com/vocdoni/census3/service"
 	"github.com/vocdoni/census3/service/web3"
-	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/api/censusdb"
 	storagelayer "go.vocdoni.io/dvote/data"
 	"go.vocdoni.io/dvote/data/downloader"
@@ -29,7 +28,7 @@ type Census3APIConf struct {
 	DataDir       string
 	GroupKey      string
 	Web3Providers web3.NetworkEndpoints
-	ExtProviders  map[state.TokenType]service.HolderProvider
+	ExtProviders  map[uint64]service.HolderProvider
 	AdminToken    string
 }
 
@@ -42,7 +41,7 @@ type census3API struct {
 	w3p          web3.NetworkEndpoints
 	storage      storagelayer.Storage
 	downloader   *downloader.Downloader
-	extProviders map[state.TokenType]service.HolderProvider
+	extProviders map[uint64]service.HolderProvider
 	cache        *lru.Cache[CacheKey, any]
 }
 

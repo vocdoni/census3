@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/vocdoni/census3/service/web3"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -27,7 +28,7 @@ const (
 	POAP_URI = "/event/%s/poaps"
 	// POAP_CONTRACT_ADDRESS is the address of the POAP contract.
 	POAP_CONTRACT_ADDRESS = "0x22c1f6050e56d2876009903609a2cc3fef83b415"
-	POAP_CONTRACT_TYPE    = uint64(10000)
+	POAP_CONTRACT_TYPE    = web3.CONTRACT_TYPE_POAP
 )
 
 // EventAPIResponse is the struct that stores the response of the POAP API
@@ -100,13 +101,13 @@ func (p *POAPHolderProvider) SetLastBalances(_ context.Context, id []byte,
 // and delta point in time. It requests the list of token holders to the POAP
 // API parsing every POAP holder for the event ID provided and calculate the
 // balances of the token holders from the last snapshot.
-func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta uint64) (map[common.Address]*big.Int, error) {
+func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta uint64) (map[common.Address]*big.Int, uint64, error) {
 	// parse eventID from id
 	eventID := string(id)
 	// get last snapshot
 	newSnapshot, err := p.lastHolders(eventID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	// calculate snapshot from
 	from := delta
@@ -123,7 +124,7 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 		snapshot: newSnapshot,
 	}
 	// return partials from last snapshot
-	return partialBalances, nil
+	return partialBalances, from, nil
 }
 
 // Close method is not implemented in the POAP external provider. By default it

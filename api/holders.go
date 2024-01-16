@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/service/web3"
-	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -108,7 +107,7 @@ func (capi *census3API) listHoldersAtLastBlock(address common.Address,
 	}
 	// if the token is external, return an error
 	// TODO: implement external token holders
-	if _, isExternal := capi.extProviders[state.TokenType(tokenData.TypeID)]; isExternal {
+	if _, isExternal := capi.extProviders[tokenData.TypeID]; isExternal {
 		return nil, 0, ErrCantCreateCensus.With("not implemented for external providers")
 	}
 	// get correct web3 uri provider

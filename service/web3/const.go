@@ -39,11 +39,9 @@ const (
 	// Add more topics here
 )
 
-type TokenType uint64
-
 const (
 	// CONTRACT TYPES
-	CONTRACT_TYPE_UNKNOWN TokenType = iota
+	CONTRACT_TYPE_UNKNOWN uint64 = iota
 	CONTRACT_TYPE_ERC20
 	CONTRACT_TYPE_ERC721
 	CONTRACT_TYPE_ERC1155
@@ -51,4 +49,29 @@ const (
 	CONTRACT_TYPE_CUSTOM_NATION3_VENATION
 	CONTRACT_TYPE_CUSTOM_ARAGON_WANT
 	CONTRACT_TYPE_ERC721_BURNED
+	CONTRACT_TYPE_POAP
 )
+
+var TokenTypeStringMap = map[uint64]string{
+	CONTRACT_TYPE_UNKNOWN:                 "unknown",
+	CONTRACT_TYPE_ERC20:                   "erc20",
+	CONTRACT_TYPE_ERC721_BURNED:           "erc721burned",
+	CONTRACT_TYPE_ERC1155:                 "erc1155",
+	CONTRACT_TYPE_ERC777:                  "erc777",
+	CONTRACT_TYPE_CUSTOM_NATION3_VENATION: "nation3",
+	CONTRACT_TYPE_CUSTOM_ARAGON_WANT:      "want",
+	CONTRACT_TYPE_ERC721:                  "erc721",
+	CONTRACT_TYPE_POAP:                    "poap",
+}
+
+var TokenTypeIntMap = map[string]uint64{
+	"unknown":      CONTRACT_TYPE_UNKNOWN,
+	"erc20":        CONTRACT_TYPE_ERC20,
+	"erc721":       CONTRACT_TYPE_ERC721,
+	"erc1155":      CONTRACT_TYPE_ERC1155,
+	"erc777":       CONTRACT_TYPE_ERC777,
+	"nation3":      CONTRACT_TYPE_CUSTOM_NATION3_VENATION,
+	"want":         CONTRACT_TYPE_CUSTOM_ARAGON_WANT,
+	"erc721burned": CONTRACT_TYPE_ERC721_BURNED,
+	"poap":         CONTRACT_TYPE_POAP,
+}

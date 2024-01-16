@@ -23,7 +23,7 @@ type HolderProvider interface {
 	SetLastBalances(ctx context.Context, id []byte, balances map[common.Address]*big.Int, from uint64) error
 	// HoldersBalances returns the balances of the token holders for the given
 	// id and delta point in time, from the stored last snapshot.
-	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, error)
+	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, uint64, error)
 	// Close closes the provider and its internal structures.
 	Close() error
 	// Token realated methods

@@ -19,7 +19,6 @@ import (
 	"github.com/vocdoni/census3/service"
 	"github.com/vocdoni/census3/service/poap"
 	"github.com/vocdoni/census3/service/web3"
-	"github.com/vocdoni/census3/state"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -126,8 +125,8 @@ func main() {
 		log.Fatal(err)
 	}
 	// start the holder scanner with the database and the external providers
-	externalProviders := map[state.TokenType]service.HolderProvider{
-		state.CONTRACT_TYPE_POAP: poapProvider,
+	externalProviders := map[uint64]service.HolderProvider{
+		web3.CONTRACT_TYPE_POAP: poapProvider,
 	}
 	hc, err := service.NewHoldersScanner(database, w3p, externalProviders, config.scannerCoolDown)
 	if err != nil {

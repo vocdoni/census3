@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
+	"go.vocdoni.io/dvote/log"
 )
 
 type ERC20HolderProvider struct {
@@ -61,22 +62,29 @@ func (p *ERC20HolderProvider) SetLastBalances(ctx context.Context, id []byte, ba
 	return nil
 }
 
-func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, _ uint64) (map[common.Address]*big.Int, error) {
+func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (map[common.Address]*big.Int, uint64, error) {
 	// calculate the range of blocks to scan, by default take the last block
 	// scanned and scan to the latest block
-	fromBlock := p.balancesBlock
 	toBlock, err := p.LatestBlockNumber(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, fromBlock, err
 	}
 	// if the range is too big, scan only a part of it using the constant
 	// BLOCKS_TO_SCAN_AT_ONCE
 	if toBlock > fromBlock+BLOCKS_TO_SCAN_AT_ONCE {
 		toBlock = fromBlock + BLOCKS_TO_SCAN_AT_ONCE
 	}
+	log.Infow("scanning ERC20 logs",
+		"fromBlock", fromBlock,
+		"toBlock", toBlock,
+		"address", p.address.Hex())
 	// iterate scanning the logs in the range of blocks until the last block
 	// is reached
+	totalLogs := 0
 	for fromBlock < toBlock {
+		if totalLogs > MAX_SCAN_LOGS_PER_ITERATION {
+			return p.balances, toBlock, nil
+		}
 		// compose the filter to get the logs of the ERC20 Transfer events
 		filter := ethereum.FilterQuery{
 			Addresses: []common.Address{p.address},
@@ -95,13 +103,19 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, _ u
 				toBlock = fromBlock + ((toBlock - fromBlock) / 2)
 				continue
 			}
-			return nil, errors.Join(ErrScanningTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.HexAddress, err))
+			return nil, fromBlock, errors.Join(ErrScanningTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.HexAddress, err))
 		}
+		// if there are no logs, the range of blocks is empty, so return the
+		// balances
+		if len(logs) == 0 {
+			return p.balances, toBlock, nil
+		}
+		totalLogs += len(logs)
 		// iterate the logs and update the balances
 		for _, log := range logs {
 			logData, err := p.contract.ERC20ContractFilterer.ParseTransfer(log)
 			if err != nil {
-				return nil, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.HexAddress, err))
+				return nil, log.BlockNumber, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.HexAddress, err))
 			}
 			// update balances
 			p.balancesMtx.Lock()
@@ -118,7 +132,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, _ u
 			p.balancesMtx.Unlock()
 		}
 	}
-	return p.balances, nil
+	return p.balances, toBlock, nil
 }
 
 func (p *ERC20HolderProvider) Close() error {
@@ -129,7 +143,7 @@ func (p *ERC20HolderProvider) Address() common.Address {
 	return p.address
 }
 
-func (p *ERC20HolderProvider) Type() TokenType {
+func (p *ERC20HolderProvider) Type() uint64 {
 	return CONTRACT_TYPE_ERC20
 }
 
@@ -202,7 +216,7 @@ func (p *ERC20HolderProvider) LatestBlockNumber(ctx context.Context, _ []byte) (
 
 func (p *ERC20HolderProvider) CreationBlock(ctx context.Context, _ []byte) (uint64, error) {
 	var err error
-	if p.creationBlock != 0 {
+	if p.creationBlock == 0 {
 		var lastBlock uint64
 		lastBlock, err = p.LatestBlockNumber(ctx, nil)
 		if err != nil {

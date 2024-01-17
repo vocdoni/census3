@@ -17,8 +17,9 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/service"
-	"github.com/vocdoni/census3/service/poap"
-	"github.com/vocdoni/census3/service/web3"
+	"github.com/vocdoni/census3/service/providers"
+	"github.com/vocdoni/census3/service/providers/poap"
+	"github.com/vocdoni/census3/service/providers/web3"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -116,19 +117,25 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// init POAP external provider
-	poapProvider := &poap.POAPHolderProvider{
-		URI:         config.poapAPIEndpoint,
-		AccessToken: config.poapAuthToken,
-	}
-	if err := poapProvider.Init(); err != nil {
+	// init the ERC20 token providers
+	erc20Provider := new(web3.ERC20HolderProvider)
+	if err := erc20Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
 		log.Fatal(err)
 	}
-	// start the holder scanner with the database and the external providers
-	externalProviders := map[uint64]service.HolderProvider{
-		web3.CONTRACT_TYPE_POAP: poapProvider,
+	// init POAP external provider
+	poapProvider := new(poap.POAPHolderProvider)
+	if err := poapProvider.Init(poap.POAPConfig{
+		URI:         config.poapAPIEndpoint,
+		AccessToken: config.poapAuthToken,
+	}); err != nil {
+		log.Fatal(err)
 	}
-	hc, err := service.NewHoldersScanner(database, w3p, externalProviders, config.scannerCoolDown)
+	holderProviders := map[uint64]providers.HolderProvider{
+		providers.CONTRACT_TYPE_ERC20: erc20Provider,
+		providers.CONTRACT_TYPE_POAP:  poapProvider,
+	}
+	// start the holder scanner with the database
+	hc, err := service.NewHoldersScanner(database, w3p, holderProviders, config.scannerCoolDown)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -143,13 +150,13 @@ func main() {
 	}
 	// Start the API
 	apiService, err := api.Init(database, api.Census3APIConf{
-		Hostname:      "0.0.0.0",
-		Port:          config.port,
-		DataDir:       config.dataDir,
-		Web3Providers: w3p,
-		GroupKey:      config.connectKey,
-		ExtProviders:  externalProviders,
-		AdminToken:    config.adminToken,
+		Hostname:        "0.0.0.0",
+		Port:            config.port,
+		DataDir:         config.dataDir,
+		Web3Providers:   w3p,
+		GroupKey:        config.connectKey,
+		HolderProviders: holderProviders,
+		AdminToken:      config.adminToken,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -175,7 +182,7 @@ func main() {
 		if err := database.Close(); err != nil {
 			log.Fatal(err)
 		}
-		for _, provider := range externalProviders {
+		for _, provider := range holderProviders {
 			if err := provider.Close(); err != nil {
 				log.Fatal(err)
 			}

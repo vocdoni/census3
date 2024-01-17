@@ -1,4 +1,4 @@
-package service
+package providers
 
 import (
 	"context"
@@ -15,7 +15,8 @@ type HolderProvider interface {
 	// Init initializes the provider and its internal structures. Initial
 	// attributes values must be defined in the struct that implements this
 	// interface before calling this method.
-	Init() error
+	Init(conf any) error
+	SetRef(ref any) error
 	// SetLastBalances sets the balances of the token holders for the given
 	// id and from point in time and store it in a snapshot. It is used to
 	// calculate the delta balances in the next call to HoldersBalances from
@@ -23,18 +24,20 @@ type HolderProvider interface {
 	SetLastBalances(ctx context.Context, id []byte, balances map[common.Address]*big.Int, from uint64) error
 	// HoldersBalances returns the balances of the token holders for the given
 	// id and delta point in time, from the stored last snapshot.
-	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, uint64, error)
+	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, uint64, bool, error)
 	// Close closes the provider and its internal structures.
 	Close() error
+	IsExternal() bool
 	// Token realated methods
 	Address() common.Address
 	Type() uint64
-	NetworkID() uint64
+	ChainID() uint64
 	Name(id []byte) (string, error)
 	Symbol(id []byte) (string, error)
 	Decimals(id []byte) (uint64, error)
 	TotalSupply(id []byte) (*big.Int, error)
-	BalanceOf(id []byte, addr common.Address) (*big.Int, error)
+	BalanceOf(addr common.Address, id []byte) (*big.Int, error)
+	BalanceAt(ctx context.Context, addr common.Address, id []byte, blockNumber uint64) (*big.Int, error)
 	BlockTimestamp(ctx context.Context, blockNumber uint64) (string, error)
 	BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error)
 	LatestBlockNumber(ctx context.Context, id []byte) (uint64, error)

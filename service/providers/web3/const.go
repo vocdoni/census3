@@ -1,6 +1,22 @@
-package state
+package web3
 
-const timeLayout = "2006-01-02T15:04:05Z07:00"
+import "time"
+
+const (
+	DefaultMaxWeb3ClientRetries = 3
+)
+const (
+	shortNameSourceUri           = "https://chainid.network/chains_mini.json"
+	checkNetworkEndpointsTimeout = time.Second * 10
+	timeLayout                   = "2006-01-02T15:04:05Z07:00"
+)
+
+var DefaultNetworkEndpoint = &NetworkEndpoint{
+	ChainID:   5,
+	Name:      "Goerli",
+	ShortName: "gor",
+	URIs:      []string{"https://eth-goerli.api.onfinality.io/public"},
+}
 
 const (
 	// OTHER CONSTANTS
@@ -21,23 +37,4 @@ const (
 	LOG_TOPIC_WANT_DEPOSIT            = "e1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c"
 	LOG_TOPIC_WANT_WITHDRAWAL         = "7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65"
 	// Add more topics here
-)
-
-const (
-	// CONTRACT TYPES
-	CONTRACT_TYPE_UNKNOWN TokenType = iota
-	CONTRACT_TYPE_ERC20
-	CONTRACT_TYPE_ERC721
-	CONTRACT_TYPE_ERC1155
-	CONTRACT_TYPE_ERC777
-	CONTRACT_TYPE_CUSTOM_NATION3_VENATION
-	CONTRACT_TYPE_CUSTOM_ARAGON_WANT
-	CONTRACT_TYPE_ERC721_BURNED
-	CONTRACT_TYPE_POAP
-)
-
-const (
-	// POAP SPECIFIC CONSTANTS
-	CONTRACT_POAP_ADDRESS = "0x22c1f6050e56d2876009903609a2cc3fef83b415"
-	CONTRACT_POAP_SYMBOL  = "POAP" // the POAP contract has 'The Proof of Attendance Protocol' as a symbol
 )

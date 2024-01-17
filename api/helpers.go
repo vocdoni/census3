@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/lexer"
-	"github.com/vocdoni/census3/service/web3"
-	"github.com/vocdoni/census3/state"
+	"github.com/vocdoni/census3/service/providers"
+	"github.com/vocdoni/census3/service/providers/web3"
 	"github.com/vocdoni/census3/strategyoperators"
 	"go.vocdoni.io/dvote/api/censusdb"
 	"go.vocdoni.io/dvote/censustree"
@@ -208,8 +208,8 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 // The evaluator uses the strategy operators to evaluate the predicate which
 // uses the database queries to get the token holders and their balances, and
 // combines them.
-func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p web3.NetworkEndpoints,
-	id uint64, predicate string,
+func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
+	providers map[uint64]providers.HolderProvider, id uint64, predicate string,
 ) (map[common.Address]*big.Int, *big.Int, uint64, error) {
 	// TODO: write a benchmark and try to optimize this function
 
@@ -237,15 +237,20 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries, w3p web
 	// number, used to create the census id.
 	totalTokensBlockNumber := uint64(0)
 	for _, token := range strategyTokens {
-		w3endpoint, exists := w3p.EndpointByChainID(token.ChainID)
+		provider, exists := providers[token.TypeID]
 		if !exists {
-			return nil, nil, 0, fmt.Errorf("web3 endpoint not found for chain id %d", token.ChainID)
+			return nil, nil, 0, fmt.Errorf("provider not found for token type id %d", token.TypeID)
 		}
-		w3 := state.Web3{}
-		if err := w3.Init(ctx, w3endpoint, common.BytesToAddress(token.ID), state.TokenType(token.TypeID)); err != nil {
-			return nil, nil, 0, err
+		if !provider.IsExternal() {
+			if err := provider.SetRef(web3.Web3ProviderRef{
+				HexAddress: common.Bytes2Hex(token.ID),
+				ChainID:    token.ChainID,
+			}); err != nil {
+				return nil, nil, 0, err
+			}
 		}
-		currentBlockNumber, err := w3.LatestBlockNumber(ctx)
+
+		currentBlockNumber, err := provider.LatestBlockNumber(ctx, []byte(token.ExternalID))
 		if err != nil {
 			return nil, nil, 0, err
 		}

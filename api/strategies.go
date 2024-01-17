@@ -662,7 +662,7 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(strategyID uint64, anony
 	}
 	// calculate the strategy holders
 	strategyHolders, _, _, err := CalculateStrategyHolders(internalCtx,
-		capi.db.QueriesRO, capi.w3p, strategyID, strategy.Predicate)
+		capi.db.QueriesRO, capi.holderProviders, strategyID, strategy.Predicate)
 	if err != nil {
 		return 0, 0, ErrEvalStrategyPredicate.WithErr(err)
 	}

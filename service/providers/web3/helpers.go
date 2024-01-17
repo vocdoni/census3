@@ -8,13 +8,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/vocdoni/census3/service/providers"
 )
 
 func TokenTypeFromString(s string) uint64 {
-	if c, ok := TokenTypeIntMap[s]; ok {
+	if c, ok := providers.TokenTypeIntMap[s]; ok {
 		return c
 	}
-	return CONTRACT_TYPE_UNKNOWN
+	return providers.CONTRACT_TYPE_UNKNOWN
 }
 
 // creationBlockInRange function finds the block number of a contract between

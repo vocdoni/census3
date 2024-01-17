@@ -12,7 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/service/web3"
+	"github.com/vocdoni/census3/service/providers/web3"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -106,25 +106,25 @@ func (capi *census3API) listHoldersAtLastBlock(address common.Address,
 		return nil, 0, ErrCantGetTokenHolders.WithErr(err)
 	}
 	// if the token is external, return an error
-	// TODO: implement external token holders
-	if _, isExternal := capi.extProviders[tokenData.TypeID]; isExternal {
+	provider, exists := capi.holderProviders[tokenData.TypeID]
+	if !exists {
+		return nil, 0, ErrCantCreateCensus.With("token type not supported")
+	}
+	if provider.IsExternal() {
 		return nil, 0, ErrCantCreateCensus.With("not implemented for external providers")
 	}
-	// get correct web3 uri provider
-	w3URI, exists := capi.w3p.EndpointByChainID(tokenData.ChainID)
-	if !exists {
-		return nil, 0, ErrChainIDNotSupported.With("chain ID not supported")
-	}
-	w3, err := w3URI.GetClient(web3.DefaultMaxWeb3ClientRetries)
-	if err != nil {
+	if err := provider.SetRef(web3.Web3ProviderRef{
+		HexAddress: common.Bytes2Hex(tokenData.ID),
+		ChainID:    tokenData.ChainID,
+	}); err != nil {
 		return nil, 0, ErrInitializingWeb3.WithErr(err)
 	}
+
 	// get last block of the network
-	lastBlockNumber, err := w3.BlockNumber(internalCtx)
+	lastBlockNumber, err := provider.LatestBlockNumber(internalCtx, nil)
 	if err != nil {
 		return nil, 0, ErrCantGetLastBlockNumber.WithErr(err)
 	}
-	bLastBlockNumber := new(big.Int).SetUint64(lastBlockNumber)
 	// get holders balances at last block
 	balances := make(map[string]string)
 	for i, holder := range holders {
@@ -133,7 +133,7 @@ func (capi *census3API) listHoldersAtLastBlock(address common.Address,
 			"token", address.String(),
 			"progress", fmt.Sprintf("%d/%d", i+1, len(holders)))
 		holderAddress := common.BytesToAddress(holder.ID)
-		balance, err := w3.BalanceAt(internalCtx, holderAddress, bLastBlockNumber)
+		balance, err := provider.BalanceAt(internalCtx, holderAddress, nil, lastBlockNumber)
 		if err != nil {
 			return nil, lastBlockNumber, ErrCantGetTokenHolders.WithErr(err)
 		}

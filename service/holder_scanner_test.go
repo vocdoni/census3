@@ -11,7 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/service/web3"
+	"github.com/vocdoni/census3/service/providers"
+	"github.com/vocdoni/census3/service/providers/web3"
 )
 
 var (
@@ -81,7 +82,7 @@ func Test_getTokensToScan(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_, err = testdb.db.QueriesRW.CreateToken(ctx, testTokenParams("0x1", "test0",
-		"test0", 0, MonkeysDecimals, uint64(web3.CONTRACT_TYPE_ERC20),
+		"test0", 0, MonkeysDecimals, uint64(providers.CONTRACT_TYPE_ERC20),
 		MonkeysTotalSupply.Int64(), false, 5, ""))
 	c.Assert(err, qt.IsNil)
 
@@ -91,7 +92,7 @@ func Test_getTokensToScan(t *testing.T) {
 	c.Assert(hs.tokens[0].Address().String(), qt.Equals, common.HexToAddress("0x1").String())
 
 	_, err = testdb.db.QueriesRW.CreateToken(ctx, testTokenParams("0x2", "test2",
-		"test3", 10, MonkeysDecimals, uint64(web3.CONTRACT_TYPE_ERC20),
+		"test3", 10, MonkeysDecimals, uint64(providers.CONTRACT_TYPE_ERC20),
 		MonkeysTotalSupply.Int64(), false, 5, ""))
 	c.Assert(err, qt.IsNil)
 
@@ -110,12 +111,12 @@ func Test_saveHolders(t *testing.T) {
 	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
 	c.Assert(err, qt.IsNil)
 
-	th := new(TokenHolders).Init(MonkeysAddress, web3.CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5, "")
+	th := new(TokenHolders).Init(MonkeysAddress, providers.CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5, "")
 	// no registered token
 	c.Assert(hs.saveHolders(th), qt.ErrorIs, ErrTokenNotExists)
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysCreationBlock,
-		MonkeysDecimals, uint64(web3.CONTRACT_TYPE_ERC20), MonkeysTotalSupply.Int64(), false, 5, ""))
+		MonkeysDecimals, uint64(providers.CONTRACT_TYPE_ERC20), MonkeysTotalSupply.Int64(), false, 5, ""))
 	c.Assert(err, qt.IsNil)
 	// check no new holders
 	c.Assert(hs.saveHolders(th), qt.IsNil)
@@ -176,7 +177,7 @@ func Test_scanHolders(t *testing.T) {
 
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysCreationBlock,
-		MonkeysDecimals, uint64(web3.CONTRACT_TYPE_ERC20), 10, false, 5, ""))
+		MonkeysDecimals, uint64(providers.CONTRACT_TYPE_ERC20), 10, false, 5, ""))
 	c.Assert(err, qt.IsNil)
 	// token exists and the scanner gets the holders
 	ctx2, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -202,13 +203,13 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	defer testdb.Close(t)
 
 	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
-	hs.tokens = append(hs.tokens, new(TokenHolders).Init(MonkeysAddress, web3.CONTRACT_TYPE_ERC20, 0, 5, ""))
+	hs.tokens = append(hs.tokens, new(TokenHolders).Init(MonkeysAddress, providers.CONTRACT_TYPE_ERC20, 0, 5, ""))
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.calcTokenCreationBlock(context.Background(), 5), qt.IsNotNil)
 
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysCreationBlock,
-		MonkeysDecimals, uint64(web3.CONTRACT_TYPE_ERC20), MonkeysTotalSupply.Int64(), false, 5, ""))
+		MonkeysDecimals, uint64(providers.CONTRACT_TYPE_ERC20), MonkeysTotalSupply.Int64(), false, 5, ""))
 	c.Assert(err, qt.IsNil)
 
 	c.Assert(hs.calcTokenCreationBlock(context.Background(), 0), qt.IsNil)

@@ -140,7 +140,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	}
 	// init some variables to get computed in the following steps
 	strategyHolders, censusWeight, totalTokensBlockNumber, err := CalculateStrategyHolders(
-		internalCtx, capi.db.QueriesRO, capi.w3p, req.StrategyID, strategy.Predicate)
+		internalCtx, capi.db.QueriesRO, capi.holderProviders, req.StrategyID, strategy.Predicate)
 	if err != nil {
 		return 0, ErrEvalStrategyPredicate.WithErr(err)
 	}

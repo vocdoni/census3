@@ -17,7 +17,8 @@ import (
 
 	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/service/web3"
+	"github.com/vocdoni/census3/service/providers"
+	"github.com/vocdoni/census3/service/providers/web3"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -31,31 +32,31 @@ var (
 // the tokens stored on the database (located on 'dataDir/dbFilename'). It
 // keeps the database updated scanning the network using the web3 endpoint.
 type HoldersScanner struct {
-	w3p          web3.NetworkEndpoints
-	tokens       []*TokenHolders
-	mutex        sync.RWMutex
-	db           *db.DB
-	lastBlock    uint64
-	extProviders map[uint64]HolderProvider
-	coolDown     time.Duration
+	w3p             web3.NetworkEndpoints
+	tokens          []*TokenHolders
+	mutex           sync.RWMutex
+	db              *db.DB
+	lastBlock       uint64
+	holderProviders map[uint64]providers.HolderProvider
+	coolDown        time.Duration
 }
 
 // NewHoldersScanner function creates a new HolderScanner using the dataDir path
 // and the web3 endpoint URI provided. It sets up a sqlite3 database instance
 // and gets the number of last block scanned from it.
 func NewHoldersScanner(db *db.DB, w3p web3.NetworkEndpoints,
-	ext map[uint64]HolderProvider, coolDown time.Duration,
+	holderProviders map[uint64]providers.HolderProvider, coolDown time.Duration,
 ) (*HoldersScanner, error) {
 	if db == nil {
 		return nil, ErrNoDB
 	}
 	// create an empty scanner
 	s := HoldersScanner{
-		w3p:          w3p,
-		tokens:       []*TokenHolders{},
-		db:           db,
-		extProviders: ext,
-		coolDown:     coolDown,
+		w3p:             w3p,
+		tokens:          []*TokenHolders{},
+		db:              db,
+		holderProviders: holderProviders,
+		coolDown:        coolDown,
 	}
 	// get latest analyzed block
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -118,6 +119,13 @@ func (s *HoldersScanner) Start(ctx context.Context) {
 	}
 }
 
+func (s *HoldersScanner) getProvider(tokenType uint64) (providers.HolderProvider, bool) {
+	if provider, exists := s.holderProviders[tokenType]; exists {
+		return provider, true
+	}
+	return nil, false
+}
+
 // getTokensToScan function gets the information of the current tokens to scan,
 // including its addresses from the database. If the current database instance
 // does not contain any token, it returns nil addresses without error.
@@ -145,28 +153,8 @@ func (s *HoldersScanner) getTokensToScan() error {
 	}
 	// parse last not synced token addresses
 	for _, token := range lastNotSyncedTokens {
-		lastBlock := uint64(token.CreationBlock)
-		if lastBlock == 0 {
-			if networkEndpoint, ok := s.w3p.EndpointByChainID(token.ChainID); ok {
-				client, err := networkEndpoint.GetClient(web3.DefaultMaxWeb3ClientRetries)
-				if err != nil {
-					return err
-				}
-				web3Provider := &web3.ERC20HolderProvider{
-					HexAddress: common.Bytes2Hex(token.ID),
-					ChainID:    token.ChainID,
-					Client:     client,
-				}
-				if err := web3Provider.Init(); err != nil {
-					return err
-				}
-				lastBlock, err = web3Provider.CreationBlock(ctx, nil)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, token.ID); err == nil && blockNumber > lastBlock {
+		lastBlock := uint64(0)
+		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, token.ID); err == nil {
 			lastBlock = blockNumber
 		}
 		s.tokens = append(s.tokens, new(TokenHolders).Init(
@@ -202,29 +190,9 @@ func (s *HoldersScanner) getTokensToScan() error {
 	})
 	// parse old not synced token addresses
 	for _, token := range oldNotSyncedTokens {
-		lastBlock := uint64(token.CreationBlock)
-		if lastBlock == 0 {
-			if networkEndpoint, ok := s.w3p.EndpointByChainID(token.ChainID); ok {
-				client, err := networkEndpoint.GetClient(web3.DefaultMaxWeb3ClientRetries)
-				if err != nil {
-					return err
-				}
-				web3Provider := &web3.ERC20HolderProvider{
-					HexAddress: common.Bytes2Hex(token.ID),
-					ChainID:    token.ChainID,
-					Client:     client,
-				}
-				if err := web3Provider.Init(); err != nil {
-					return err
-				}
-				lastBlock, err = web3Provider.CreationBlock(ctx, nil)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, token.ID); err == nil && blockNumber > lastBlock {
-			lastBlock = blockNumber
+		lastBlock := uint64(0)
+		if token.LastBlock != nil {
+			lastBlock = uint64(token.LastBlock.(int64))
 		}
 		s.tokens = append(s.tokens, new(TokenHolders).Init(
 			common.BytesToAddress(token.ID), token.TypeID,
@@ -236,28 +204,8 @@ func (s *HoldersScanner) getTokensToScan() error {
 		return err
 	}
 	for _, token := range syncedTokens {
-		lastBlock := uint64(token.CreationBlock)
-		if lastBlock == 0 {
-			if networkEndpoint, ok := s.w3p.EndpointByChainID(token.ChainID); ok {
-				client, err := networkEndpoint.GetClient(web3.DefaultMaxWeb3ClientRetries)
-				if err != nil {
-					return err
-				}
-				web3Provider := &web3.ERC20HolderProvider{
-					HexAddress: common.Bytes2Hex(token.ID),
-					ChainID:    token.ChainID,
-					Client:     client,
-				}
-				if err := web3Provider.Init(); err != nil {
-					return err
-				}
-				lastBlock, err = web3Provider.CreationBlock(ctx, nil)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, token.ID); err == nil && blockNumber > lastBlock {
+		lastBlock := uint64(0)
+		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, token.ID); err == nil {
 			lastBlock = blockNumber
 		}
 		s.tokens = append(s.tokens, new(TokenHolders).Init(
@@ -298,6 +246,22 @@ func (s *HoldersScanner) saveHolders(th *TokenHolders) error {
 	} else if !exists {
 		return ErrTokenNotExists
 	}
+	provider, exists := s.getProvider(th.Type())
+	if !exists {
+		return fmt.Errorf("token type not supported")
+	}
+	if !provider.IsExternal() {
+		// init web3 contract state
+		if err := provider.SetRef(web3.Web3ProviderRef{
+			HexAddress: th.Address().Hex(),
+			ChainID:    th.ChainID,
+		}); err != nil {
+			return err
+		}
+	}
+	if latest, err := provider.LatestBlockNumber(ctx, []byte(th.ExternalID)); err == nil && th.LastBlock() >= latest {
+		th.Synced()
+	}
 	_, err = qtx.UpdateTokenStatus(ctx, queries.UpdateTokenStatusParams{
 		Synced:     th.IsSynced(),
 		ID:         th.Address().Bytes(),
@@ -320,44 +284,15 @@ func (s *HoldersScanner) saveHolders(th *TokenHolders) error {
 	// not matter if it is an external provider or a web3 one
 	var timestamp string
 	var rootHash []byte
-	if provider, isExternal := s.extProviders[th.Type()]; isExternal {
-		timestamp, err = provider.BlockTimestamp(ctx, th.LastBlock())
-		if err != nil {
-			return err
-		}
-		rootHash, err = provider.BlockRootHash(ctx, th.LastBlock())
-		if err != nil {
-			return err
-		}
-	} else {
-		// get correct web3 uri provider
-		w3Endpoint, exists := s.w3p.EndpointByChainID(th.ChainID)
-		if !exists {
-			return fmt.Errorf("chain ID not supported")
-		}
-		client, err := w3Endpoint.GetClient(web3.DefaultMaxWeb3ClientRetries)
-		if err != nil {
-			return err
-		}
-		// init web3 contract state
-		w3Provider := web3.ERC20HolderProvider{
-			HexAddress: th.Address().Hex(),
-			ChainID:    th.ChainID,
-			Client:     client,
-		}
-		if err := w3Provider.Init(); err != nil {
-			return err
-		}
-		// get current block number timestamp and root hash, required parameters to
-		// create a new block in the database
-		timestamp, err = w3Provider.BlockTimestamp(ctx, th.LastBlock())
-		if err != nil {
-			return err
-		}
-		rootHash, err = w3Provider.BlockRootHash(ctx, th.LastBlock())
-		if err != nil {
-			return err
-		}
+	// get current block number timestamp and root hash, required parameters to
+	// create a new block in the database
+	timestamp, err = provider.BlockTimestamp(ctx, th.LastBlock())
+	if err != nil {
+		return err
+	}
+	rootHash, err = provider.BlockRootHash(ctx, th.LastBlock())
+	if err != nil {
+		return err
 	}
 	// if the current HoldersScanner last block not exists in the database,
 	// create it
@@ -462,6 +397,7 @@ func (s *HoldersScanner) saveHolders(th *TokenHolders) error {
 		"chainID", th.ChainID,
 		"externalID", th.ExternalID,
 		"block", th.LastBlock(),
+		"synced", th.IsSynced(),
 		"created", created,
 		"updated", updated,
 		"deleted", deleted)
@@ -558,53 +494,34 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address, c
 	// if the token type has a external provider associated, get the holders
 	// from it and append it to the TokenHolders struct, then save it into the
 	// database and return
-	if provider, isExternal := s.extProviders[th.Type()]; isExternal {
-		if err := provider.SetLastBalances(ctx, []byte(th.ExternalID), th.Holders(), th.LastBlock()); err != nil {
-			return false, err
-		}
-		externalBalances, lastBlock, err := provider.HoldersBalances(ctx, []byte(th.ExternalID), s.lastBlock-th.LastBlock())
-		if err != nil {
-			return false, err
-		}
-		for holder, balance := range externalBalances {
-			th.Append(holder, balance)
-		}
-		th.BlockDone(lastBlock)
-		th.Synced()
-		return true, s.saveHolders(th)
-	}
-	// get correct web3 uri provider
-	w3URI, exists := s.w3p.EndpointByChainID(th.ChainID)
+	provider, exists := s.getProvider(th.Type())
 	if !exists {
-		return false, fmt.Errorf("chain ID not supported")
+		return false, fmt.Errorf("token type not supported")
 	}
-	client, err := w3URI.GetClient(web3.DefaultMaxWeb3ClientRetries)
+	if !provider.IsExternal() {
+		if err := provider.SetRef(web3.Web3ProviderRef{
+			HexAddress: th.Address().Hex(),
+			ChainID:    th.ChainID,
+		}); err != nil {
+			return th.IsSynced(), err
+		}
+	}
+	if err := provider.SetLastBalances(ctx, []byte(th.ExternalID), th.Holders(), th.LastBlock()); err != nil {
+		return false, err
+	}
+	externalBalances, lastBlock, synced, err := provider.HoldersBalances(ctx, []byte(th.ExternalID), th.LastBlock())
 	if err != nil {
 		return false, err
 	}
-	// init web3 contract state
-	// TODO: switch between token types
-	web3Provider := &web3.ERC20HolderProvider{
-		HexAddress: addr.Hex(),
-		ChainID:    chainID,
-		Client:     client,
-	}
-	if err := web3Provider.Init(); err != nil {
-		return th.IsSynced(), err
-	}
-	if err := web3Provider.SetLastBalances(ctx, nil, th.Holders(), th.LastBlock()); err != nil {
-		return false, err
-	}
-	latestBalances, lastBlock, err := web3Provider.HoldersBalances(ctx, nil, th.LastBlock())
-	if err != nil {
-		return false, err
-	}
-	for holder, balance := range latestBalances {
+	for holder, balance := range externalBalances {
 		th.Append(holder, balance)
 	}
 	th.BlockDone(lastBlock)
+	if synced {
+		th.Synced()
+	}
 	// save TokesHolders state into the database before exit of the function
-	return th.IsSynced(), s.saveHolders(th)
+	return synced, s.saveHolders(th)
 }
 
 // calcTokenCreationBlock function attempts to calculate the block number when
@@ -628,26 +545,18 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, index int) 
 	if err != nil {
 		return fmt.Errorf("error getting token from database: %w", err)
 	}
-	// get correct web3 uri provider
-	w3URI, exists := s.w3p.EndpointByChainID(tokenInfo.ChainID)
-	if !exists {
-		return fmt.Errorf("chain ID not supported")
+	provider, ok := s.getProvider(tokenInfo.TypeID)
+	if !ok || provider.IsExternal() {
+		return nil
 	}
-	// init web3 contract state
-	client, err := w3URI.GetClient(web3.DefaultMaxWeb3ClientRetries)
-	if err != nil {
-		return fmt.Errorf("error getting web3 client: %w", err)
-	}
-	web3Provider := &web3.ERC20HolderProvider{
+	if err := provider.SetRef(web3.Web3ProviderRef{
 		HexAddress: addr.Hex(),
 		ChainID:    chainID,
-		Client:     client,
-	}
-	if err := web3Provider.Init(); err != nil {
+	}); err != nil {
 		return fmt.Errorf("error intializing web3 client for this token: %w", err)
 	}
 	// get creation block of the current token contract
-	creationBlock, err := web3Provider.CreationBlock(ctx, nil)
+	creationBlock, err := provider.CreationBlock(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("error getting token creation block: %w", err)
 	}

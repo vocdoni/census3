@@ -15,8 +15,8 @@ import (
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/lexer"
-	"github.com/vocdoni/census3/service/web3"
-	"github.com/vocdoni/census3/state"
+	"github.com/vocdoni/census3/service/providers"
+	"github.com/vocdoni/census3/service/providers/web3"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -114,7 +114,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	for _, tokenData := range rows {
 		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokensItemResponse{
 			ID:              common.BytesToAddress(tokenData.ID).String(),
-			Type:            state.TokenType(int(tokenData.TypeID)).String(),
+			Type:            providers.TokenTypeStringMap[tokenData.TypeID],
 			Decimals:        tokenData.Decimals,
 			Name:            tokenData.Name,
 			StartBlock:      uint64(tokenData.CreationBlock),
@@ -224,24 +224,17 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createTokenTimeout)
 	defer cancel()
-
-	endpoint, ok := capi.w3p.EndpointByChainID(req.ChainID)
-	if !ok {
-		return ErrChainIDNotSupported.With("chain ID not supported")
-	}
+	// get the correct holder provider for the token type
 	tokenType := web3.TokenTypeFromString(req.Type)
-	provider, isExternal := capi.extProviders[tokenType]
-	if !isExternal {
-		client, err := endpoint.GetClient(web3.DefaultMaxWeb3ClientRetries)
-		if err != nil {
-			return ErrInitializingWeb3.WithErr(err)
-		}
-		provider = &web3.ERC20HolderProvider{
+	provider, exists := capi.holderProviders[tokenType]
+	if !exists {
+		return ErrCantCreateCensus.With("token type not supported")
+	}
+	if !provider.IsExternal() {
+		if err := provider.SetRef(web3.Web3ProviderRef{
 			HexAddress: req.ID,
 			ChainID:    req.ChainID,
-			Client:     client,
-		}
-		if err := provider.Init(); err != nil {
+		}); err != nil {
 			return ErrInitializingWeb3.WithErr(err)
 		}
 	}
@@ -487,18 +480,20 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	// calculate the current scan progress
 	tokenProgress := 100
 	if !tokenData.Synced {
-		// get correct web3 uri provider
-		w3URI, exists := capi.w3p.EndpointByChainID(tokenData.ChainID)
+		provider, exists := capi.holderProviders[tokenData.TypeID]
 		if !exists {
-			return ErrChainIDNotSupported.With("chain ID not supported")
+			return ErrCantCreateCensus.With("token type not supported")
 		}
-		// get last block of the network, if something fails return progress 0
-		w3 := state.Web3{}
-		if err := w3.Init(internalCtx, w3URI, address, state.TokenType(tokenData.TypeID)); err != nil {
-			return ErrInitializingWeb3.WithErr(err)
+		if !provider.IsExternal() {
+			if err := provider.SetRef(web3.Web3ProviderRef{
+				HexAddress: common.Bytes2Hex(tokenData.ID),
+				ChainID:    tokenData.ChainID,
+			}); err != nil {
+				return ErrInitializingWeb3.WithErr(err)
+			}
 		}
 		// fetch the last block header and calculate progress
-		lastBlockNumber, err := w3.LatestBlockNumber(internalCtx)
+		lastBlockNumber, err := provider.LatestBlockNumber(internalCtx, []byte(tokenData.ExternalID))
 		if err != nil {
 			return ErrCantGetLastBlockNumber.WithErr(err)
 		}
@@ -518,7 +513,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	// build response
 	tokenResponse := GetTokenResponse{
 		ID:          address.String(),
-		Type:        state.TokenType(int(tokenData.TypeID)).String(),
+		Type:        providers.TokenTypeStringMap[tokenData.TypeID],
 		Decimals:    tokenData.Decimals,
 		Size:        uint64(holders),
 		Name:        tokenData.Name,
@@ -530,8 +525,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 			Synced:   tokenData.Synced,
 			Progress: tokenProgress,
 		},
-		Tags: tokenData.Tags,
-		// TODO: Only for the MVP, consider to remove it
+		Tags:            tokenData.Tags,
 		DefaultStrategy: tokenData.DefaultStrategy,
 		ChainID:         tokenData.ChainID,
 		ChainAddress:    tokenData.ChainAddress,
@@ -593,7 +587,7 @@ func (capi *census3API) isTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCont
 // supported types of token contracts.
 func (capi *census3API) getTokenTypes(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	supportedTypes := []string{}
-	for _, supportedType := range state.TokenTypeStringMap {
+	for _, supportedType := range providers.TokenTypeStringMap {
 		supportedTypes = append(supportedTypes, supportedType)
 	}
 	res, err := json.Marshal(TokenTypesResponse{supportedTypes})

@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/vocdoni/census3/service/web3"
+	"github.com/vocdoni/census3/service/providers"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -28,7 +28,6 @@ const (
 	POAP_URI = "/event/%s/poaps"
 	// POAP_CONTRACT_ADDRESS is the address of the POAP contract.
 	POAP_CONTRACT_ADDRESS = "0x22c1f6050e56d2876009903609a2cc3fef83b415"
-	POAP_CONTRACT_TYPE    = web3.CONTRACT_TYPE_POAP
 )
 
 // EventAPIResponse is the struct that stores the response of the POAP API
@@ -68,18 +67,35 @@ type POAPHolderProvider struct {
 	snapshotsMtx *sync.RWMutex
 }
 
+type POAPConfig struct {
+	URI         string
+	AccessToken string
+}
+
 // Init initializes the POAP external provider with the database provided.
 // It returns an error if the POAP access token or api endpoint uri is not
 // defined.
-func (p *POAPHolderProvider) Init() error {
-	if p.URI == "" {
+func (p *POAPHolderProvider) Init(iconf any) error {
+	// parse config
+	conf, ok := iconf.(POAPConfig)
+	if !ok {
+		return fmt.Errorf("bad config type, it must be a POAPConfig struct")
+	}
+
+	if conf.URI == "" {
 		return fmt.Errorf("no POAP URI defined")
 	}
-	if p.AccessToken == "" {
+	if conf.AccessToken == "" {
 		return fmt.Errorf("no POAP access token defined")
 	}
+	p.URI = conf.URI
+	p.AccessToken = conf.AccessToken
 	p.snapshots = make(map[string]*POAPSnapshot)
 	p.snapshotsMtx = &sync.RWMutex{}
+	return nil
+}
+
+func (p *POAPHolderProvider) SetRef(_ any) error {
 	return nil
 }
 
@@ -101,13 +117,15 @@ func (p *POAPHolderProvider) SetLastBalances(_ context.Context, id []byte,
 // and delta point in time. It requests the list of token holders to the POAP
 // API parsing every POAP holder for the event ID provided and calculate the
 // balances of the token holders from the last snapshot.
-func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta uint64) (map[common.Address]*big.Int, uint64, error) {
+func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta uint64) (
+	map[common.Address]*big.Int, uint64, bool, error,
+) {
 	// parse eventID from id
 	eventID := string(id)
 	// get last snapshot
 	newSnapshot, err := p.lastHolders(eventID)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, false, err
 	}
 	// calculate snapshot from
 	from := delta
@@ -124,7 +142,7 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 		snapshot: newSnapshot,
 	}
 	// return partials from last snapshot
-	return partialBalances, from, nil
+	return partialBalances, from, true, nil
 }
 
 // Close method is not implemented in the POAP external provider. By default it
@@ -133,15 +151,19 @@ func (p *POAPHolderProvider) Close() error {
 	return nil
 }
 
+func (p *POAPHolderProvider) IsExternal() bool {
+	return true
+}
+
 func (p *POAPHolderProvider) Address() common.Address {
 	return common.HexToAddress(POAP_CONTRACT_ADDRESS)
 }
 
 func (p *POAPHolderProvider) Type() uint64 {
-	return POAP_CONTRACT_TYPE
+	return providers.CONTRACT_TYPE_POAP
 }
 
-func (p *POAPHolderProvider) NetworkID() uint64 {
+func (p *POAPHolderProvider) ChainID() uint64 {
 	return 1
 }
 
@@ -173,7 +195,7 @@ func (p *POAPHolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
-func (p *POAPHolderProvider) BalanceOf(id []byte, addr common.Address) (*big.Int, error) {
+func (p *POAPHolderProvider) BalanceOf(addr common.Address, id []byte) (*big.Int, error) {
 	// parse eventID from id
 	eventID := string(id)
 	// get the last stored snapshot
@@ -186,6 +208,10 @@ func (p *POAPHolderProvider) BalanceOf(id []byte, addr common.Address) (*big.Int
 		return nil, fmt.Errorf("no balance found for address %s", addr.String())
 	}
 	return nil, fmt.Errorf("no snapshot found for eventID %s", eventID)
+}
+
+func (p *POAPHolderProvider) BalanceAt(_ context.Context, _ common.Address, _ []byte, _ uint64) (*big.Int, error) {
+	return big.NewInt(0), fmt.Errorf("not implemented")
 }
 
 // BlockTimestamp method is not implemented in the POAP external provider. By

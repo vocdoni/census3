@@ -533,6 +533,7 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, index int) 
 	}
 	addr := s.tokens[index].Address()
 	chainID := s.tokens[index].ChainID
+	externalID := s.tokens[index].ExternalID
 	// set a deadline of 10 seconds from the current context
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -564,6 +565,8 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, index int) 
 	_, err = s.db.QueriesRW.UpdateTokenCreationBlock(ctx,
 		queries.UpdateTokenCreationBlockParams{
 			ID:            addr.Bytes(),
+			ChainID:       chainID,
+			ExternalID:    externalID,
 			CreationBlock: int64(creationBlock),
 		})
 	if err != nil {

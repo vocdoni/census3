@@ -20,7 +20,18 @@ var (
 	web3Endpoints   = map[uint64]*web3.NetworkEndpoint{
 		web3endpoint.ChainID: web3endpoint,
 	}
+	holdersProviders = map[uint64]providers.HolderProvider{
+		MonkeysType: new(web3.ERC20HolderProvider),
+	}
 )
+
+func init() {
+	if err := holdersProviders[MonkeysType].Init(web3.Web3ProviderConfig{
+		Endpoints: web3Endpoints,
+	}); err != nil {
+		panic(err)
+	}
+}
 
 func TestNewHolderScanner(t *testing.T) {
 	c := qt.New(t)
@@ -28,7 +39,7 @@ func TestNewHolderScanner(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
+	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, holdersProviders, 20)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(0))
 
@@ -41,11 +52,11 @@ func TestNewHolderScanner(t *testing.T) {
 	})
 	c.Assert(err, qt.IsNil)
 
-	hs, err = NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
+	hs, err = NewHoldersScanner(testdb.db, web3Endpoints, holdersProviders, 20)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.lastBlock, qt.Equals, uint64(1000))
 
-	_, err = NewHoldersScanner(nil, web3Endpoints, nil, 20)
+	_, err = NewHoldersScanner(nil, web3Endpoints, holdersProviders, 20)
 	c.Assert(err, qt.IsNotNil)
 }
 
@@ -58,7 +69,7 @@ func TestHolderScannerStart(t *testing.T) {
 	defer testdb.Close(t)
 
 	twg.Add(1)
-	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
+	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, holdersProviders, 20)
 	c.Assert(err, qt.IsNil)
 	go func() {
 		hs.Start(ctx)
@@ -75,7 +86,7 @@ func Test_getTokensToScan(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
+	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, holdersProviders, 20)
 	c.Assert(err, qt.IsNil)
 	c.Assert(hs.getTokensToScan(), qt.IsNil)
 
@@ -98,6 +109,7 @@ func Test_getTokensToScan(t *testing.T) {
 
 	err = hs.getTokensToScan()
 	c.Assert(err, qt.IsNil)
+	c.Assert(hs.calcTokenCreationBlock(ctx, 1), qt.IsNil)
 	c.Assert(hs.tokens[1].IsReady(), qt.IsTrue)
 	c.Assert(hs.tokens[1].Address().String(), qt.Equals, common.HexToAddress("0x2").String())
 }
@@ -108,7 +120,7 @@ func Test_saveHolders(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
+	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, holdersProviders, 20)
 	c.Assert(err, qt.IsNil)
 
 	th := new(TokenHolders).Init(MonkeysAddress, providers.CONTRACT_TYPE_ERC20, MonkeysCreationBlock, 5, "")
@@ -166,7 +178,7 @@ func Test_scanHolders(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
+	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, holdersProviders, 20)
 	c.Assert(err, qt.IsNil)
 
 	// token does not exists
@@ -202,10 +214,10 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	testdb := StartTestDB(t)
 	defer testdb.Close(t)
 
-	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, nil, 20)
+	hs, err := NewHoldersScanner(testdb.db, web3Endpoints, holdersProviders, 20)
 	hs.tokens = append(hs.tokens, new(TokenHolders).Init(MonkeysAddress, providers.CONTRACT_TYPE_ERC20, 0, 5, ""))
 	c.Assert(err, qt.IsNil)
-	c.Assert(hs.calcTokenCreationBlock(context.Background(), 5), qt.IsNotNil)
+	c.Assert(hs.calcTokenCreationBlock(context.Background(), 0), qt.IsNotNil)
 
 	_, err = testdb.db.QueriesRW.CreateToken(context.Background(), testTokenParams(
 		MonkeysAddress.String(), MonkeysName, MonkeysSymbol, MonkeysCreationBlock,
@@ -213,7 +225,11 @@ func Test_calcTokenCreationBlock(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 
 	c.Assert(hs.calcTokenCreationBlock(context.Background(), 0), qt.IsNil)
-	token, err := testdb.db.QueriesRW.TokenByID(context.Background(), MonkeysAddress.Bytes())
+	token, err := testdb.db.QueriesRO.TokenByIDAndChainID(context.Background(),
+		queries.TokenByIDAndChainIDParams{
+			ID:      MonkeysAddress.Bytes(),
+			ChainID: 5,
+		})
 	c.Assert(err, qt.IsNil)
 	c.Assert(uint64(token.CreationBlock), qt.Equals, MonkeysCreationBlock)
 }

@@ -85,7 +85,9 @@ WHERE id = sqlc.arg(id)
 -- name: UpdateTokenCreationBlock :execresult
 UPDATE tokens
 SET creation_block = sqlc.arg(creation_block)
-WHERE id = sqlc.arg(id);
+WHERE id = sqlc.arg(id)
+    AND chain_id = sqlc.arg(chain_id)
+    AND external_id = sqlc.arg(external_id);
 
 -- name: UpdateTokenDefaultStrategy :execresult
 UPDATE tokens

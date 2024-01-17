@@ -11,10 +11,12 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/service/providers"
 )
 
 var (
 	MonkeysAddress        = common.HexToAddress("0xF530280176385AF31177D78BbFD5eA3f6D07488A")
+	MonkeysType           = providers.CONTRACT_TYPE_ERC20
 	MonkeysCreationBlock  = uint64(8901659)
 	MonkeysSymbol         = "MON"
 	MonkeysName           = "Monkeys"

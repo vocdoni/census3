@@ -72,15 +72,20 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	if err != nil {
 		return errors.Join(ErrConnectingToWeb3Client, fmt.Errorf("[ERC20] %s: %w", ref.HexAddress, err))
 	}
-	// parse the address and initialize the contract
+	// set the client, parse the address and initialize the contract
+	p.client = client
 	address := common.HexToAddress(ref.HexAddress)
 	if p.contract, err = erc20.NewERC20Contract(address, client); err != nil {
 		return errors.Join(ErrInitializingContract, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 	}
 	// reset the internal attributes
-	p.client = client
 	p.address = address
 	p.chainID = ref.ChainID
+	p.name = ""
+	p.symbol = ""
+	p.decimals = 0
+	p.totalSupply = nil
+	p.creationBlock = 0
 	// reset balances
 	p.balancesMtx.Lock()
 	defer p.balancesMtx.Unlock()

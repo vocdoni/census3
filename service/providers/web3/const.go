@@ -5,6 +5,7 @@ import "time"
 const (
 	DefaultMaxWeb3ClientRetries = 3
 )
+
 const (
 	shortNameSourceUri           = "https://chainid.network/chains_mini.json"
 	checkNetworkEndpointsTimeout = time.Second * 10

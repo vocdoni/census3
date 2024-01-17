@@ -88,7 +88,9 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	return nil
 }
 
-func (p *ERC20HolderProvider) SetLastBalances(ctx context.Context, id []byte, balances map[common.Address]*big.Int, from uint64) error {
+func (p *ERC20HolderProvider) SetLastBalances(ctx context.Context, id []byte,
+	balances map[common.Address]*big.Int, from uint64,
+) error {
 	p.balancesMtx.Lock()
 	defer p.balancesMtx.Unlock()
 
@@ -263,7 +265,9 @@ func (p *ERC20HolderProvider) BalanceOf(addr common.Address, _ []byte) (*big.Int
 	return p.contract.ERC20ContractCaller.BalanceOf(nil, addr)
 }
 
-func (p *ERC20HolderProvider) BalanceAt(ctx context.Context, addr common.Address, _ []byte, blockNumber uint64) (*big.Int, error) {
+func (p *ERC20HolderProvider) BalanceAt(ctx context.Context, addr common.Address,
+	_ []byte, blockNumber uint64,
+) (*big.Int, error) {
 	return p.client.BalanceAt(ctx, addr, new(big.Int).SetUint64(blockNumber))
 }
 

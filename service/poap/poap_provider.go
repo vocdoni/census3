@@ -369,7 +369,7 @@ func (p *POAPHolderProvider) calcPartials(eventID string, newSnapshot map[common
 	// add the addresses from the current snapshot that are not in the new
 	// snapshot with negative balance
 	for addr, currentBalance := range current.snapshot {
-		if _, exist := newSnapshot[addr]; !exist {
+		if _, exists := newSnapshot[addr]; !exists {
 			partialBalances[addr] = new(big.Int).Neg(currentBalance)
 		}
 	}

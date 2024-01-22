@@ -16,10 +16,10 @@ import (
 	"github.com/vocdoni/census3/api"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/internal"
-	"github.com/vocdoni/census3/service"
-	"github.com/vocdoni/census3/service/providers"
-	"github.com/vocdoni/census3/service/providers/poap"
-	"github.com/vocdoni/census3/service/providers/web3"
+	"github.com/vocdoni/census3/scanner"
+	"github.com/vocdoni/census3/scanner/providers"
+	"github.com/vocdoni/census3/scanner/providers/poap"
+	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -134,11 +134,8 @@ func main() {
 		providers.CONTRACT_TYPE_ERC20: erc20Provider,
 		providers.CONTRACT_TYPE_POAP:  poapProvider,
 	}
-	// start the holder scanner with the database
-	hc, err := service.NewHoldersScanner(database, w3p, holderProviders, config.scannerCoolDown)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// start the holder scanner with the database and the providers
+	hc := scanner.NewScanner(database, w3p, holderProviders, config.scannerCoolDown)
 	// if the admin token is not defined, generate a random one
 	if config.adminToken != "" {
 		if _, err := uuid.Parse(config.adminToken); err != nil {
@@ -176,6 +173,7 @@ func main() {
 	log.Infof("waiting for routines to end gracefully...")
 	// closing database
 	go func() {
+		hc.Stop()
 		if err := apiService.Stop(); err != nil {
 			log.Fatal(err)
 		}
@@ -187,6 +185,7 @@ func main() {
 				log.Fatal(err)
 			}
 		}
+		log.Infof("all routines ended")
 	}()
 	time.Sleep(5 * time.Second)
 	os.Exit(0)

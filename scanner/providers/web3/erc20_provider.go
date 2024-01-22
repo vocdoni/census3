@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
-	"github.com/vocdoni/census3/service/providers"
+	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
 

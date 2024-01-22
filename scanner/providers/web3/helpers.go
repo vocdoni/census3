@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/vocdoni/census3/service/providers"
+	"github.com/vocdoni/census3/scanner/providers"
 )
 
 func TokenTypeFromString(s string) uint64 {

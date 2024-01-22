@@ -325,7 +325,8 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (map[com
 // updates or deletes the token holders in the database depending on the
 // calculated balance.
 func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
-	holders map[common.Address]*big.Int, lastBlock uint64, synced bool) error {
+	holders map[common.Address]*big.Int, lastBlock uint64, synced bool,
+) error {
 	log.Debugw("saving token holders",
 		"token", token.Address.Hex(),
 		"chainID", token.ChainID,

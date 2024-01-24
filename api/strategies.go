@@ -43,7 +43,7 @@ func (capi *census3API) initStrategiesHandlers() error {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/holders", "GET",
-		api.MethodAccessTypeAdmin, capi.listStrategyHolders); err != nil {
+		api.MethodAccessTypePublic, capi.listStrategyHolders); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/estimation", "GET",
@@ -559,19 +559,90 @@ func (capi *census3API) listStrategyHolders(msg *api.APIdata, ctx *httprouter.HT
 		return ErrMalformedStrategyID.WithErr(err)
 	}
 	strategyID := uint64(iStrategyID)
-	// get token information from the database
-	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategyTimeout)
-	defer cancel()
-	// get token holders by strategyID
-	holders, err := capi.db.QueriesRO.TokenHoldersByStrategyID(internalCtx, strategyID)
+	// get pagination information from the request
+	pageSize, dbPageSize, cursor, goForward, err := paginationFromCtx(ctx)
 	if err != nil {
-		return ErrCantGetStrategy.WithErr(err)
+		return ErrMalformedPagination.WithErr(err)
 	}
-	holderList := map[string]string{}
-	for _, holder := range holders {
-		holderList[common.BytesToAddress(holder.HolderID).String()] = holder.Balance
+	// if there is a cursor, decode it to bytes
+	bCursor := []byte{}
+	if cursor != "" {
+		bCursor = common.HexToAddress(cursor).Bytes()
 	}
-	res, err := json.Marshal(holderList)
+	// get token information from the database
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategyHoldersTimeout)
+	defer cancel()
+	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetStrategyHolders.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorw(err, "error rolling back tokens transaction")
+		}
+	}()
+	qtx := capi.db.QueriesRO.WithTx(tx)
+	strategy, err := qtx.StrategyByID(internalCtx, strategyID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFoundStrategy.WithErr(err)
+		}
+		return ErrCantGetStrategyHolders.WithErr(err)
+	}
+	// check predicate
+	lx := lexer.NewLexer(strategyoperators.ValidOperatorsTags)
+	validatedPredicate, err := lx.Parse(strategy.Predicate)
+	if err != nil {
+		return ErrInvalidStrategyPredicate.WithErr(err)
+	}
+	if !validatedPredicate.IsLiteral() {
+		return ErrInvalidStrategyPredicate.With("this endpoint only supports single token predicates")
+	}
+	// get the tokens from the database using the provided cursor, get the
+	// following or previous page depending on the direction of the cursor
+	var rows []queries.TokenHolder
+	if goForward {
+		rows, err = qtx.NextStrategyTokenHoldersPage(internalCtx, queries.NextStrategyTokenHoldersPageParams{
+			PageCursor: bCursor,
+			Limit:      dbPageSize,
+			StrategyID: strategyID,
+		})
+	} else {
+		rows, err = qtx.NextStrategyTokenHoldersPage(internalCtx, queries.NextStrategyTokenHoldersPageParams{
+			PageCursor: bCursor,
+			Limit:      dbPageSize,
+			StrategyID: strategyID,
+		})
+	}
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrCantGetStrategyHolders.WithErr(err)
+		}
+		return ErrCantGetStrategyHolders.WithErr(err)
+	}
+	if len(rows) == 0 {
+		return ErrNotFoundTokenHolders
+	}
+	// init response struct with the initial pagination information and empty
+	// list of holders
+	holdersResponse := GetStrategyHoldersResponse{
+		Holders:    make(map[string]string),
+		Pagination: &Pagination{PageSize: pageSize},
+	}
+	// get the next and previous cursors and add them to the response
+	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, cursor, goForward)
+	if nextCursorRow != nil {
+		holdersResponse.Pagination.NextCursor = common.BytesToAddress(nextCursorRow.HolderID).String()
+	}
+	if prevCursorRow != nil {
+		holdersResponse.Pagination.PrevCursor = common.BytesToAddress(prevCursorRow.HolderID).String()
+	}
+	// parse and encode holders
+	for _, holder := range rows {
+		holdersResponse.Holders[common.BytesToAddress(holder.HolderID).String()] = holder.Balance
+	}
+	// encode and send the response
+	res, err := json.Marshal(holdersResponse)
 	if err != nil {
 		return ErrEncodeTokenHolders.WithErr(err)
 	}

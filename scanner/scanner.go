@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
@@ -49,17 +50,23 @@ type Scanner struct {
 
 // NewScanner returns a new scanner instance with the required parameters
 // initialized.
-func NewScanner(db *db.DB, networks web3.NetworkEndpoints,
-	providers map[uint64]providers.HolderProvider, coolDown time.Duration,
-) *Scanner {
+func NewScanner(db *db.DB, networks web3.NetworkEndpoints, coolDown time.Duration) *Scanner {
 	return &Scanner{
 		db:        db,
 		networks:  networks,
-		providers: providers,
+		providers: make(map[uint64]providers.HolderProvider),
 		coolDown:  coolDown,
 		tokens:    []*ScannerToken{},
 		tokensMtx: sync.Mutex{},
 		waiter:    sync.WaitGroup{},
+	}
+}
+
+// SetProviders sets the providers that the scanner will use to get the holders
+// of the tokens.
+func (s *Scanner) SetProviders(newProviders ...providers.HolderProvider) {
+	for _, provider := range newProviders {
+		s.providers[provider.Type()] = provider
 	}
 }
 
@@ -83,7 +90,13 @@ func (s *Scanner) Start(ctx context.Context) {
 			}
 			atSyncGlobal := true
 			for _, token := range tokens {
-				holders, lastBlock, synced, err := s.ScanHolders(ctx, token)
+				log.Infow("scanning token",
+					"address", token.Address.Hex(),
+					"chainID", token.ChainID,
+					"externalID", token.ExternalID,
+					"lastBlock", token.LastBlock,
+					"ready", token.Ready)
+				holders, newTransfers, lastBlock, synced, err := s.ScanHolders(ctx, token)
 				if err != nil {
 					log.Error(err)
 					continue
@@ -91,20 +104,19 @@ func (s *Scanner) Start(ctx context.Context) {
 				if !synced {
 					atSyncGlobal = false
 				}
-				if len(holders) > 0 {
-					s.waiter.Add(1)
-					go func(t *ScannerToken, h map[common.Address]*big.Int, lb uint64, sy bool) {
-						defer s.waiter.Done()
-						if err = s.SaveHolders(ctx, t, h, lb, sy); err != nil {
-							log.Error(err)
-						}
-					}(token, holders, lastBlock, synced)
-				}
+				s.waiter.Add(1)
+				go func(t *ScannerToken, h map[common.Address]*big.Int, n, lb uint64, sy bool) {
+					defer s.waiter.Done()
+					if err = s.SaveHolders(ctx, t, h, n, lb, sy); err != nil {
+						log.Error(err)
+					}
+				}(token, holders, newTransfers, lastBlock, synced)
 			}
 			log.Infow("scan iteration finished",
 				"iteration", itCounter,
 				"duration", time.Since(startTime).Seconds(),
 				"atSync", atSyncGlobal)
+			log.Debugf("GetBlockByNumberCounter: %d", internal.GetBlockByNumberCounter.Load())
 			if atSyncGlobal {
 				time.Sleep(s.coolDown)
 			} else {
@@ -118,6 +130,11 @@ func (s *Scanner) Start(ctx context.Context) {
 // finish.
 func (s *Scanner) Stop() {
 	s.cancel()
+	for _, provider := range s.providers {
+		if err := provider.Close(); err != nil {
+			log.Error(err)
+		}
+	}
 	s.waiter.Wait()
 }
 
@@ -130,107 +147,76 @@ func (s *Scanner) Stop() {
 func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 	internalCtx, cancel := context.WithTimeout(ctx, SCAN_TIMEOUT)
 	defer cancel()
-	// create a tx to use it in the following queries
-	tx, err := s.db.RW.BeginTx(internalCtx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
-			log.Error(err)
-			return
-		}
-	}()
-	qtx := s.db.QueriesRW.WithTx(tx)
-
 	tokens := []*ScannerToken{}
 	// get last created tokens from the database to scan them first
-	lastNotSyncedTokens, err := qtx.ListLastNoSyncedTokens(ctx)
+	lastNotSyncedTokens, err := s.db.QueriesRO.ListLastNoSyncedTokens(internalCtx)
 	if err != nil && !errors.Is(sql.ErrNoRows, err) {
 		return nil, err
 	}
 	// parse last not synced token addresses
 	for _, token := range lastNotSyncedTokens {
-		lastBlock := uint64(token.CreationBlock)
-		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, token.ID); err == nil {
-			lastBlock = blockNumber
-		}
 		tokens = append(tokens, &ScannerToken{
 			Address:    common.BytesToAddress(token.ID),
 			ChainID:    token.ChainID,
 			Type:       token.TypeID,
 			ExternalID: token.ExternalID,
-			LastBlock:  lastBlock,
-			Ready:      token.CreationBlock > 0,
+			LastBlock:  uint64(token.LastBlock),
+			Ready:      token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
 			Synced:     token.Synced,
 		})
 	}
 	// get old tokens from the database
-	oldNotSyncedTokens, err := qtx.ListOldNoSyncedTokens(ctx)
+	oldNotSyncedTokens, err := s.db.QueriesRO.ListOldNoSyncedTokens(internalCtx)
 	if err != nil && !errors.Is(sql.ErrNoRows, err) {
 		return nil, err
 	}
-	// get the current block number of every chain
-	currentBlockNumbers, err := s.networks.CurrentBlockNumbers(ctx)
-	if err != nil {
+	// if there are old not synced tokens, sort them by nearest to be synced
+	// and parse them, if not, continue to avoid web3 calls
+	if len(oldNotSyncedTokens) > 0 {
+		// get the current block number of every chain
+		currentBlockNumbers, err := s.networks.CurrentBlockNumbers(internalCtx)
+		if err != nil {
+			return nil, err
+		}
+		// sort old not synced tokens by nearest to be synced, that is, the tokens
+		// that have the minimum difference between the current block of its chain
+		// and the last block scanned by the scanner (retrieved from the database
+		// as LastBlock)
+		sort.Slice(oldNotSyncedTokens, func(i, j int) bool {
+			iBlocksReamining := currentBlockNumbers[oldNotSyncedTokens[i].ChainID] -
+				uint64(oldNotSyncedTokens[i].LastBlock)
+			jBlocksReamining := currentBlockNumbers[oldNotSyncedTokens[j].ChainID] -
+				uint64(oldNotSyncedTokens[j].LastBlock)
+			return iBlocksReamining < jBlocksReamining
+		})
+		// parse old not synced token addresses
+		for _, token := range oldNotSyncedTokens {
+			tokens = append(tokens, &ScannerToken{
+				Address:    common.BytesToAddress(token.ID),
+				ChainID:    token.ChainID,
+				Type:       token.TypeID,
+				ExternalID: token.ExternalID,
+				LastBlock:  uint64(token.LastBlock),
+				Ready:      token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
+				Synced:     token.Synced,
+			})
+		}
+	}
+	// get last created tokens from the database to scan them first
+	syncedTokens, err := s.db.QueriesRO.ListSyncedTokens(internalCtx)
+	if err != nil && !errors.Is(sql.ErrNoRows, err) {
 		return nil, err
 	}
-	// sort old not synced tokens by nearest to be synced, that is, the tokens
-	// that have the minimum difference between the current block of its chain
-	// and the last block scanned by the scanner (retrieved from the database
-	// as LastBlock)
-	sort.Slice(oldNotSyncedTokens, func(i, j int) bool {
-		iLastBlock := uint64(oldNotSyncedTokens[i].CreationBlock)
-		if oldNotSyncedTokens[i].LastBlock != nil {
-			iLastBlock = uint64(oldNotSyncedTokens[i].LastBlock.(int64))
-		}
-		jLastBlock := uint64(oldNotSyncedTokens[j].CreationBlock)
-		if oldNotSyncedTokens[j].LastBlock != nil {
-			jLastBlock = uint64(oldNotSyncedTokens[j].LastBlock.(int64))
-		}
-		iBlocksReamining := currentBlockNumbers[oldNotSyncedTokens[i].ChainID] - uint64(iLastBlock)
-		jBlocksReamining := currentBlockNumbers[oldNotSyncedTokens[j].ChainID] - uint64(jLastBlock)
-		return iBlocksReamining < jBlocksReamining
-	})
-	// parse old not synced token addresses
-	for _, token := range oldNotSyncedTokens {
-		lastBlock := uint64(token.CreationBlock)
-		if token.LastBlock != nil {
-			lastBlock = uint64(token.LastBlock.(int64))
-		}
+	for _, token := range syncedTokens {
 		tokens = append(tokens, &ScannerToken{
 			Address:    common.BytesToAddress(token.ID),
 			ChainID:    token.ChainID,
 			Type:       token.TypeID,
 			ExternalID: token.ExternalID,
-			LastBlock:  lastBlock,
-			Ready:      token.CreationBlock > 0,
+			LastBlock:  uint64(token.LastBlock),
+			Ready:      token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
 			Synced:     token.Synced,
 		})
-	}
-	// get last created tokens from the database to scan them first
-	syncedTokens, err := qtx.ListSyncedTokens(ctx)
-	if err != nil && !errors.Is(sql.ErrNoRows, err) {
-		return nil, err
-	}
-	for _, token := range syncedTokens {
-		lastBlock := uint64(token.CreationBlock)
-		if blockNumber, err := s.db.QueriesRO.LastBlockByTokenID(ctx, token.ID); err == nil {
-			lastBlock = blockNumber
-		}
-		s.tokens = append(s.tokens, &ScannerToken{
-			Address:    common.BytesToAddress(token.ID),
-			ChainID:    token.ChainID,
-			Type:       token.TypeID,
-			ExternalID: token.ExternalID,
-			LastBlock:  lastBlock,
-			Ready:      token.CreationBlock > 0,
-			Synced:     token.Synced,
-		})
-	}
-	// close the database tx and commit it
-	if err := tx.Commit(); err != nil {
-		return nil, err
 	}
 	// update the tokens to scan in the scanner and return them
 	s.tokensMtx.Lock()
@@ -243,22 +229,25 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 // from the database, set them into the provider and get the new ones. It
 // returns the new holders, the last block scanned and if the token is synced
 // after the scan.
-func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (map[common.Address]*big.Int, uint64, bool, error) {
+func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
+	map[common.Address]*big.Int, uint64, uint64, bool, error,
+) {
 	log.Infow("scanning holders",
 		"address", token.Address.Hex(),
 		"chainID", token.ChainID,
-		"externalID", token.ExternalID)
+		"externalID", token.ExternalID,
+		"lastBlock", token.LastBlock)
 	internalCtx, cancel := context.WithTimeout(ctx, SCAN_TIMEOUT)
 	defer cancel()
 	// get the correct token holder for the current token
-	provider, exists := s.providers[token.ChainID]
+	provider, exists := s.providers[token.Type]
 	if !exists {
-		return nil, token.LastBlock, token.Synced, fmt.Errorf("no provider for chain %d", token.ChainID)
+		return nil, 0, token.LastBlock, token.Synced, fmt.Errorf("token type %d not supported", token.Type)
 	}
 	// create a tx to use it in the following queries
 	tx, err := s.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
-		return nil, token.LastBlock, token.Synced, err
+		return nil, 0, token.LastBlock, token.Synced, err
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
@@ -272,27 +261,32 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (map[com
 			HexAddress: token.Address.Hex(),
 			ChainID:    token.ChainID,
 		}); err != nil {
-			return nil, token.LastBlock, token.Synced, err
+			return nil, 0, token.LastBlock, token.Synced, err
 		}
 		// if the token is not ready yet (its creation block has not been
 		// calculated yet), calculate it, update the token information and
 		// return
 		if !token.Ready {
+			log.Debugw("token not ready yet, calculating creation block and continue",
+				"address", token.Address.Hex(),
+				"chainID", token.ChainID,
+				"externalID", token.ExternalID)
 			creationBlock, err := provider.CreationBlock(internalCtx, []byte(token.ExternalID))
 			if err != nil {
-				return nil, token.LastBlock, token.Synced, err
+				return nil, 0, token.LastBlock, token.Synced, err
 			}
-			_, err = qtx.UpdateTokenCreationBlock(internalCtx, queries.UpdateTokenCreationBlockParams{
+			_, err = qtx.UpdateTokenBlocks(internalCtx, queries.UpdateTokenBlocksParams{
 				ID:            token.Address.Bytes(),
 				ChainID:       token.ChainID,
 				ExternalID:    token.ExternalID,
 				CreationBlock: int64(creationBlock),
+				LastBlock:     int64(creationBlock),
 			})
 			if err != nil {
-				return nil, token.LastBlock, token.Synced, err
+				return nil, 0, token.LastBlock, token.Synced, err
 			}
 			// close the database tx and commit it
-			return nil, token.LastBlock, token.Synced, tx.Commit()
+			return nil, 0, creationBlock, token.Synced, tx.Commit()
 		}
 	}
 	// get the current token holders from the database
@@ -303,7 +297,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (map[com
 			ExternalID: token.ExternalID,
 		})
 	if err != nil {
-		return nil, token.LastBlock, token.Synced, err
+		return nil, 0, token.LastBlock, token.Synced, err
 	}
 	currentHolders := map[common.Address]*big.Int{}
 	for _, result := range results {
@@ -311,11 +305,11 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (map[com
 	}
 	// close the database tx and commit it
 	if err := tx.Commit(); err != nil {
-		return nil, token.LastBlock, token.Synced, err
+		return nil, 0, token.LastBlock, token.Synced, err
 	}
 	// set the current holders into the provider and get the new ones
 	if err := provider.SetLastBalances(ctx, []byte(token.ExternalID), currentHolders, token.LastBlock); err != nil {
-		return nil, token.LastBlock, token.Synced, err
+		return nil, 0, token.LastBlock, token.Synced, err
 	}
 	return provider.HoldersBalances(ctx, []byte(token.ExternalID), token.LastBlock)
 }
@@ -325,9 +319,10 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (map[com
 // updates or deletes the token holders in the database depending on the
 // calculated balance.
 func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
-	holders map[common.Address]*big.Int, lastBlock uint64, synced bool,
+	holders map[common.Address]*big.Int, newTransfers, lastBlock uint64,
+	synced bool,
 ) error {
-	log.Debugw("saving token holders",
+	log.Debugw("saving token status and holders",
 		"token", token.Address.Hex(),
 		"chainID", token.ChainID,
 		"externalID", token.ExternalID,
@@ -357,7 +352,6 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		}
 	}()
 	qtx := s.db.QueriesRW.WithTx(tx)
-	// get the current token information from the database
 	tokenInfo, err := qtx.TokenByIDAndChainIDAndExternalID(internalCtx,
 		queries.TokenByIDAndChainIDAndExternalIDParams{
 			ID:         token.Address.Bytes(),
@@ -367,30 +361,68 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 	if err != nil {
 		return err
 	}
-	// if the token synced status is not the same that the received one, update
-	// it in the database
-	if tokenInfo.Synced != synced {
-		_, err = qtx.UpdateTokenStatus(internalCtx, queries.UpdateTokenStatusParams{
-			ID:         token.Address.Bytes(),
-			ChainID:    token.ChainID,
-			ExternalID: token.ExternalID,
-			Synced:     synced,
-		})
-		if err != nil {
-			return err
-		}
-		if synced {
-			log.Infow("token synced",
-				"token", token.Address.Hex(),
-				"chainID", token.ChainID,
-				"externalID", token.ExternalID)
-		}
+	// update the balance synced status and last block in the database
+	_, err = qtx.UpdateTokenStatus(internalCtx, queries.UpdateTokenStatusParams{
+		ID:                token.Address.Bytes(),
+		ChainID:           token.ChainID,
+		ExternalID:        token.ExternalID,
+		Synced:            synced,
+		LastBlock:         int64(lastBlock),
+		AnalysedTransfers: tokenInfo.AnalysedTransfers + int64(newTransfers),
+	})
+	if err != nil {
+		return err
 	}
+	log.Debugw("token status saved",
+		"synced", synced,
+		"token", token.Address.Hex(),
+		"chainID", token.ChainID,
+		"externalID", token.ExternalID,
+		"block", lastBlock)
+	if len(holders) == 0 {
+		log.Debugw("no holders to save, skipping...",
+			"token", token.Address.Hex(),
+			"chainID", token.ChainID,
+			"externalID", token.ExternalID)
+		return tx.Commit()
+	}
+	// create, update or delete token holders
 	created, updated, deleted := 0, 0, 0
 	for addr, balance := range holders {
-		switch balance.Cmp(big.NewInt(0)) {
-		case -1:
-			// if the calculated balance is negative,try todelete the token holder
+		// get the current token holder from the database
+		currentTokenHolder, err := qtx.TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalID(ctx,
+			queries.TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalIDParams{
+				TokenID:    token.Address.Bytes(),
+				ChainID:    token.ChainID,
+				ExternalID: token.ExternalID,
+				HolderID:   addr.Bytes(),
+			})
+		if err != nil {
+			if !errors.Is(sql.ErrNoRows, err) {
+				return err
+			}
+			// if the holder does not exists in the database and the balance is
+			// 0 or less, skip it
+			if balance.Cmp(big.NewInt(0)) != 1 {
+				continue
+			}
+			// if the token holder not exists, create it
+			_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
+				TokenID:    token.Address.Bytes(),
+				ChainID:    token.ChainID,
+				ExternalID: token.ExternalID,
+				HolderID:   addr.Bytes(),
+				BlockID:    lastBlock,
+				Balance:    balance.String(),
+			})
+			if err != nil {
+				return err
+			}
+			created++
+			continue
+		}
+		// if the calculated balance is negative,try todelete the token holder
+		if balance.Cmp(big.NewInt(0)) != 1 {
 			if _, err := qtx.DeleteTokenHolder(ctx, queries.DeleteTokenHolderParams{
 				TokenID:    token.Address.Bytes(),
 				ChainID:    token.ChainID,
@@ -400,59 +432,32 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 				return fmt.Errorf("error deleting token holder: %w", err)
 			}
 			deleted++
-		case 1:
-			// get the current token holder from the database
-			currentTokenHolder, err := qtx.TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalID(ctx,
-				queries.TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalIDParams{
-					TokenID:    token.Address.Bytes(),
-					ChainID:    token.ChainID,
-					ExternalID: token.ExternalID,
-					HolderID:   addr.Bytes(),
-				})
-			if err != nil {
-				if !errors.Is(sql.ErrNoRows, err) {
-					return err
-				}
-				// if the token holder not exists, create it
-				_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
-					TokenID:    token.Address.Bytes(),
-					ChainID:    token.ChainID,
-					ExternalID: token.ExternalID,
-					HolderID:   addr.Bytes(),
-					BlockID:    lastBlock,
-					Balance:    balance.String(),
-				})
-				if err != nil {
-					return err
-				}
-				created++
-				continue
-			}
-			// parse the current token holder balance and compare it with the
-			// calculated one, if they are the same, continue
-			currentBalance, ok := new(big.Int).SetString(currentTokenHolder.Balance, 10)
-			if !ok {
-				return fmt.Errorf("error parsing current token holder balance")
-			}
-			if currentBalance.Cmp(balance) == 0 {
-				continue
-			}
-			// if the calculated balance is not 0 or less and it is different
-			// from the current one, update it in the database
-			_, err = qtx.UpdateTokenHolderBalance(ctx, queries.UpdateTokenHolderBalanceParams{
-				TokenID:    token.Address.Bytes(),
-				ChainID:    token.ChainID,
-				ExternalID: token.ExternalID,
-				HolderID:   addr.Bytes(),
-				BlockID:    currentTokenHolder.BlockID,
-				NewBlockID: lastBlock,
-				Balance:    balance.String(),
-			})
-			if err != nil {
-				return fmt.Errorf("error updating token holder: %w", err)
-			}
-			updated++
+			continue
 		}
+		// parse the current token holder balance and compare it with the
+		// calculated one, if they are the same, continue
+		currentBalance, ok := new(big.Int).SetString(currentTokenHolder.Balance, 10)
+		if !ok {
+			return fmt.Errorf("error parsing current token holder balance")
+		}
+		if currentBalance.Cmp(balance) == 0 {
+			continue
+		}
+		// if the calculated balance is not 0 or less and it is different
+		// from the current one, update it in the database
+		_, err = qtx.UpdateTokenHolderBalance(ctx, queries.UpdateTokenHolderBalanceParams{
+			TokenID:    token.Address.Bytes(),
+			ChainID:    token.ChainID,
+			ExternalID: token.ExternalID,
+			HolderID:   addr.Bytes(),
+			BlockID:    currentTokenHolder.BlockID,
+			NewBlockID: lastBlock,
+			Balance:    balance.String(),
+		})
+		if err != nil {
+			return fmt.Errorf("error updating token holder: %w", err)
+		}
+		updated++
 	}
 	// close the database tx and commit it
 	if err := tx.Commit(); err != nil {

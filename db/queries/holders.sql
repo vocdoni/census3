@@ -35,13 +35,12 @@ AND token_holders.chain_id = ?
 AND token_holders.holder_id = ?;
 
 -- name: TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalID :one
-SELECT holders.*, token_holders.*
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? 
-    AND token_holders.holder_id = ? 
-    AND token_holders.chain_id = ?
-    AND token_holders.external_id = ?;
+SELECT *
+FROM token_holders
+WHERE token_id = ? 
+    AND holder_id = ? 
+    AND chain_id = ?
+    AND external_id = ?;
 
 -- name: TokenHolderByTokenIDAndBlockIDAndHolderID :one
 SELECT holders.*, token_holders.balance

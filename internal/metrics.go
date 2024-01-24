@@ -1,6 +1,10 @@
 package internal
 
-import "github.com/VictoriaMetrics/metrics"
+import (
+	"sync/atomic"
+
+	"github.com/VictoriaMetrics/metrics"
+)
 
 const (
 	LastAnalysedBlockByChainPrefix = `census3_last_analysed_block_by_chain_`
@@ -26,6 +30,8 @@ var (
 	TotalNumberOfCensuses = metrics.NewCounter(`census3_total_number_of_censuses`)
 	// number of censuses by type (anonymous or not)
 	NumberOfCensusesByType = metrics.NewSet()
+
+	GetBlockByNumberCounter = atomic.Uint64{}
 )
 
 func init() {

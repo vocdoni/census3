@@ -117,9 +117,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// init the ERC20 token providers
+	// init the web3 token providers
 	erc20Provider := new(web3.ERC20HolderProvider)
 	if err := erc20Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
+		log.Fatal(err)
+	}
+	erc721Provider := new(web3.ERC721HolderProvider)
+	if err := erc721Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
+		log.Fatal(err)
+	}
+	erc777Provider := new(web3.ERC777HolderProvider)
+	if err := erc777Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
 		log.Fatal(err)
 	}
 	// init POAP external provider
@@ -130,12 +138,9 @@ func main() {
 	}); err != nil {
 		log.Fatal(err)
 	}
-	holderProviders := map[uint64]providers.HolderProvider{
-		providers.CONTRACT_TYPE_ERC20: erc20Provider,
-		providers.CONTRACT_TYPE_POAP:  poapProvider,
-	}
 	// start the holder scanner with the database and the providers
-	hc := scanner.NewScanner(database, w3p, holderProviders, config.scannerCoolDown)
+	hc := scanner.NewScanner(database, w3p, config.scannerCoolDown)
+	hc.SetProviders(erc20Provider, erc721Provider, erc777Provider, poapProvider)
 	// if the admin token is not defined, generate a random one
 	if config.adminToken != "" {
 		if _, err := uuid.Parse(config.adminToken); err != nil {
@@ -147,13 +152,18 @@ func main() {
 	}
 	// Start the API
 	apiService, err := api.Init(database, api.Census3APIConf{
-		Hostname:        "0.0.0.0",
-		Port:            config.port,
-		DataDir:         config.dataDir,
-		Web3Providers:   w3p,
-		GroupKey:        config.connectKey,
-		HolderProviders: holderProviders,
-		AdminToken:      config.adminToken,
+		Hostname:      "0.0.0.0",
+		Port:          config.port,
+		DataDir:       config.dataDir,
+		Web3Providers: w3p,
+		GroupKey:      config.connectKey,
+		HolderProviders: map[uint64]providers.HolderProvider{
+			providers.CONTRACT_TYPE_ERC20:  erc20Provider,
+			providers.CONTRACT_TYPE_ERC721: erc721Provider,
+			providers.CONTRACT_TYPE_ERC777: erc777Provider,
+			providers.CONTRACT_TYPE_POAP:   poapProvider,
+		},
+		AdminToken: config.adminToken,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -179,11 +189,6 @@ func main() {
 		}
 		if err := database.Close(); err != nil {
 			log.Fatal(err)
-		}
-		for _, provider := range holderProviders {
-			if err := provider.Close(); err != nil {
-				log.Fatal(err)
-			}
 		}
 		log.Infof("all routines ended")
 	}()

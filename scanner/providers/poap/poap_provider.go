@@ -118,14 +118,14 @@ func (p *POAPHolderProvider) SetLastBalances(_ context.Context, id []byte,
 // API parsing every POAP holder for the event ID provided and calculate the
 // balances of the token holders from the last snapshot.
 func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta uint64) (
-	map[common.Address]*big.Int, uint64, bool, error,
+	map[common.Address]*big.Int, uint64, uint64, bool, error,
 ) {
 	// parse eventID from id
 	eventID := string(id)
 	// get last snapshot
 	newSnapshot, err := p.lastHolders(eventID)
 	if err != nil {
-		return nil, 0, false, err
+		return nil, 0, 0, false, err
 	}
 	// calculate snapshot from
 	from := delta
@@ -142,7 +142,7 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 		snapshot: newSnapshot,
 	}
 	// return partials from last snapshot
-	return partialBalances, from, true, nil
+	return partialBalances, 1, from, true, nil
 }
 
 // Close method is not implemented in the POAP external provider. By default it

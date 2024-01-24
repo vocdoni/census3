@@ -468,16 +468,9 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		}
 		return ErrCantGetToken.WithErr(err)
 	}
-	// get last block with token information
-	atBlock, err := capi.db.QueriesRO.LastBlockByTokenID(internalCtx, address.Bytes())
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			return ErrCantGetToken.WithErr(err)
-		}
-		atBlock = 0
-	}
 	// if the token is not synced, get the last block of the network to
 	// calculate the current scan progress
+	atBlock := uint64(tokenData.LastBlock)
 	tokenProgress := 100
 	if !tokenData.Synced {
 		provider, exists := capi.holderProviders[tokenData.TypeID]
@@ -497,7 +490,9 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		if err != nil {
 			return ErrCantGetLastBlockNumber.WithErr(err)
 		}
-		tokenProgress = int(float64(atBlock) / float64(lastBlockNumber) * 100)
+		lastBlockNumber -= uint64(tokenData.CreationBlock)
+		currentBlockNumber := atBlock - uint64(tokenData.CreationBlock)
+		tokenProgress = int(float64(currentBlockNumber) / float64(lastBlockNumber) * 100)
 	}
 	// get token holders count
 	holders, err := capi.db.QueriesRO.CountTokenHolders(internalCtx,

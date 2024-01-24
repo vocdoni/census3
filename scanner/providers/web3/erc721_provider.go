@@ -10,17 +10,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
+	erc721 "github.com/vocdoni/census3/contracts/erc/erc721"
 	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
 
-type ERC20HolderProvider struct {
+type ERC721HolderProvider struct {
 	endpoints NetworkEndpoints
 	client    *ethclient.Client
 
-	contract      *erc20.ERC20Contract
+	contract      *erc721.ERC721Contract
 	address       common.Address
 	chainID       uint64
 	name          string
@@ -34,7 +34,7 @@ type ERC20HolderProvider struct {
 	balancesBlock uint64
 }
 
-func (p *ERC20HolderProvider) Init(iconf any) error {
+func (p *ERC721HolderProvider) Init(iconf any) error {
 	// parse the config and set the endpoints
 	conf, ok := iconf.(Web3ProviderConfig)
 	if !ok {
@@ -54,7 +54,7 @@ func (p *ERC20HolderProvider) Init(iconf any) error {
 	return nil
 }
 
-func (p *ERC20HolderProvider) SetRef(iref any) error {
+func (p *ERC721HolderProvider) SetRef(iref any) error {
 	if p.endpoints == nil {
 		return errors.New("endpoints not defined")
 	}
@@ -69,13 +69,13 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	// connect to the endpoint
 	client, err := currentEndpoint.GetClient(DefaultMaxWeb3ClientRetries)
 	if err != nil {
-		return errors.Join(ErrConnectingToWeb3Client, fmt.Errorf("[ERC20] %s: %w", ref.HexAddress, err))
+		return errors.Join(ErrConnectingToWeb3Client, fmt.Errorf("[ERC721] %s: %w", ref.HexAddress, err))
 	}
 	// set the client, parse the address and initialize the contract
 	p.client = client
 	address := common.HexToAddress(ref.HexAddress)
-	if p.contract, err = erc20.NewERC20Contract(address, client); err != nil {
-		return errors.Join(ErrInitializingContract, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+	if p.contract, err = erc721.NewERC721Contract(address, client); err != nil {
+		return errors.Join(ErrInitializingContract, fmt.Errorf("[ERC721] %s: %w", p.address, err))
 	}
 	// reset the internal attributes
 	p.address = address
@@ -93,7 +93,7 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	return nil
 }
 
-func (p *ERC20HolderProvider) SetLastBalances(ctx context.Context, id []byte,
+func (p *ERC721HolderProvider) SetLastBalances(ctx context.Context, id []byte,
 	balances map[common.Address]*big.Int, from uint64,
 ) error {
 	p.balancesMtx.Lock()
@@ -107,7 +107,7 @@ func (p *ERC20HolderProvider) SetLastBalances(ctx context.Context, id []byte,
 	return nil
 }
 
-func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
+func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
 	map[common.Address]*big.Int, uint64, uint64, bool, error,
 ) {
 	// calculate the range of blocks to scan, by default take the last block
@@ -118,7 +118,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	}
 	log.Infow("scan iteration",
 		"address", p.address,
-		"type", providers.TokenTypeStringMap[providers.CONTRACT_TYPE_ERC20],
+		"type", providers.TokenTypeStringMap[providers.CONTRACT_TYPE_ERC721],
 		"from", fromBlock,
 		"to", toBlock)
 	// some variables to calculate the progress
@@ -136,21 +136,21 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	newTransfers := uint64(len(logs))
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
-		logData, err := p.contract.ERC20ContractFilterer.ParseTransfer(currentLog)
+		logData, err := p.contract.ERC721ContractFilterer.ParseTransfer(currentLog)
 		if err != nil {
-			return nil, newTransfers, lastBlock, false, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+			return nil, newTransfers, lastBlock, false, fmt.Errorf("[ERC721] %w: %s: %w", ErrParsingTokenLogs, p.address.Hex(), err)
 		}
 		// update balances
 		p.balancesMtx.Lock()
 		if toBalance, ok := p.balances[logData.To]; ok {
-			p.balances[logData.To] = new(big.Int).Add(toBalance, logData.Value)
+			p.balances[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
 		} else {
-			p.balances[logData.To] = logData.Value
+			p.balances[logData.To] = big.NewInt(1)
 		}
 		if fromBalance, ok := p.balances[logData.From]; ok {
-			p.balances[logData.From] = new(big.Int).Sub(fromBalance, logData.Value)
+			p.balances[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
-			p.balances[logData.From] = new(big.Int).Neg(logData.Value)
+			p.balances[logData.From] = big.NewInt(-1)
 		}
 		p.balancesMtx.Unlock()
 	}
@@ -166,72 +166,61 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	return p.balances, newTransfers, lastBlock, synced, nil
 }
 
-func (p *ERC20HolderProvider) Close() error {
+func (p *ERC721HolderProvider) Close() error {
 	return nil
 }
 
-func (p *ERC20HolderProvider) IsExternal() bool {
+func (p *ERC721HolderProvider) IsExternal() bool {
 	return false
 }
 
-func (p *ERC20HolderProvider) Address() common.Address {
+func (p *ERC721HolderProvider) Address() common.Address {
 	return p.address
 }
 
-func (p *ERC20HolderProvider) Type() uint64 {
-	return providers.CONTRACT_TYPE_ERC20
+func (p *ERC721HolderProvider) Type() uint64 {
+	return providers.CONTRACT_TYPE_ERC721
 }
 
-func (p *ERC20HolderProvider) ChainID() uint64 {
+func (p *ERC721HolderProvider) ChainID() uint64 {
 	return p.chainID
 }
 
-func (p *ERC20HolderProvider) Name(_ []byte) (string, error) {
+func (p *ERC721HolderProvider) Name(_ []byte) (string, error) {
 	var err error
 	if p.name == "" {
-		p.name, err = p.contract.ERC20ContractCaller.Name(nil)
+		p.name, err = p.contract.ERC721ContractCaller.Name(nil)
 	}
 	return p.name, err
 }
 
-func (p *ERC20HolderProvider) Symbol(_ []byte) (string, error) {
+func (p *ERC721HolderProvider) Symbol(_ []byte) (string, error) {
 	var err error
 	if p.symbol == "" {
-		p.symbol, err = p.contract.ERC20ContractCaller.Symbol(nil)
+		p.symbol, err = p.contract.ERC721ContractCaller.Symbol(nil)
 	}
 	return p.symbol, err
 }
 
-func (p *ERC20HolderProvider) Decimals(_ []byte) (uint64, error) {
-	if p.decimals == 0 {
-		decimals, err := p.contract.ERC20ContractCaller.Decimals(nil)
-		if err != nil {
-			return 0, err
-		}
-		p.decimals = uint64(decimals)
-	}
-	return p.decimals, nil
+func (p *ERC721HolderProvider) Decimals(_ []byte) (uint64, error) {
+	return 0, nil
 }
 
-func (p *ERC20HolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
-	var err error
-	if p.totalSupply == nil {
-		p.totalSupply, err = p.contract.ERC20ContractCaller.TotalSupply(nil)
-	}
-	return p.totalSupply, err
+func (p *ERC721HolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
+	return nil, nil
 }
 
-func (p *ERC20HolderProvider) BalanceOf(addr common.Address, _ []byte) (*big.Int, error) {
-	return p.contract.ERC20ContractCaller.BalanceOf(nil, addr)
+func (p *ERC721HolderProvider) BalanceOf(addr common.Address, _ []byte) (*big.Int, error) {
+	return p.contract.ERC721ContractCaller.BalanceOf(nil, addr)
 }
 
-func (p *ERC20HolderProvider) BalanceAt(ctx context.Context, addr common.Address,
+func (p *ERC721HolderProvider) BalanceAt(ctx context.Context, addr common.Address,
 	_ []byte, blockNumber uint64,
 ) (*big.Int, error) {
 	return p.client.BalanceAt(ctx, addr, new(big.Int).SetUint64(blockNumber))
 }
 
-func (p *ERC20HolderProvider) BlockTimestamp(ctx context.Context, blockNumber uint64) (string, error) {
+func (p *ERC721HolderProvider) BlockTimestamp(ctx context.Context, blockNumber uint64) (string, error) {
 	internal.GetBlockByNumberCounter.Add(1)
 	blockHeader, err := p.client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 	if err != nil {
@@ -240,7 +229,7 @@ func (p *ERC20HolderProvider) BlockTimestamp(ctx context.Context, blockNumber ui
 	return time.Unix(int64(blockHeader.Time), 0).Format(timeLayout), nil
 }
 
-func (p *ERC20HolderProvider) BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error) {
+func (p *ERC721HolderProvider) BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error) {
 	internal.GetBlockByNumberCounter.Add(1)
 	blockHeader, err := p.client.HeaderByNumber(ctx, new(big.Int).SetInt64(int64(blockNumber)))
 	if err != nil {
@@ -249,7 +238,7 @@ func (p *ERC20HolderProvider) BlockRootHash(ctx context.Context, blockNumber uin
 	return blockHeader.Root.Bytes(), nil
 }
 
-func (p *ERC20HolderProvider) LatestBlockNumber(ctx context.Context, _ []byte) (uint64, error) {
+func (p *ERC721HolderProvider) LatestBlockNumber(ctx context.Context, _ []byte) (uint64, error) {
 	internal.GetBlockByNumberCounter.Add(1)
 	lastBlockHeader, err := p.client.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -258,7 +247,7 @@ func (p *ERC20HolderProvider) LatestBlockNumber(ctx context.Context, _ []byte) (
 	return lastBlockHeader.Number.Uint64(), nil
 }
 
-func (p *ERC20HolderProvider) CreationBlock(ctx context.Context, _ []byte) (uint64, error) {
+func (p *ERC721HolderProvider) CreationBlock(ctx context.Context, _ []byte) (uint64, error) {
 	var err error
 	if p.creationBlock == 0 {
 		var lastBlock uint64
@@ -271,6 +260,6 @@ func (p *ERC20HolderProvider) CreationBlock(ctx context.Context, _ []byte) (uint
 	return p.creationBlock, err
 }
 
-func (p *ERC20HolderProvider) IconURI(_ []byte) (string, error) {
+func (p *ERC721HolderProvider) IconURI(_ []byte) (string, error) {
 	return "", nil
 }

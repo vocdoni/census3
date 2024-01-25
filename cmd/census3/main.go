@@ -30,6 +30,7 @@ type Census3Config struct {
 	port                           int
 	poapAPIEndpoint, poapAuthToken string
 	gitcoinEndpoint                string
+	gitcoinCooldown                time.Duration
 	scannerCoolDown                time.Duration
 	adminToken                     string
 	initialTokens                  string
@@ -52,6 +53,7 @@ func main() {
 	flag.StringVar(&config.poapAPIEndpoint, "poapAPIEndpoint", "", "POAP API endpoint")
 	flag.StringVar(&config.poapAuthToken, "poapAuthToken", "", "POAP API access token")
 	flag.StringVar(&config.gitcoinEndpoint, "gitcoinEndpoint", "", "Gitcoin Passport API access token")
+	flag.DurationVar(&config.gitcoinCooldown, "gitcoinCooldown", 6*time.Hour, "Gitcoin Passport API cooldown")
 	var strWeb3Providers string
 	flag.StringVar(&strWeb3Providers, "web3Providers", "", "the list of URL's of available web3 providers")
 	flag.DurationVar(&config.scannerCoolDown, "scannerCoolDown", 120*time.Second, "the time to wait before next scanner iteration")
@@ -98,6 +100,10 @@ func main() {
 		panic(err)
 	}
 	config.gitcoinEndpoint = pviper.GetString("gitcoinEndpoint")
+	if err := pviper.BindPFlag("gitcoinCooldown", flag.Lookup("gitcoinCooldown")); err != nil {
+		panic(err)
+	}
+	config.gitcoinCooldown = pviper.GetDuration("gitcoinCooldown")
 	if err := pviper.BindPFlag("web3Providers", flag.Lookup("web3Providers")); err != nil {
 		panic(err)
 	}
@@ -146,6 +152,7 @@ func main() {
 		// init Gitcoin external provider
 		gitcoinProvider := &gitcoin.GitcoinPassport{
 			APIEndpoint: config.gitcoinEndpoint,
+			Cooldown:    config.gitcoinCooldown,
 		}
 		if err := gitcoinProvider.Init(); err != nil {
 			log.Fatal(err)

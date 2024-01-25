@@ -34,6 +34,7 @@ type gitcoinScoreResult struct {
 type GitcoinPassport struct {
 	// public endpoint to download the json
 	APIEndpoint string
+	Cooldown    time.Duration
 	// internal vars to manage the download
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -77,7 +78,7 @@ func (g *GitcoinPassport) SetLastBalances(_ context.Context, _ []byte, balances 
 }
 
 func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64) (map[common.Address]*big.Int, error) {
-	if time.Since(g.lastUpdate) > 12*time.Hour && !g.downloading.Load() {
+	if time.Since(g.lastUpdate) > g.Cooldown && !g.downloading.Load() {
 		log.Info("downloading Gitcoin Passport balances")
 		go func() {
 			g.downloading.Store(true)

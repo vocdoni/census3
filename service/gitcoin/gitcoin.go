@@ -96,7 +96,7 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64)
 		g.updated.Store(false)
 		return g.calcPartials(), nil
 	}
-	log.Info("no changes in Gitcoin Passport balances from last 12 hours")
+	log.Infof("no changes in Gitcoin Passport balances from last %s", g.Cooldown)
 	return nil, nil
 }
 
@@ -203,6 +203,12 @@ func (g *GitcoinPassport) Close() error {
 	return nil
 }
 
+func (g *GitcoinPassport) IsSynced(_ []byte) bool {
+	g.currentBalancesMtx.RLock()
+	defer g.currentBalancesMtx.RUnlock()
+	return len(g.currentBalances) > 0
+}
+
 func (g *GitcoinPassport) Address(_ context.Context, _ []byte) (common.Address, error) {
 	return common.HexToAddress("0x000000000000000000000000000000000000006C"), nil
 }
@@ -228,7 +234,7 @@ func (g *GitcoinPassport) BalanceOf(_ context.Context, _ []byte, _ common.Addres
 }
 
 func (g *GitcoinPassport) BlockTimestamp(_ context.Context, _ uint64) (string, error) {
-	return "", nil
+	return fmt.Sprint(time.Now()), nil
 }
 
 func (g *GitcoinPassport) BlockRootHash(_ context.Context, _ uint64) ([]byte, error) {
@@ -237,7 +243,7 @@ func (g *GitcoinPassport) BlockRootHash(_ context.Context, _ uint64) ([]byte, er
 }
 
 func (g *GitcoinPassport) LatestBlockNumber(_ context.Context, _ []byte) (uint64, error) {
-	return 0, nil
+	return uint64(time.Now().Unix() / 60), nil
 }
 
 func (g *GitcoinPassport) CreationBlock(_ context.Context, _ []byte) (uint64, error) {

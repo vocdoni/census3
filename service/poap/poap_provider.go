@@ -102,6 +102,10 @@ func (p *POAPHolderProvider) Close() error {
 	return nil
 }
 
+func (p *POAPHolderProvider) IsSynced(_ []byte) bool {
+	return true
+}
+
 // Init initializes the POAP external provider with the database provided.
 // It returns an error if the POAP access token or api endpoint uri is not
 // defined.

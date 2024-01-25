@@ -513,8 +513,11 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address, c
 			return false, err
 		}
 		th.BlockDone(blockNumber)
-		th.Synced()
-		return true, s.saveHolders(th)
+		synced := provider.IsSynced([]byte(th.ExternalID))
+		if synced {
+			th.Synced()
+		}
+		return synced, s.saveHolders(th)
 	}
 	// get correct web3 uri provider
 	w3URI, exists := s.w3p.EndpointByChainID(th.ChainID)

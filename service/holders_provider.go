@@ -26,6 +26,8 @@ type HolderProvider interface {
 	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, error)
 	// Close closes the provider and its internal structures.
 	Close() error
+	// IsSynced returns true if the current state of the provider is synced
+	IsSynced(id []byte) bool
 	// Token realated methods
 	Address(ctx context.Context, id []byte) (common.Address, error)
 	Name(ctx context.Context, id []byte) (string, error)

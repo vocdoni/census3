@@ -159,6 +159,22 @@ func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// CreateInitialTokens creates the tokens defined in the file provided in the
+// tokensPath if it is defined. This function is used to create the initial
+// tokens of the census3 database. It read the tokens file, parse it and create
+// the tokens in the database. It also creates the default token strategy for
+// each token. The tokens file must be a json file with the following format:
+// [
+//
+//	{
+//	  "ID": "0x0000000000000000000000000000000000000001"
+//	  "chainID": "token name",
+//	  "externalID": "token symbol",
+//	  "type": "erc20",
+//	},
+//	...
+//
+// ]
 func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 	// skip if the tokens file is not defined
 	if tokensPath == "" {

@@ -18,6 +18,7 @@ import (
 	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/scanner"
 	"github.com/vocdoni/census3/scanner/providers"
+	"github.com/vocdoni/census3/scanner/providers/gitcoin"
 	"github.com/vocdoni/census3/scanner/providers/poap"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
@@ -28,8 +29,10 @@ type Census3Config struct {
 	listOfWeb3Providers            []string
 	port                           int
 	poapAPIEndpoint, poapAuthToken string
+	gitcoinEndpoint                string
 	scannerCoolDown                time.Duration
 	adminToken                     string
+	initialTokens                  string
 }
 
 func main() {
@@ -46,12 +49,14 @@ func main() {
 	flag.StringVar(&config.logLevel, "logLevel", "info", "log level (debug, info, warn, error)")
 	flag.IntVar(&config.port, "port", 7788, "HTTP port for the API")
 	flag.StringVar(&config.connectKey, "connectKey", "", "connect group key for IPFS connect")
-	flag.StringVar(&config.poapAPIEndpoint, "poapAPIEndpoint", "", "POAP API access token")
+	flag.StringVar(&config.poapAPIEndpoint, "poapAPIEndpoint", "", "POAP API endpoint")
 	flag.StringVar(&config.poapAuthToken, "poapAuthToken", "", "POAP API access token")
+	flag.StringVar(&config.gitcoinEndpoint, "gitcoinEndpoint", "", "Gitcoin Passport API access token")
 	var strWeb3Providers string
 	flag.StringVar(&strWeb3Providers, "web3Providers", "", "the list of URL's of available web3 providers")
 	flag.DurationVar(&config.scannerCoolDown, "scannerCoolDown", 120*time.Second, "the time to wait before next scanner iteration")
 	flag.StringVar(&config.adminToken, "adminToken", "", "the admin UUID token for the API")
+	flag.StringVar(&config.initialTokens, "initialTokens", "", "path of the initial tokens json file")
 	flag.Parse()
 	// init viper to read config file
 	pviper := viper.New()
@@ -89,6 +94,10 @@ func main() {
 		panic(err)
 	}
 	config.poapAuthToken = pviper.GetString("poapAuthToken")
+	if err := pviper.BindPFlag("gitcoinEndpoint", flag.Lookup("gitcoinEndpoint")); err != nil {
+		panic(err)
+	}
+	config.gitcoinEndpoint = pviper.GetString("gitcoinEndpoint")
 	if err := pviper.BindPFlag("web3Providers", flag.Lookup("web3Providers")); err != nil {
 		panic(err)
 	}
@@ -101,6 +110,10 @@ func main() {
 		panic(err)
 	}
 	config.adminToken = pviper.GetString("adminToken")
+	if err := pviper.BindPFlag("initialTokens", flag.Lookup("initialTokens")); err != nil {
+		panic(err)
+	}
+	config.initialTokens = pviper.GetString("initialTokens")
 	// init logger
 	log.Init(config.logLevel, "stdout", nil)
 	// check if the web3 providers are defined
@@ -117,6 +130,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// start the holder scanner with the database and the providers
+	hc := scanner.NewScanner(database, w3p, config.scannerCoolDown)
 	// init the web3 token providers
 	erc20Provider := new(web3.ERC20HolderProvider)
 	if err := erc20Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
@@ -130,17 +145,37 @@ func main() {
 	if err := erc777Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
 		log.Fatal(err)
 	}
-	// init POAP external provider
-	poapProvider := new(poap.POAPHolderProvider)
-	if err := poapProvider.Init(poap.POAPConfig{
-		URI:         config.poapAPIEndpoint,
-		AccessToken: config.poapAuthToken,
-	}); err != nil {
-		log.Fatal(err)
+	// set the providers in the scanner and the API
+	hc.SetProviders(erc20Provider, erc721Provider, erc777Provider)
+	apiProviders := map[uint64]providers.HolderProvider{
+		erc20Provider.Type():  erc20Provider,
+		erc721Provider.Type(): erc721Provider,
+		erc777Provider.Type(): erc777Provider,
 	}
-	// start the holder scanner with the database and the providers
-	hc := scanner.NewScanner(database, w3p, config.scannerCoolDown)
-	hc.SetProviders(erc20Provider, erc721Provider, erc777Provider, poapProvider)
+	// init POAP external provider
+	if config.poapAPIEndpoint != "" {
+		poapProvider := new(poap.POAPHolderProvider)
+		if err := poapProvider.Init(poap.POAPConfig{
+			URI:         config.poapAPIEndpoint,
+			AccessToken: config.poapAuthToken,
+		}); err != nil {
+			log.Fatal(err)
+		}
+		hc.SetProviders(poapProvider)
+		apiProviders[poapProvider.Type()] = poapProvider
+	}
+	if config.gitcoinEndpoint != "" {
+		// init Gitcoin external provider
+		gitcoinProvider := new(gitcoin.GitcoinPassport)
+		if err := gitcoinProvider.Init(gitcoin.GitcoinPassportConf{
+			APIEndpoint: config.gitcoinEndpoint,
+		}); err != nil {
+			log.Fatal(err)
+		}
+		hc.SetProviders(gitcoinProvider)
+		apiProviders[gitcoinProvider.Type()] = gitcoinProvider
+	}
+
 	// if the admin token is not defined, generate a random one
 	if config.adminToken != "" {
 		if _, err := uuid.Parse(config.adminToken); err != nil {
@@ -152,21 +187,19 @@ func main() {
 	}
 	// Start the API
 	apiService, err := api.Init(database, api.Census3APIConf{
-		Hostname:      "0.0.0.0",
-		Port:          config.port,
-		DataDir:       config.dataDir,
-		Web3Providers: w3p,
-		GroupKey:      config.connectKey,
-		HolderProviders: map[uint64]providers.HolderProvider{
-			providers.CONTRACT_TYPE_ERC20:  erc20Provider,
-			providers.CONTRACT_TYPE_ERC721: erc721Provider,
-			providers.CONTRACT_TYPE_ERC777: erc777Provider,
-			providers.CONTRACT_TYPE_POAP:   poapProvider,
-		},
-		AdminToken: config.adminToken,
+		Hostname:        "0.0.0.0",
+		Port:            config.port,
+		DataDir:         config.dataDir,
+		Web3Providers:   w3p,
+		GroupKey:        config.connectKey,
+		HolderProviders: apiProviders,
+		AdminToken:      config.adminToken,
 	})
 	if err != nil {
 		log.Fatal(err)
+	}
+	if err := apiService.CreateInitialTokens(config.initialTokens); err != nil {
+		log.Warnf("error creating initial tokens: %s", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	go hc.Start(ctx)

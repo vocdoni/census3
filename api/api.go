@@ -1,11 +1,20 @@
 package api
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
+	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/db/annotations"
+	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/queue"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
@@ -147,4 +156,91 @@ func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext
 		return ErrEncodeAPIInfo
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// CreateInitialTokens creates the tokens defined in the file provided in the
+// tokensPath if it is defined. This function is used to create the initial
+// tokens of the census3 database. It read the tokens file, parse it and create
+// the tokens in the database. It also creates the default token strategy for
+// each token. The tokens file must be a json file with the following format:
+// [
+//
+//	{
+//	  "ID": "0x0000000000000000000000000000000000000001"
+//	  "chainID": "token name",
+//	  "externalID": "token symbol",
+//	  "type": "erc20",
+//	},
+//	...
+//
+// ]
+func (capi *census3API) CreateInitialTokens(tokensPath string) error {
+	// skip if the tokens file is not defined
+	if tokensPath == "" {
+		return nil
+	}
+	// read the tokens file
+	content, err := os.ReadFile(tokensPath)
+	if err != nil {
+		return err
+	}
+	// parse the tokens file
+	tokens := []GetTokenResponse{}
+	if err := json.Unmarshal(content, &tokens); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	// create the tokens
+	tx, err := capi.db.RW.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "create token transaction rollback failed")
+		}
+	}()
+	qtx := capi.db.QueriesRW.WithTx(tx)
+	for _, token := range tokens {
+		addr := common.HexToAddress(token.ID)
+		_, err = qtx.CreateToken(ctx, queries.CreateTokenParams{
+			ID:            addr.Bytes(),
+			Name:          token.Name,
+			Symbol:        token.Symbol,
+			Decimals:      token.Decimals,
+			TotalSupply:   annotations.BigInt(token.TotalSupply),
+			CreationBlock: 0,
+			TypeID:        uint64(web3.TokenTypeFromString(token.Type)),
+			Synced:        false,
+			Tags:          token.Tags,
+			ChainID:       token.ChainID,
+			ChainAddress:  token.ChainAddress,
+			ExternalID:    token.ExternalID,
+			IconUri:       token.IconURI,
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				return nil
+			}
+			return err
+		}
+		strategyID, err := capi.createDefaultTokenStrategy(ctx, qtx,
+			addr, token.ChainID, token.ChainAddress, token.Symbol, token.ExternalID)
+		if err != nil {
+			return err
+		}
+		if _, err := qtx.UpdateTokenDefaultStrategy(ctx, queries.UpdateTokenDefaultStrategyParams{
+			ID:              addr.Bytes(),
+			DefaultStrategy: uint64(strategyID),
+			ChainID:         token.ChainID,
+			ExternalID:      token.ExternalID,
+		}); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }

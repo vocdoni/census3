@@ -130,26 +130,29 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	externalProviders := map[state.TokenType]service.HolderProvider{}
 	// init POAP external provider
-	poapProvider := &poap.POAPHolderProvider{
-		URI:         config.poapAPIEndpoint,
-		AccessToken: config.poapAuthToken,
+	if config.poapAPIEndpoint != "" {
+		poapProvider := &poap.POAPHolderProvider{
+			URI:         config.poapAPIEndpoint,
+			AccessToken: config.poapAuthToken,
+		}
+		if err := poapProvider.Init(); err != nil {
+			log.Fatal(err)
+		}
+		externalProviders[state.CONTRACT_TYPE_POAP] = poapProvider
 	}
-	if err := poapProvider.Init(); err != nil {
-		log.Fatal(err)
-	}
-	// init Gitcoin external provider
-	gitcoinProvider := &gitcoin.GitcoinPassport{
-		APIEndpoint: config.gitcoinEndpoint,
-	}
-	if err := gitcoinProvider.Init(); err != nil {
-		log.Fatal(err)
+	if config.gitcoinEndpoint != "" {
+		// init Gitcoin external provider
+		gitcoinProvider := &gitcoin.GitcoinPassport{
+			APIEndpoint: config.gitcoinEndpoint,
+		}
+		if err := gitcoinProvider.Init(); err != nil {
+			log.Fatal(err)
+		}
+		externalProviders[state.CONTRACT_TYPE_GITCOINPASSPORT] = gitcoinProvider
 	}
 	// start the holder scanner with the database and the external providers
-	externalProviders := map[state.TokenType]service.HolderProvider{
-		state.CONTRACT_TYPE_POAP:            poapProvider,
-		state.CONTRACT_TYPE_GITCOINPASSPORT: gitcoinProvider,
-	}
 	hc, err := service.NewHoldersScanner(database, w3p, externalProviders, config.scannerCoolDown)
 	if err != nil {
 		log.Fatal(err)

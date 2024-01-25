@@ -318,6 +318,15 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 // synced status if it is different from the received one. Then, it creates,
 // updates or deletes the token holders in the database depending on the
 // calculated balance.
+// WARNING: the following code could produce holders with negative balances
+// in the database. This is because the scanner does not know if the token
+// holder is a contract or not, so it does not know if the balance is
+// correct or not. The scanner assumes that the balance is correct and
+// updates it in the database:
+//  1. To get the correct holders from the database you must filter the
+//     holders with negative balances.
+//  2. To get the correct balances you must use the contract methods to get
+//     the balances of the holders.
 func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 	holders map[common.Address]*big.Int, newTransfers, lastBlock uint64,
 	synced bool,
@@ -328,7 +337,6 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		"externalID", token.ExternalID,
 		"block", lastBlock,
 		"holders", len(holders))
-
 	s.tokensMtx.Lock()
 	for i, t := range s.tokens {
 		if t.Address == token.Address && t.ChainID == token.ChainID && t.ExternalID == token.ExternalID {
@@ -401,11 +409,6 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 			if !errors.Is(sql.ErrNoRows, err) {
 				return err
 			}
-			// if the holder does not exists in the database and the balance is
-			// 0 or less, skip it
-			if balance.Cmp(big.NewInt(0)) != 1 {
-				continue
-			}
 			// if the token holder not exists, create it
 			_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
 				TokenID:    token.Address.Bytes(),
@@ -421,28 +424,12 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 			created++
 			continue
 		}
-		// if the calculated balance is negative,try todelete the token holder
-		if balance.Cmp(big.NewInt(0)) != 1 {
-			if _, err := qtx.DeleteTokenHolder(ctx, queries.DeleteTokenHolderParams{
-				TokenID:    token.Address.Bytes(),
-				ChainID:    token.ChainID,
-				ExternalID: token.ExternalID,
-				HolderID:   addr.Bytes(),
-			}); err != nil {
-				return fmt.Errorf("error deleting token holder: %w", err)
-			}
-			deleted++
-			continue
-		}
-		// parse the current token holder balance and compare it with the
-		// calculated one, if they are the same, continue
+		// compute the new balance of the holder
 		currentBalance, ok := new(big.Int).SetString(currentTokenHolder.Balance, 10)
 		if !ok {
 			return fmt.Errorf("error parsing current token holder balance")
 		}
-		if currentBalance.Cmp(balance) == 0 {
-			continue
-		}
+		newBalance := new(big.Int).Add(currentBalance, balance)
 		// if the calculated balance is not 0 or less and it is different
 		// from the current one, update it in the database
 		_, err = qtx.UpdateTokenHolderBalance(ctx, queries.UpdateTokenHolderBalanceParams{
@@ -452,7 +439,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 			HolderID:   addr.Bytes(),
 			BlockID:    currentTokenHolder.BlockID,
 			NewBlockID: lastBlock,
-			Balance:    balance.String(),
+			Balance:    newBalance.String(),
 		})
 		if err != nil {
 			return fmt.Errorf("error updating token holder: %w", err)

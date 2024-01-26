@@ -308,7 +308,9 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 		return nil, 0, token.LastBlock, token.Synced, err
 	}
 	// set the current holders into the provider and get the new ones
-	if err := provider.SetLastBalances(ctx, []byte(token.ExternalID), currentHolders, token.LastBlock); err != nil {
+	if err := provider.SetLastBalances(ctx, []byte(token.ExternalID),
+		currentHolders, token.LastBlock,
+	); err != nil {
 		return nil, 0, token.LastBlock, token.Synced, err
 	}
 	return provider.HoldersBalances(ctx, []byte(token.ExternalID), token.LastBlock)

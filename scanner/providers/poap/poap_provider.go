@@ -146,7 +146,7 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 		from:     from,
 		snapshot: newSnapshot,
 	}
-	// return the final snapshot 
+	// return the final snapshot
 	return finalSnapshot, uint64(len(finalSnapshot)), from, true, nil
 }
 

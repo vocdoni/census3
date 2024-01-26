@@ -81,7 +81,7 @@ func TestGitcoinPassport(t *testing.T) {
 	for addr, balance := range expectedOriginalHolders {
 		currentHolders[common.HexToAddress(addr)], _ = new(big.Int).SetString(balance, 10)
 	}
-	provider.SetLastBalances(context.TODO(), nil, currentHolders, 0)
+	c.Assert(provider.SetLastBalances(context.TODO(), nil, currentHolders, 0), qt.IsNil)
 	holders, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(holders), qt.Equals, len(expectedUpdatedHolders))

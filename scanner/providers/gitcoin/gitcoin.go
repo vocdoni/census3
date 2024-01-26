@@ -81,7 +81,9 @@ func (g *GitcoinPassport) SetRef(_ any) error {
 	return nil
 }
 
-func (g *GitcoinPassport) SetLastBalances(_ context.Context, _ []byte, balances map[common.Address]*big.Int, _ uint64) error {
+func (g *GitcoinPassport) SetLastBalances(_ context.Context, _ []byte,
+	balances map[common.Address]*big.Int, _ uint64,
+) error {
 	log.Infof("setting last balances for %d addresses", len(balances))
 	g.currentBalancesMtx.Lock()
 	defer g.currentBalancesMtx.Unlock()
@@ -91,7 +93,9 @@ func (g *GitcoinPassport) SetLastBalances(_ context.Context, _ []byte, balances 
 	return nil
 }
 
-func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64) (map[common.Address]*big.Int, uint64, uint64, bool, error) {
+func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64) (
+	map[common.Address]*big.Int, uint64, uint64, bool, error,
+) {
 	lastUpdate, ok := g.lastUpdate.Load().(time.Time)
 	if !ok {
 		return nil, 1, 0, false, fmt.Errorf("error getting last update")
@@ -118,7 +122,8 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64)
 		g.newBalancesMtx.RLock()
 		defer g.currentBalancesMtx.RUnlock()
 		defer g.newBalancesMtx.RUnlock()
-		return providers.CalcPartialHolders(g.currentBalances, g.newBalances), 1, lastUpdateID, true, nil
+		return providers.CalcPartialHolders(g.currentBalances, g.newBalances),
+			1, lastUpdateID, true, nil
 	}
 	log.Infof("no changes in Gitcoin Passport balances from last %s", g.cooldown)
 	return nil, 1, lastUpdateID, true, nil

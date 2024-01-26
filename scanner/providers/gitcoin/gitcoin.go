@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	dateLayout = "2006-01-02T15:04:05.999Z"
-	hexAddress = "0x000000000000000000000000000000000000006C"
+	dateLayout      = "2006-01-02T15:04:05.999Z"
+	hexAddress      = "0x000000000000000000000000000000000000006C"
+	defaultCooldown = time.Hour * 6
 )
 
 type gitcoinScoreResult struct {
@@ -55,10 +56,19 @@ type GitcoinPassportConf struct {
 	Cooldown    time.Duration
 }
 
+// Init initializes the Gitcoin Passport provider with the given config. If the
+// config is not of type GitcoinPassportConf, or the API endpoint is missing, it
+// returns an error. If the cooldown is not set, it defaults to 6 hours.
 func (g *GitcoinPassport) Init(iconf any) error {
 	conf, ok := iconf.(GitcoinPassportConf)
 	if !ok {
 		return fmt.Errorf("invalid config type")
+	}
+	if conf.APIEndpoint == "" {
+		return fmt.Errorf("missing API endpoint")
+	}
+	if conf.Cooldown == 0 {
+		conf.Cooldown = defaultCooldown
 	}
 	g.apiEndpoint = conf.APIEndpoint
 	g.cooldown = conf.Cooldown
@@ -77,22 +87,31 @@ func (g *GitcoinPassport) Init(iconf any) error {
 	return nil
 }
 
+// SetRef is not implemented for Gitcoin Passport.
 func (g *GitcoinPassport) SetRef(_ any) error {
 	return nil
 }
 
+// SetLastBalances stores the balances of the last block (or other kind of
+// reference). It is used to calculate the partial balances of the current
+// block.
 func (g *GitcoinPassport) SetLastBalances(_ context.Context, _ []byte,
 	balances map[common.Address]*big.Int, _ uint64,
 ) error {
-	log.Infof("setting last balances for %d addresses", len(balances))
 	g.currentBalancesMtx.Lock()
 	defer g.currentBalancesMtx.Unlock()
 	for addr, balance := range balances {
 		g.currentBalances[addr] = new(big.Int).Set(balance)
 	}
+	log.Debugw("last balances stored", "balances", len(balances))
 	return nil
 }
 
+// HoldersBalances returns the balances of the Gitcoin Passport holders. If the
+// cooldown time has passed, it starts a new download. If the download is
+// finished, it returns the partial balances of the current block and the last
+// block scanned. If the download is not finished or the cooldown time has not
+// passed, it returns nil balances (no changes).
 func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64) (
 	map[common.Address]*big.Int, uint64, uint64, bool, error,
 ) {
@@ -129,6 +148,8 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64)
 	return nil, 1, lastUpdateID, true, nil
 }
 
+// updateBalances downloads the json from the API endpoint and stores the
+// balances in the newBalances variable. It also stores the last update time.
 func (g *GitcoinPassport) updateBalances() error {
 	// download de json from API endpoint
 	req, err := http.NewRequestWithContext(g.ctx, http.MethodGet, g.apiEndpoint, nil)
@@ -147,7 +168,9 @@ func (g *GitcoinPassport) updateBalances() error {
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("error downloading json: %s", res.Status)
 	}
-	log.Infof("downloading json from %s (%d bytes)...", g.apiEndpoint, res.ContentLength)
+	log.Debugw("downloading json from gitcoin endpoint",
+		"endpoin", g.apiEndpoint,
+		"size", res.ContentLength)
 	// some vars to track progress
 	bytesRead := 0
 	iterations := 0
@@ -161,7 +184,7 @@ func (g *GitcoinPassport) updateBalances() error {
 		bytesRead += len(scanner.Bytes())
 		if iterations++; iterations%10000 == 0 {
 			progress := float64(bytesRead) / float64(res.ContentLength) * 100
-			log.Infow("still downloading Gitcoin Passport balances...",
+			log.Debugw("still downloading Gitcoin Passport balances...",
 				"progress", fmt.Sprintf("%.2f", progress),
 				"elapsed", time.Since(elapsed).Seconds())
 		}
@@ -203,61 +226,79 @@ func (g *GitcoinPassport) updateBalances() error {
 	return nil
 }
 
+// Close cancels the download context.
 func (g *GitcoinPassport) Close() error {
 	g.cancel()
 	return nil
 }
 
+// IsExternal returns true because Gitcoin Passport is an external provider.
 func (g *GitcoinPassport) IsExternal() bool {
 	return true
 }
 
+// IsSynced returns true if the balances are not empty.
 func (g *GitcoinPassport) IsSynced(_ []byte) bool {
 	g.currentBalancesMtx.RLock()
 	defer g.currentBalancesMtx.RUnlock()
 	return len(g.currentBalances) > 0
 }
 
+// Address returns the address of the Gitcoin Passport contract.
 func (g *GitcoinPassport) Address() common.Address {
 	return common.HexToAddress(hexAddress)
 }
 
+// Type returns the type of the Gitcoin Passport contract.
 func (g *GitcoinPassport) Type() uint64 {
 	return providers.CONTRACT_TYPE_GITCOIN
 }
 
+// ChainID returns the chain ID of the Gitcoin Passport contract.
 func (g *GitcoinPassport) ChainID() uint64 {
 	return 1
 }
 
+// Name returns the name of the Gitcoin Passport contract.
 func (g *GitcoinPassport) Name(_ []byte) (string, error) {
 	return "Gitcoin Passport Score", nil
 }
 
+// Symbol returns the symbol of the Gitcoin Passport contract.
 func (g *GitcoinPassport) Symbol(_ []byte) (string, error) {
 	return "GPS", nil
 }
 
+// Decimals is not implemented for Gitcoin Passport.
 func (g *GitcoinPassport) Decimals(_ []byte) (uint64, error) {
 	return 0, nil
 }
 
+// TotalSupply is not implemented for Gitcoin Passport.
 func (g *GitcoinPassport) TotalSupply(_ []byte) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
+// BalanceOf is not implemented for Gitcoin Passport.
 func (g *GitcoinPassport) BalanceOf(_ common.Address, _ []byte) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
+// BalanceAt is not implemented for Gitcoin Passport.
 func (g *GitcoinPassport) BalanceAt(_ context.Context, _ common.Address, _ []byte, _ uint64) (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
+// BlockTimestamp returns the timestamp of the last update of the balances.
 func (g *GitcoinPassport) BlockTimestamp(_ context.Context, _ uint64) (string, error) {
-	return fmt.Sprint(time.Now()), nil
+	lastUpdate, ok := g.lastUpdate.Load().(time.Time)
+	if !ok {
+		return "", fmt.Errorf("error getting last update")
+	}
+	return fmt.Sprint(lastUpdate), nil
 }
 
+// BlockNumber returns the block number of the last update of the balances.
 func (g *GitcoinPassport) BlockRootHash(_ context.Context, _ uint64) ([]byte, error) {
 	lastUpdate, ok := g.lastUpdate.Load().(time.Time)
 	if !ok {
@@ -267,14 +308,21 @@ func (g *GitcoinPassport) BlockRootHash(_ context.Context, _ uint64) ([]byte, er
 	return timeHash[:], nil
 }
 
+// BlockNumber returns the block number of the last update of the balances.
 func (g *GitcoinPassport) LatestBlockNumber(_ context.Context, _ []byte) (uint64, error) {
-	return uint64(time.Now().Unix() / 60), nil
+	lastUpdate, ok := g.lastUpdate.Load().(time.Time)
+	if !ok {
+		return 0, fmt.Errorf("error getting last update")
+	}
+	return uint64(lastUpdate.Unix() / 60), nil
 }
 
+// CreationBlock is not implemented for Gitcoin Passport.
 func (g *GitcoinPassport) CreationBlock(_ context.Context, _ []byte) (uint64, error) {
 	return 1, nil
 }
 
+// IconURI is not implemented for Gitcoin Passport.
 func (g *GitcoinPassport) IconURI(_ []byte) (string, error) {
 	return "", nil
 }

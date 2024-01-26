@@ -72,10 +72,6 @@ type POAPConfig struct {
 	AccessToken string
 }
 
-func (p *POAPHolderProvider) IsSynced(_ []byte) bool {
-	return true
-}
-
 // Init initializes the POAP external provider with the database provided.
 // It returns an error if the POAP access token or api endpoint uri is not
 // defined.
@@ -99,6 +95,8 @@ func (p *POAPHolderProvider) Init(iconf any) error {
 	return nil
 }
 
+// SetRef method is not implemented in the POAP external provider. By default it
+// returns nil error.
 func (p *POAPHolderProvider) SetRef(_ any) error {
 	return nil
 }
@@ -114,6 +112,7 @@ func (p *POAPHolderProvider) SetLastBalances(_ context.Context, id []byte,
 		from:     from,
 		snapshot: balances,
 	}
+	log.Debugw("last balances stored", "balances", len(balances))
 	return nil
 }
 
@@ -126,6 +125,7 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 ) {
 	// parse eventID from id
 	eventID := string(id)
+	log.Infow("getting POAP holders balances", "eventID", eventID)
 	// get last snapshot
 	newSnapshot, err := p.lastHolders(eventID)
 	if err != nil {
@@ -156,22 +156,38 @@ func (p *POAPHolderProvider) Close() error {
 	return nil
 }
 
+// IsExternal method returns true because the POAP provider is an external
+// provider.
 func (p *POAPHolderProvider) IsExternal() bool {
 	return true
 }
 
+// IsSynced returns true if the POAP external provider has a snapshot for the
+// given id.
+func (p *POAPHolderProvider) IsSynced(externalID []byte) bool {
+	_, exist := p.snapshots[string(externalID)]
+	return exist
+}
+
+// Address returns the address of the POAP token.
 func (p *POAPHolderProvider) Address() common.Address {
 	return common.HexToAddress(POAP_CONTRACT_ADDRESS)
 }
 
+// Type returns the type of the POAP token. By default it returns the
+// CONTRACT_TYPE_POAP.
 func (p *POAPHolderProvider) Type() uint64 {
 	return providers.CONTRACT_TYPE_POAP
 }
 
+// ChainID method is not implemented in the POAP external provider. By default 1.
 func (p *POAPHolderProvider) ChainID() uint64 {
 	return 1
 }
 
+// Name returns the name of the POAP token. It makes a request to the POAP API
+// endpoint to get the event info for the eventID provided and returns the name
+// of the event.
 func (p *POAPHolderProvider) Name(id []byte) (string, error) {
 	info, err := p.getEventInfo(string(id))
 	if err != nil {
@@ -180,6 +196,10 @@ func (p *POAPHolderProvider) Name(id []byte) (string, error) {
 	return info.Name, nil
 }
 
+// Symbol returns the symbol of the POAP token. It makes a request to the POAP
+// API endpoint to get the event info for the eventID provided and returns the
+// symbol of the event, which is composed by the prefix POAP_SYMBOL_PREFIX and
+// the fancyID of the event.
 func (p *POAPHolderProvider) Symbol(id []byte) (string, error) {
 	info, err := p.getEventInfo(string(id))
 	if err != nil {
@@ -249,6 +269,9 @@ func (p *POAPHolderProvider) CreationBlock(_ context.Context, _ []byte) (uint64,
 	return 0, nil
 }
 
+// IconURI returns the icon uri for the given id. It makes a request to the POAP
+// API endpoint to get the event info for the eventID provided and returns the
+// icon uri.
 func (p *POAPHolderProvider) IconURI(id []byte) (string, error) {
 	info, err := p.getEventInfo(string(id))
 	if err != nil {

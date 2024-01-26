@@ -1,5 +1,29 @@
 
 -- +goose Up
+
+-- prepare token_holders table to delete blocks, holders and census_blocks tables
+CREATE TABLE token_holders_backup (
+    token_id BLOB NOT NULL,
+    holder_id BLOB NOT NULL,
+    balance TEXT NOT NULL,
+    block_id INTEGER NOT NULL,
+    chain_id INTEGER NOT NULL,
+    external_id TEXT NULL DEFAULT '',
+    PRIMARY KEY (token_id, holder_id, block_id, chain_id, external_id),
+    FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_token_holders_token_id ON token_holders(token_id);
+CREATE INDEX idx_token_holders_holder_id ON token_holders(holder_id);
+CREATE INDEX idx_token_holders_block_id ON token_holders(block_id);
+
+INSERT INTO token_holders_backup SELECT * FROM token_holders;
+DROP TABLE token_holders;
+ALTER TABLE token_holders_backup RENAME TO token_holders;
+
+DELETE FROM blocks;
+DELETE FROM holders;
+DELETE FROM census_blocks;
+
 DELETE FROM token_types;
 UPDATE sqlite_sequence SET seq = 0 WHERE name = 'token_types';
 INSERT INTO token_types (id, type_name) VALUES (0, 'unknown');

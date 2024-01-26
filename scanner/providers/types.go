@@ -14,7 +14,7 @@ const (
 	CONTRACT_NAME_ERC721  = "erc721"
 	CONTRACT_NAME_ERC777  = "erc777"
 	CONTRACT_NAME_POAP    = "poap"
-	CONTRACT_NAME_GITCOIN = "GITCOIN"
+	CONTRACT_NAME_GITCOIN = "gitcoinpassport"
 )
 
 var TokenTypeStringMap = map[uint64]string{

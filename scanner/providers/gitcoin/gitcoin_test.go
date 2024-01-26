@@ -3,11 +3,13 @@ package gitcoin
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
 )
 
@@ -19,10 +21,7 @@ var (
 		"0x2b1a6dd2a80f7e9a2305205572df0f4b38b205a1": "0",
 	}
 	expectedUpdatedHolders = map[string]string{
-		"0x85ff01cff157199527528788ec4ea6336615c989": "10",
-		"0x7587cfbd20e5a970209526b4d1f69dbaae8bed37": "9",
-		"0x7bec70fa7ef926878858333b0fa581418e2ef0b5": "1",
-		"0x2b1a6dd2a80f7e9a2305205572df0f4b38b205a1": "0",
+		"0x85ff01cff157199527528788ec4ea6336615c989": "-2",
 	}
 )
 
@@ -47,7 +46,7 @@ func TestGitcoinPassport(t *testing.T) {
 	originalEndpoint, updatedEndpoint := serveStaticFile("./mocked_data.jsonl", "./mocked_data_updated.jsonl")
 	// create the provider
 	provider := new(GitcoinPassport)
-	c.Assert(provider.Init(GitcoinPassportConf{originalEndpoint}), qt.IsNil)
+	c.Assert(provider.Init(GitcoinPassportConf{originalEndpoint, time.Second * 2}), qt.IsNil)
 	// start the first download
 	emptyBalances, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
@@ -71,13 +70,18 @@ func TestGitcoinPassport(t *testing.T) {
 	c.Assert(len(sameBalances), qt.Equals, 0)
 
 	provider.apiEndpoint = updatedEndpoint
-	provider.lastUpdate = time.Time{}
+	provider.lastUpdate.Store(time.Time{})
 	emptyBalances, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(emptyBalances), qt.Equals, 0)
 
 	time.Sleep(2 * time.Second)
 	// check the balances
+	currentHolders := make(map[common.Address]*big.Int)
+	for addr, balance := range expectedOriginalHolders {
+		currentHolders[common.HexToAddress(addr)], _ = new(big.Int).SetString(balance, 10)
+	}
+	provider.SetLastBalances(context.TODO(), nil, currentHolders, 0)
 	holders, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(holders), qt.Equals, len(expectedUpdatedHolders))

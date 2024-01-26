@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,6 +28,7 @@ type ERC20HolderProvider struct {
 	decimals      uint64
 	totalSupply   *big.Int
 	creationBlock uint64
+	synced        atomic.Bool
 }
 
 func (p *ERC20HolderProvider) Init(iconf any) error {
@@ -36,6 +38,7 @@ func (p *ERC20HolderProvider) Init(iconf any) error {
 		return errors.New("invalid config type, it must be Web3ProviderConfig")
 	}
 	p.endpoints = conf.Endpoints
+	p.synced.Store(false)
 	// set the reference if the address and chainID are defined in the config
 	if conf.HexAddress != "" && conf.ChainID > 0 {
 		return p.SetRef(Web3ProviderRef{
@@ -77,6 +80,7 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	p.decimals = 0
 	p.totalSupply = nil
 	p.creationBlock = 0
+	p.synced.Store(false)
 	return nil
 }
 
@@ -134,6 +138,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
 		"took", time.Since(startTime).Seconds(),
 		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))
+	p.synced.Store(synced)
 	return balances, newTransfers, lastBlock, synced, nil
 }
 
@@ -143,6 +148,10 @@ func (p *ERC20HolderProvider) Close() error {
 
 func (p *ERC20HolderProvider) IsExternal() bool {
 	return false
+}
+
+func (p *ERC20HolderProvider) IsSynced(_ []byte) bool {
+	return p.synced.Load()
 }
 
 func (p *ERC20HolderProvider) Address() common.Address {

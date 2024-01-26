@@ -21,6 +21,7 @@ import (
 
 const (
 	dateLayout = "2006-01-02T15:04:05.999Z"
+	hexAddress = "0x000000000000000000000000000000000000006C"
 )
 
 type gitcoinScoreResult struct {
@@ -35,6 +36,7 @@ type gitcoinScoreResult struct {
 type GitcoinPassport struct {
 	// public endpoint to download the json
 	apiEndpoint string
+	cooldown    time.Duration
 	// internal vars to manage the download
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -45,12 +47,12 @@ type GitcoinPassport struct {
 	newBalancesMtx     sync.RWMutex
 	currentBalances    map[common.Address]*big.Int
 	currentBalancesMtx sync.RWMutex
-	lastUpdate         time.Time
+	lastUpdate         atomic.Value
 }
 
 type GitcoinPassportConf struct {
 	APIEndpoint string
-	Cooldown	time.Duration
+	Cooldown    time.Duration
 }
 
 func (g *GitcoinPassport) Init(iconf any) error {
@@ -59,6 +61,7 @@ func (g *GitcoinPassport) Init(iconf any) error {
 		return fmt.Errorf("invalid config type")
 	}
 	g.apiEndpoint = conf.APIEndpoint
+	g.cooldown = conf.Cooldown
 	// init download variables
 	g.ctx, g.cancel = context.WithCancel(context.Background())
 	g.downloading = new(atomic.Bool)
@@ -70,7 +73,7 @@ func (g *GitcoinPassport) Init(iconf any) error {
 	g.currentBalancesMtx = sync.RWMutex{}
 	g.newBalances = make(map[common.Address]*big.Int)
 	g.newBalancesMtx = sync.RWMutex{}
-	g.lastUpdate = time.Time{}
+	g.lastUpdate.Store(time.Time{})
 	return nil
 }
 
@@ -88,13 +91,12 @@ func (g *GitcoinPassport) SetLastBalances(_ context.Context, _ []byte, balances 
 	return nil
 }
 
-<<<<<<< HEAD:scanner/providers/gitcoin/gitcoin.go
 func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64) (map[common.Address]*big.Int, uint64, uint64, bool, error) {
-	if time.Since(g.lastUpdate) > 12*time.Hour && !g.downloading.Load() {
-=======
-func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64) (map[common.Address]*big.Int, error) {
-	if time.Since(g.lastUpdate) > g.Cooldown && !g.downloading.Load() {
->>>>>>> main:service/gitcoin/gitcoin.go
+	lastUpdate, ok := g.lastUpdate.Load().(time.Time)
+	if !ok {
+		return nil, 1, 0, false, fmt.Errorf("error getting last update")
+	}
+	if time.Since(lastUpdate) > g.cooldown && !g.downloading.Load() {
 		log.Info("downloading Gitcoin Passport balances")
 		go func() {
 			g.downloading.Store(true)
@@ -107,19 +109,19 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64)
 			}
 		}()
 	}
-	lastUpdate := uint64(g.lastUpdate.Unix())
+	lastUpdateID := uint64(lastUpdate.Unix())
 	if g.updated.Load() {
 		log.Info("retrieving last Gitcoin Passport balances")
 		g.updated.Store(false)
-		return g.calcPartials(), 1, lastUpdate, true, nil
+
+		g.currentBalancesMtx.RLock()
+		g.newBalancesMtx.RLock()
+		defer g.currentBalancesMtx.RUnlock()
+		defer g.newBalancesMtx.RUnlock()
+		return providers.CalcPartialHolders(g.currentBalances, g.newBalances), 1, lastUpdateID, true, nil
 	}
-<<<<<<< HEAD:scanner/providers/gitcoin/gitcoin.go
-	log.Info("no changes in Gitcoin Passport balances from last 12 hours")
-	return nil, 1, lastUpdate, true, nil
-=======
-	log.Infof("no changes in Gitcoin Passport balances from last %s", g.Cooldown)
-	return nil, nil
->>>>>>> main:service/gitcoin/gitcoin.go
+	log.Infof("no changes in Gitcoin Passport balances from last %s", g.cooldown)
+	return nil, 1, lastUpdateID, true, nil
 }
 
 func (g *GitcoinPassport) updateBalances() error {
@@ -192,32 +194,8 @@ func (g *GitcoinPassport) updateBalances() error {
 	g.newBalancesMtx.Lock()
 	defer g.newBalancesMtx.Unlock()
 	g.newBalances = balances
-	g.lastUpdate = time.Now()
+	g.lastUpdate.Store(time.Now())
 	return nil
-}
-
-func (g *GitcoinPassport) calcPartials() map[common.Address]*big.Int {
-	g.currentBalancesMtx.Lock()
-	g.newBalancesMtx.Lock()
-	defer g.currentBalancesMtx.Unlock()
-	defer g.newBalancesMtx.Unlock()
-
-	partialBalances := make(map[common.Address]*big.Int)
-	for addr, newBalance := range g.newBalances {
-		currentBalance, alreadyExists := g.currentBalances[addr]
-		if !alreadyExists {
-			partialBalances[addr] = newBalance
-			continue
-		}
-		partialBalances[addr] = new(big.Int).Sub(newBalance, currentBalance)
-	}
-
-	for addr, currentBalance := range g.currentBalances {
-		if _, exists := g.newBalances[addr]; !exists {
-			partialBalances[addr] = new(big.Int).Neg(currentBalance)
-		}
-	}
-	return partialBalances
 }
 
 func (g *GitcoinPassport) Close() error {
@@ -225,27 +203,22 @@ func (g *GitcoinPassport) Close() error {
 	return nil
 }
 
-<<<<<<< HEAD:scanner/providers/gitcoin/gitcoin.go
 func (g *GitcoinPassport) IsExternal() bool {
 	return true
-=======
+}
+
 func (g *GitcoinPassport) IsSynced(_ []byte) bool {
 	g.currentBalancesMtx.RLock()
 	defer g.currentBalancesMtx.RUnlock()
 	return len(g.currentBalances) > 0
 }
 
-func (g *GitcoinPassport) Address(_ context.Context, _ []byte) (common.Address, error) {
-	return common.HexToAddress("0x000000000000000000000000000000000000006C"), nil
->>>>>>> main:service/gitcoin/gitcoin.go
-}
-
 func (g *GitcoinPassport) Address() common.Address {
-	return common.HexToAddress("0x000000000000000000000000000000000000006C")
+	return common.HexToAddress(hexAddress)
 }
 
 func (g *GitcoinPassport) Type() uint64 {
-	return providers.CONTRACT_TYPE_POAP
+	return providers.CONTRACT_TYPE_GITCOIN
 }
 
 func (g *GitcoinPassport) ChainID() uint64 {
@@ -281,7 +254,11 @@ func (g *GitcoinPassport) BlockTimestamp(_ context.Context, _ uint64) (string, e
 }
 
 func (g *GitcoinPassport) BlockRootHash(_ context.Context, _ uint64) ([]byte, error) {
-	timeHash := md5.Sum([]byte(g.lastUpdate.Format(time.RFC3339)))
+	lastUpdate, ok := g.lastUpdate.Load().(time.Time)
+	if !ok {
+		return nil, fmt.Errorf("error getting last update")
+	}
+	timeHash := md5.Sum([]byte(lastUpdate.Format(time.RFC3339)))
 	return timeHash[:], nil
 }
 

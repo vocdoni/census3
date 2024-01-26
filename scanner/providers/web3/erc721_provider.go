@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,10 +28,7 @@ type ERC721HolderProvider struct {
 	decimals      uint64
 	totalSupply   *big.Int
 	creationBlock uint64
-
-	balances      map[common.Address]*big.Int
-	balancesMtx   sync.RWMutex
-	balancesBlock uint64
+	synced        atomic.Bool
 }
 
 func (p *ERC721HolderProvider) Init(iconf any) error {
@@ -41,9 +38,7 @@ func (p *ERC721HolderProvider) Init(iconf any) error {
 		return errors.New("invalid config type, it must be Web3ProviderConfig")
 	}
 	p.endpoints = conf.Endpoints
-	// reset the internal balances
-	p.balances = make(map[common.Address]*big.Int)
-	p.balancesMtx = sync.RWMutex{}
+	p.synced.Store(false)
 	// set the reference if the address and chainID are defined in the config
 	if conf.HexAddress != "" && conf.ChainID > 0 {
 		return p.SetRef(Web3ProviderRef{
@@ -85,25 +80,13 @@ func (p *ERC721HolderProvider) SetRef(iref any) error {
 	p.decimals = 0
 	p.totalSupply = nil
 	p.creationBlock = 0
-	// reset balances
-	p.balancesMtx.Lock()
-	defer p.balancesMtx.Unlock()
-	p.balances = make(map[common.Address]*big.Int)
-	p.balancesBlock = 0
+	p.synced.Store(false)
 	return nil
 }
 
-func (p *ERC721HolderProvider) SetLastBalances(ctx context.Context, id []byte,
-	balances map[common.Address]*big.Int, from uint64,
+func (p *ERC721HolderProvider) SetLastBalances(_ context.Context, _ []byte,
+	_ map[common.Address]*big.Int, _ uint64,
 ) error {
-	p.balancesMtx.Lock()
-	defer p.balancesMtx.Unlock()
-
-	if from < p.balancesBlock {
-		return errors.New("from block is lower than the last block analyzed")
-	}
-	p.balancesBlock = from
-	p.balances = balances
 	return nil
 }
 
@@ -121,19 +104,16 @@ func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 		"type", providers.TokenTypeStringMap[providers.CONTRACT_TYPE_ERC721],
 		"from", fromBlock,
 		"to", toBlock)
-	// some variables to calculate the progress
-	startTime := time.Now()
-	p.balancesMtx.RLock()
-	initialHolders := len(p.balances)
-	p.balancesMtx.RUnlock()
 	// iterate scanning the logs in the range of blocks until the last block
 	// is reached
+	startTime := time.Now()
 	logs, lastBlock, synced, err := rangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
 	if err != nil {
 		return nil, 0, fromBlock, false, err
 	}
 	// encode the number of new transfers
 	newTransfers := uint64(len(logs))
+	balances := make(map[common.Address]*big.Int)
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
 		logData, err := p.contract.ERC721ContractFilterer.ParseTransfer(currentLog)
@@ -141,29 +121,25 @@ func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 			return nil, newTransfers, lastBlock, false, fmt.Errorf("[ERC721] %w: %s: %w", ErrParsingTokenLogs, p.address.Hex(), err)
 		}
 		// update balances
-		p.balancesMtx.Lock()
-		if toBalance, ok := p.balances[logData.To]; ok {
-			p.balances[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
+		if toBalance, ok := balances[logData.To]; ok {
+			balances[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
 		} else {
-			p.balances[logData.To] = big.NewInt(1)
+			balances[logData.To] = big.NewInt(1)
 		}
-		if fromBalance, ok := p.balances[logData.From]; ok {
-			p.balances[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
+		if fromBalance, ok := balances[logData.From]; ok {
+			balances[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
 		} else {
-			p.balances[logData.From] = big.NewInt(-1)
+			balances[logData.From] = big.NewInt(-1)
 		}
-		p.balancesMtx.Unlock()
 	}
-	p.balancesMtx.RLock()
-	finalHolders := len(p.balances)
-	p.balancesMtx.RUnlock()
 	log.Infow("saving blocks",
-		"count", finalHolders-initialHolders,
+		"count", len(balances),
 		"logs", len(logs),
 		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
 		"took", time.Since(startTime).Seconds(),
 		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))
-	return p.balances, newTransfers, lastBlock, synced, nil
+	p.synced.Store(synced)
+	return balances, newTransfers, lastBlock, synced, nil
 }
 
 func (p *ERC721HolderProvider) Close() error {
@@ -172,6 +148,10 @@ func (p *ERC721HolderProvider) Close() error {
 
 func (p *ERC721HolderProvider) IsExternal() bool {
 	return false
+}
+
+func (p *ERC721HolderProvider) IsSynced(_ []byte) bool {
+	return p.synced.Load()
 }
 
 func (p *ERC721HolderProvider) Address() common.Address {

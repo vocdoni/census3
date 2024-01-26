@@ -131,22 +131,23 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 	if err != nil {
 		return nil, 0, 0, false, err
 	}
-	// calculate snapshot from
+	p.snapshotsMtx.RLock()
+	defer p.snapshotsMtx.RUnlock()
+	// if there is no snapshot, the final snapshot is the new snapshot, otherwise
+	// calculate the partials balances from the last snapshot
 	from := delta
-	if snapshot, exist := p.snapshots[string(id)]; exist {
-		from += snapshot.from
+	finalSnapshot := newSnapshot
+	if currentSnapshot, exist := p.snapshots[eventID]; exist {
+		finalSnapshot = providers.CalcPartialHolders(currentSnapshot.snapshot, newSnapshot)
+		from += currentSnapshot.from
 	}
-	// calculate partials balances
-	partialBalances := p.calcPartials(eventID, newSnapshot)
-	// save snapshot
-	p.snapshotsMtx.Lock()
-	defer p.snapshotsMtx.Unlock()
+	// store the new snapshot
 	p.snapshots[string(id)] = &POAPSnapshot{
 		from:     from,
 		snapshot: newSnapshot,
 	}
-	// return partials from last snapshot
-	return partialBalances, 1, from, true, nil
+	// return the final snapshot 
+	return finalSnapshot, uint64(len(finalSnapshot)), from, true, nil
 }
 
 // Close method is not implemented in the POAP external provider. By default it
@@ -372,46 +373,4 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 		return nil, err
 	}
 	return &eventRes, nil
-}
-
-// calcPartials calculates the partials balances of the token holders for the
-// given eventID and new snapshot. It returns a map with the address of the
-// holder as key and the balance of the token holder as value. The partials
-// balances will include:
-//   - holders from the new snapshot that are not in the current snapshot with
-//     the balance of the new snapshot
-//   - holders from the current snapshot that are not in the new snapshot but
-//     with zero balance
-//   - holders from the current snapshot that are in the new snapshot with the
-//     balance of the new snapshot if the balance has changed
-func (p *POAPHolderProvider) calcPartials(eventID string, newSnapshot map[common.Address]*big.Int) map[common.Address]*big.Int {
-	// get current snapshot if exists
-	p.snapshotsMtx.RLock()
-	defer p.snapshotsMtx.RUnlock()
-	current, exist := p.snapshots[eventID]
-	if !exist {
-		return newSnapshot
-	}
-	// calculate partials balances, if the address is not in the current
-	// snapshot, the partial balance will be the balance of the new snapshot
-	// if the address is in the current snapshot, the partial balance will be
-	// the difference between the balance of the new snapshot and the balance
-	// of the current snapshot
-	partialBalances := map[common.Address]*big.Int{}
-	for addr, newBalance := range newSnapshot {
-		currentBalance, alreadyExists := current.snapshot[addr]
-		if !alreadyExists {
-			partialBalances[addr] = newBalance
-			continue
-		}
-		partialBalances[addr] = new(big.Int).Sub(newBalance, currentBalance)
-	}
-	// add the addresses from the current snapshot that are not in the new
-	// snapshot with negative balance
-	for addr, currentBalance := range current.snapshot {
-		if _, exists := newSnapshot[addr]; !exists {
-			partialBalances[addr] = new(big.Int).Neg(currentBalance)
-		}
-	}
-	return partialBalances
 }

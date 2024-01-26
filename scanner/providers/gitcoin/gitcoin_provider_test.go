@@ -2,15 +2,14 @@ package gitcoin
 
 import (
 	"context"
-	"fmt"
 	"math/big"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
+	"github.com/vocdoni/census3/scanner/providers"
 )
 
 var (
@@ -25,28 +24,18 @@ var (
 	}
 )
 
-func serveStaticFile(original, updated string) (string, string) {
-	http.HandleFunc("/original", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, original)
-	})
-	http.HandleFunc("/updated", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, updated)
-	})
-	go func() {
-		if err := http.ListenAndServe(":8080", nil); err != nil {
-			fmt.Println("HTTP server error:", err)
-		}
-	}()
-	return "http://localhost:8080/original", "http://localhost:8080/updated"
-}
-
 func TestGitcoinPassport(t *testing.T) {
 	c := qt.New(t)
 	// start the mocked server with the static file
-	originalEndpoint, updatedEndpoint := serveStaticFile("./mocked_data.jsonl", "./mocked_data_updated.jsonl")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	endpoints := providers.ServeTestStaticFiles(ctx, 5500, map[string]string{
+		"/original": "./mocked_data.jsonl",
+		"/updated":  "./mocked_data_updated.jsonl",
+	})
 	// create the provider
 	provider := new(GitcoinPassport)
-	c.Assert(provider.Init(GitcoinPassportConf{originalEndpoint, time.Second * 2}), qt.IsNil)
+	c.Assert(provider.Init(GitcoinPassportConf{endpoints["/original"], time.Second * 2}), qt.IsNil)
 	// start the first download
 	emptyBalances, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
@@ -69,7 +58,7 @@ func TestGitcoinPassport(t *testing.T) {
 	// empty results because the data the same
 	c.Assert(len(sameBalances), qt.Equals, 0)
 
-	provider.apiEndpoint = updatedEndpoint
+	provider.apiEndpoint = endpoints["/updated"]
 	provider.lastUpdate.Store(time.Time{})
 	emptyBalances, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)

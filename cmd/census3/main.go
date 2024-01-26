@@ -162,7 +162,7 @@ func main() {
 	if config.poapAPIEndpoint != "" {
 		poapProvider := new(poap.POAPHolderProvider)
 		if err := poapProvider.Init(poap.POAPConfig{
-			URI:         config.poapAPIEndpoint,
+			APIEndpoint: config.poapAPIEndpoint,
 			AccessToken: config.poapAuthToken,
 		}); err != nil {
 			log.Fatal(err)

@@ -1,9 +1,15 @@
 package providers
 
 import (
+	"context"
+	"fmt"
 	"math/big"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"go.vocdoni.io/dvote/log"
 )
 
 // CalcPartialHolders calculates the partial holders from the current and new holders
@@ -44,4 +50,44 @@ func CalcPartialHolders(currentHolders, newHolders map[common.Address]*big.Int) 
 		}
 	}
 	return partialHolders
+}
+
+// ServeTestStaticFiles serves the given files in the given port and returns a
+// map with the URIs of the served files. The server is shutdown when the given
+// context is done. It is useful for testing external providers to emulate
+// external API services.
+func ServeTestStaticFiles(ctx context.Context, port int, files map[string]string) map[string]string {
+	srv := &http.Server{Addr: fmt.Sprintf(":%d", port)}
+	// iterate over the files and serve them storing the URIs in a map
+	uris := map[string]string{}
+	for path := range files {
+		uris[path] = fmt.Sprintf("http://localhost:%d%s", port, path)
+	}
+	// serve the files
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		for path, file := range files {
+			currentFile := file
+			if strings.HasPrefix(r.URL.Path, path) {
+				http.ServeFile(w, r, currentFile)
+				return
+			}
+		}
+	})
+	// run the server in a goroutine
+	go func() {
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Errorf("HTTP server error: %v", err)
+		}
+	}()
+	// shutdown the server when the context is done in a goroutine
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Errorf("HTTP server error: %v", err)
+		}
+	}()
+	// return the URIs
+	return uris
 }

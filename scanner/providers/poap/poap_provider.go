@@ -61,14 +61,14 @@ type POAPSnapshot struct {
 // POAP API to get the list of POAPs for an event ID and calculate the balances
 // of the token holders from the last snapshot.
 type POAPHolderProvider struct {
-	URI          string
-	AccessToken  string
+	apiEndpoint  string
+	accessToken  string
 	snapshots    map[string]*POAPSnapshot
 	snapshotsMtx *sync.RWMutex
 }
 
 type POAPConfig struct {
-	URI         string
+	APIEndpoint string
 	AccessToken string
 }
 
@@ -82,14 +82,14 @@ func (p *POAPHolderProvider) Init(iconf any) error {
 		return fmt.Errorf("bad config type, it must be a POAPConfig struct")
 	}
 
-	if conf.URI == "" {
+	if conf.APIEndpoint == "" {
 		return fmt.Errorf("no POAP URI defined")
 	}
 	if conf.AccessToken == "" {
 		return fmt.Errorf("no POAP access token defined")
 	}
-	p.URI = conf.URI
-	p.AccessToken = conf.AccessToken
+	p.apiEndpoint = conf.APIEndpoint
+	p.accessToken = conf.AccessToken
 	p.snapshots = make(map[string]*POAPSnapshot)
 	p.snapshotsMtx = &sync.RWMutex{}
 	return nil
@@ -313,7 +313,7 @@ func (p *POAPHolderProvider) lastHolders(eventID string) (map[common.Address]*bi
 // list contains the address of the token holder.
 func (p *POAPHolderProvider) holdersPage(eventID string, offset int) (*POAPAPIResponse, error) {
 	// compose the endpoint for the request
-	strURL, err := url.JoinPath(p.URI, fmt.Sprintf(POAP_URI, eventID))
+	strURL, err := url.JoinPath(p.apiEndpoint, fmt.Sprintf(POAP_URI, eventID))
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +331,7 @@ func (p *POAPHolderProvider) holdersPage(eventID string, offset int) (*POAPAPIRe
 		return nil, err
 	}
 	req.Header.Add("accept", "application/json")
-	req.Header.Add("x-api-key", p.AccessToken)
+	req.Header.Add("x-api-key", p.accessToken)
 	// do the request
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -360,7 +360,7 @@ func (p *POAPHolderProvider) holdersPage(eventID string, offset int) (*POAPAPIRe
 // returns an EventAPIResponse struct with the event info.
 func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, error) {
 	// compose the endpoint for the request
-	strURL, err := url.JoinPath(p.URI, fmt.Sprintf(EVENT_URI, eventID))
+	strURL, err := url.JoinPath(p.apiEndpoint, fmt.Sprintf(EVENT_URI, eventID))
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +374,7 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 		return nil, err
 	}
 	req.Header.Add("accept", "application/json")
-	req.Header.Add("x-api-key", p.AccessToken)
+	req.Header.Add("x-api-key", p.accessToken)
 	// do the request
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {

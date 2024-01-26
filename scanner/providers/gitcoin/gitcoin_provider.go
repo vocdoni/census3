@@ -126,7 +126,6 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64)
 			defer g.downloading.Store(false)
 
 			if err := g.updateBalances(); err != nil {
-				fmt.Println(err)
 				log.Warnw("Error updating Gitcoin Passport balances", "err", err)
 				return
 			}
@@ -207,6 +206,7 @@ func (g *GitcoinPassport) updateBalances() error {
 				}
 				if lastUpdate, exists := lastBalancesUpdates[addr]; !exists || date.After(lastUpdate) {
 					balances[addr] = big.NewInt(int64(fBalance))
+					lastBalancesUpdates[addr] = date
 				}
 			}
 		}

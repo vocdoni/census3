@@ -219,7 +219,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		"externalID", th.ExternalID,
 		"block", th.LastBlock(),
 		"holders", len(th.Holders()))
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	// begin a transaction for group sql queries
 	tx, err := s.db.RW.BeginTx(ctx, nil)

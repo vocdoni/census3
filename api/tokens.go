@@ -373,12 +373,11 @@ func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrNotFoundToken.WithErr(err)
 	}
 	// delete the token holders
-	if _, err := qtx.DeleteTokenHoldersByTokenIDAndChainIDAndExternalID(internalCtx,
-		queries.DeleteTokenHoldersByTokenIDAndChainIDAndExternalIDParams{
-			TokenID:    address.Bytes(),
-			ChainID:    uint64(chainID),
-			ExternalID: externalID,
-		}); err != nil {
+	if _, err := qtx.DeleteTokenHolder(internalCtx, queries.DeleteTokenHolderParams{
+		TokenID:    address.Bytes(),
+		ChainID:    uint64(chainID),
+		ExternalID: externalID,
+	}); err != nil {
 		return ErrCantDeleteToken.WithErr(err)
 	}
 	// delete strategies tokens

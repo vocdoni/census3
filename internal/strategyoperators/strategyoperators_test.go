@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -100,10 +99,6 @@ func mockedStrategyOperator(dataDir string) (*StrategyOperators, error) {
 	}()
 	qtx := database.QueriesRW.WithTx(tx)
 	for _, m := range mockedTokenHolders {
-		_, err = qtx.CreateHolder(ctx, m.HolderID)
-		if err != nil && !strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return nil, err
-		}
 		// if the token holder not exists, create it
 		_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
 			TokenID:    m.TokenID,

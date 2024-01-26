@@ -96,8 +96,8 @@ func (capi *census3API) listHoldersAtLastBlock(address common.Address,
 		return nil, 0, ErrCantGetToken.WithErr(err)
 	}
 	// get token holders count
-	holders, err := capi.db.QueriesRO.TokenHoldersByTokenIDAndChainIDAndExternalID(internalCtx,
-		queries.TokenHoldersByTokenIDAndChainIDAndExternalIDParams{
+	holders, err := capi.db.QueriesRO.ListTokenHolders(internalCtx,
+		queries.ListTokenHoldersParams{
 			TokenID:    address.Bytes(),
 			ChainID:    chainID,
 			ExternalID: externalID,
@@ -129,10 +129,10 @@ func (capi *census3API) listHoldersAtLastBlock(address common.Address,
 	balances := make(map[string]string)
 	for i, holder := range holders {
 		log.Infow("getting balance",
-			"holder", common.BytesToAddress(holder.ID).String(),
+			"holder", common.BytesToAddress(holder.HolderID).String(),
 			"token", address.String(),
 			"progress", fmt.Sprintf("%d/%d", i+1, len(holders)))
-		holderAddress := common.BytesToAddress(holder.ID)
+		holderAddress := common.BytesToAddress(holder.HolderID)
 		balance, err := provider.BalanceAt(internalCtx, holderAddress, nil, lastBlockNumber)
 		if err != nil {
 			return nil, lastBlockNumber, ErrCantGetTokenHolders.WithErr(err)

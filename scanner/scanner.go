@@ -290,8 +290,8 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 		}
 	}
 	// get the current token holders from the database
-	results, err := qtx.TokenHoldersByTokenIDAndChainIDAndExternalID(internalCtx,
-		queries.TokenHoldersByTokenIDAndChainIDAndExternalIDParams{
+	results, err := qtx.ListTokenHolders(internalCtx,
+		queries.ListTokenHoldersParams{
 			TokenID:    token.Address.Bytes(),
 			ChainID:    token.ChainID,
 			ExternalID: token.ExternalID,
@@ -301,7 +301,11 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 	}
 	currentHolders := map[common.Address]*big.Int{}
 	for _, result := range results {
-		currentHolders[common.BytesToAddress(result.ID)] = big.NewInt(0).SetBytes([]byte(result.Balance))
+		bBalance, ok := new(big.Int).SetString(result.Balance, 10)
+		if !ok {
+			return nil, 0, token.LastBlock, token.Synced, fmt.Errorf("error parsing token holder balance")
+		}
+		currentHolders[common.BytesToAddress(result.HolderID)] = bBalance
 	}
 	// close the database tx and commit it
 	if err := tx.Commit(); err != nil {
@@ -400,13 +404,12 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 	created, updated, deleted := 0, 0, 0
 	for addr, balance := range holders {
 		// get the current token holder from the database
-		currentTokenHolder, err := qtx.TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalID(ctx,
-			queries.TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalIDParams{
-				TokenID:    token.Address.Bytes(),
-				ChainID:    token.ChainID,
-				ExternalID: token.ExternalID,
-				HolderID:   addr.Bytes(),
-			})
+		currentTokenHolder, err := qtx.GetTokenHolder(ctx, queries.GetTokenHolderParams{
+			TokenID:    token.Address.Bytes(),
+			ChainID:    token.ChainID,
+			ExternalID: token.ExternalID,
+			HolderID:   addr.Bytes(),
+		})
 		if err != nil {
 			if !errors.Is(sql.ErrNoRows, err) {
 				return err

@@ -455,8 +455,8 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	// get token information from the database
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
 	defer cancel()
-	tokenData, err := capi.db.QueriesRO.TokenByIDAndChainIDAndExternalID(internalCtx,
-		queries.TokenByIDAndChainIDAndExternalIDParams{
+	tokenData, err := capi.db.QueriesRO.GetToken(internalCtx,
+		queries.GetTokenParams{
 			ID:         address.Bytes(),
 			ChainID:    uint64(chainID),
 			ExternalID: externalID,

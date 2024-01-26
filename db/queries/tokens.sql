@@ -26,17 +26,7 @@ SELECT * FROM (
     LIMIT ?
 ) as token ORDER BY token.id ASC;
 
--- name: TokenByID :one
-SELECT * FROM tokens
-WHERE id = ?
-LIMIT 1;
-
--- name: TokenByIDAndChainID :one
-SELECT * FROM tokens
-WHERE id = ? AND chain_id = ?
-LIMIT 1;
-
--- name: TokenByIDAndChainIDAndExternalID :one
+-- name: GetToken :one
 SELECT * FROM tokens
 WHERE id = ? AND chain_id = ? AND external_id = ?
 LIMIT 1;

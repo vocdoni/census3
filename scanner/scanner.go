@@ -385,8 +385,8 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		}
 	}()
 	qtx := s.db.QueriesRW.WithTx(tx)
-	tokenInfo, err := qtx.TokenByIDAndChainIDAndExternalID(internalCtx,
-		queries.TokenByIDAndChainIDAndExternalIDParams{
+	tokenInfo, err := qtx.GetToken(internalCtx,
+		queries.GetTokenParams{
 			ID:         token.Address.Bytes(),
 			ChainID:    token.ChainID,
 			ExternalID: token.ExternalID,

@@ -12,9 +12,6 @@ CREATE TABLE token_holders_backup (
     PRIMARY KEY (token_id, holder_id, block_id, chain_id, external_id),
     FOREIGN KEY (token_id) REFERENCES tokens(id) ON DELETE CASCADE
 );
-CREATE INDEX idx_token_holders_token_id ON token_holders(token_id);
-CREATE INDEX idx_token_holders_holder_id ON token_holders(holder_id);
-CREATE INDEX idx_token_holders_block_id ON token_holders(block_id);
 
 INSERT INTO token_holders_backup SELECT * FROM token_holders;
 DROP TABLE token_holders;

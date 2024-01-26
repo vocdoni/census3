@@ -83,8 +83,8 @@ func (capi *census3API) listHoldersAtLastBlock(address common.Address,
 	// get token information from the database
 	internalCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	defer cancel()
-	tokenData, err := capi.db.QueriesRO.TokenByIDAndChainIDAndExternalID(internalCtx,
-		queries.TokenByIDAndChainIDAndExternalIDParams{
+	tokenData, err := capi.db.QueriesRO.GetToken(internalCtx,
+		queries.GetTokenParams{
 			ID:         address.Bytes(),
 			ChainID:    chainID,
 			ExternalID: externalID,

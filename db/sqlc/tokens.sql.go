@@ -155,6 +155,43 @@ func (q *Queries) ExistsTokenByChainIDAndExternalID(ctx context.Context, arg Exi
 	return exists, err
 }
 
+const getToken = `-- name: GetToken :one
+SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at, last_block, analysed_transfers FROM tokens
+WHERE id = ? AND chain_id = ? AND external_id = ?
+LIMIT 1
+`
+
+type GetTokenParams struct {
+	ID         annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) GetToken(ctx context.Context, arg GetTokenParams) (Token, error) {
+	row := q.db.QueryRowContext(ctx, getToken, arg.ID, arg.ChainID, arg.ExternalID)
+	var i Token
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Symbol,
+		&i.Decimals,
+		&i.TotalSupply,
+		&i.CreationBlock,
+		&i.TypeID,
+		&i.Synced,
+		&i.Tags,
+		&i.ChainID,
+		&i.ChainAddress,
+		&i.ExternalID,
+		&i.DefaultStrategy,
+		&i.IconUri,
+		&i.CreatedAt,
+		&i.LastBlock,
+		&i.AnalysedTransfers,
+	)
+	return i, err
+}
+
 const listLastNoSyncedTokens = `-- name: ListLastNoSyncedTokens :many
 SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at, last_block, analysed_transfers FROM tokens 
 WHERE strftime('%s', 'now') - strftime('%s', created_at) <= 600
@@ -401,110 +438,6 @@ func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) 
 		return nil, err
 	}
 	return items, nil
-}
-
-const tokenByID = `-- name: TokenByID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at, last_block, analysed_transfers FROM tokens
-WHERE id = ?
-LIMIT 1
-`
-
-func (q *Queries) TokenByID(ctx context.Context, id annotations.Address) (Token, error) {
-	row := q.db.QueryRowContext(ctx, tokenByID, id)
-	var i Token
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Symbol,
-		&i.Decimals,
-		&i.TotalSupply,
-		&i.CreationBlock,
-		&i.TypeID,
-		&i.Synced,
-		&i.Tags,
-		&i.ChainID,
-		&i.ChainAddress,
-		&i.ExternalID,
-		&i.DefaultStrategy,
-		&i.IconUri,
-		&i.CreatedAt,
-		&i.LastBlock,
-		&i.AnalysedTransfers,
-	)
-	return i, err
-}
-
-const tokenByIDAndChainID = `-- name: TokenByIDAndChainID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at, last_block, analysed_transfers FROM tokens
-WHERE id = ? AND chain_id = ?
-LIMIT 1
-`
-
-type TokenByIDAndChainIDParams struct {
-	ID      annotations.Address
-	ChainID uint64
-}
-
-func (q *Queries) TokenByIDAndChainID(ctx context.Context, arg TokenByIDAndChainIDParams) (Token, error) {
-	row := q.db.QueryRowContext(ctx, tokenByIDAndChainID, arg.ID, arg.ChainID)
-	var i Token
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Symbol,
-		&i.Decimals,
-		&i.TotalSupply,
-		&i.CreationBlock,
-		&i.TypeID,
-		&i.Synced,
-		&i.Tags,
-		&i.ChainID,
-		&i.ChainAddress,
-		&i.ExternalID,
-		&i.DefaultStrategy,
-		&i.IconUri,
-		&i.CreatedAt,
-		&i.LastBlock,
-		&i.AnalysedTransfers,
-	)
-	return i, err
-}
-
-const tokenByIDAndChainIDAndExternalID = `-- name: TokenByIDAndChainIDAndExternalID :one
-SELECT id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, created_at, last_block, analysed_transfers FROM tokens
-WHERE id = ? AND chain_id = ? AND external_id = ?
-LIMIT 1
-`
-
-type TokenByIDAndChainIDAndExternalIDParams struct {
-	ID         annotations.Address
-	ChainID    uint64
-	ExternalID string
-}
-
-func (q *Queries) TokenByIDAndChainIDAndExternalID(ctx context.Context, arg TokenByIDAndChainIDAndExternalIDParams) (Token, error) {
-	row := q.db.QueryRowContext(ctx, tokenByIDAndChainIDAndExternalID, arg.ID, arg.ChainID, arg.ExternalID)
-	var i Token
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Symbol,
-		&i.Decimals,
-		&i.TotalSupply,
-		&i.CreationBlock,
-		&i.TypeID,
-		&i.Synced,
-		&i.Tags,
-		&i.ChainID,
-		&i.ChainAddress,
-		&i.ExternalID,
-		&i.DefaultStrategy,
-		&i.IconUri,
-		&i.CreatedAt,
-		&i.LastBlock,
-		&i.AnalysedTransfers,
-	)
-	return i, err
 }
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many

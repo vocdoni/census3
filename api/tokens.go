@@ -581,8 +581,8 @@ func (capi *census3API) isTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCont
 // supported types of token contracts.
 func (capi *census3API) getTokenTypes(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	supportedTypes := []string{}
-	for _, supportedType := range providers.TokenTypeStringMap {
-		supportedTypes = append(supportedTypes, supportedType)
+	for _, provider := range capi.holderProviders {
+		supportedTypes = append(supportedTypes, provider.TypeName())
 	}
 	res, err := json.Marshal(TokenTypesResponse{supportedTypes})
 	if err != nil {

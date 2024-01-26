@@ -34,6 +34,7 @@ type HolderProvider interface {
 	// Token realated methods
 	Address() common.Address
 	Type() uint64
+	TypeName() string
 	ChainID() uint64
 	Name(id []byte) (string, error)
 	Symbol(id []byte) (string, error)

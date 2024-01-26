@@ -180,6 +180,12 @@ func (p *POAPHolderProvider) Type() uint64 {
 	return providers.CONTRACT_TYPE_POAP
 }
 
+// TypeName returns the type name of the POAP token. By default it returns the
+// string "POAP".
+func (p *POAPHolderProvider) TypeName() string {
+	return providers.TokenTypeStringMap[providers.CONTRACT_TYPE_POAP]
+}
+
 // ChainID method is not implemented in the POAP external provider. By default 1.
 func (p *POAPHolderProvider) ChainID() uint64 {
 	return 1

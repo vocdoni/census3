@@ -142,17 +142,23 @@ func main() {
 	erc20Provider := new(web3.ERC20HolderProvider)
 	if err := erc20Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
 		log.Fatal(err)
+		return
 	}
 	erc721Provider := new(web3.ERC721HolderProvider)
 	if err := erc721Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
 		log.Fatal(err)
+		return
 	}
 	erc777Provider := new(web3.ERC777HolderProvider)
 	if err := erc777Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
 		log.Fatal(err)
+		return
 	}
 	// set the providers in the scanner and the API
-	hc.SetProviders(erc20Provider, erc721Provider, erc777Provider)
+	if err := hc.SetProviders(erc20Provider, erc721Provider, erc777Provider); err != nil {
+		log.Fatal(err)
+		return
+	}
 	apiProviders := map[uint64]providers.HolderProvider{
 		erc20Provider.Type():  erc20Provider,
 		erc721Provider.Type(): erc721Provider,
@@ -166,8 +172,12 @@ func main() {
 			AccessToken: config.poapAuthToken,
 		}); err != nil {
 			log.Fatal(err)
+			return
 		}
-		hc.SetProviders(poapProvider)
+		if err := hc.SetProviders(poapProvider); err != nil {
+			log.Fatal(err)
+			return
+		}
 		apiProviders[poapProvider.Type()] = poapProvider
 	}
 	if config.gitcoinEndpoint != "" {
@@ -178,8 +188,12 @@ func main() {
 			Cooldown:    config.gitcoinCooldown,
 		}); err != nil {
 			log.Fatal(err)
+			return
 		}
-		hc.SetProviders(gitcoinProvider)
+		if err := hc.SetProviders(gitcoinProvider); err != nil {
+			log.Fatal(err)
+			return
+		}
 		apiProviders[gitcoinProvider.Type()] = gitcoinProvider
 	}
 

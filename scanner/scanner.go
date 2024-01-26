@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -64,10 +65,28 @@ func NewScanner(db *db.DB, networks web3.NetworkEndpoints, coolDown time.Duratio
 
 // SetProviders sets the providers that the scanner will use to get the holders
 // of the tokens.
-func (s *Scanner) SetProviders(newProviders ...providers.HolderProvider) {
+func (s *Scanner) SetProviders(newProviders ...providers.HolderProvider) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	// create a tx to use it in the following queries
 	for _, provider := range newProviders {
+		if _, err := s.db.QueriesRW.CreateTokenType(ctx, queries.CreateTokenTypeParams{
+			ID:       provider.Type(),
+			TypeName: provider.TypeName(),
+		}); err != nil {
+			if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				return err
+			}
+			if _, err := s.db.QueriesRW.UpdateTokenType(ctx, queries.UpdateTokenTypeParams{
+				ID:       provider.Type(),
+				TypeName: provider.TypeName(),
+			}); err != nil {
+				return err
+			}
+		}
 		s.providers[provider.Type()] = provider
 	}
+	return nil
 }
 
 // Start starts the scanner. It starts a loop that scans the tokens in the

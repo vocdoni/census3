@@ -162,6 +162,10 @@ func (p *ERC721HolderProvider) Type() uint64 {
 	return providers.CONTRACT_TYPE_ERC721
 }
 
+func (p *ERC721HolderProvider) TypeName() string {
+	return providers.TokenTypeStringMap[providers.CONTRACT_TYPE_ERC721]
+}
+
 func (p *ERC721HolderProvider) ChainID() uint64 {
 	return p.chainID
 }

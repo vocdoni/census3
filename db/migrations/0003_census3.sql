@@ -19,10 +19,9 @@ CREATE INDEX idx_token_holders_block_id ON token_holders(block_id);
 INSERT INTO token_holders_backup SELECT * FROM token_holders;
 DROP TABLE token_holders;
 ALTER TABLE token_holders_backup RENAME TO token_holders;
-
-DELETE FROM blocks;
-DELETE FROM holders;
-DELETE FROM census_blocks;
+DROP TABLE blocks;
+DROP TABLE holders;
+DROP TABLE census_blocks;
 
 DELETE FROM token_types;
 UPDATE sqlite_sequence SET seq = 0 WHERE name = 'token_types';

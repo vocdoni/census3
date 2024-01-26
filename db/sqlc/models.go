@@ -11,17 +11,6 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 )
 
-type Block struct {
-	ID        uint64
-	Timestamp string
-	RootHash  annotations.Hash
-}
-
-type CensusBlock struct {
-	CensusID uint64
-	BlockID  uint64
-}
-
 type Censuse struct {
 	ID         uint64
 	StrategyID uint64
@@ -32,10 +21,6 @@ type Censuse struct {
 	CensusType uint64
 	QueueID    string
 	Accuracy   float64
-}
-
-type Holder struct {
-	ID annotations.Address
 }
 
 type Strategy struct {

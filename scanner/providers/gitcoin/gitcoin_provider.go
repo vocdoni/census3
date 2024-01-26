@@ -254,6 +254,11 @@ func (g *GitcoinPassport) Type() uint64 {
 	return providers.CONTRACT_TYPE_GITCOIN
 }
 
+// TypeName returns the type name of the Gitcoin Passport contract.
+func (g *GitcoinPassport) TypeName() string {
+	return providers.TokenTypeStringMap[providers.CONTRACT_TYPE_GITCOIN]
+}
+
 // ChainID returns the chain ID of the Gitcoin Passport contract.
 func (g *GitcoinPassport) ChainID() uint64 {
 	return 1

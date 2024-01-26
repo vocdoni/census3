@@ -29,6 +29,8 @@ type HolderProvider interface {
 	Close() error
 	// IsExternal returns true if the provider is an external API.
 	IsExternal() bool
+	// IsSynced returns true if the current state of the provider is synced
+	IsSynced(id []byte) bool
 	// Token realated methods
 	Address() common.Address
 	Type() uint64

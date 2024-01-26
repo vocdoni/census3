@@ -14,7 +14,7 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/internal"
-	"github.com/vocdoni/census3/lexer"
+	"github.com/vocdoni/census3/internal/lexer"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/httprouter"

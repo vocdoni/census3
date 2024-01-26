@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/lexer"
+	"github.com/vocdoni/census3/internal/lexer"
 )
 
 // AND method returns a AND operator function that can be used in a strategy

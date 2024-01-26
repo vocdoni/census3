@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
-	"github.com/vocdoni/census3/lexer"
+	"github.com/vocdoni/census3/internal/lexer"
 )
 
 func Test_basicOperators(t *testing.T) {

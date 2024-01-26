@@ -13,10 +13,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/lexer"
+	"github.com/vocdoni/census3/internal/lexer"
+	"github.com/vocdoni/census3/internal/strategyoperators"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
-	"github.com/vocdoni/census3/strategyoperators"
 	"go.vocdoni.io/dvote/api/censusdb"
 	"go.vocdoni.io/dvote/censustree"
 	storagelayer "go.vocdoni.io/dvote/data"

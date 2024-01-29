@@ -27,17 +27,17 @@ Then, it allows creating a merkle tree census (compatible with [Vocdoni](https:/
 The service suports the following token types:
 * ERC20
 * ERC721
-* ERC1155 (*coming soon*)
 * ERC777
-* Nation3 (veNation)
-* wANT
 * POAP
+* Gitcoin Passport Score
+* Gitcoin Passport Shields (*coming soon*)
+* ERC1155 (*coming soon*)
 
 
 #### About censuses
  * The censuses are published on [IPFS](https://ipfs.tech/) after their creation. 
  * Census3 uses [go.vocdoni.io/dvote/tree/arbo](go.vocdoni.io/dvote/tree/arbo) to build the census merkle trees.
- * The censuses can be created with the holders of just one token or a combination of tokens, using **complex strategies**  (*coming soon*).
+ * The censuses can be created with the holders of just one token or a combination of tokens, using **complex strategies**.
  * The censuses are *zk-friendly* and can also be used for anonymous voting.
 
 #### About complex strategies
@@ -71,11 +71,18 @@ go build -o census3 ./cmd/census3
 ```sh
 ./census3 --help
 Usage of ./census3:
-      --connectKey string      connect group key for IPFS connect
-      --dataDir string         data directory for persistent storage (default "<$HOME>/.census3")
-      --logLevel string        log level (debug, info, warn, error) (default "info")
-      --port int               HTTP port for the API (default 7788)
-      --web3Providers string   the list of URL's of available web3 providers (separated with commas)
+      --adminToken string          the admin UUID token for the API
+      --connectKey string          connect group key for IPFS connect
+      --dataDir string             data directory for persistent storage (default "~/.census3")
+      --logLevel string            log level (debug, info, warn, error) (default "info")
+      --port int                   HTTP port for the API (default 7788)
+      --scannerCoolDown duration   the time to wait before next scanner iteration (default 2m0s)
+      --initialTokens string       path of the initial tokens json file
+      --web3Providers string       the list of URLs of available web3 providers
+      --gitcoinEndpoint string     Gitcoin Passport API access token
+      --gitcoinCooldown duration   Gitcoin Passport API cooldown (default 6h0m0s)
+      --poapAPIEndpoint string     POAP API endpoint
+      --poapAuthToken string       POAP API access token
 ```
 
 Example:
@@ -91,21 +98,29 @@ Example:
 
 1. Create your config file using the [`.env` file](example.env) as a template and save it the root.
 ```sh
-# A web3 endpoint provider
-WEB3_PROVIDERS=https://rpc-endoint.example1.com,https://rpc-endoint.example2.com
-
-# Internal port for the service (80 and 443 are used by traefik)
-PORT=7788
-
 # Domain name for TLS
-# DOMAIN=your.own.domain.xyz
-DOMAIN=localhost
-
+DOMAIN=your.own.domain.xyz
+# A web3 endpoint provider
+CENSUS3_WEB3PROVIDERS="https://rpc-endoint.example1.com,https://rpc-endoint.example2.com"
+# Internal port for the service (80 and 443 are used by traefik)
+CENSUS3_PORT=7788
 # Log level (info, debug, warning, error)
-LOGLEVEL=debug
-
+CENSUS3_LOGLEVEL="debug"
 # IPFS connect key for discovering nodes
-CONNECT_KEY=yourIPFSConnectKey
+# CONNECT_KEY=yourIPFSConnectKey
+CENSUS3_CONNECTKEY="census3key"
+# Internal data folder
+CENSUS3_DATADIR="./.census3"
+# Scanner cooldown duration
+CENSUS3_SCANNERCOOLDOWN="20s"
+# UUID admin token for protected endpoints
+CENSUS3_ADMINTOKENS="UUID"
+# POAP API configuration
+CENSUS3_POAPAPIENDPOINT="poapAPIEndpoint"
+CENSUS3_POAPAUTHTOKEN="yourPOAPAuthToken"
+# Gitcoin API configuration
+CENSUS3_GITCOINAPIENDPOINT="gitcoinAPIEndpoint"
+CENSUS3_INITIALTOKENS="/app/initial_tokens.json"
 ```
 
 2. Run the services with `docker compose`:

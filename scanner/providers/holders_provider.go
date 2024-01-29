@@ -16,6 +16,8 @@ type HolderProvider interface {
 	// attributes values must be defined in the struct that implements this
 	// interface before calling this method.
 	Init(conf any) error
+	// SetRef sets the reference to the provider. It is used to define the
+	// required token information to interact with the provider.
 	SetRef(ref any) error
 	// SetLastBalances sets the balances of the token holders for the given
 	// id and from point in time and store it in a snapshot. It is used to
@@ -29,20 +31,44 @@ type HolderProvider interface {
 	Close() error
 	// IsExternal returns true if the provider is an external API.
 	IsExternal() bool
-	// IsSynced returns true if the current state of the provider is synced
+	// IsSynced returns true if the current state of the provider is synced. It
+	// also receives an external ID to be used if it is required by the provider.
 	IsSynced(id []byte) bool
-	// Token realated methods
+	// Address returns the address of the current token set in the provider
 	Address() common.Address
+	// Type returns the type of the current token set in the provider
 	Type() uint64
+	// TypeName returns the type name of the current token set in the provider
 	TypeName() string
+	// ChainID returns the chain ID of the current token set in the provider
 	ChainID() uint64
+	// Name returns the name of the current token set in the provider. It also
+	// receives an external ID to be used if it is required by the provider.
 	Name(id []byte) (string, error)
+	// Symbol returns the symbol of the current token set in the provider. It
+	// also receives an external ID to be used if it is required by the provider.
 	Symbol(id []byte) (string, error)
+	// Decimals returns the decimals of the current token set in the provider.
+	// It also receives an external ID to be used if it is required by the
+	// provider.
 	Decimals(id []byte) (uint64, error)
+	// TotalSupply returns the total supply of the current token set in the
+	// provider. It also receives an external ID to be used if it is required
+	// by the provider.
 	TotalSupply(id []byte) (*big.Int, error)
+	// BalanceOf returns the balance of the given address for the current token
+	// set in the provider. It also receives an external ID to be used if it is
+	// required by the provider.
 	BalanceOf(addr common.Address, id []byte) (*big.Int, error)
+	// BalanceAt returns the balance of the given address for the current token
+	// at the given block number for the current token set in the provider. It
+	// also receives an external ID to be used if it is required by the provider.
 	BalanceAt(ctx context.Context, addr common.Address, id []byte, blockNumber uint64) (*big.Int, error)
+	// BlockTimestamp returns the timestamp of the given block number for the
+	// current token set in the provider
 	BlockTimestamp(ctx context.Context, blockNumber uint64) (string, error)
+	// BlockRootHash returns the root hash of the given block number for the
+	// current token set in the provider
 	BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error)
 	LatestBlockNumber(ctx context.Context, id []byte) (uint64, error)
 	CreationBlock(ctx context.Context, id []byte) (uint64, error)

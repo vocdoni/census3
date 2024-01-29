@@ -49,6 +49,9 @@ func (p *ERC20HolderProvider) Init(iconf any) error {
 	return nil
 }
 
+// SetRef sets the reference of the token desired to use to the provider. It
+// receives a Web3ProviderRef struct with the address and chainID of the token
+// to use. It connects to the endpoint and initializes the contract.
 func (p *ERC20HolderProvider) SetRef(iref any) error {
 	if p.endpoints == nil {
 		return errors.New("endpoints not defined")
@@ -84,12 +87,24 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	return nil
 }
 
+// SetLastBalances method is not implemented for ERC20 tokens, they already
+// calculate the partial balances from logs without comparing with the previous
+// balances.
 func (p *ERC20HolderProvider) SetLastBalances(_ context.Context, _ []byte,
 	_ map[common.Address]*big.Int, _ uint64,
 ) error {
 	return nil
 }
 
+// HoldersBalances returns the balances of the token holders for the current
+// defined token (using SetRef method). It returns the balances of the holders
+// for this token from the block number provided to the latest posible block
+// number (chosen between the last block number of the network and the maximun
+// number of blocks to scan). It calls to rangeOfLogs to get the logs of the
+// token transfers in the range of blocks and then it iterates the logs to
+// calculate the balances of the holders. It returns the balances, the number
+// of new transfers, the last block scanned, if the provider is synced and an
+// error if it exists.
 func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
 	map[common.Address]*big.Int, uint64, uint64, bool, error,
 ) {
@@ -142,34 +157,45 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	return balances, newTransfers, lastBlock, synced, nil
 }
 
+// Close method is not implemented for ERC20 tokens.
 func (p *ERC20HolderProvider) Close() error {
 	return nil
 }
 
+// IsExternal returns false because the provider is not an external API.
 func (p *ERC20HolderProvider) IsExternal() bool {
 	return false
 }
 
+// IsSynced returns true if the current state of the provider is synced. It also
+// receives an external ID but it is not used by the provider.
 func (p *ERC20HolderProvider) IsSynced(_ []byte) bool {
 	return p.synced.Load()
 }
 
+// Address returns the address of the current token set in the provider.
 func (p *ERC20HolderProvider) Address() common.Address {
 	return p.address
 }
 
+// Type returns the type of the current token set in the provider.
 func (p *ERC20HolderProvider) Type() uint64 {
 	return providers.CONTRACT_TYPE_ERC20
 }
 
+// TypeName returns the type name of the current token set in the provider.
 func (p *ERC20HolderProvider) TypeName() string {
 	return providers.TokenTypeStringMap[providers.CONTRACT_TYPE_ERC20]
 }
 
+// ChainID returns the chain ID of the current token set in the provider.
 func (p *ERC20HolderProvider) ChainID() uint64 {
 	return p.chainID
 }
 
+// Name returns the name of the current token set in the provider. It gets the
+// name from the contract. It also receives an external ID but it is not used by
+// the provider.
 func (p *ERC20HolderProvider) Name(_ []byte) (string, error) {
 	var err error
 	if p.name == "" {
@@ -178,6 +204,9 @@ func (p *ERC20HolderProvider) Name(_ []byte) (string, error) {
 	return p.name, err
 }
 
+// Symbol returns the symbol of the current token set in the provider. It gets
+// the symbol from the contract. It also receives an external ID but it is not
+// used by the provider.
 func (p *ERC20HolderProvider) Symbol(_ []byte) (string, error) {
 	var err error
 	if p.symbol == "" {
@@ -186,6 +215,9 @@ func (p *ERC20HolderProvider) Symbol(_ []byte) (string, error) {
 	return p.symbol, err
 }
 
+// Decimals returns the decimals of the current token set in the provider. It
+// gets the decimals from the contract. It also receives an external ID but it
+// is not used by the provider.
 func (p *ERC20HolderProvider) Decimals(_ []byte) (uint64, error) {
 	if p.decimals == 0 {
 		decimals, err := p.contract.ERC20ContractCaller.Decimals(nil)
@@ -197,6 +229,9 @@ func (p *ERC20HolderProvider) Decimals(_ []byte) (uint64, error) {
 	return p.decimals, nil
 }
 
+// TotalSupply returns the total supply of the current token set in the provider.
+// It gets the total supply from the contract. It also receives an external ID
+// but it is not used by the provider.
 func (p *ERC20HolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
 	var err error
 	if p.totalSupply == nil {
@@ -205,16 +240,25 @@ func (p *ERC20HolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
 	return p.totalSupply, err
 }
 
+// BalanceOf returns the balance of the given address for the current token set
+// in the provider. It gets the balance from the contract. It also receives an
+// external ID but it is not used by the provider.
 func (p *ERC20HolderProvider) BalanceOf(addr common.Address, _ []byte) (*big.Int, error) {
 	return p.contract.ERC20ContractCaller.BalanceOf(nil, addr)
 }
 
+// BalanceAt returns the balance of the given address for the current token at
+// the given block number for the current token set in the provider. It gets
+// the balance from the contract. It also receives an external ID but it is not
+// used by the provider.
 func (p *ERC20HolderProvider) BalanceAt(ctx context.Context, addr common.Address,
 	_ []byte, blockNumber uint64,
 ) (*big.Int, error) {
 	return p.client.BalanceAt(ctx, addr, new(big.Int).SetUint64(blockNumber))
 }
 
+// BlockTimestamp returns the timestamp of the given block number for the
+// current token set in the provider. It gets the timestamp from the client.
 func (p *ERC20HolderProvider) BlockTimestamp(ctx context.Context, blockNumber uint64) (string, error) {
 	internal.GetBlockByNumberCounter.Add(1)
 	blockHeader, err := p.client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
@@ -224,6 +268,8 @@ func (p *ERC20HolderProvider) BlockTimestamp(ctx context.Context, blockNumber ui
 	return time.Unix(int64(blockHeader.Time), 0).Format(timeLayout), nil
 }
 
+// BlockRootHash returns the root hash of the given block number for the current
+// token set in the provider. It gets the root hash from the client.
 func (p *ERC20HolderProvider) BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error) {
 	internal.GetBlockByNumberCounter.Add(1)
 	blockHeader, err := p.client.HeaderByNumber(ctx, new(big.Int).SetInt64(int64(blockNumber)))
@@ -233,6 +279,9 @@ func (p *ERC20HolderProvider) BlockRootHash(ctx context.Context, blockNumber uin
 	return blockHeader.Root.Bytes(), nil
 }
 
+// LatestBlockNumber returns the latest block number of the current token set
+// in the provider. It gets the latest block number from the client. It also
+// receives an external ID but it is not used by the provider.
 func (p *ERC20HolderProvider) LatestBlockNumber(ctx context.Context, _ []byte) (uint64, error) {
 	internal.GetBlockByNumberCounter.Add(1)
 	lastBlockHeader, err := p.client.HeaderByNumber(ctx, nil)
@@ -242,6 +291,11 @@ func (p *ERC20HolderProvider) LatestBlockNumber(ctx context.Context, _ []byte) (
 	return lastBlockHeader.Number.Uint64(), nil
 }
 
+// CreationBlock returns the creation block of the current token set in the
+// provider. It gets the creation block from the client. It also receives an
+// external ID but it is not used by the provider. It uses the
+// creationBlockInRange function to calculate the creation block in the range
+// of blocks.
 func (p *ERC20HolderProvider) CreationBlock(ctx context.Context, _ []byte) (uint64, error) {
 	var err error
 	if p.creationBlock == 0 {
@@ -255,6 +309,7 @@ func (p *ERC20HolderProvider) CreationBlock(ctx context.Context, _ []byte) (uint
 	return p.creationBlock, err
 }
 
+// IconURI method is not implemented for ERC20 tokens.
 func (p *ERC20HolderProvider) IconURI(_ []byte) (string, error) {
 	return "", nil
 }

@@ -1,5 +1,14 @@
 package providers
 
+// This file contains the data types that can be implemented in the provider
+// package. These types identify the type of contract being scanned and the type
+// of token being scanned. However, not all contract types may be available.
+// The available contract types depend on the providers that the scanner has
+// configured. If a new token type is added, it must be added to this file,
+// trying to maintain consistency with the existing token types, and avoiding
+// using IDs that have already been used. If the IDs change, the database must
+// be updated, correcting the IDs of the existing tokens.
+
 const (
 	// CONTRACT TYPES
 	CONTRACT_TYPE_UNKNOWN uint64 = iota

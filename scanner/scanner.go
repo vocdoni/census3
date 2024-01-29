@@ -318,6 +318,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 	if err != nil {
 		return nil, 0, token.LastBlock, token.Synced, err
 	}
+	// set the current holders into the provider and get the new ones
 	currentHolders := map[common.Address]*big.Int{}
 	for _, result := range results {
 		bBalance, ok := new(big.Int).SetString(result.Balance, 10)
@@ -420,7 +421,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		return tx.Commit()
 	}
 	// create, update or delete token holders
-	created, updated, deleted := 0, 0, 0
+	created, updated := 0, 0
 	for addr, balance := range holders {
 		// get the current token holder from the database
 		currentTokenHolder, err := qtx.GetTokenHolder(ctx, queries.GetTokenHolderParams{
@@ -448,14 +449,17 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 			created++
 			continue
 		}
-		// compute the new balance of the holder
+		// parse the current balance of the holder
 		currentBalance, ok := new(big.Int).SetString(currentTokenHolder.Balance, 10)
 		if !ok {
 			return fmt.Errorf("error parsing current token holder balance")
 		}
+		// calculate the new balance of the holder by adding the current balance
+		// and the new balance
 		newBalance := new(big.Int).Add(currentBalance, balance)
-		// if the calculated balance is not 0 or less and it is different
-		// from the current one, update it in the database
+		// update the token holder in the database with the new balance.
+		// WANING: the balance could be negative so you must filter the holders
+		// with negative balances to get the correct holders from the database.
 		_, err = qtx.UpdateTokenHolderBalance(ctx, queries.UpdateTokenHolderBalanceParams{
 			TokenID:    token.Address.Bytes(),
 			ChainID:    token.ChainID,
@@ -481,7 +485,6 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		"block", token.LastBlock,
 		"synced", token.Synced,
 		"created", created,
-		"updated", updated,
-		"deleted", deleted)
+		"updated", updated)
 	return nil
 }

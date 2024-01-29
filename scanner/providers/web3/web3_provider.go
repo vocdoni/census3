@@ -131,6 +131,10 @@ func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 			fromBlock += blocksRange
 		}
 	}
+	// if the last block scanned is the same as the last block of the range,
+	// the scan is completed and the token is synced. If not, the token is not
+	// synced and the last block scanned is the last block of the scanned range
+	// plus one.
 	synced := fromBlock >= initialLastBlock
 	lastSyncedBlock := initialLastBlock
 	if !synced {

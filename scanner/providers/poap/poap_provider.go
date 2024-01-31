@@ -101,6 +101,9 @@ func (p *POAPHolderProvider) SetRef(_ any) error {
 	return nil
 }
 
+// SetLastBlockNumber method is not implemented in the POAP external provider.
+func (p *POAPHolderProvider) SetLastBlockNumber(_ uint64) {}
+
 // SetLastBalances sets the balances of the token holders for the given id and
 // from point in time and store it in a snapshot.
 func (p *POAPHolderProvider) SetLastBalances(_ context.Context, id []byte,

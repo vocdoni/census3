@@ -24,6 +24,11 @@ type HolderProvider interface {
 	// calculate the delta balances in the next call to HoldersBalances from
 	// the given from point in time.
 	SetLastBalances(ctx context.Context, id []byte, balances map[common.Address]*big.Int, from uint64) error
+	// SetLastBlockNumber sets the last block number of the token set in the
+	// provider. It is used to calculate the delta balances in the next call
+	// to HoldersBalances from the given from point in time. It helps to avoid
+	// GetBlockNumber calls to the provider.
+	SetLastBlockNumber(blockNumber uint64)
 	// HoldersBalances returns the balances of the token holders for the given
 	// id and delta point in time, from the stored last snapshot.
 	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, uint64, uint64, bool, error)

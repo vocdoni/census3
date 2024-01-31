@@ -11,4 +11,5 @@ const (
 	snapshotBlocks        = 100000            // a snapshot and reset of the tree is performed every snapshotBlocks
 	scanSleepTime         = time.Second * 20  // time to sleep between scans
 	scanSleepTimeOnceSync = time.Second * 120 // time to sleep between scans, once all the tokens are synced
+	blockNumbersCooldown  = 5 * time.Minute   // time to wait to update latest block numbers of every supported networkd
 )

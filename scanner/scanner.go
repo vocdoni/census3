@@ -44,22 +44,26 @@ type Scanner struct {
 	providers map[uint64]providers.HolderProvider
 	coolDown  time.Duration
 
-	tokens    []*ScannerToken
-	tokensMtx sync.Mutex
-	waiter    sync.WaitGroup
+	tokens                  []*ScannerToken
+	tokensMtx               sync.Mutex
+	waiter                  sync.WaitGroup
+	latestBlockNumbers      sync.Map
+	lastUpdatedBlockNumbers time.Time
 }
 
 // NewScanner returns a new scanner instance with the required parameters
 // initialized.
 func NewScanner(db *db.DB, networks web3.NetworkEndpoints, coolDown time.Duration) *Scanner {
 	return &Scanner{
-		db:        db,
-		networks:  networks,
-		providers: make(map[uint64]providers.HolderProvider),
-		coolDown:  coolDown,
-		tokens:    []*ScannerToken{},
-		tokensMtx: sync.Mutex{},
-		waiter:    sync.WaitGroup{},
+		db:                      db,
+		networks:                networks,
+		providers:               make(map[uint64]providers.HolderProvider),
+		coolDown:                coolDown,
+		tokens:                  []*ScannerToken{},
+		tokensMtx:               sync.Mutex{},
+		waiter:                  sync.WaitGroup{},
+		latestBlockNumbers:      sync.Map{},
+		lastUpdatedBlockNumbers: time.Time{},
 	}
 }
 
@@ -95,6 +99,13 @@ func (s *Scanner) SetProviders(newProviders ...providers.HolderProvider) error {
 func (s *Scanner) Start(ctx context.Context) {
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	itCounter := 0
+	// keep the latest block numbers updated
+	s.waiter.Add(1)
+	go func() {
+		defer s.waiter.Done()
+		s.getLatestBlockNumbersUpdates()
+	}()
+	// start the scanner loop
 	for {
 		select {
 		case <-ctx.Done():
@@ -134,8 +145,8 @@ func (s *Scanner) Start(ctx context.Context) {
 			log.Infow("scan iteration finished",
 				"iteration", itCounter,
 				"duration", time.Since(startTime).Seconds(),
-				"atSync", atSyncGlobal)
-			log.Debugf("GetBlockByNumberCounter: %d", internal.GetBlockByNumberCounter.Load())
+				"atSync", atSyncGlobal,
+				"GetBlockByNumberCounter", internal.GetBlockByNumberCounter.Load())
 			if atSyncGlobal {
 				time.Sleep(s.coolDown)
 			} else {
@@ -192,20 +203,29 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 	// if there are old not synced tokens, sort them by nearest to be synced
 	// and parse them, if not, continue to avoid web3 calls
 	if len(oldNotSyncedTokens) > 0 {
-		// get the current block number of every chain
-		currentBlockNumbers, err := s.networks.CurrentBlockNumbers(internalCtx)
-		if err != nil {
-			return nil, err
-		}
 		// sort old not synced tokens by nearest to be synced, that is, the tokens
 		// that have the minimum difference between the current block of its chain
 		// and the last block scanned by the scanner (retrieved from the database
 		// as LastBlock)
 		sort.Slice(oldNotSyncedTokens, func(i, j int) bool {
-			iBlocksReamining := currentBlockNumbers[oldNotSyncedTokens[i].ChainID] -
-				uint64(oldNotSyncedTokens[i].LastBlock)
-			jBlocksReamining := currentBlockNumbers[oldNotSyncedTokens[j].ChainID] -
-				uint64(oldNotSyncedTokens[j].LastBlock)
+			iRawLastBlock, ok := s.latestBlockNumbers.Load(oldNotSyncedTokens[i].ChainID)
+			if !ok {
+				return false
+			}
+			iLastBlock, ok := iRawLastBlock.(uint64)
+			if !ok {
+				return false
+			}
+			jRawLastBlock, ok := s.latestBlockNumbers.Load(oldNotSyncedTokens[j].ChainID)
+			if !ok {
+				return false
+			}
+			jLastBlock, ok := jRawLastBlock.(uint64)
+			if !ok {
+				return false
+			}
+			iBlocksReamining := iLastBlock - uint64(oldNotSyncedTokens[i].LastBlock)
+			jBlocksReamining := jLastBlock - uint64(oldNotSyncedTokens[j].LastBlock)
 			return iBlocksReamining < jBlocksReamining
 		})
 		// parse old not synced token addresses
@@ -251,11 +271,6 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 	map[common.Address]*big.Int, uint64, uint64, bool, error,
 ) {
-	log.Infow("scanning holders",
-		"address", token.Address.Hex(),
-		"chainID", token.ChainID,
-		"externalID", token.ExternalID,
-		"lastBlock", token.LastBlock)
 	internalCtx, cancel := context.WithTimeout(ctx, SCAN_TIMEOUT)
 	defer cancel()
 	// get the correct token holder for the current token
@@ -282,6 +297,11 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 		}); err != nil {
 			return nil, 0, token.LastBlock, token.Synced, err
 		}
+		if iLastNetworkBlock, ok := s.latestBlockNumbers.Load(token.ChainID); ok {
+			if lastNetworkBlock, ok := iLastNetworkBlock.(uint64); ok {
+				provider.SetLastBlockNumber(lastNetworkBlock)
+			}
+		}
 		// if the token is not ready yet (its creation block has not been
 		// calculated yet), calculate it, update the token information and
 		// return
@@ -304,10 +324,14 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 			if err != nil {
 				return nil, 0, token.LastBlock, token.Synced, err
 			}
-			// close the database tx and commit it
-			return nil, 0, creationBlock, token.Synced, tx.Commit()
+			token.LastBlock = creationBlock
 		}
 	}
+	log.Infow("scanning holders",
+		"address", token.Address.Hex(),
+		"chainID", token.ChainID,
+		"externalID", token.ExternalID,
+		"lastBlock", token.LastBlock)
 	// get the current token holders from the database
 	results, err := qtx.ListTokenHolders(internalCtx,
 		queries.ListTokenHoldersParams{
@@ -357,7 +381,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 	holders map[common.Address]*big.Int, newTransfers, lastBlock uint64,
 	synced bool,
 ) error {
-	log.Debugw("saving token status and holders",
+	log.Infow("saving token status and holders",
 		"token", token.Address.Hex(),
 		"chainID", token.ChainID,
 		"externalID", token.ExternalID,
@@ -487,4 +511,30 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		"created", created,
 		"updated", updated)
 	return nil
+}
+
+// getLatestBlockNumbersUpdates gets the latest block numbers of every chain
+// and stores them in the scanner. It is executed in a goroutine and it is
+// executed every blockNumbersCooldown. It is used to avoid overloading the
+// providers with requests to get the latest block number.
+func (s *Scanner) getLatestBlockNumbersUpdates() {
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+			if time.Since(s.lastUpdatedBlockNumbers) > blockNumbersCooldown {
+				log.Info("getting latest block numbers")
+				latestBlockNumbers, err := s.networks.CurrentBlockNumbers(s.ctx)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+				for chainID, blockNumber := range latestBlockNumbers {
+					s.latestBlockNumbers.Store(chainID, blockNumber)
+				}
+				s.lastUpdatedBlockNumbers = time.Now()
+			}
+		}
+	}
 }

@@ -92,6 +92,9 @@ func (g *GitcoinPassport) SetRef(_ any) error {
 	return nil
 }
 
+// SetLastBlockNumber is not implemented for Gitcoin Passport.
+func (g *GitcoinPassport) SetLastBlockNumber(_ uint64) {}
+
 // SetLastBalances stores the balances of the last block (or other kind of
 // reference). It is used to calculate the partial balances of the current
 // block.

@@ -20,15 +20,16 @@ type ERC20HolderProvider struct {
 	endpoints NetworkEndpoints
 	client    *ethclient.Client
 
-	contract      *erc20.ERC20Contract
-	address       common.Address
-	chainID       uint64
-	name          string
-	symbol        string
-	decimals      uint64
-	totalSupply   *big.Int
-	creationBlock uint64
-	synced        atomic.Bool
+	contract         *erc20.ERC20Contract
+	address          common.Address
+	chainID          uint64
+	name             string
+	symbol           string
+	decimals         uint64
+	totalSupply      *big.Int
+	creationBlock    uint64
+	lastNetworkBlock uint64
+	synced           atomic.Bool
 }
 
 func (p *ERC20HolderProvider) Init(iconf any) error {
@@ -83,6 +84,7 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	p.decimals = 0
 	p.totalSupply = nil
 	p.creationBlock = 0
+	p.lastNetworkBlock = 0
 	p.synced.Store(false)
 	return nil
 }
@@ -94,6 +96,14 @@ func (p *ERC20HolderProvider) SetLastBalances(_ context.Context, _ []byte,
 	_ map[common.Address]*big.Int, _ uint64,
 ) error {
 	return nil
+}
+
+// SetLastBlockNumber sets the last block number of the token set in the
+// provider. It is used to calculate the delta balances in the next call to
+// HoldersBalances from the given from point in time. It helps to avoid
+// GetBlockNumber calls to the provider.
+func (p *ERC20HolderProvider) SetLastBlockNumber(blockNumber uint64) {
+	p.lastNetworkBlock = blockNumber
 }
 
 // HoldersBalances returns the balances of the token holders for the current
@@ -109,10 +119,15 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	map[common.Address]*big.Int, uint64, uint64, bool, error,
 ) {
 	// calculate the range of blocks to scan, by default take the last block
-	// scanned and scan to the latest block
-	toBlock, err := p.LatestBlockNumber(ctx, nil)
-	if err != nil {
-		return nil, 0, fromBlock, false, err
+	// scanned and scan to the latest block, calculate the latest block if the
+	// current last network block is not defined
+	toBlock := p.lastNetworkBlock
+	if toBlock == 0 {
+		var err error
+		toBlock, err = p.LatestBlockNumber(ctx, nil)
+		if err != nil {
+			return nil, 0, fromBlock, false, err
+		}
 	}
 	log.Infow("scan iteration",
 		"address", p.address,

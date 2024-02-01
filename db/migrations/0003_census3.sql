@@ -40,6 +40,16 @@ UPDATE tokens SET type_id = 5 WHERE type_id = 100;
 ALTER TABLE tokens ADD COLUMN last_block BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE tokens ADD COLUMN analysed_transfers BIGINT NOT NULL DEFAULT 0;
 
+UPDATE tokens
+SET last_block = COALESCE((
+    SELECT MAX(block_id) 
+    FROM token_holders 
+    WHERE token_id = tokens.id 
+        AND chain_id = tokens.chain_id 
+        AND external_id = tokens.external_id
+), 0);
+
+
 -- List of changes:
 --  * Remove all token types and reset sequence
 --    * Recreate token types with new ids:

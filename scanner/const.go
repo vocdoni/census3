@@ -3,6 +3,7 @@ package scanner
 import "time"
 
 const (
+	READ_TIMEOUT = time.Minute
 	SCAN_TIMEOUT = 5 * time.Minute
 	SAVE_TIMEOUT = time.Minute
 )

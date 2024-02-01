@@ -114,7 +114,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	for _, tokenData := range rows {
 		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokensItemResponse{
 			ID:              common.BytesToAddress(tokenData.ID).String(),
-			Type:            providers.TokenTypeStringMap[tokenData.TypeID],
+			Type:            providers.TokenTypeName(tokenData.TypeID),
 			Decimals:        tokenData.Decimals,
 			Name:            tokenData.Name,
 			StartBlock:      uint64(tokenData.CreationBlock),
@@ -225,7 +225,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createTokenTimeout)
 	defer cancel()
 	// get the correct holder provider for the token type
-	tokenType := web3.TokenTypeFromString(req.Type)
+	tokenType := providers.TokenTypeID(req.Type)
 	provider, exists := capi.holderProviders[tokenType]
 	if !exists {
 		return ErrCantCreateCensus.With("token type not supported")
@@ -507,7 +507,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	// build response
 	tokenResponse := GetTokenResponse{
 		ID:          address.String(),
-		Type:        providers.TokenTypeStringMap[tokenData.TypeID],
+		Type:        providers.TokenTypeName(tokenData.TypeID),
 		Decimals:    tokenData.Decimals,
 		Size:        uint64(holders),
 		Name:        tokenData.Name,

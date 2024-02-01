@@ -68,12 +68,16 @@ func NewScanner(db *db.DB, networks web3.NetworkEndpoints, coolDown time.Duratio
 }
 
 // SetProviders sets the providers that the scanner will use to get the holders
-// of the tokens.
+// of the tokens. It also creates the token types in the database if they do not
+// exist. It returns an error something goes wrong creating the token types in
+// the database.
 func (s *Scanner) SetProviders(newProviders ...providers.HolderProvider) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// create a tx to use it in the following queries
 	for _, provider := range newProviders {
+		// try to create the token type in the database, if it already exists,
+		// update its name to ensure that it is correct according to the type id
 		if _, err := s.db.QueriesRW.CreateTokenType(ctx, queries.CreateTokenTypeParams{
 			ID:       provider.Type(),
 			TypeName: provider.TypeName(),
@@ -88,6 +92,7 @@ func (s *Scanner) SetProviders(newProviders ...providers.HolderProvider) error {
 				return err
 			}
 		}
+		// include the provider in the scanner
 		s.providers[provider.Type()] = provider
 	}
 	return nil
@@ -111,13 +116,16 @@ func (s *Scanner) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
+			// create some variables to track the loop progress
 			itCounter++
 			startTime := time.Now()
+			// get the tokens to scan
 			tokens, err := s.TokensToScan(ctx)
 			if err != nil {
 				log.Error(err)
 				continue
 			}
+			// iterate over the tokens to scan
 			atSyncGlobal := true
 			for _, token := range tokens {
 				log.Infow("scanning token",
@@ -126,6 +134,7 @@ func (s *Scanner) Start(ctx context.Context) {
 					"externalID", token.ExternalID,
 					"lastBlock", token.LastBlock,
 					"ready", token.Ready)
+				// scan the token
 				holders, newTransfers, lastBlock, synced, err := s.ScanHolders(ctx, token)
 				if err != nil {
 					log.Error(err)
@@ -134,6 +143,8 @@ func (s *Scanner) Start(ctx context.Context) {
 				if !synced {
 					atSyncGlobal = false
 				}
+				// save the token holders in the database in a goroutine and
+				// continue with the next token
 				s.waiter.Add(1)
 				go func(t *ScannerToken, h map[common.Address]*big.Int, n, lb uint64, sy bool) {
 					defer s.waiter.Done()
@@ -147,6 +158,8 @@ func (s *Scanner) Start(ctx context.Context) {
 				"duration", time.Since(startTime).Seconds(),
 				"atSync", atSyncGlobal,
 				"GetBlockByNumberCounter", internal.GetBlockByNumberCounter.Load())
+			// if all the tokens are synced, sleep the cool down time, else,
+			// sleep the scan sleep time
 			if atSyncGlobal {
 				time.Sleep(s.coolDown)
 			} else {
@@ -157,7 +170,7 @@ func (s *Scanner) Start(ctx context.Context) {
 }
 
 // Stop stops the scanner. It cancels the context and waits for the scanner to
-// finish.
+// finish. It also closes the providers.
 func (s *Scanner) Stop() {
 	s.cancel()
 	for _, provider := range s.providers {
@@ -175,10 +188,10 @@ func (s *Scanner) Stop() {
 //     block number and the last block number of their chain.
 //  3. The tokens that were synced in previous iterations.
 func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
-	internalCtx, cancel := context.WithTimeout(ctx, SCAN_TIMEOUT)
+	internalCtx, cancel := context.WithTimeout(ctx, READ_TIMEOUT)
 	defer cancel()
 	tokens := []*ScannerToken{}
-	// get last created tokens from the database to scan them first
+	// get last created tokens from the database to scan them first (1)
 	lastNotSyncedTokens, err := s.db.QueriesRO.ListLastNoSyncedTokens(internalCtx)
 	if err != nil && !errors.Is(sql.ErrNoRows, err) {
 		return nil, err
@@ -195,7 +208,7 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 			Synced:     token.Synced,
 		})
 	}
-	// get old tokens from the database
+	// get old not synced tokens from the database (2)
 	oldNotSyncedTokens, err := s.db.QueriesRO.ListOldNoSyncedTokens(internalCtx)
 	if err != nil && !errors.Is(sql.ErrNoRows, err) {
 		return nil, err
@@ -241,7 +254,7 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 			})
 		}
 	}
-	// get last created tokens from the database to scan them first
+	// get synced tokens from the database to scan them last (3)
 	syncedTokens, err := s.db.QueriesRO.ListSyncedTokens(internalCtx)
 	if err != nil && !errors.Is(sql.ErrNoRows, err) {
 		return nil, err
@@ -297,6 +310,8 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 		}); err != nil {
 			return nil, 0, token.LastBlock, token.Synced, err
 		}
+		// set the last block number of the network in the provider getting it
+		// from the latest block numbers cache
 		if iLastNetworkBlock, ok := s.latestBlockNumbers.Load(token.ChainID); ok {
 			if lastNetworkBlock, ok := iLastNetworkBlock.(uint64); ok {
 				provider.SetLastBlockNumber(lastNetworkBlock)

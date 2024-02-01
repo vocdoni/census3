@@ -75,7 +75,13 @@ type HolderProvider interface {
 	// BlockRootHash returns the root hash of the given block number for the
 	// current token set in the provider
 	BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error)
+	// LatestBlockNumber returns the latest block number for the network of the
+	// current token set in the provider
 	LatestBlockNumber(ctx context.Context, id []byte) (uint64, error)
+	// CreationBlock returns the creation block number for the contract of the
+	// current token set in the provider
 	CreationBlock(ctx context.Context, id []byte) (uint64, error)
+	// IconURI returns the icon URI of the icon asset of the current token set
+	// in the provider.
 	IconURI(id []byte) (string, error)
 }

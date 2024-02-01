@@ -131,7 +131,7 @@ func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	}
 	log.Infow("scan iteration",
 		"address", p.address,
-		"type", providers.TokenTypeStringMap[providers.CONTRACT_TYPE_ERC721],
+		"type", p.TypeName(),
 		"from", fromBlock,
 		"to", toBlock)
 	// iterate scanning the logs in the range of blocks until the last block
@@ -200,7 +200,7 @@ func (p *ERC721HolderProvider) Type() uint64 {
 
 // TypeName returns the type name of the current token set in the provider.
 func (p *ERC721HolderProvider) TypeName() string {
-	return providers.TokenTypeStringMap[providers.CONTRACT_TYPE_ERC721]
+	return providers.TokenTypeName(providers.CONTRACT_TYPE_ERC721)
 }
 
 // ChainID returns the chain ID of the current token set in the provider.

@@ -26,7 +26,7 @@ const (
 	CONTRACT_NAME_GITCOIN = "gitcoinpassport"
 )
 
-var TokenTypeStringMap = map[uint64]string{
+var tokenTypeStringMap = map[uint64]string{
 	CONTRACT_TYPE_UNKNOWN: CONTRACT_NAME_UNKNOWN,
 	CONTRACT_TYPE_ERC20:   CONTRACT_NAME_ERC20,
 	CONTRACT_TYPE_ERC721:  CONTRACT_NAME_ERC721,
@@ -35,11 +35,29 @@ var TokenTypeStringMap = map[uint64]string{
 	CONTRACT_TYPE_GITCOIN: CONTRACT_NAME_GITCOIN,
 }
 
-var TokenTypeIntMap = map[string]uint64{
+var tokenTypeIntMap = map[string]uint64{
 	CONTRACT_NAME_UNKNOWN: CONTRACT_TYPE_UNKNOWN,
 	CONTRACT_NAME_ERC20:   CONTRACT_TYPE_ERC20,
 	CONTRACT_NAME_ERC721:  CONTRACT_TYPE_ERC721,
 	CONTRACT_NAME_ERC777:  CONTRACT_TYPE_ERC777,
 	CONTRACT_NAME_POAP:    CONTRACT_TYPE_POAP,
 	CONTRACT_NAME_GITCOIN: CONTRACT_TYPE_GITCOIN,
+}
+
+// TokenTypeName returns the name of the token type for the given id. If the id
+// is not found, it returns CONTRACT_NAME_UNKNOWN.
+func TokenTypeName(id uint64) string {
+	if name, ok := tokenTypeStringMap[id]; ok {
+		return name
+	}
+	return CONTRACT_NAME_UNKNOWN
+}
+
+// TokenTypeID returns the id of the token type for the given name. If the name
+// is not found, it returns CONTRACT_TYPE_UNKNOWN.
+func TokenTypeID(name string) uint64 {
+	if id, ok := tokenTypeIntMap[name]; ok {
+		return id
+	}
+	return CONTRACT_TYPE_UNKNOWN
 }

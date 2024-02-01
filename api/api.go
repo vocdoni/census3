@@ -211,7 +211,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			Decimals:      token.Decimals,
 			TotalSupply:   annotations.BigInt(token.TotalSupply),
 			CreationBlock: 0,
-			TypeID:        uint64(web3.TokenTypeFromString(token.Type)),
+			TypeID:        providers.TokenTypeID(token.Type),
 			Synced:        false,
 			Tags:          token.Tags,
 			ChainID:       token.ChainID,

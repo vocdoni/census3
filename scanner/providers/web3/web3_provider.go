@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -23,15 +22,6 @@ type Web3ProviderRef struct {
 type Web3ProviderConfig struct {
 	Web3ProviderRef
 	Endpoints NetworkEndpoints
-}
-
-// TokenTypeFromString function returns the token type ID from a string value.
-// If the string is not recognized, it returns CONTRACT_TYPE_UNKNOWN.
-func TokenTypeFromString(s string) uint64 {
-	if c, ok := providers.TokenTypeIntMap[s]; ok {
-		return c
-	}
-	return providers.CONTRACT_TYPE_UNKNOWN
 }
 
 // creationBlockInRange function finds the block number of a contract between

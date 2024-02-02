@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
@@ -156,8 +155,7 @@ func (s *Scanner) Start(ctx context.Context) {
 			log.Infow("scan iteration finished",
 				"iteration", itCounter,
 				"duration", time.Since(startTime).Seconds(),
-				"atSync", atSyncGlobal,
-				"GetBlockByNumberCounter", internal.GetBlockByNumberCounter.Load())
+				"atSync", atSyncGlobal)
 			// if all the tokens are synced, sleep the cool down time, else,
 			// sleep the scan sleep time
 			if atSyncGlobal {

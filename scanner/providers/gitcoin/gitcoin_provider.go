@@ -12,7 +12,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/scanner/providers"
@@ -80,10 +79,8 @@ func (g *GitcoinPassport) Init(iconf any) error {
 	g.updated.Store(false)
 	// init balances variables
 	g.currentBalances = make(map[common.Address]*big.Int)
-	g.currentBalancesMtx = sync.RWMutex{}
 	g.newBalances = make(map[common.Address]*big.Int)
-	g.newBalancesMtx = sync.RWMutex{}
-	g.lastUpdate.Store(time.Time{})
+
 	return nil
 }
 
@@ -118,9 +115,10 @@ func (g *GitcoinPassport) SetLastBalances(_ context.Context, _ []byte,
 func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64) (
 	map[common.Address]*big.Int, uint64, uint64, bool, error,
 ) {
+	// if there is no last update, set it to zero
 	lastUpdate, ok := g.lastUpdate.Load().(time.Time)
 	if !ok {
-		return nil, 1, 0, false, fmt.Errorf("error getting last update")
+		lastUpdate = time.Time{}
 	}
 	if time.Since(lastUpdate) > g.cooldown && !g.downloading.Load() {
 		log.Info("downloading Gitcoin Passport balances")
@@ -214,11 +212,9 @@ func (g *GitcoinPassport) updateBalances() error {
 			}
 		}
 	}
-	balancesSize := unsafe.Sizeof(balances)
 	log.Infow("Gitcoin Passport balances download finished",
 		"elapsed", elapsed,
-		"holders", len(balances),
-		"size", balancesSize)
+		"holders", len(balances))
 	// remove duplicated addresses keeping the last one
 	// calculate partial balances and store them
 	g.updated.Store(true)

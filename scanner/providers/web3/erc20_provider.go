@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
-	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
@@ -275,7 +274,6 @@ func (p *ERC20HolderProvider) BalanceAt(ctx context.Context, addr common.Address
 // BlockTimestamp returns the timestamp of the given block number for the
 // current token set in the provider. It gets the timestamp from the client.
 func (p *ERC20HolderProvider) BlockTimestamp(ctx context.Context, blockNumber uint64) (string, error) {
-	internal.GetBlockByNumberCounter.Add(1)
 	blockHeader, err := p.client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 	if err != nil {
 		return "", err
@@ -286,7 +284,6 @@ func (p *ERC20HolderProvider) BlockTimestamp(ctx context.Context, blockNumber ui
 // BlockRootHash returns the root hash of the given block number for the current
 // token set in the provider. It gets the root hash from the client.
 func (p *ERC20HolderProvider) BlockRootHash(ctx context.Context, blockNumber uint64) ([]byte, error) {
-	internal.GetBlockByNumberCounter.Add(1)
 	blockHeader, err := p.client.HeaderByNumber(ctx, new(big.Int).SetInt64(int64(blockNumber)))
 	if err != nil {
 		return nil, err
@@ -298,7 +295,6 @@ func (p *ERC20HolderProvider) BlockRootHash(ctx context.Context, blockNumber uin
 // in the provider. It gets the latest block number from the client. It also
 // receives an external ID but it is not used by the provider.
 func (p *ERC20HolderProvider) LatestBlockNumber(ctx context.Context, _ []byte) (uint64, error) {
-	internal.GetBlockByNumberCounter.Add(1)
 	lastBlockHeader, err := p.client.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, err

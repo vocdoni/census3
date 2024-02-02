@@ -1,8 +1,6 @@
 package internal
 
 import (
-	"sync/atomic"
-
 	"github.com/VictoriaMetrics/metrics"
 )
 
@@ -30,8 +28,6 @@ var (
 	TotalNumberOfCensuses = metrics.NewCounter(`census3_total_number_of_censuses`)
 	// number of censuses by type (anonymous or not)
 	NumberOfCensusesByType = metrics.NewSet()
-
-	GetBlockByNumberCounter = atomic.Uint64{}
 )
 
 func init() {

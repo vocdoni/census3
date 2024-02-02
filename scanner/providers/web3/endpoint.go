@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/vocdoni/census3/internal"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -115,7 +114,6 @@ func (nps NetworkEndpoints) CurrentBlockNumbers(ctx context.Context) (map[uint64
 		if err != nil {
 			return blockNumbers, err
 		}
-		internal.GetBlockByNumberCounter.Add(1)
 		blockNumber, err := cli.BlockNumber(ctx)
 		if err != nil {
 			return blockNumbers, fmt.Errorf("error getting the block number from %s network: %w", endpoint.Name, err)

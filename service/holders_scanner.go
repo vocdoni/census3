@@ -219,7 +219,7 @@ func (s *HoldersScanner) saveHolders(th *state.TokenHolders) error {
 		"externalID", th.ExternalID,
 		"block", th.LastBlock(),
 		"holders", len(th.Holders()))
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	// begin a transaction for group sql queries
 	tx, err := s.db.RW.BeginTx(ctx, nil)
@@ -513,8 +513,11 @@ func (s *HoldersScanner) scanHolders(ctx context.Context, addr common.Address, c
 			return false, err
 		}
 		th.BlockDone(blockNumber)
-		th.Synced()
-		return true, s.saveHolders(th)
+		synced := provider.IsSynced([]byte(th.ExternalID))
+		if synced {
+			th.Synced()
+		}
+		return synced, s.saveHolders(th)
 	}
 	// get correct web3 uri provider
 	w3URI, exists := s.w3p.EndpointByChainID(th.ChainID)
@@ -574,21 +577,29 @@ func (s *HoldersScanner) calcTokenCreationBlock(ctx context.Context, index int) 
 	if err != nil {
 		return fmt.Errorf("error getting token from database: %w", err)
 	}
+	creationBlock := uint64(0)
 	ttype := state.TokenType(tokenInfo.TypeID)
-	// get correct web3 uri provider
-	w3URI, exists := s.w3p.EndpointByChainID(tokenInfo.ChainID)
-	if !exists {
-		return fmt.Errorf("chain ID not supported")
-	}
-	// init web3 contract state
-	w3 := state.Web3{}
-	if err := w3.Init(ctx, w3URI, addr, ttype); err != nil {
-		return fmt.Errorf("error intializing web3 client for this token: %w", err)
-	}
-	// get creation block of the current token contract
-	creationBlock, err := w3.ContractCreationBlock(ctx)
-	if err != nil {
-		return fmt.Errorf("error getting token creation block: %w", err)
+	if provider, isExternal := s.extProviders[ttype]; isExternal {
+		creationBlock, err = provider.CreationBlock(ctx, []byte(tokenInfo.ExternalID))
+		if err != nil {
+			return fmt.Errorf("error getting token creation block: %w", err)
+		}
+	} else {
+		// get correct web3 uri provider
+		w3URI, exists := s.w3p.EndpointByChainID(tokenInfo.ChainID)
+		if !exists {
+			return fmt.Errorf("chain ID not supported")
+		}
+		// init web3 contract state
+		w3 := state.Web3{}
+		if err := w3.Init(ctx, w3URI, addr, ttype); err != nil {
+			return fmt.Errorf("error intializing web3 client for this token: %w", err)
+		}
+		// get creation block of the current token contract
+		creationBlock, err = w3.ContractCreationBlock(ctx)
+		if err != nil {
+			return fmt.Errorf("error getting token creation block: %w", err)
+		}
 	}
 	// save the creation block into the database
 	_, err = s.db.QueriesRW.UpdateTokenCreationBlock(ctx,

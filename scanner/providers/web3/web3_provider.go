@@ -64,8 +64,7 @@ func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 ) ([]types.Log, uint64, bool, error) {
 	// if the range is too big, scan only a part of it using the constant
 	// BLOCKS_TO_SCAN_AT_ONCE
-	initialLastBlock := lastBlock
-	if lastBlock-fromBlock > BLOCKS_TO_SCAN_AT_ONCE {
+	if lastBlock-fromBlock > BLOCKS_TO_SCAN_AT_ONCE && fromBlock+MAX_SCAN_BLOCKS_PER_ITERATION < lastBlock {
 		lastBlock = fromBlock + MAX_SCAN_BLOCKS_PER_ITERATION
 	}
 	if fromBlock > lastBlock {
@@ -88,15 +87,19 @@ func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 			if logCount > MAX_SCAN_LOGS_PER_ITERATION {
 				return finalLogs, fromBlock, false, nil
 			}
+			toBlock := fromBlock + blocksRange - 1
+			if toBlock > lastBlock {
+				toBlock = lastBlock
+			}
 			log.Debugw("scanning logs",
 				"address", addr.Hex(),
 				"fromBlock", fromBlock,
-				"toBlock", fromBlock+blocksRange-1)
+				"toBlock", toBlock)
 			// compose the filter to get the logs of the ERC20 Transfer events
 			filter := ethereum.FilterQuery{
 				Addresses: []common.Address{addr},
 				FromBlock: new(big.Int).SetUint64(fromBlock),
-				ToBlock:   new(big.Int).SetUint64(fromBlock + blocksRange - 1),
+				ToBlock:   new(big.Int).SetUint64(toBlock),
 				Topics:    [][]common.Hash{topicHashes},
 			}
 			// get the logs and check if there are any errors
@@ -125,8 +128,8 @@ func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 	// the scan is completed and the token is synced. If not, the token is not
 	// synced and the last block scanned is the last block of the scanned range
 	// plus one.
-	if fromBlock > initialLastBlock {
-		fromBlock = initialLastBlock
+	if fromBlock > lastBlock {
+		fromBlock = lastBlock
 	}
-	return finalLogs, fromBlock, fromBlock >= initialLastBlock, nil
+	return finalLogs, fromBlock, fromBlock >= lastBlock, nil
 }

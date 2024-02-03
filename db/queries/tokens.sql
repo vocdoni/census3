@@ -5,13 +5,7 @@ WHERE strftime('%s', 'now') - strftime('%s', created_at) <= 600
 ORDER BY created_at DESC;
 
 -- name: ListOldNoSyncedTokens :many
-SELECT tokens.*, (
-    SELECT MAX(block_id) AS last_block
-    FROM token_holders
-    WHERE token_id = tokens.id 
-        AND chain_id = tokens.chain_id 
-        AND external_id = tokens.external_id
-) FROM tokens 
+SELECT * FROM tokens 
 WHERE strftime('%s', 'now') - strftime('%s', created_at) > 600
     AND synced = 0;
 
@@ -32,17 +26,7 @@ SELECT * FROM (
     LIMIT ?
 ) as token ORDER BY token.id ASC;
 
--- name: TokenByID :one
-SELECT * FROM tokens
-WHERE id = ?
-LIMIT 1;
-
--- name: TokenByIDAndChainID :one
-SELECT * FROM tokens
-WHERE id = ? AND chain_id = ?
-LIMIT 1;
-
--- name: TokenByIDAndChainIDAndExternalID :one
+-- name: GetToken :one
 SELECT * FROM tokens
 WHERE id = ? AND chain_id = ? AND external_id = ?
 LIMIT 1;
@@ -76,16 +60,21 @@ VALUES (
 
 -- name: UpdateTokenStatus :execresult
 UPDATE tokens
-SET synced = sqlc.arg(synced)
+SET synced = sqlc.arg(synced), 
+    last_block = sqlc.arg(last_block),
+    analysed_transfers = sqlc.arg(analysed_transfers)
 WHERE id = sqlc.arg(id) 
     AND chain_id = sqlc.arg(chain_id) 
     AND external_id = sqlc.arg(external_id);
 
 
--- name: UpdateTokenCreationBlock :execresult
+-- name: UpdateTokenBlocks :execresult
 UPDATE tokens
-SET creation_block = sqlc.arg(creation_block)
-WHERE id = sqlc.arg(id);
+SET creation_block = sqlc.arg(creation_block),
+    last_block = sqlc.arg(last_block)
+WHERE id = sqlc.arg(id)
+    AND chain_id = sqlc.arg(chain_id)
+    AND external_id = sqlc.arg(external_id);
 
 -- name: UpdateTokenDefaultStrategy :execresult
 UPDATE tokens

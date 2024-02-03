@@ -15,10 +15,9 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/queue"
-	"github.com/vocdoni/census3/service"
-	"github.com/vocdoni/census3/service/web3"
-	"github.com/vocdoni/census3/state"
+	"github.com/vocdoni/census3/internal/queue"
+	"github.com/vocdoni/census3/scanner/providers"
+	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"
 	storagelayer "go.vocdoni.io/dvote/data"
 	"go.vocdoni.io/dvote/data/downloader"
@@ -33,26 +32,26 @@ import (
 )
 
 type Census3APIConf struct {
-	Hostname      string
-	Port          int
-	DataDir       string
-	GroupKey      string
-	Web3Providers web3.NetworkEndpoints
-	ExtProviders  map[state.TokenType]service.HolderProvider
-	AdminToken    string
+	Hostname        string
+	Port            int
+	DataDir         string
+	GroupKey        string
+	Web3Providers   web3.NetworkEndpoints
+	HolderProviders map[uint64]providers.HolderProvider
+	AdminToken      string
 }
 
 type census3API struct {
-	conf         Census3APIConf
-	db           *db.DB
-	endpoint     *api.API
-	censusDB     *censusdb.CensusDB
-	queue        *queue.BackgroundQueue
-	w3p          web3.NetworkEndpoints
-	storage      storagelayer.Storage
-	downloader   *downloader.Downloader
-	extProviders map[state.TokenType]service.HolderProvider
-	cache        *lru.Cache[CacheKey, any]
+	conf            Census3APIConf
+	db              *db.DB
+	endpoint        *api.API
+	censusDB        *censusdb.CensusDB
+	queue           *queue.BackgroundQueue
+	w3p             web3.NetworkEndpoints
+	storage         storagelayer.Storage
+	downloader      *downloader.Downloader
+	holderProviders map[uint64]providers.HolderProvider
+	cache           *lru.Cache[CacheKey, any]
 }
 
 func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
@@ -61,12 +60,12 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 		return nil, err
 	}
 	newAPI := &census3API{
-		conf:         conf,
-		db:           db,
-		w3p:          conf.Web3Providers,
-		queue:        queue.NewBackgroundQueue(),
-		extProviders: conf.ExtProviders,
-		cache:        cache,
+		conf:            conf,
+		db:              db,
+		w3p:             conf.Web3Providers,
+		queue:           queue.NewBackgroundQueue(),
+		holderProviders: conf.HolderProviders,
+		cache:           cache,
 	}
 	// get the current chainID
 	log.Infow("starting API", "web3Providers", conf.Web3Providers.String())
@@ -212,7 +211,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			Decimals:      token.Decimals,
 			TotalSupply:   annotations.BigInt(token.TotalSupply),
 			CreationBlock: 0,
-			TypeID:        uint64(state.TokenTypeFromString(token.Type)),
+			TypeID:        providers.TokenTypeID(token.Type),
 			Synced:        false,
 			Tags:          token.Tags,
 			ChainID:       token.ChainID,

@@ -13,9 +13,9 @@ import (
 	gocid "github.com/ipfs/go-cid"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/internal"
-	"github.com/vocdoni/census3/lexer"
-	"github.com/vocdoni/census3/roundedcensus"
-	"github.com/vocdoni/census3/strategyoperators"
+	"github.com/vocdoni/census3/internal/lexer"
+	"github.com/vocdoni/census3/internal/roundedcensus"
+	"github.com/vocdoni/census3/internal/strategyoperators"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -662,7 +662,7 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(strategyID uint64, anony
 	}
 	// calculate the strategy holders
 	strategyHolders, _, _, err := CalculateStrategyHolders(internalCtx,
-		capi.db.QueriesRO, capi.w3p, strategyID, strategy.Predicate)
+		capi.db.QueriesRO, capi.holderProviders, strategyID, strategy.Predicate)
 	if err != nil {
 		return 0, 0, ErrEvalStrategyPredicate.WithErr(err)
 	}

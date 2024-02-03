@@ -16,11 +16,11 @@ import (
 	"github.com/vocdoni/census3/api"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/internal"
-	"github.com/vocdoni/census3/service"
-	"github.com/vocdoni/census3/service/gitcoin"
-	"github.com/vocdoni/census3/service/poap"
-	"github.com/vocdoni/census3/service/web3"
-	"github.com/vocdoni/census3/state"
+	"github.com/vocdoni/census3/scanner"
+	"github.com/vocdoni/census3/scanner/providers"
+	"github.com/vocdoni/census3/scanner/providers/gitcoin"
+	"github.com/vocdoni/census3/scanner/providers/poap"
+	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -136,34 +136,67 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	externalProviders := map[state.TokenType]service.HolderProvider{}
+	// start the holder scanner with the database and the providers
+	hc := scanner.NewScanner(database, w3p, config.scannerCoolDown)
+	// init the web3 token providers
+	erc20Provider := new(web3.ERC20HolderProvider)
+	if err := erc20Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
+		log.Fatal(err)
+		return
+	}
+	erc721Provider := new(web3.ERC721HolderProvider)
+	if err := erc721Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
+		log.Fatal(err)
+		return
+	}
+	erc777Provider := new(web3.ERC777HolderProvider)
+	if err := erc777Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
+		log.Fatal(err)
+		return
+	}
+	// set the providers in the scanner and the API
+	if err := hc.SetProviders(erc20Provider, erc721Provider, erc777Provider); err != nil {
+		log.Fatal(err)
+		return
+	}
+	apiProviders := map[uint64]providers.HolderProvider{
+		erc20Provider.Type():  erc20Provider,
+		erc721Provider.Type(): erc721Provider,
+		erc777Provider.Type(): erc777Provider,
+	}
 	// init POAP external provider
 	if config.poapAPIEndpoint != "" {
-		poapProvider := &poap.POAPHolderProvider{
-			URI:         config.poapAPIEndpoint,
+		poapProvider := new(poap.POAPHolderProvider)
+		if err := poapProvider.Init(poap.POAPConfig{
+			APIEndpoint: config.poapAPIEndpoint,
 			AccessToken: config.poapAuthToken,
-		}
-		if err := poapProvider.Init(); err != nil {
+		}); err != nil {
 			log.Fatal(err)
+			return
 		}
-		externalProviders[state.CONTRACT_TYPE_POAP] = poapProvider
+		if err := hc.SetProviders(poapProvider); err != nil {
+			log.Fatal(err)
+			return
+		}
+		apiProviders[poapProvider.Type()] = poapProvider
 	}
 	if config.gitcoinEndpoint != "" {
 		// init Gitcoin external provider
-		gitcoinProvider := &gitcoin.GitcoinPassport{
+		gitcoinProvider := new(gitcoin.GitcoinPassport)
+		if err := gitcoinProvider.Init(gitcoin.GitcoinPassportConf{
 			APIEndpoint: config.gitcoinEndpoint,
 			Cooldown:    config.gitcoinCooldown,
-		}
-		if err := gitcoinProvider.Init(); err != nil {
+		}); err != nil {
 			log.Fatal(err)
+			return
 		}
-		externalProviders[state.CONTRACT_TYPE_GITCOINPASSPORT] = gitcoinProvider
+		if err := hc.SetProviders(gitcoinProvider); err != nil {
+			log.Fatal(err)
+			return
+		}
+		apiProviders[gitcoinProvider.Type()] = gitcoinProvider
 	}
-	// start the holder scanner with the database and the external providers
-	hc, err := service.NewHoldersScanner(database, w3p, externalProviders, config.scannerCoolDown)
-	if err != nil {
-		log.Fatal(err)
-	}
+
 	// if the admin token is not defined, generate a random one
 	if config.adminToken != "" {
 		if _, err := uuid.Parse(config.adminToken); err != nil {
@@ -175,13 +208,13 @@ func main() {
 	}
 	// Start the API
 	apiService, err := api.Init(database, api.Census3APIConf{
-		Hostname:      "0.0.0.0",
-		Port:          config.port,
-		DataDir:       config.dataDir,
-		Web3Providers: w3p,
-		GroupKey:      config.connectKey,
-		ExtProviders:  externalProviders,
-		AdminToken:    config.adminToken,
+		Hostname:        "0.0.0.0",
+		Port:            config.port,
+		DataDir:         config.dataDir,
+		Web3Providers:   w3p,
+		GroupKey:        config.connectKey,
+		HolderProviders: apiProviders,
+		AdminToken:      config.adminToken,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -204,17 +237,14 @@ func main() {
 	log.Infof("waiting for routines to end gracefully...")
 	// closing database
 	go func() {
+		hc.Stop()
 		if err := apiService.Stop(); err != nil {
 			log.Fatal(err)
 		}
 		if err := database.Close(); err != nil {
 			log.Fatal(err)
 		}
-		for _, provider := range externalProviders {
-			if err := provider.Close(); err != nil {
-				log.Fatal(err)
-			}
-		}
+		log.Infof("all routines ended")
 	}()
 	time.Sleep(5 * time.Second)
 	os.Exit(0)

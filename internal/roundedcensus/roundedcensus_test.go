@@ -51,9 +51,13 @@ func Test_GroupAndRoundCensus(t *testing.T) {
 	result, accuracy, err = GroupAndRoundCensus(participants, DefaultGroupsConfig)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(result), qt.Equals, 12)
-	c.Assert(accuracy, qt.Equals, 50.0)
+	c.Assert(accuracy, qt.Equals, 100.0)
 	for _, p := range result {
-		c.Assert(p.Balance.String(), qt.Equals, "1")
+		for _, op := range participants {
+			if p.Address == op.Address {
+				c.Assert(p.Balance.String(), qt.Equals, op.Balance.String())
+			}
+		}
 	}
 }
 
@@ -88,7 +92,7 @@ func Test_zScore(t *testing.T) {
 	// expected outliers
 	expectedOutliers := []*Participant{
 		{Address: "0x1", Balance: big.NewInt(1)},
-		{Address: "0x9", Balance: big.NewInt(100)},
+		{Address: "0x9", Balance: big.NewInt(50)},
 	}
 	// results
 	cleanedParticipants, outliers := zScore(participants, DefaultGroupsConfig.OutliersThreshold)

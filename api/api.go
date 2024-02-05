@@ -203,21 +203,63 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 	}()
 	qtx := capi.db.QueriesRW.WithTx(tx)
 	for _, token := range tokens {
+		// get the correct holder provider for the token type
+		tokenType := providers.TokenTypeID(token.Type)
+		provider, exists := capi.holderProviders[tokenType]
+		if !exists {
+			return ErrCantCreateCensus.With("token type not supported")
+		}
+		if !provider.IsExternal() {
+			if err := provider.SetRef(web3.Web3ProviderRef{
+				HexAddress: token.ID,
+				ChainID:    token.ChainID,
+			}); err != nil {
+				return ErrInitializingWeb3.WithErr(err)
+			}
+		}
+		// get token information from the external provider
+		address := provider.Address()
+		name, err := provider.Name([]byte(token.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+		symbol, err := provider.Symbol([]byte(token.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+		decimals, err := provider.Decimals([]byte(token.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+		totalSupply, err := provider.TotalSupply([]byte(token.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+		// get the chain address for the token based on the chainID and tokenID
+		chainAddress, ok := capi.w3p.ChainAddress(token.ChainID, address.String())
+		if !ok {
+			return ErrChainIDNotSupported.Withf("chainID: %d, tokenID: %s", token.ChainID, token.ID)
+		}
+		iconURI, err := provider.IconURI([]byte(token.ExternalID))
+		if err != nil {
+			return ErrCantGetToken.WithErr(err)
+		}
+
 		addr := common.HexToAddress(token.ID)
 		_, err = qtx.CreateToken(ctx, queries.CreateTokenParams{
 			ID:            addr.Bytes(),
-			Name:          token.Name,
-			Symbol:        token.Symbol,
-			Decimals:      token.Decimals,
-			TotalSupply:   annotations.BigInt(token.TotalSupply),
+			Name:          name,
+			Symbol:        symbol,
+			Decimals:      decimals,
+			TotalSupply:   annotations.BigInt(totalSupply.String()),
 			CreationBlock: 0,
 			TypeID:        providers.TokenTypeID(token.Type),
 			Synced:        false,
 			Tags:          token.Tags,
 			ChainID:       token.ChainID,
-			ChainAddress:  token.ChainAddress,
+			ChainAddress:  chainAddress,
 			ExternalID:    token.ExternalID,
-			IconUri:       token.IconURI,
+			IconUri:       iconURI,
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "UNIQUE constraint failed") {

@@ -64,6 +64,7 @@ func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 ) ([]types.Log, uint64, bool, error) {
 	// if the range is too big, scan only a part of it using the constant
 	// BLOCKS_TO_SCAN_AT_ONCE
+	initialLastBlock := lastBlock
 	if lastBlock-fromBlock > BLOCKS_TO_SCAN_AT_ONCE && fromBlock+MAX_SCAN_BLOCKS_PER_ITERATION < lastBlock {
 		lastBlock = fromBlock + MAX_SCAN_BLOCKS_PER_ITERATION
 	}
@@ -131,5 +132,5 @@ func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 	if fromBlock > lastBlock {
 		fromBlock = lastBlock
 	}
-	return finalLogs, fromBlock, fromBlock >= lastBlock, nil
+	return finalLogs, fromBlock, fromBlock >= initialLastBlock, nil
 }

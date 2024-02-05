@@ -51,7 +51,7 @@ type GroupsConfig struct {
 }
 
 var DefaultGroupsConfig GroupsConfig = GroupsConfig{
-	GroupBalanceDiff:    big.NewInt(10),
+	GroupBalanceDiff:    big.NewInt(0),
 	MinPrivacyThreshold: 3,
 	MinAccuracy:         50.0,
 	OutliersThreshold:   2.0,

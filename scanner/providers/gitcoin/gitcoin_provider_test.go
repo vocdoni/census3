@@ -37,13 +37,13 @@ func TestGitcoinPassport(t *testing.T) {
 	provider := new(GitcoinPassport)
 	c.Assert(provider.Init(GitcoinPassportConf{endpoints["/original"], time.Second * 2}), qt.IsNil)
 	// start the first download
-	emptyBalances, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
+	emptyBalances, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(emptyBalances), qt.Equals, 0)
 	// wait for the download to finish
 	time.Sleep(2 * time.Second)
 	// check the balances
-	holders, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
+	holders, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(holders), qt.Equals, len(expectedOriginalHolders))
 	for addr, balance := range holders {
@@ -53,14 +53,14 @@ func TestGitcoinPassport(t *testing.T) {
 		c.Assert(balance.String(), qt.Equals, expectedBalance)
 	}
 	// start the second download expecting to use the cached data
-	sameBalances, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
+	sameBalances, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	// empty results because the data the same
 	c.Assert(len(sameBalances), qt.Equals, 0)
 
 	provider.apiEndpoint = endpoints["/updated"]
 	provider.lastUpdate.Store(time.Time{})
-	emptyBalances, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
+	emptyBalances, _, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(emptyBalances), qt.Equals, 0)
 
@@ -71,7 +71,7 @@ func TestGitcoinPassport(t *testing.T) {
 		currentHolders[common.HexToAddress(addr)], _ = new(big.Int).SetString(balance, 10)
 	}
 	c.Assert(provider.SetLastBalances(context.TODO(), nil, currentHolders, 0), qt.IsNil)
-	holders, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
+	holders, _, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(holders), qt.Equals, len(expectedUpdatedHolders))
 	for addr, balance := range holders {

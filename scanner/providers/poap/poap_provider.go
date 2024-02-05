@@ -124,7 +124,7 @@ func (p *POAPHolderProvider) SetLastBalances(_ context.Context, id []byte,
 // API parsing every POAP holder for the event ID provided and calculate the
 // balances of the token holders from the last snapshot.
 func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta uint64) (
-	map[common.Address]*big.Int, uint64, uint64, bool, error,
+	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
 ) {
 	// parse eventID from id
 	eventID := string(id)
@@ -132,7 +132,7 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 	// get last snapshot
 	newSnapshot, err := p.lastHolders(eventID)
 	if err != nil {
-		return nil, 0, 0, false, err
+		return nil, 0, 0, false, big.NewInt(0), err
 	}
 	p.snapshotsMtx.RLock()
 	defer p.snapshotsMtx.RUnlock()
@@ -149,8 +149,13 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 		from:     from,
 		snapshot: newSnapshot,
 	}
+	// calculate total supply
+	totalSupply := new(big.Int)
+	for _, balance := range finalSnapshot {
+		totalSupply.Add(totalSupply, balance)
+	}
 	// return the final snapshot
-	return finalSnapshot, uint64(len(finalSnapshot)), from, true, nil
+	return finalSnapshot, uint64(len(finalSnapshot)), from, true, totalSupply, nil
 }
 
 // Close method is not implemented in the POAP external provider. By default it
@@ -225,7 +230,16 @@ func (p *POAPHolderProvider) Decimals(_ []byte) (uint64, error) {
 
 // TotalSupply method is not implemented in the POAP external provider. By
 // default it returns 0 and nil error.
-func (p *POAPHolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
+func (p *POAPHolderProvider) TotalSupply(id []byte) (*big.Int, error) {
+	p.snapshotsMtx.RLock()
+	defer p.snapshotsMtx.RUnlock()
+	totalSupply := new(big.Int)
+	if snapshot, exist := p.snapshots[string(id)]; exist {
+		for _, balance := range snapshot.snapshot {
+			totalSupply.Add(totalSupply, balance)
+		}
+		return totalSupply, nil
+	}
 	return big.NewInt(0), nil
 }
 

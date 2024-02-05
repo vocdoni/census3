@@ -573,7 +573,8 @@ const updateTokenStatus = `-- name: UpdateTokenStatus :execresult
 UPDATE tokens
 SET synced = ?, 
     last_block = ?,
-    analysed_transfers = ?
+    analysed_transfers = ?,
+    total_supply = ?
 WHERE id = ? 
     AND chain_id = ? 
     AND external_id = ?
@@ -583,6 +584,7 @@ type UpdateTokenStatusParams struct {
 	Synced            bool
 	LastBlock         int64
 	AnalysedTransfers int64
+	TotalSupply       annotations.BigInt
 	ID                annotations.Address
 	ChainID           uint64
 	ExternalID        string
@@ -593,6 +595,7 @@ func (q *Queries) UpdateTokenStatus(ctx context.Context, arg UpdateTokenStatusPa
 		arg.Synced,
 		arg.LastBlock,
 		arg.AnalysedTransfers,
+		arg.TotalSupply,
 		arg.ID,
 		arg.ChainID,
 		arg.ExternalID,

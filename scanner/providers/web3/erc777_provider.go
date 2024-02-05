@@ -115,7 +115,7 @@ func (p *ERC777HolderProvider) SetLastBlockNumber(blockNumber uint64) {
 // of new transfers, the last block scanned, if the provider is synced and an
 // error if it exists.
 func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
-	map[common.Address]*big.Int, uint64, uint64, bool, error,
+	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
 ) {
 	// calculate the range of blocks to scan, by default take the last block
 	// scanned and scan to the latest block, calculate the latest block if the
@@ -125,7 +125,7 @@ func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 		var err error
 		toBlock, err = p.LatestBlockNumber(ctx, nil)
 		if err != nil {
-			return nil, 0, fromBlock, false, err
+			return nil, 0, fromBlock, false, nil, err
 		}
 	}
 	log.Infow("scan iteration",
@@ -138,7 +138,7 @@ func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	startTime := time.Now()
 	logs, lastBlock, synced, err := rangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
 	if err != nil {
-		return nil, 0, fromBlock, false, err
+		return nil, 0, fromBlock, false, nil, err
 	}
 	// encode the number of new transfers
 	newTransfers := uint64(len(logs))
@@ -147,7 +147,8 @@ func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	for _, currentLog := range logs {
 		logData, err := p.contract.ERC777ContractFilterer.ParseTransfer(currentLog)
 		if err != nil {
-			return nil, newTransfers, lastBlock, false, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC777] %s: %w", p.address, err))
+			return nil, newTransfers, lastBlock, false, nil,
+				errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC777] %s: %w", p.address, err))
 		}
 		// update balances
 		if toBalance, ok := balances[logData.To]; ok {
@@ -167,7 +168,7 @@ func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
 		"took", time.Since(startTime).Seconds(),
 		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))
-	return balances, newTransfers, lastBlock, synced, nil
+	return balances, newTransfers, lastBlock, synced, nil, nil
 }
 
 // Close method is not implemented for ERC777 tokens.

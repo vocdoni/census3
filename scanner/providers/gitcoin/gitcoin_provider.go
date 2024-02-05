@@ -113,7 +113,7 @@ func (g *GitcoinPassport) SetLastBalances(_ context.Context, _ []byte,
 // block scanned. If the download is not finished or the cooldown time has not
 // passed, it returns nil balances (no changes).
 func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64) (
-	map[common.Address]*big.Int, uint64, uint64, bool, error,
+	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
 ) {
 	// if there is no last update, set it to zero
 	lastUpdate, ok := g.lastUpdate.Load().(time.Time)
@@ -137,15 +137,20 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64)
 		log.Info("retrieving last Gitcoin Passport balances")
 		g.updated.Store(false)
 
-		g.currentBalancesMtx.RLock()
 		g.newBalancesMtx.RLock()
-		defer g.currentBalancesMtx.RUnlock()
 		defer g.newBalancesMtx.RUnlock()
+		// calculate total supply
+		totalSupply := big.NewInt(0)
+		for _, balance := range g.newBalances {
+			totalSupply.Add(totalSupply, balance)
+		}
+		g.currentBalancesMtx.RLock()
+		defer g.currentBalancesMtx.RUnlock()
 		return providers.CalcPartialHolders(g.currentBalances, g.newBalances),
-			1, lastUpdateID, true, nil
+			1, lastUpdateID, true, totalSupply, nil
 	}
 	log.Infof("no changes in Gitcoin Passport balances from last %s", g.cooldown)
-	return nil, 1, lastUpdateID, true, nil
+	return nil, 1, lastUpdateID, true, nil, nil
 }
 
 // updateBalances downloads the json from the API endpoint and stores the

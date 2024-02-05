@@ -31,7 +31,7 @@ type HolderProvider interface {
 	SetLastBlockNumber(blockNumber uint64)
 	// HoldersBalances returns the balances of the token holders for the given
 	// id and delta point in time, from the stored last snapshot.
-	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, uint64, uint64, bool, error)
+	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error)
 	// Close closes the provider and its internal structures.
 	Close() error
 	// IsExternal returns true if the provider is an external API.

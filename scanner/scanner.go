@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
@@ -22,13 +23,14 @@ import (
 // ScannerToken includes the information of a token that the scanner needs to
 // scan it.
 type ScannerToken struct {
-	Address    common.Address
-	ChainID    uint64
-	Type       uint64
-	ExternalID string
-	LastBlock  uint64
-	Ready      bool
-	Synced     bool
+	Address     common.Address
+	ChainID     uint64
+	Type        uint64
+	ExternalID  string
+	LastBlock   uint64
+	Ready       bool
+	Synced      bool
+	totalSupply *big.Int
 }
 
 // Scanner is the scanner that scans the tokens and saves the holders in the
@@ -134,7 +136,7 @@ func (s *Scanner) Start(ctx context.Context) {
 					"lastBlock", token.LastBlock,
 					"ready", token.Ready)
 				// scan the token
-				holders, newTransfers, lastBlock, synced, err := s.ScanHolders(ctx, token)
+				holders, newTransfers, lastBlock, synced, totalSupply, err := s.ScanHolders(ctx, token)
 				if err != nil {
 					log.Error(err)
 					continue
@@ -145,12 +147,12 @@ func (s *Scanner) Start(ctx context.Context) {
 				// save the token holders in the database in a goroutine and
 				// continue with the next token
 				s.waiter.Add(1)
-				go func(t *ScannerToken, h map[common.Address]*big.Int, n, lb uint64, sy bool) {
+				go func(t *ScannerToken, h map[common.Address]*big.Int, n, lb uint64, sy bool, ts *big.Int) {
 					defer s.waiter.Done()
-					if err = s.SaveHolders(ctx, t, h, n, lb, sy); err != nil {
+					if err = s.SaveHolders(ctx, t, h, n, lb, sy, ts); err != nil {
 						log.Error(err)
 					}
-				}(token, holders, newTransfers, lastBlock, synced)
+				}(token, holders, newTransfers, lastBlock, synced, totalSupply)
 			}
 			log.Infow("scan iteration finished",
 				"iteration", itCounter,
@@ -196,14 +198,19 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 	}
 	// parse last not synced token addresses
 	for _, token := range lastNotSyncedTokens {
+		totalSupply, ok := new(big.Int).SetString(string(token.TotalSupply), 10)
+		if !ok {
+			totalSupply = nil
+		}
 		tokens = append(tokens, &ScannerToken{
-			Address:    common.BytesToAddress(token.ID),
-			ChainID:    token.ChainID,
-			Type:       token.TypeID,
-			ExternalID: token.ExternalID,
-			LastBlock:  uint64(token.LastBlock),
-			Ready:      token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
-			Synced:     token.Synced,
+			Address:     common.BytesToAddress(token.ID),
+			ChainID:     token.ChainID,
+			Type:        token.TypeID,
+			ExternalID:  token.ExternalID,
+			LastBlock:   uint64(token.LastBlock),
+			Ready:       token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
+			Synced:      token.Synced,
+			totalSupply: totalSupply,
 		})
 	}
 	// get old not synced tokens from the database (2)
@@ -241,14 +248,19 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 		})
 		// parse old not synced token addresses
 		for _, token := range oldNotSyncedTokens {
+			totalSupply, ok := new(big.Int).SetString(string(token.TotalSupply), 10)
+			if !ok {
+				totalSupply = nil
+			}
 			tokens = append(tokens, &ScannerToken{
-				Address:    common.BytesToAddress(token.ID),
-				ChainID:    token.ChainID,
-				Type:       token.TypeID,
-				ExternalID: token.ExternalID,
-				LastBlock:  uint64(token.LastBlock),
-				Ready:      token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
-				Synced:     token.Synced,
+				Address:     common.BytesToAddress(token.ID),
+				ChainID:     token.ChainID,
+				Type:        token.TypeID,
+				ExternalID:  token.ExternalID,
+				LastBlock:   uint64(token.LastBlock),
+				Ready:       token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
+				Synced:      token.Synced,
+				totalSupply: totalSupply,
 			})
 		}
 	}
@@ -258,14 +270,19 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 		return nil, err
 	}
 	for _, token := range syncedTokens {
+		totalSupply, ok := new(big.Int).SetString(string(token.TotalSupply), 10)
+		if !ok {
+			totalSupply = nil
+		}
 		tokens = append(tokens, &ScannerToken{
-			Address:    common.BytesToAddress(token.ID),
-			ChainID:    token.ChainID,
-			Type:       token.TypeID,
-			ExternalID: token.ExternalID,
-			LastBlock:  uint64(token.LastBlock),
-			Ready:      token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
-			Synced:     token.Synced,
+			Address:     common.BytesToAddress(token.ID),
+			ChainID:     token.ChainID,
+			Type:        token.TypeID,
+			ExternalID:  token.ExternalID,
+			LastBlock:   uint64(token.LastBlock),
+			Ready:       token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
+			Synced:      token.Synced,
+			totalSupply: totalSupply,
 		})
 	}
 	// update the tokens to scan in the scanner and return them
@@ -280,19 +297,19 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 // returns the new holders, the last block scanned and if the token is synced
 // after the scan.
 func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
-	map[common.Address]*big.Int, uint64, uint64, bool, error,
+	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
 ) {
 	internalCtx, cancel := context.WithTimeout(ctx, SCAN_TIMEOUT)
 	defer cancel()
 	// get the correct token holder for the current token
 	provider, exists := s.providers[token.Type]
 	if !exists {
-		return nil, 0, token.LastBlock, token.Synced, fmt.Errorf("token type %d not supported", token.Type)
+		return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("token type %d not supported", token.Type)
 	}
 	// create a tx to use it in the following queries
 	tx, err := s.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
-		return nil, 0, token.LastBlock, token.Synced, err
+		return nil, 0, token.LastBlock, token.Synced, nil, err
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
@@ -306,7 +323,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 			HexAddress: token.Address.Hex(),
 			ChainID:    token.ChainID,
 		}); err != nil {
-			return nil, 0, token.LastBlock, token.Synced, err
+			return nil, 0, token.LastBlock, token.Synced, nil, err
 		}
 		// set the last block number of the network in the provider getting it
 		// from the latest block numbers cache
@@ -325,7 +342,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 				"externalID", token.ExternalID)
 			creationBlock, err := provider.CreationBlock(internalCtx, []byte(token.ExternalID))
 			if err != nil {
-				return nil, 0, token.LastBlock, token.Synced, err
+				return nil, 0, token.LastBlock, token.Synced, nil, err
 			}
 			_, err = qtx.UpdateTokenBlocks(internalCtx, queries.UpdateTokenBlocksParams{
 				ID:            token.Address.Bytes(),
@@ -335,7 +352,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 				LastBlock:     int64(creationBlock),
 			})
 			if err != nil {
-				return nil, 0, token.LastBlock, token.Synced, err
+				return nil, 0, token.LastBlock, token.Synced, nil, err
 			}
 			token.LastBlock = creationBlock
 		}
@@ -353,27 +370,28 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 			ExternalID: token.ExternalID,
 		})
 	if err != nil {
-		return nil, 0, token.LastBlock, token.Synced, err
+		return nil, 0, token.LastBlock, token.Synced, nil, err
 	}
 	// set the current holders into the provider and get the new ones
 	currentHolders := map[common.Address]*big.Int{}
 	for _, result := range results {
 		bBalance, ok := new(big.Int).SetString(result.Balance, 10)
 		if !ok {
-			return nil, 0, token.LastBlock, token.Synced, fmt.Errorf("error parsing token holder balance")
+			return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("error parsing token holder balance")
 		}
 		currentHolders[common.BytesToAddress(result.HolderID)] = bBalance
 	}
 	// close the database tx and commit it
 	if err := tx.Commit(); err != nil {
-		return nil, 0, token.LastBlock, token.Synced, err
+		return nil, 0, token.LastBlock, token.Synced, nil, err
 	}
 	// set the current holders into the provider and get the new ones
 	if err := provider.SetLastBalances(ctx, []byte(token.ExternalID),
 		currentHolders, token.LastBlock,
 	); err != nil {
-		return nil, 0, token.LastBlock, token.Synced, err
+		return nil, 0, token.LastBlock, token.Synced, nil, err
 	}
+	// get the new holders from the provider
 	return provider.HoldersBalances(ctx, []byte(token.ExternalID), token.LastBlock)
 }
 
@@ -392,7 +410,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 //     the balances of the holders.
 func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 	holders map[common.Address]*big.Int, newTransfers, lastBlock uint64,
-	synced bool,
+	synced bool, totalSupply *big.Int,
 ) error {
 	log.Infow("saving token status and holders",
 		"token", token.Address.Hex(),
@@ -405,11 +423,14 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		if t.Address == token.Address && t.ChainID == token.ChainID && t.ExternalID == token.ExternalID {
 			s.tokens[i].LastBlock = lastBlock
 			s.tokens[i].Synced = synced
+			if totalSupply != nil && totalSupply.Cmp(big.NewInt(0)) > 0 {
+				s.tokens[i].totalSupply = totalSupply
+				token.totalSupply = totalSupply
+			}
 			break
 		}
 	}
 	s.tokensMtx.Unlock()
-
 	internalCtx, cancel := context.WithTimeout(ctx, SAVE_TIMEOUT)
 	defer cancel()
 	// create a tx to use it in the following queries
@@ -440,6 +461,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		Synced:            synced,
 		LastBlock:         int64(lastBlock),
 		AnalysedTransfers: tokenInfo.AnalysedTransfers + int64(newTransfers),
+		TotalSupply:       annotations.BigInt(token.totalSupply.String()),
 	})
 	if err != nil {
 		return err
@@ -449,6 +471,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		"token", token.Address.Hex(),
 		"chainID", token.ChainID,
 		"externalID", token.ExternalID,
+		"totalSupply", token.totalSupply.String(),
 		"block", lastBlock)
 	if len(holders) == 0 {
 		log.Debugw("no holders to save, skipping...",

@@ -115,7 +115,7 @@ func (p *ERC20HolderProvider) SetLastBlockNumber(blockNumber uint64) {
 // of new transfers, the last block scanned, if the provider is synced and an
 // error if it exists.
 func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
-	map[common.Address]*big.Int, uint64, uint64, bool, error,
+	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
 ) {
 	// calculate the range of blocks to scan, by default take the last block
 	// scanned and scan to the latest block, calculate the latest block if the
@@ -125,7 +125,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 		var err error
 		toBlock, err = p.LatestBlockNumber(ctx, nil)
 		if err != nil {
-			return nil, 0, fromBlock, false, err
+			return nil, 0, fromBlock, false, nil, err
 		}
 	}
 	log.Infow("scan iteration",
@@ -138,7 +138,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	startTime := time.Now()
 	logs, lastBlock, synced, err := rangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
 	if err != nil {
-		return nil, 0, fromBlock, false, err
+		return nil, 0, fromBlock, false, nil, err
 	}
 	// encode the number of new transfers
 	newTransfers := uint64(len(logs))
@@ -147,7 +147,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	for _, currentLog := range logs {
 		logData, err := p.contract.ERC20ContractFilterer.ParseTransfer(currentLog)
 		if err != nil {
-			return nil, newTransfers, lastBlock, false, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+			return nil, newTransfers, lastBlock, false, nil, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 		}
 		// update balances
 		if toBalance, ok := balances[logData.To]; ok {
@@ -168,7 +168,12 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 		"took", time.Since(startTime).Seconds(),
 		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))
 	p.synced.Store(synced)
-	return balances, newTransfers, lastBlock, synced, nil
+	totalSupply, err := p.TotalSupply(nil)
+	if err != nil {
+		return nil, newTransfers, lastBlock, false, nil,
+			errors.Join(ErrGettingTotalSupply, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+	}
+	return balances, newTransfers, lastBlock, synced, totalSupply, nil
 }
 
 // Close method is not implemented for ERC20 tokens.
@@ -247,11 +252,7 @@ func (p *ERC20HolderProvider) Decimals(_ []byte) (uint64, error) {
 // It gets the total supply from the contract. It also receives an external ID
 // but it is not used by the provider.
 func (p *ERC20HolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
-	var err error
-	if p.totalSupply == nil {
-		p.totalSupply, err = p.contract.ERC20ContractCaller.TotalSupply(nil)
-	}
-	return p.totalSupply, err
+	return p.contract.ERC20ContractCaller.TotalSupply(nil)
 }
 
 // BalanceOf returns the balance of the given address for the current token set

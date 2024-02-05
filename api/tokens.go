@@ -125,6 +125,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 			ExternalID:      tokenData.ExternalID,
 			Synced:          tokenData.Synced,
 			DefaultStrategy: tokenData.DefaultStrategy,
+			TotalSupply:     string(tokenData.TotalSupply),
 			IconURI:         tokenData.IconUri,
 		})
 	}

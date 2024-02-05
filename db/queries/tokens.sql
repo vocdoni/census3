@@ -62,7 +62,8 @@ VALUES (
 UPDATE tokens
 SET synced = sqlc.arg(synced), 
     last_block = sqlc.arg(last_block),
-    analysed_transfers = sqlc.arg(analysed_transfers)
+    analysed_transfers = sqlc.arg(analysed_transfers),
+    total_supply = sqlc.arg(total_supply)
 WHERE id = sqlc.arg(id) 
     AND chain_id = sqlc.arg(chain_id) 
     AND external_id = sqlc.arg(external_id);

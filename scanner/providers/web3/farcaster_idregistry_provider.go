@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	fckr "github.com/vocdoni/census3/contracts/farcaster/idRegistry"
 	"github.com/vocdoni/census3/scanner/providers"
+	"go.vocdoni.io/dvote/log"
 )
 
 type FarcasterIDProvider struct {
@@ -104,78 +105,66 @@ func (p *FarcasterIDProvider) SetLastBlockNumber(blockNumber uint64) {
 	p.lastNetworkBlock = blockNumber
 }
 
-// HoldersBalances returns the balances of the token holders for the current
-// defined token (using SetRef method). It returns the balances of the holders
-// for this token from the block number provided to the latest posible block
+// HoldersBalances returns the registries on the FarcasterIDRegistry for the current
+// defined farcaster ID registry contract (using SetRef method). It returns the farcaster id of
+// new registered users for this farcaster registry contract from the block number provided to the latest posible block
 // number (chosen between the last block number of the network and the maximun
 // number of blocks to scan). It calls to rangeOfLogs to get the logs of the
-// token transfers in the range of blocks and then it iterates the logs to
-// calculate the balances of the holders. It returns the balances, the number
-// of new transfers, the last block scanned, if the provider is synced and an
-// error if it exists.
-
+// registries in the range of blocks and then it iterates the logs to
+// calculate to get the registries with the recovery address and the farcasterID.
+// It returns the farcasterIDs, the number of new registries, the last block scanned
+// if the provider is synced and an error if it exists.
+//
+// NOTE that map[common.Address]*big.Int is used to store the farcasterID of each recovery address
 func (p *FarcasterIDProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
 	map[common.Address]*big.Int, uint64, uint64, bool, error,
 ) {
-	return nil, 0, 0, false, nil
+	// calculate the range of blocks to scan, by default take the last block
+	// scanned and scan to the latest block, calculate the latest block if the
+	// current last network block is not defined
+	toBlock := p.lastNetworkBlock
+	if toBlock == 0 {
+		var err error
+		toBlock, err = p.LatestBlockNumber(ctx, nil)
+		if err != nil {
+			return nil, 0, fromBlock, false, err
+		}
+	}
+	log.Infow("scan iteration",
+		"address", p.address,
+		"type", p.TypeName(),
+		"from", fromBlock,
+		"to", toBlock)
+	// iterate scanning the logs in the range of blocks until the last block
+	// is reached
+	startTime := time.Now()
+	logs, lastBlock, synced, err := rangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
+	if err != nil {
+		return nil, 0, fromBlock, false, err
+	}
+	// encode the number of new registries
+	newRegistries := uint64(len(logs))
+	registries := make(map[common.Address]*big.Int)
+	// iterate the logs and update the registries
+	for _, currentLog := range logs {
+		logData, err := p.contract.FarcasterIDRegistryFilterer.ParseRegister(currentLog)
+		if err != nil {
+			return nil, newRegistries, lastBlock, false, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[Farcaster ID Registry] %s: %w", p.address, err))
+		}
+		// update registries
+		if registry, ok := registries[logData.Recovery]; ok {
+			registries[logData.Recovery] = new(big.Int).Add(registry, logData.Id)
+		}
+	}
+	log.Infow("saving blocks",
+		"count", len(registries),
+		"logs", len(logs),
+		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
+		"took", time.Since(startTime).Seconds(),
+		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))
+	p.synced.Store(synced)
+	return registries, newRegistries, lastBlock, synced, nil
 }
-
-// func (p *FarcasterIDProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
-// 	map[common.Address]*big.Int, uint64, uint64, bool, error,
-// ) {
-// 	// calculate the range of blocks to scan, by default take the last block
-// 	// scanned and scan to the latest block, calculate the latest block if the
-// 	// current last network block is not defined
-// 	toBlock := p.lastNetworkBlock
-// 	if toBlock == 0 {
-// 		var err error
-// 		toBlock, err = p.LatestBlockNumber(ctx, nil)
-// 		if err != nil {
-// 			return nil, 0, fromBlock, false, err
-// 		}
-// 	}
-// 	log.Infow("scan iteration",
-// 		"address", p.address,
-// 		"type", p.TypeName(),
-// 		"from", fromBlock,
-// 		"to", toBlock)
-// 	// iterate scanning the logs in the range of blocks until the last block
-// 	// is reached
-// 	startTime := time.Now()
-// 	logs, lastBlock, synced, err := rangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
-// 	if err != nil {
-// 		return nil, 0, fromBlock, false, err
-// 	}
-// 	// encode the number of new transfers
-// 	newTransfers := uint64(len(logs))
-// 	balances := make(map[common.Address]*big.Int)
-// 	// iterate the logs and update the balances
-// 	for _, currentLog := range logs {
-// 		logData, err := p.contract.FarcasterKeyRegistryFilterer.ParseAdd(currentLog)
-// 		if err != nil {
-// 			return nil, newTransfers, lastBlock, false, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
-// 		}
-// 		// update balances
-// 		if toBalance, ok := balances[logData.To]; ok {
-// 			balances[logData.To] = new(big.Int).Add(toBalance, logData.Value)
-// 		} else {
-// 			balances[logData.To] = logData.Value
-// 		}
-// 		if fromBalance, ok := balances[logData.From]; ok {
-// 			balances[logData.From] = new(big.Int).Sub(fromBalance, logData.Value)
-// 		} else {
-// 			balances[logData.From] = new(big.Int).Neg(logData.Value)
-// 		}
-// 	}
-// 	log.Infow("saving blocks",
-// 		"count", len(balances),
-// 		"logs", len(logs),
-// 		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
-// 		"took", time.Since(startTime).Seconds(),
-// 		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))
-// 	p.synced.Store(synced)
-// 	return balances, newTransfers, lastBlock, synced, nil
-// }
 
 // Close method is not implemented for Farcaster Key Registry.
 func (p *FarcasterIDProvider) Close() error {

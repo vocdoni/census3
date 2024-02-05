@@ -8,7 +8,7 @@ CREATE TABLE strategies (
 
 CREATE TABLE token_types (
     id INTEGER PRIMARY KEY,
-    type_name TEXT NOT NULL UNIQUE
+    type_name TEXT NOT NULL
 );
 
 INSERT INTO token_types (id, type_name) VALUES (0, 'unknown');

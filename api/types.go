@@ -23,7 +23,7 @@ type CreateTokenRequest struct {
 	Type       string `json:"type"`
 	Tags       string `json:"tags"`
 	ChainID    uint64 `json:"chainID"`
-	ExternalID string `json:"ExternalID"`
+	ExternalID string `json:"externalID"`
 }
 
 type GetTokenStatusResponse struct {

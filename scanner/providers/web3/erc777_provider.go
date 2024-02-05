@@ -147,7 +147,8 @@ func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	for _, currentLog := range logs {
 		logData, err := p.contract.ERC777ContractFilterer.ParseTransfer(currentLog)
 		if err != nil {
-			return nil, newTransfers, lastBlock, false, nil, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC777] %s: %w", p.address, err))
+			return nil, newTransfers, lastBlock, false, nil,
+				errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC777] %s: %w", p.address, err))
 		}
 		// update balances
 		if toBalance, ok := balances[logData.To]; ok {

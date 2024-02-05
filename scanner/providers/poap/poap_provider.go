@@ -132,7 +132,7 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 	// get last snapshot
 	newSnapshot, err := p.lastHolders(eventID)
 	if err != nil {
-		return nil, 0, 0, false, nil, err
+		return nil, 0, 0, false, big.NewInt(0), err
 	}
 	p.snapshotsMtx.RLock()
 	defer p.snapshotsMtx.RUnlock()
@@ -231,8 +231,8 @@ func (p *POAPHolderProvider) Decimals(_ []byte) (uint64, error) {
 // TotalSupply method is not implemented in the POAP external provider. By
 // default it returns 0 and nil error.
 func (p *POAPHolderProvider) TotalSupply(id []byte) (*big.Int, error) {
-	p.snapshotsMtx.Lock()
-	defer p.snapshotsMtx.Unlock()
+	p.snapshotsMtx.RLock()
+	defer p.snapshotsMtx.RUnlock()
 	totalSupply := new(big.Int)
 	if snapshot, exist := p.snapshots[string(id)]; exist {
 		for _, balance := range snapshot.snapshot {

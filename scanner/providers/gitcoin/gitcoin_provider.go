@@ -150,7 +150,7 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, _ []byte, _ uint64)
 			1, lastUpdateID, true, totalSupply, nil
 	}
 	log.Infof("no changes in Gitcoin Passport balances from last %s", g.cooldown)
-	return nil, 1, lastUpdateID, true, nil, nil
+	return nil, 1, lastUpdateID, true, big.NewInt(0), nil
 }
 
 // updateBalances downloads the json from the API endpoint and stores the

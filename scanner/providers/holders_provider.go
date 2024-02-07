@@ -40,8 +40,10 @@ type HolderProvider interface {
 	// IsSynced returns true if the current state of the provider is synced. It
 	// also receives an external ID to be used if it is required by the provider.
 	IsSynced(id []byte) bool
-	// Address returns the address of the current token set in the provider
-	Address() common.Address
+	// Address returns the address of the current token set in the provider. It
+	// also receives an external ID to be used if it is required by the
+	// provider.
+	Address(id []byte) common.Address
 	// Type returns the type of the current token set in the provider
 	Type() uint64
 	// TypeName returns the type name of the current token set in the provider

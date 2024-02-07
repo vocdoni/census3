@@ -249,7 +249,7 @@ func (g *GitcoinPassport) IsSynced(_ []byte) bool {
 }
 
 // Address returns the address of the Gitcoin Passport contract.
-func (g *GitcoinPassport) Address() common.Address {
+func (g *GitcoinPassport) Address(_ []byte) common.Address {
 	return common.HexToAddress(hexAddress)
 }
 

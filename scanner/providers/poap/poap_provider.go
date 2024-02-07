@@ -178,7 +178,7 @@ func (p *POAPHolderProvider) IsSynced(externalID []byte) bool {
 }
 
 // Address returns the address of the POAP token.
-func (p *POAPHolderProvider) Address() common.Address {
+func (p *POAPHolderProvider) Address(_ []byte) common.Address {
 	return common.HexToAddress(POAP_CONTRACT_ADDRESS)
 }
 

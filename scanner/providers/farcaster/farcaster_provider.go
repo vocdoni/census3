@@ -20,6 +20,8 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
+//go:generate go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.23.0 generate
+
 const (
 	idRegistryCreationBlock  = 111816351
 	keyRegistryCreationBlock = 111816359

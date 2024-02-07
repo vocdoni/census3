@@ -3,9 +3,9 @@ INSERT INTO users (
     fid,
     username,
     signer,
-    custodyAddress,
-    appkeys,
-    recoveryAddress)
+    custody_address,
+    app_keys,
+    recovery_address)
 VALUES (?, ?, ?, ?, ?, ?);
 
 -- name: DeleteUser :execresult
@@ -27,30 +27,30 @@ SELECT * FROM users ORDER BY fid ASC;
 SELECT COUNT(*) FROM users;
 
 -- name: CountUserAppKeys :one
-SELECT COUNT(appkeys) FROM users WHERE fid = ?;
+SELECT COUNT(app_keys) FROM users WHERE fid = ?;
 
 -- name: UpdateUser :execresult
 UPDATE users 
 SET username = sqlc.arg(username),
     signer = sqlc.arg(signer),
-    custodyAddress = sqlc.arg(custodyAddress),
-    appkeys = sqlc.arg(appkeys),
-    recoveryAddress = sqlc.arg(recoveryAddress)
+    custody_address = sqlc.arg(custody_address),
+    app_keys = sqlc.arg(app_keys),
+    recovery_address = sqlc.arg(recovery_address)
 WHERE fid = ?;
 
 -- name: UpdateCustodyAddress :execresult
 UPDATE users
-SET custodyAddress = sqlc.arg(custodyAddress)
+SET custody_address = sqlc.arg(custody_address)
 WHERE fid = ?;
 
 -- name: UpdateUserAppKeys :execresult
 UPDATE users
-SET appkeys = sqlc.arg(appkeys)
+SET app_keys = sqlc.arg(app_keys)
 WHERE fid = ?;
 
 -- name: UpdateUserRecoveryAddress :execresult
 UPDATE users
-SET recoveryAddress = sqlc.arg(recoveryAddress)
+SET recovery_address = sqlc.arg(recovery_address)
 WHERE fid = ?;
 
 -- name: UpdateUsername :execresult

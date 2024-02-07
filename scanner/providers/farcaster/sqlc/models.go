@@ -14,7 +14,7 @@ type User struct {
 	Fid             uint64
 	Username        string
 	Signer          annotations.Bytes
-	Custodyaddress  []byte
-	Appkeys         sql.NullString
-	Recoveryaddress []byte
+	CustodyAddress  annotations.Address
+	AppKeys         sql.NullString
+	RecoveryAddress annotations.Address
 }

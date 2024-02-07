@@ -208,7 +208,7 @@ func main() {
 
 	// if farcaster is enabled, init the farcaster database and the provider
 	if config.farcaster {
-		farcasterDB, err := db.Init(config.dataDir, "farcaster.sql")
+		farcasterDB, err := farcaster.InitDB(config.dataDir, "farcaster.sql")
 		if err != nil {
 			log.Fatal(err)
 		}

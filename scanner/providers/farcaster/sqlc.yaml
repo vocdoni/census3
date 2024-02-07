@@ -18,7 +18,7 @@ sql:
         # Force these blobs to be our "bytes" types.
         - column: "users.signer"
           go_type: "github.com/vocdoni/census3/db/annotations.Bytes"  
-        - column: "users.recoveryAddress"
+        - column: "users.recovery_address"
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
-        - column: "users.custodyAddress"
+        - column: "users.custody_address"
           go_type: "github.com/vocdoni/census3/db/annotations.Address"

@@ -34,9 +34,9 @@ var migrationsFS embed.FS
 const (
 	idRegistryCreationBlock  = 111816351
 	keyRegistryCreationBlock = 111816359
-	idRegistryAddress        = "0x00000000Fc6c5F01Fc30151999387Bb99A9f489b"
-	keyRegistryAddress       = "0x00000000Fc1237824fb747aBDE0FF18990E59b7e"
-	chainID                  = 10
+	IdRegistryAddress        = "0x00000000Fc6c5F01Fc30151999387Bb99A9f489b"
+	KeyRegistryAddress       = "0x00000000Fc1237824fb747aBDE0FF18990E59b7e"
+	ChainID                  = 10
 	defaultRecoveryAddress   = "0x00000000fcb080a4d6c39a9354da9eb9bc104cd7"
 )
 
@@ -65,6 +65,7 @@ type FarcasterProvider struct {
 	db        *DB
 
 	contracts        FarcasterContracts
+	chainID          uint64
 	lastNetworkBlock uint64
 }
 
@@ -92,6 +93,7 @@ func (p *FarcasterProvider) Init(iconf any) error {
 	}
 	p.endpoints = conf.Endpoints
 	p.db = conf.DB
+	p.chainID = ChainID
 	p.contracts.idRegistrySynced.Store(false)
 	p.contracts.keyRegistrySynced.Store(false)
 
@@ -105,7 +107,7 @@ func (p *FarcasterProvider) SetRef(iref any) error {
 	if p.endpoints == nil {
 		return errors.New("endpoints not defined")
 	}
-	currentEndpoint, exists := p.endpoints.EndpointByChainID(chainID)
+	currentEndpoint, exists := p.endpoints.EndpointByChainID(ChainID)
 	if !exists {
 		return errors.New("endpoint not found for the given chainID")
 	}
@@ -116,15 +118,15 @@ func (p *FarcasterProvider) SetRef(iref any) error {
 	}
 	// set the client, parse the addresses and initialize the contracts
 	p.client = client
-	idRegistryAddress := common.HexToAddress(idRegistryAddress)
-	keyRegistryAddress := common.HexToAddress(keyRegistryAddress)
+	idRegistryAddress := common.HexToAddress(IdRegistryAddress)
+	keyRegistryAddress := common.HexToAddress(KeyRegistryAddress)
 	if p.contracts.idRegistry, err = fcir.NewFarcasterIDRegistry(idRegistryAddress, client); err != nil {
 		return errors.Join(web3.ErrInitializingContract, fmt.Errorf("[FARCASTER ID REGISTRY] %s: %w", idRegistryAddress, err))
 	}
 	if p.contracts.keyRegistry, err = fckr.NewFarcasterKeyRegistry(keyRegistryAddress, client); err != nil {
 		return errors.Join(web3.ErrInitializingContract, fmt.Errorf("[FARCASTER KEY REGISTRY] %s: %w", keyRegistryAddress, err))
 	}
-	p.lastNetworkBlock = 0
+	p.chainID = ChainID
 	p.contracts.idRegistrySynced.Store(false)
 	p.contracts.keyRegistrySynced.Store(false)
 	return nil
@@ -169,8 +171,8 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 		}
 	}
 	log.Infow("scan iteration",
-		"address IDRegistry", idRegistryAddress,
-		"address KeyRegistry", keyRegistryAddress,
+		"address IDRegistry", IdRegistryAddress,
+		"address KeyRegistry", KeyRegistryAddress,
 		"type", p.TypeName(),
 		"from", fromBlock,
 		"to", toBlock)
@@ -208,6 +210,10 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 
 		usersDBData = append(usersDBData, userData)
 	}
+
+	// NOTE: we are assuming that the key registry is synced if the id registry is synced
+	// TODO: Improve because we are not reading the key registry logs
+	p.contracts.keyRegistrySynced.Store(synced)
 
 	// update farcaster database with the users data
 	if err := p.updateFarcasterDB(ctx, usersDBData); err != nil {
@@ -315,7 +321,6 @@ func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, t
 
 // Close method is not implemented for Farcaster Key Registry.
 func (p *FarcasterProvider) Close() error {
-	p.client.Close()
 	return nil
 }
 
@@ -334,9 +339,9 @@ func (p *FarcasterProvider) IsSynced(_ []byte) bool {
 // Address returns the address of the Farcaster contract given the contract type.
 func (p *FarcasterProvider) Address(contractType []byte) common.Address {
 	if bytes.Equal(contractType, FarcasterIDRegistryType) {
-		return common.HexToAddress(idRegistryAddress)
+		return common.HexToAddress(IdRegistryAddress)
 	} else if bytes.Equal(contractType, FarcasterKeyRegistryType) {
-		return common.HexToAddress(keyRegistryAddress)
+		return common.HexToAddress(KeyRegistryAddress)
 	}
 	return common.Address{}
 }
@@ -353,12 +358,12 @@ func (p *FarcasterProvider) TypeName() string {
 
 // ChainID returns the chain ID where the Farcaster contracts are deployed.
 func (p *FarcasterProvider) ChainID() uint64 {
-	return chainID
+	return ChainID
 }
 
-// Name is not implemented for Farcaster contracts.
+// Name returns a predefined name for convenience.
 func (p *FarcasterProvider) Name(_ []byte) (string, error) {
-	return "Farcaster Key Registry", nil
+	return "Farcaster", nil
 }
 
 // Symbol is not implemented for Farcaster contracts.

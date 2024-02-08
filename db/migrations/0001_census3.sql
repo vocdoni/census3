@@ -17,6 +17,7 @@ INSERT INTO token_types (id, type_name) VALUES (2, 'erc721');;
 INSERT INTO token_types (id, type_name) VALUES (3, 'erc777');
 INSERT INTO token_types (id, type_name) VALUES (4, 'poap');
 INSERT INTO token_types (id, type_name) VALUES (5, 'gitcoinpassport');
+INSERT INTO token_types (id, type_name) VALUES (6, 'farcaster');
 
 CREATE TABLE tokens (
     id BLOB NOT NULL,

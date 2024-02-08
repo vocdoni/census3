@@ -218,7 +218,7 @@ Returns the information about the token referenced by the provided ID and chain 
 | 500 | `error getting last block number from web3 endpoint` | 5021 | 
 
 ### GET `/tokens/{tokenID}/holders/{holderID}?chainID={chainID}&externalID={externalID}`
-Returns if the holder ID is already registered in the database as a holder of the token ID and chain ID provided, the external ID is optional.
+Returns the holder balance if the holder ID is already registered in the database as a holder of the token ID and chain ID provided, the external ID is optional.
 
 > `chainID` URL parameter is *mandatory*.
 
@@ -226,8 +226,11 @@ Returns if the holder ID is already registered in the database as a holder of th
 
 - 📥 response:
 
-```
-true|false
+```json
+{
+    "holderID": "0x1234",
+    "balance": "1234567890"
+}
 ```
 
 - ⚠️ errors:
@@ -237,6 +240,7 @@ true|false
 | 400 | `malformed token information` | 4001 |
 | 400 | `malformed chain ID` | 4018 |
 | 404 | `no token found` | 4003 |
+| 404 | `token holder not found for the token provided` | 4022 |
 | 500 | `error getting token holders` | 5006 | 
 
 --- 

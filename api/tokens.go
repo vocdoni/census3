@@ -580,10 +580,14 @@ func (capi *census3API) getTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCon
 		}
 		return ErrCantGetTokenHolders.WithErr(err)
 	}
+	balance, ok := new(big.Int).SetString(holder.Balance, 10)
+	if !ok {
+		return ErrCantGetTokenHolders.With("error parsing balance")
+	}
 	// build response and send it
 	res, err := json.Marshal(&GetTokenHolderResponse{
 		HolderID: holderID.String(),
-		Balance:  holder.Balance,
+		Balance:  balance.String(),
 	})
 	if err != nil {
 		return ErrEncodeTokenHolders.WithErr(err)

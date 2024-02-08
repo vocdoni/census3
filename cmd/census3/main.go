@@ -19,6 +19,7 @@ import (
 	"github.com/vocdoni/census3/scanner"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/gitcoin"
+	gitcoinDB "github.com/vocdoni/census3/scanner/providers/gitcoin/db"
 	"github.com/vocdoni/census3/scanner/providers/poap"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
@@ -132,7 +133,7 @@ func main() {
 		log.Fatal(err)
 	}
 	// init the database
-	database, err := db.Init(config.dataDir)
+	database, err := db.Init(config.dataDir, "census3.sql")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -181,11 +182,17 @@ func main() {
 		apiProviders[poapProvider.Type()] = poapProvider
 	}
 	if config.gitcoinEndpoint != "" {
+		gitcoinDatabase, err := gitcoinDB.Init(config.dataDir, "gitcoinpassport.sql")
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		// init Gitcoin external provider
 		gitcoinProvider := new(gitcoin.GitcoinPassport)
 		if err := gitcoinProvider.Init(gitcoin.GitcoinPassportConf{
 			APIEndpoint: config.gitcoinEndpoint,
 			Cooldown:    config.gitcoinCooldown,
+			DB:          gitcoinDatabase,
 		}); err != nil {
 			log.Fatal(err)
 			return

@@ -59,7 +59,6 @@ func TestGitcoinPassport(t *testing.T) {
 	c.Assert(len(sameBalances), qt.Equals, 0)
 
 	provider.apiEndpoint = endpoints["/updated"]
-	provider.lastUpdate.Store(time.Time{})
 	emptyBalances, _, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(emptyBalances), qt.Equals, 0)

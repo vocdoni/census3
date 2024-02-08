@@ -10,7 +10,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
-	queries "github.com/vocdoni/census3/db/sqlc"
+	queries "github.com/vocdoni/census3/scanner/providers/gitcoin/db/sqlc"
 )
 
 //go:generate go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.23.0 generate

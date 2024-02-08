@@ -84,7 +84,7 @@ var mockedTokenHolders = []mockedTokenHolder{
 }
 
 func mockedStrategyOperator(dataDir string) (*StrategyOperators, error) {
-	database, err := db.Init(dataDir)
+	database, err := db.Init(dataDir, "census3.sql")
 	if err != nil {
 		return nil, err
 	}

@@ -218,7 +218,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			}
 		}
 		// get token information from the external provider
-		address := provider.Address()
+		address := provider.Address([]byte(token.ExternalID))
 		name, err := provider.Name([]byte(token.ExternalID))
 		if err != nil {
 			return ErrCantGetToken.WithErr(err)

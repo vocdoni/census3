@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/scanner/providers"
+	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -53,6 +54,7 @@ type GitcoinPassport struct {
 type GitcoinPassportConf struct {
 	APIEndpoint string
 	Cooldown    time.Duration
+	DB          *db.Database
 }
 
 // Init initializes the Gitcoin Passport provider with the given config. If the
@@ -249,7 +251,7 @@ func (g *GitcoinPassport) IsSynced(_ []byte) bool {
 }
 
 // Address returns the address of the Gitcoin Passport contract.
-func (g *GitcoinPassport) Address() common.Address {
+func (g *GitcoinPassport) Address(_ []byte) common.Address {
 	return common.HexToAddress(hexAddress)
 }
 

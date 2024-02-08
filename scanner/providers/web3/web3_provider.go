@@ -55,11 +55,11 @@ func sourceCodeLenAt(client *ethclient.Client, ctx context.Context, addr common.
 	return len(sourceCode), err
 }
 
-// rangeOfLogs function returns the logs of a token contract between the
+// RangeOfLogs function returns the logs of a token contract between the
 // provided block numbers. It returns the logs, the last block scanned and an
 // error if any. It filters the logs by the topic hash and for the token
 // contract address provided.
-func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Address,
+func RangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Address,
 	fromBlock, lastBlock uint64, hexTopics ...string,
 ) ([]types.Log, uint64, bool, error) {
 	// if the range is too big, scan only a part of it using the constant
@@ -113,8 +113,7 @@ func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 					log.Warnf("too much results on query, decreasing blocks to %d", blocksRange)
 					continue
 				}
-				log.Error(errors.Join(ErrScanningTokenLogs, fmt.Errorf("%s: %w", addr.Hex(), err)))
-				return finalLogs, fromBlock, false, nil
+				return finalLogs, fromBlock, false, errors.Join(ErrScanningTokenLogs, fmt.Errorf("%s: %w", addr.Hex(), err))
 			}
 			// if there are logs, add them to the final list and update the
 			// counter

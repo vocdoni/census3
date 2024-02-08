@@ -35,7 +35,7 @@ func TestGitcoinPassport(t *testing.T) {
 	})
 	// create the provider
 	provider := new(GitcoinPassport)
-	c.Assert(provider.Init(GitcoinPassportConf{endpoints["/original"], time.Second * 2}), qt.IsNil)
+	c.Assert(provider.Init(GitcoinPassportConf{endpoints["/original"], time.Second * 2, nil}), qt.IsNil)
 	// start the first download
 	emptyBalances, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)

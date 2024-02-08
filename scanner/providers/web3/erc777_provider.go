@@ -136,7 +136,7 @@ func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	// iterate scanning the logs in the range of blocks until the last block
 	// is reached
 	startTime := time.Now()
-	logs, lastBlock, synced, err := rangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
+	logs, lastBlock, synced, err := RangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
 	if err != nil {
 		return nil, 0, fromBlock, false, nil, err
 	}
@@ -188,7 +188,7 @@ func (p *ERC777HolderProvider) IsSynced(_ []byte) bool {
 }
 
 // Address returns the address of the current token set in the provider.
-func (p *ERC777HolderProvider) Address() common.Address {
+func (p *ERC777HolderProvider) Address(_ []byte) common.Address {
 	return p.address
 }
 
@@ -266,7 +266,7 @@ func (p *ERC777HolderProvider) BlockTimestamp(ctx context.Context, blockNumber u
 	if err != nil {
 		return "", err
 	}
-	return time.Unix(int64(blockHeader.Time), 0).Format(timeLayout), nil
+	return time.Unix(int64(blockHeader.Time), 0).Format(TimeLayout), nil
 }
 
 // BlockRootHash returns the root hash of the given block number for the current

@@ -28,10 +28,11 @@ INSERT INTO tokens (
     chain_address,
     external_id,
     default_strategy,
-    icon_uri
+    icon_uri,
+    last_block
 )
 VALUES (
-    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?
+    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?
 )
 `
 
@@ -49,6 +50,7 @@ type CreateTokenParams struct {
 	ChainAddress  string
 	ExternalID    string
 	IconUri       string
+	LastBlock     int64
 }
 
 func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.Result, error) {
@@ -66,6 +68,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (sql.R
 		arg.ChainAddress,
 		arg.ExternalID,
 		arg.IconUri,
+		arg.LastBlock,
 	)
 }
 

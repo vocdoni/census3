@@ -207,8 +207,9 @@ func main() {
 	}
 
 	// if farcaster is enabled, init the farcaster database and the provider
+	var farcasterDB *farcaster.DB
 	if config.farcaster {
-		farcasterDB, err := farcaster.InitDB(config.dataDir, "farcaster.sql")
+		farcasterDB, err = farcaster.InitDB(config.dataDir, "farcaster.sql")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -224,6 +225,7 @@ func main() {
 			log.Fatal(err)
 			return
 		}
+		apiProviders[farcasterProvider.Type()] = farcasterProvider
 	}
 
 	// if the admin token is not defined, generate a random one
@@ -236,7 +238,7 @@ func main() {
 		log.Infof("no admin token defined, using a random one: %s", config.adminToken)
 	}
 	// Start the API
-	apiService, err := api.Init(database, api.Census3APIConf{
+	apiService, err := api.Init(database, farcasterDB, api.Census3APIConf{
 		Hostname:        "0.0.0.0",
 		Port:            config.port,
 		DataDir:         config.dataDir,
@@ -248,7 +250,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := apiService.CreateInitialTokens(config.initialTokens); err != nil {
+	if err := apiService.CreateInitialTokens(config.initialTokens, config.farcaster); err != nil {
 		log.Warnf("error creating initial tokens: %s", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -272,6 +274,12 @@ func main() {
 		}
 		if err := database.Close(); err != nil {
 			log.Fatal(err)
+		}
+		// if farcaster is enabled, close the farcaster database
+		if config.farcaster {
+			if err := farcasterDB.CloseDB(); err != nil {
+				log.Fatal(err)
+			}
 		}
 		log.Infof("all routines ended")
 	}()

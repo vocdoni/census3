@@ -50,7 +50,7 @@ type CreateUserParams struct {
 	Username        string
 	Signer          annotations.Bytes
 	CustodyAddress  annotations.Address
-	AppKeys         sql.NullString
+	AppKeys         annotations.Bytes
 	RecoveryAddress annotations.Address
 }
 
@@ -190,7 +190,7 @@ type UpdateUserParams struct {
 	Username        string
 	Signer          annotations.Bytes
 	CustodyAddress  annotations.Address
-	AppKeys         sql.NullString
+	AppKeys         annotations.Bytes
 	RecoveryAddress annotations.Address
 	Fid             uint64
 }
@@ -213,7 +213,7 @@ WHERE fid = ?
 `
 
 type UpdateUserAppKeysParams struct {
-	AppKeys sql.NullString
+	AppKeys annotations.Bytes
 	Fid     uint64
 }
 

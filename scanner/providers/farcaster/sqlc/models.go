@@ -5,8 +5,6 @@
 package queries
 
 import (
-	"database/sql"
-
 	"github.com/vocdoni/census3/db/annotations"
 )
 
@@ -15,6 +13,6 @@ type User struct {
 	Username        string
 	Signer          annotations.Bytes
 	CustodyAddress  annotations.Address
-	AppKeys         sql.NullString
+	AppKeys         annotations.Bytes
 	RecoveryAddress annotations.Address
 }

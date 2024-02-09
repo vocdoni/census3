@@ -238,7 +238,7 @@ func main() {
 		log.Infof("no admin token defined, using a random one: %s", config.adminToken)
 	}
 	// Start the API
-	apiService, err := api.Init(database, farcasterDB, api.Census3APIConf{
+	apiService, err := api.Init(database, api.Census3APIConf{
 		Hostname:        "0.0.0.0",
 		Port:            config.port,
 		DataDir:         config.dataDir,
@@ -250,7 +250,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := apiService.CreateInitialTokens(config.initialTokens, config.farcaster); err != nil {
+	if err := apiService.CreateInitialTokens(config.initialTokens); err != nil {
 		log.Warnf("error creating initial tokens: %s", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

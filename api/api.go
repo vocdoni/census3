@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +17,6 @@ import (
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/internal/queue"
 	"github.com/vocdoni/census3/scanner/providers"
-	farcaster "github.com/vocdoni/census3/scanner/providers/farcaster"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"
 	storagelayer "go.vocdoni.io/dvote/data"
@@ -46,7 +44,6 @@ type Census3APIConf struct {
 type census3API struct {
 	conf            Census3APIConf
 	db              *db.DB
-	farcasterdb     *farcaster.DB
 	endpoint        *api.API
 	censusDB        *censusdb.CensusDB
 	queue           *queue.BackgroundQueue
@@ -57,7 +54,7 @@ type census3API struct {
 	cache           *lru.Cache[CacheKey, any]
 }
 
-func Init(db *db.DB, farcasterdb *farcaster.DB, conf Census3APIConf) (*census3API, error) {
+func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 	cache, err := lru.New[CacheKey, any](apiCacheSize)
 	if err != nil {
 		return nil, err
@@ -65,7 +62,6 @@ func Init(db *db.DB, farcasterdb *farcaster.DB, conf Census3APIConf) (*census3AP
 	newAPI := &census3API{
 		conf:            conf,
 		db:              db,
-		farcasterdb:     farcasterdb,
 		w3p:             conf.Web3Providers,
 		queue:           queue.NewBackgroundQueue(),
 		holderProviders: conf.HolderProviders,
@@ -178,14 +174,7 @@ func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext
 //	...
 //
 // ]
-func (capi *census3API) CreateInitialTokens(tokensPath string, farcaster bool) error {
-	// check if farcaster activated
-	if farcaster {
-		if err := capi.storeFarcaster(); err != nil {
-			return fmt.Errorf("error creating farcaster: %w", err)
-		}
-	}
-
+func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 	// skip if the tokens file is not defined
 	if tokensPath == "" {
 		return nil
@@ -292,86 +281,6 @@ func (capi *census3API) CreateInitialTokens(tokensPath string, farcaster bool) e
 			return err
 		}
 	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (capi *census3API) storeFarcaster() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	// create the tokens
-	tx, err := capi.db.RW.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
-			log.Errorw(err, "create token transaction rollback failed")
-		}
-	}()
-	qtx := capi.db.QueriesRW.WithTx(tx)
-
-	// get the correct holder provider for the token type
-	tokenType := providers.TokenTypeID(providers.CONTRACT_NAME_FARCASTER)
-	provider, exists := capi.holderProviders[tokenType]
-	if !exists {
-		return ErrCantCreateCensus.With("token type not supported")
-	}
-
-	if err := provider.SetRef(web3.Web3ProviderRef{
-		HexAddress: farcaster.IdRegistryAddress,
-		ChainID:    farcaster.ChainID,
-	}); err != nil {
-		return ErrInitializingWeb3.WithErr(err)
-	}
-
-	totalSupply, err := provider.TotalSupply(nil)
-	if err != nil {
-		return ErrCantGetToken.WithErr(err)
-	}
-
-	name, _ := provider.Name(nil)
-	creationBlock, _ := provider.CreationBlock(context.TODO(), farcaster.FarcasterIDRegistryType)
-	// get the chain address for the token based on the chainID and tokenID
-	chainAddress, ok := capi.w3p.ChainAddress(provider.ChainID(), farcaster.IdRegistryAddress)
-	if !ok {
-		return ErrChainIDNotSupported.Withf("chainID: %d, tokenID: %s", provider.ChainID(), farcaster.IdRegistryAddress)
-	}
-
-	addr := provider.Address(farcaster.FarcasterIDRegistryType)
-	_, err = qtx.CreateToken(ctx, queries.CreateTokenParams{
-		ID:            addr.Bytes(),
-		Name:          name,
-		TotalSupply:   annotations.BigInt(totalSupply.String()),
-		CreationBlock: int64(creationBlock),
-		TypeID:        tokenType,
-		Synced:        false,
-		ChainID:       provider.ChainID(),
-		ChainAddress:  chainAddress,
-		LastBlock:     int64(creationBlock),
-	})
-	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			return nil
-		}
-		return err
-	}
-	strategyID, err := capi.createDefaultTokenStrategy(ctx, qtx,
-		common.HexToAddress(farcaster.IdRegistryAddress), provider.ChainID(), chainAddress, "", "")
-	if err != nil {
-		return err
-	}
-	if _, err := qtx.UpdateTokenDefaultStrategy(ctx, queries.UpdateTokenDefaultStrategyParams{
-		ID:              addr.Bytes(),
-		DefaultStrategy: uint64(strategyID),
-		ChainID:         provider.ChainID(),
-		ExternalID:      "",
-	}); err != nil {
-		return err
-	}
-
 	if err := tx.Commit(); err != nil {
 		return err
 	}

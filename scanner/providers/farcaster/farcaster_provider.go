@@ -125,6 +125,7 @@ func (p *FarcasterProvider) SetRef(iref any) error {
 	if p.contracts.keyRegistry, err = fckr.NewFarcasterKeyRegistry(keyRegistryAddress, client); err != nil {
 		return errors.Join(web3.ErrInitializingContract, fmt.Errorf("[FARCASTER KEY REGISTRY] %s: %w", keyRegistryAddress, err))
 	}
+
 	p.contracts.idRegistrySynced.Store(false)
 	p.contracts.keyRegistrySynced.Store(false)
 	return nil
@@ -169,6 +170,7 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 			return nil, 0, fromBlock, false, big.NewInt(0), err
 		}
 	}
+
 	log.Infow("scan iteration",
 		"address IDRegistry", IdRegistryAddress,
 		"type", p.TypeName(),
@@ -430,7 +432,7 @@ func (p *FarcasterProvider) ChainID() uint64 {
 
 // Name returns a predefined name for convenience.
 func (p *FarcasterProvider) Name(_ []byte) (string, error) {
-	return "Farcaster", nil
+	return providers.CONTRACT_NAME_FARCASTER, nil
 }
 
 // Symbol is not implemented for Farcaster contracts.

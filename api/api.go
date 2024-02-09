@@ -207,7 +207,8 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 		tokenType := providers.TokenTypeID(token.Type)
 		provider, exists := capi.holderProviders[tokenType]
 		if !exists {
-			return ErrCantCreateCensus.With("token type not supported")
+			log.Warnf("token type %s provided in initial list not supported, check provider is set. SKIPPING ...", token.Type)
+			continue
 		}
 		if !provider.IsExternal() {
 			if err := provider.SetRef(web3.Web3ProviderRef{
@@ -252,7 +253,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			Symbol:        symbol,
 			Decimals:      decimals,
 			TotalSupply:   annotations.BigInt(totalSupply.String()),
-			CreationBlock: 0,
+			CreationBlock: int64(token.StartBlock),
 			TypeID:        providers.TokenTypeID(token.Type),
 			Synced:        false,
 			Tags:          token.Tags,
@@ -260,6 +261,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			ChainAddress:  chainAddress,
 			ExternalID:    token.ExternalID,
 			IconUri:       iconURI,
+			LastBlock:     int64(token.StartBlock),
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "UNIQUE constraint failed") {

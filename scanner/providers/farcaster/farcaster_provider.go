@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -46,6 +47,7 @@ var (
 	FarcasterKeyRegistryType = []byte{1}
 
 	ErrUserAlreadyExists = errors.New("user already exists")
+	VoidAddress          = common.Address{}
 )
 
 type FarcasterProviderConf struct {
@@ -161,7 +163,6 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 	// calculate the range of blocks to scan, by default take the last block
 	// scanned and scan to the latest block, calculate the latest block if the
 	// current last network block is not defined
-
 	toBlock := p.lastNetworkBlock
 	if toBlock == 0 {
 		var err error
@@ -177,72 +178,128 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 		"from", fromBlock,
 		"to", toBlock)
 
-	// iterate scanning the logs in the range of blocks until the last blockis reached
-	newRegisters, lastBlock, synced, errLogsIDRegistry := p.ScanLogsIDRegistry(ctx, fromBlock, toBlock)
+	// read logs from the IDRegistry
+	// iterate scanning the logs in the range of blocks until the last block is reached
+	newRegisters, lastBlock, _, errLogsIDRegistry := p.ScanLogsIDRegistry(ctx, fromBlock, toBlock)
 	if errLogsIDRegistry != nil {
 		return nil, 0, fromBlock, false, nil, errLogsIDRegistry
 	}
 
+	// save new users registered on the database
+	// from the logs of the IDRegistry we can obtain the user FID and the custody and recovery addresses
+	usersDBData := make([]*FarcasterUserData, 0)
+	for fid, to := range newRegisters {
+		tfid, err := strconv.ParseInt(fid, 10, 64)
+		if err != nil {
+			return nil, 0, fromBlock, false, nil, err
+		}
+		// if the user already exists in the database skip it
+		if _, err := p.db.QueriesRO.GetUserByFID(ctx, uint64(tfid)); err == nil {
+			continue
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return nil, 0, fromBlock, false, nil, err
+		}
+
+		//log.Debugf("Processing user with FID %s", fid)
+		// create a new user data and add for saving
+		userData := &FarcasterUserData{
+			FID:             big.NewInt(tfid),
+			CustodyAddress:  to,
+			RecoveryAddress: common.HexToAddress(defaultRecoveryAddress),
+			Signer:          common.Address{},
+			AppKeys:         make([][]byte, 0),
+		}
+		usersDBData = append(usersDBData, userData)
+	}
+
+	// update the database with the new users
+	log.Debugf("Updating farcaster database with %d users", len(usersDBData))
+	if err := p.updateFarcasterDB(ctx, usersDBData); err != nil {
+		return nil, 0, fromBlock, false, nil, err
+	}
+
+	// read the logs from the KeyRegistry
 	log.Infow("scan iteration",
 		"address KeyRegistry", KeyRegistryAddress,
 		"type", p.TypeName(),
 		"from", fromBlock,
 		"to", toBlock)
 
-	// iterate scanning the logs in the range of blocks until the last blockis reached
-	newKeys, _, _, errLogsKeyRegistry := p.ScanLogsKeyRegistry(ctx, fromBlock, toBlock)
+	// iterate scanning the logs in the range of blocks until the last block is reached
+	// note that the scanning will be done using as toBlock the last block scanned that was
+	// returned by the IDRegistry scanning process
+	// that way we can be sure that the KeyRegistry is synced with the IDRegistry
+	newKeys, lastBlock2, synced, errLogsKeyRegistry := p.ScanLogsKeyRegistry(ctx, fromBlock, lastBlock)
 	if errLogsKeyRegistry != nil {
 		return nil, 0, fromBlock, false, nil, errLogsKeyRegistry
 	}
 
-	// at this point we have the new registered users and the key added to each Fid
-	usersCensusData := make(map[common.Address]*big.Int, 0)
-	usersDBData := make([]*FarcasterUserData, 0)
-	for fid, to := range newRegisters {
-		log.Debugf("Processing user with FID %s", fid)
-		appKeys := make([][]byte, 0)
-		if keys, ok := newKeys[fid]; ok {
-			log.Debugf("Found %d keys for user %s", len(keys), fid)
-			for _, key := range keys {
-				appKeys = append(appKeys, key[:])
-			}
-		} else {
-			// avoid users without a registered key
-			continue
-		}
+	// at this point we have the new registered users and the new registered app keys
 
-		// NOTE THAT WE ARE ASSUMING THAT THE SIGNER IS THE FIRST KEY
-		//
-		// NOTE THAT WE ARE NOT USING THE SIGNER AS IT IS RETURNED FROM THE CONTRACT
-		// For compatibility with the current implementation and to be able to generate a census
-		// we take the signer returned by the contract and it is hashed to generate a common.Address
-		nfid := big.NewInt(0).SetBytes([]byte(fid))
-		userData := &FarcasterUserData{
-			FID:             nfid,
-			CustodyAddress:  to,
-			RecoveryAddress: common.HexToAddress(defaultRecoveryAddress),
-		}
-
-		userData.AppKeys = appKeys
-		alteredSignerKey := common.Address(crypto.Keccak256(appKeys[0]))
-		userData.Signer = alteredSignerKey
-
-		usersDBData = append(usersDBData, userData)
-		usersCensusData[alteredSignerKey] = nfid
-		// log.Debugf("Added userData %v to usersDBData", userData)
-		// log.Debugf("Added user %s to usersCensusData", alteredSignerKey.String())
-	}
-
-	// NOTE: we are assuming that the key registry is synced if the id registry is synced
-
-	// update farcaster database with the users data
-	log.Debugf("Updating farcaster database with %d users", len(usersDBData))
-	if err := p.updateFarcasterDB(ctx, usersDBData); err != nil {
+	// get existing users from the database
+	fidsFromDB, err := p.db.QueriesRO.ListUsers(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, 0, fromBlock, false, nil, err
 	}
 
-	// here we return the hashed signer and the farcasterID in the map
-	return usersCensusData /*uint64(len(newRegisters))*/, uint64(len(usersCensusData)), lastBlock, synced, nil, nil
+	usersCensusData := make(map[common.Address]*big.Int, 0)
+	if len(fidsFromDB) != 0 {
+		usersDBDataPost := make([]*FarcasterUserData, 0)
+		// iterate the users and update the database with the new app keys
+		for _, fid := range fidsFromDB {
+			// check if the user has new keys to add
+			if keys, ok := newKeys[strconv.FormatUint(fid.Fid, 10)]; !ok {
+				continue
+			} else {
+				userData := &FarcasterUserData{
+					FID:             big.NewInt(int64(fid.Fid)),
+					CustodyAddress:  common.BytesToAddress(fid.CustodyAddress),
+					RecoveryAddress: common.BytesToAddress(fid.RecoveryAddress),
+				}
+				//log.Debugf("Processing user with FID %d", fid.Fid)
+				// get existing keys if exist and deserialize them
+				alteredSignerKey := common.Address{}
+				if len(fid.AppKeys) != 0 {
+					// deserialize app keys since they are stored as bytes
+					appKeys, err := deserializeAppKeys(fid.AppKeys)
+					if err != nil {
+						return nil, 0, fromBlock, false, nil, err
+					}
+					userData.AppKeys = appKeys
+				} else { // if the user has no keys, set the signer to the first key
+					alteredSignerKey = common.BytesToAddress(crypto.Keccak256(keys[0]))
+					if userData.Signer == VoidAddress {
+						userData.Signer = alteredSignerKey
+					}
+				}
+				//log.Debugf("Found %d keys for user %d", len(keys), fid.Fid)
+				// add new app keys to the user
+				for _, key := range keys {
+					userData.AppKeys = append(userData.AppKeys, key[:])
+				}
+				// append modified user data to the list for saving
+				usersDBDataPost = append(usersDBDataPost, userData)
+				// add the user to the map for storing on the scanner database
+				usersCensusData[alteredSignerKey] = big.NewInt(int64(fid.Fid))
+			}
+		}
+		// update the farcaster database with the new data
+		log.Debugf("Updating farcaster database with %d users after key registy scan", len(usersDBDataPost))
+		if err := p.updateFarcasterDB(ctx, usersDBDataPost); err != nil {
+			return nil, 0, fromBlock, false, nil, err
+		}
+	}
+	// NOTE: we are assuming that the key registry is synced if the id registry is synced
+	// Return the smallest block for starting next iteration from there
+	blockToReturn := 0
+	if lastBlock >= lastBlock2 {
+		blockToReturn = int(lastBlock2)
+	} else {
+		blockToReturn = int(lastBlock)
+	}
+
+	// here we return the hashed signer and the farcasterID for adding the user to the scanner database
+	return usersCensusData /*uint64(len(newRegisters))*/, uint64(len(usersCensusData)), uint64(blockToReturn), synced, nil, nil
 }
 
 // updates farcaster database with the users data
@@ -266,19 +323,39 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 	// if it exists update the user data
 	for _, userData := range usersData {
 		// check if the user exists
-		_, err := qtx.GetUserByFID(internalCtx, userData.FID.Uint64())
-		// check if error is that the user does not exist
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		_, errGetUser := qtx.GetUserByFID(internalCtx, userData.FID.Uint64())
+		if errGetUser != nil && !errors.Is(errGetUser, sql.ErrNoRows) {
 			return fmt.Errorf("cannot update farcaster db: %w", err)
+		}
+		// serialize app keys before saving
+		serializedAppKeys := make([]byte, 0)
+		if len(userData.AppKeys) != 0 {
+			serializedAppKeys, err = serializeAppKeys(userData.AppKeys)
+			if err != nil {
+				return fmt.Errorf("cannot update farcaster db: %w", err)
+			}
 		}
 		// if the user does not exist create a new one
-		// serialize app keys before saving
-		serializedAppKeys, err := serializeAppKeys(userData.AppKeys)
-		if err != nil {
-			return fmt.Errorf("cannot update farcaster db: %w", err)
-		}
-		if errors.Is(err, sql.ErrNoRows) {
+		newUser := false
+		if errors.Is(errGetUser, sql.ErrNoRows) {
 			if _, err := qtx.CreateUser(internalCtx, queries.CreateUserParams{
+				Fid: userData.FID.Uint64(),
+				//Username:        userData.Username,
+				CustodyAddress:  userData.CustodyAddress[:],
+				RecoveryAddress: userData.RecoveryAddress[:],
+				Signer:          make([]byte, 0),
+				AppKeys:         make([]byte, 0),
+			}); err != nil {
+				if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+					return fmt.Errorf("cannot update farcaster db: %w", ErrUserAlreadyExists)
+				}
+				return fmt.Errorf("cannot update farcaster db: %w", err)
+			}
+			newUser = true
+		}
+		// if the user exists update the user data
+		if !newUser {
+			if _, err := qtx.UpdateUser(internalCtx, queries.UpdateUserParams{
 				Fid: userData.FID.Uint64(),
 				//Username:        userData.Username,
 				CustodyAddress:  userData.CustodyAddress[:],
@@ -286,22 +363,8 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 				Signer:          userData.Signer[:],
 				AppKeys:         serializedAppKeys,
 			}); err != nil {
-				if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-					return fmt.Errorf("cannot update farcaster db: %w", ErrUserAlreadyExists)
-				}
 				return fmt.Errorf("cannot update farcaster db: %w", err)
 			}
-		}
-		// if the user exists update the user data
-		if _, err := qtx.UpdateUser(internalCtx, queries.UpdateUserParams{
-			Fid: userData.FID.Uint64(),
-			//Username:        userData.Username,
-			CustodyAddress:  userData.CustodyAddress[:],
-			RecoveryAddress: userData.RecoveryAddress[:],
-			Signer:          userData.Signer[:],
-			AppKeys:         serializedAppKeys,
-		}); err != nil {
-			return fmt.Errorf("cannot update farcaster db: %w", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -350,7 +413,7 @@ func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, t
 }
 
 // ScanLogsKeyRegistry scans the logs of the Farcaster Key Registry contract
-func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, toBlock uint64) (map[string][]common.Hash, uint64, bool, error) {
+func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, toBlock uint64) (map[string][][]byte, uint64, bool, error) {
 	startTime := time.Now()
 	logs, lastBlock, synced, err := web3.RangeOfLogs(
 		ctx,
@@ -364,15 +427,14 @@ func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, 
 		return nil, 0, false, err
 	}
 	// encode the number of new registers
-	newKeys := make(map[string][]common.Hash, 0)
+	newKeys := make(map[string][][]byte, 0)
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
 		logData, err := p.contracts.keyRegistry.ParseAdd(currentLog)
 		if err != nil {
 			return newKeys, lastBlock, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster Key Registry]: %w", err))
 		}
-		newKeys[logData.Fid.String()] = append(newKeys[logData.Fid.String()], logData.Key)
-		// log.Debugf("Found LOG on Farcaster key registry where user %s added key %s", logData.Fid.String(), logData.Key.String())
+		newKeys[logData.Fid.String()] = append(newKeys[logData.Fid.String()], logData.KeyBytes)
 	}
 
 	log.Infow("saving blocks",

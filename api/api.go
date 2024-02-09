@@ -268,7 +268,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			return err
 		}
 		strategyID, err := capi.createDefaultTokenStrategy(ctx, qtx,
-			addr, token.ChainID, token.ChainAddress, token.Symbol, token.ExternalID)
+			addr, token.ChainID, chainAddress, symbol, token.ExternalID)
 		if err != nil {
 			return err
 		}

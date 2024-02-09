@@ -353,7 +353,7 @@ func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// get externalID from query params and decode it as string, it is optional
 	// so if it's not provided continue
 	externalID := ctx.Request.URL.Query().Get("externalID")
-	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createTokenTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), deleteTokenTimeout)
 	defer cancel()
 	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {

@@ -48,6 +48,11 @@ UPDATE users
 SET app_keys = sqlc.arg(app_keys)
 WHERE fid = ?;
 
+-- name: UpdateUserSigner :execresult
+UPDATE users
+SET signer = sqlc.arg(signer)
+WHERE fid = ?;
+
 -- name: UpdateUserRecoveryAddress :execresult
 UPDATE users
 SET recovery_address = sqlc.arg(recovery_address)

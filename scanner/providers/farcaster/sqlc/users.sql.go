@@ -236,6 +236,21 @@ func (q *Queries) UpdateUserRecoveryAddress(ctx context.Context, arg UpdateUserR
 	return q.db.ExecContext(ctx, updateUserRecoveryAddress, arg.RecoveryAddress, arg.Fid)
 }
 
+const updateUserSigner = `-- name: UpdateUserSigner :execresult
+UPDATE users
+SET signer = ?
+WHERE fid = ?
+`
+
+type UpdateUserSignerParams struct {
+	Signer annotations.Bytes
+	Fid    uint64
+}
+
+func (q *Queries) UpdateUserSigner(ctx context.Context, arg UpdateUserSignerParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateUserSigner, arg.Signer, arg.Fid)
+}
+
 const updateUsername = `-- name: UpdateUsername :execresult
 UPDATE users
 SET username = ?

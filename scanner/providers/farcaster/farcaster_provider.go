@@ -11,13 +11,11 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pressly/goose/v3"
 	fcir "github.com/vocdoni/census3/contracts/farcaster/idRegistry"
@@ -84,7 +82,7 @@ type FarcasterUserData struct {
 	// user to sign Farcaster verifiable messages
 	Signer common.Address
 	// AppKeys is the array of keys of the user found in the KeyRegistry
-	AppKeys [][]byte
+	AppKeys []common.Hash
 }
 
 func (p *FarcasterProvider) Init(iconf any) error {
@@ -189,12 +187,8 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 	// from the logs of the IDRegistry we can obtain the user FID and the custody and recovery addresses
 	usersDBData := make([]*FarcasterUserData, 0)
 	for fid, to := range newRegisters {
-		tfid, err := strconv.ParseInt(fid, 10, 64)
-		if err != nil {
-			return nil, 0, fromBlock, false, nil, err
-		}
 		// if the user already exists in the database skip it
-		if _, err := p.db.QueriesRO.GetUserByFID(ctx, uint64(tfid)); err == nil {
+		if _, err := p.db.QueriesRO.GetUserByFID(ctx, fid.Uint64()); err == nil {
 			continue
 		} else if !errors.Is(err, sql.ErrNoRows) {
 			return nil, 0, fromBlock, false, nil, err
@@ -203,11 +197,9 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 		//log.Debugf("Processing user with FID %s", fid)
 		// create a new user data and add for saving
 		userData := &FarcasterUserData{
-			FID:             big.NewInt(tfid),
+			FID:             fid,
 			CustodyAddress:  to,
 			RecoveryAddress: common.HexToAddress(defaultRecoveryAddress),
-			Signer:          common.Address{},
-			AppKeys:         make([][]byte, 0),
 		}
 		usersDBData = append(usersDBData, userData)
 	}
@@ -242,45 +234,51 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 		return nil, 0, fromBlock, false, nil, err
 	}
 
-	usersCensusData := make(map[common.Address]*big.Int, 0)
+	usersCensusData := make(map[common.Address]*big.Int)
 	if len(fidsFromDB) != 0 {
 		usersDBDataPost := make([]*FarcasterUserData, 0)
 		// iterate the users and update the database with the new app keys
 		for _, fid := range fidsFromDB {
 			// check if the user has new keys to add
-			if keys, ok := newKeys[strconv.FormatUint(fid.Fid, 10)]; !ok {
+			if keys, ok := newKeys[fid.Fid]; !ok {
 				continue
 			} else {
 				userData := &FarcasterUserData{
 					FID:             big.NewInt(int64(fid.Fid)),
 					CustodyAddress:  common.BytesToAddress(fid.CustodyAddress),
 					RecoveryAddress: common.BytesToAddress(fid.RecoveryAddress),
+					Signer:          common.BytesToAddress(fid.Signer),
 				}
 				//log.Debugf("Processing user with FID %d", fid.Fid)
-				// get existing keys if exist and deserialize them
+				// if not app keys are found, set the signer to the first key
 				alteredSignerKey := common.Address{}
+				if len(fid.AppKeys) == 0 {
+					alteredSignerKey = common.BytesToAddress(keys[0].Key[:]) // no need to hash as the value is already hashed because it is an indexed value in the event
+					userData.Signer = alteredSignerKey
+				}
+				// create key list
+				k := make([]common.Hash, 0)
+				for _, key := range keys {
+					h := common.Hash{}
+					h.SetBytes(key.KeyBytes)
+					k = append(k, h)
+				}
+				// deserialize app keys since they are stored as bytes
 				if len(fid.AppKeys) != 0 {
-					// deserialize app keys since they are stored as bytes
 					appKeys, err := deserializeAppKeys(fid.AppKeys)
 					if err != nil {
 						return nil, 0, fromBlock, false, nil, err
 					}
 					userData.AppKeys = appKeys
-				} else { // if the user has no keys, set the signer to the first key
-					alteredSignerKey = common.BytesToAddress(crypto.Keccak256(keys[0]))
-					if userData.Signer == VoidAddress {
-						userData.Signer = alteredSignerKey
-					}
 				}
+				// append the new keys to the user data
+				userData.AppKeys = append(userData.AppKeys, k...)
 				//log.Debugf("Found %d keys for user %d", len(keys), fid.Fid)
-				// add new app keys to the user
-				for _, key := range keys {
-					userData.AppKeys = append(userData.AppKeys, key[:])
-				}
+
 				// append modified user data to the list for saving
 				usersDBDataPost = append(usersDBDataPost, userData)
 				// add the user to the map for storing on the scanner database
-				usersCensusData[alteredSignerKey] = big.NewInt(int64(fid.Fid))
+				usersCensusData[alteredSignerKey] = big.NewInt(1)
 			}
 		}
 		// update the farcaster database with the new data
@@ -297,9 +295,21 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 	} else {
 		blockToReturn = int(lastBlock)
 	}
+	totalSupply, err := p.TotalSupply(nil)
+	// if error getting total supply, get old supply from database
+	if err != nil {
+		log.Warnf("Error getting total supply: %s", err.Error())
+		ts, err := p.db.QueriesRO.CountUsers(ctx)
+		if err != nil {
+			return nil, 0, fromBlock, false, nil, err
+		}
+		totalSupply = big.NewInt(int64(ts))
+	}
+
+	p.getUserByFID(ctx, 14364)
 
 	// here we return the hashed signer and the farcasterID for adding the user to the scanner database
-	return usersCensusData /*uint64(len(newRegisters))*/, uint64(len(usersCensusData)), uint64(blockToReturn), synced, nil, nil
+	return usersCensusData /*uint64(len(newRegisters))*/, uint64(len(usersCensusData)), uint64(blockToReturn), synced, totalSupply, nil
 }
 
 // updates farcaster database with the users data
@@ -324,37 +334,34 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 	for _, userData := range usersData {
 		// check if the user exists
 		_, errGetUser := qtx.GetUserByFID(internalCtx, userData.FID.Uint64())
-		if errGetUser != nil && !errors.Is(errGetUser, sql.ErrNoRows) {
-			return fmt.Errorf("cannot update farcaster db: %w", err)
-		}
-		// serialize app keys before saving
-		serializedAppKeys := make([]byte, 0)
-		if len(userData.AppKeys) != 0 {
-			serializedAppKeys, err = serializeAppKeys(userData.AppKeys)
-			if err != nil {
-				return fmt.Errorf("cannot update farcaster db: %w", err)
-			}
-		}
-		// if the user does not exist create a new one
-		newUser := false
-		if errors.Is(errGetUser, sql.ErrNoRows) {
-			if _, err := qtx.CreateUser(internalCtx, queries.CreateUserParams{
-				Fid: userData.FID.Uint64(),
-				//Username:        userData.Username,
-				CustodyAddress:  userData.CustodyAddress[:],
-				RecoveryAddress: userData.RecoveryAddress[:],
-				Signer:          make([]byte, 0),
-				AppKeys:         make([]byte, 0),
-			}); err != nil {
-				if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-					return fmt.Errorf("cannot update farcaster db: %w", ErrUserAlreadyExists)
+		if errGetUser != nil {
+			// if not exists create a new user
+			if errors.Is(errGetUser, sql.ErrNoRows) {
+				if _, err := qtx.CreateUser(internalCtx, queries.CreateUserParams{
+					Fid: userData.FID.Uint64(),
+					//Username:        userData.Username,
+					CustodyAddress:  userData.CustodyAddress[:],
+					RecoveryAddress: userData.RecoveryAddress[:],
+					Signer:          make([]byte, 0),
+					AppKeys:         make([]byte, 0),
+				}); err != nil {
+					if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+						return fmt.Errorf("cannot update farcaster db: %w", ErrUserAlreadyExists)
+					}
+					return fmt.Errorf("cannot update farcaster db: %w", err)
 				}
-				return fmt.Errorf("cannot update farcaster db: %w", err)
+			} else {
+				return fmt.Errorf("cannot update farcaster db: %w", errGetUser)
 			}
-			newUser = true
-		}
-		// if the user exists update the user data
-		if !newUser {
+		} else { // if user exists update the user data
+			// serialize app keys before saving
+			serializedAppKeys := make([]byte, 0)
+			if len(userData.AppKeys) != 0 {
+				serializedAppKeys, err = serializeAppKeys(userData.AppKeys)
+				if err != nil {
+					return fmt.Errorf("cannot update farcaster db: %w", err)
+				}
+			}
 			if _, err := qtx.UpdateUser(internalCtx, queries.UpdateUserParams{
 				Fid: userData.FID.Uint64(),
 				//Username:        userData.Username,
@@ -374,7 +381,7 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 }
 
 // ScanLogsIDRegistry scans the logs of the Farcaster ID Registry contract
-func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, toBlock uint64) (map[string]common.Address, uint64, bool, error) {
+func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, toBlock uint64) (map[*big.Int]common.Address, uint64, bool, error) {
 	startTime := time.Now()
 	logs, lastBlock, synced, err := web3.RangeOfLogs(
 		ctx,
@@ -388,14 +395,14 @@ func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, t
 		return nil, 0, false, err
 	}
 	// encode the number of new registers
-	newFIDs := make(map[string]common.Address, 0)
+	newFIDs := make(map[*big.Int]common.Address, 0)
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
 		logData, err := p.contracts.idRegistry.ParseRegister(currentLog)
 		if err != nil {
 			return newFIDs, lastBlock, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster ID Registry]: %w", err))
 		}
-		newFIDs[logData.Id.String()] = logData.To
+		newFIDs[logData.Id] = logData.To
 		// log.Debugf("Found LOG on Farcaster id registry where user %s registered with custody key %s", logData.Id.String(), logData.To.String())
 	}
 
@@ -412,8 +419,13 @@ func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, t
 	return newFIDs, lastBlock, synced, nil
 }
 
+type KRLogData struct {
+	Key      common.Hash
+	KeyBytes []byte
+}
+
 // ScanLogsKeyRegistry scans the logs of the Farcaster Key Registry contract
-func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, toBlock uint64) (map[string][][]byte, uint64, bool, error) {
+func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, toBlock uint64) (map[uint64][]KRLogData, uint64, bool, error) {
 	startTime := time.Now()
 	logs, lastBlock, synced, err := web3.RangeOfLogs(
 		ctx,
@@ -427,14 +439,20 @@ func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, 
 		return nil, 0, false, err
 	}
 	// encode the number of new registers
-	newKeys := make(map[string][][]byte, 0)
+	newKeys := make(map[uint64][]KRLogData, 0)
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
 		logData, err := p.contracts.keyRegistry.ParseAdd(currentLog)
 		if err != nil {
 			return newKeys, lastBlock, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster Key Registry]: %w", err))
 		}
-		newKeys[logData.Fid.String()] = append(newKeys[logData.Fid.String()], logData.KeyBytes)
+		nld := KRLogData{
+			Key:      logData.Key,
+			KeyBytes: logData.KeyBytes[:],
+		}
+		// append logData.KeyBytes to the user with FID logData.Fid
+		// note that logData.Key is the Keccak256 of logData.KeyBytes because logData.Key is an indexed EVM event value
+		newKeys[logData.Fid.Uint64()] = append(newKeys[logData.Fid.Uint64()], nld)
 	}
 
 	log.Infow("saving blocks",
@@ -499,7 +517,7 @@ func (p *FarcasterProvider) Name(_ []byte) (string, error) {
 
 // Symbol is not implemented for Farcaster contracts.
 func (p *FarcasterProvider) Symbol(_ []byte) (string, error) {
-	return "", nil
+	return "FC", nil
 }
 
 // Decimals is not implemented for Farcaster contracts.
@@ -683,7 +701,7 @@ func InitDB(dataDir string, dbName string) (*DB, error) {
 }
 
 // Encode/Decode app_keys
-func serializeAppKeys(data [][]byte) ([]byte, error) {
+func serializeAppKeys(data []common.Hash) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(data)
@@ -693,8 +711,8 @@ func serializeAppKeys(data [][]byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func deserializeAppKeys(serializedData []byte) ([][]byte, error) {
-	var data [][]byte
+func deserializeAppKeys(serializedData []byte) ([]common.Hash, error) {
+	var data []common.Hash
 	buf := bytes.NewBuffer(serializedData)
 	dec := gob.NewDecoder(buf)
 	err := dec.Decode(&data)
@@ -702,4 +720,36 @@ func deserializeAppKeys(serializedData []byte) ([][]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+// given a FID returns the user data stored in the farcaster database
+func (p *FarcasterProvider) getUserByFID(ctx context.Context, fid uint64) {
+	user, err := p.db.QueriesRO.GetUserByFID(ctx, fid)
+	// if error is sql.ErrNoRows, the user does not exist print log.Warn
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Fatalf("Cannot read from DB %w", err)
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		log.Warnf("User with FID %d not found", fid)
+		return
+	}
+	fud := &FarcasterUserData{
+		FID:             big.NewInt(int64(user.Fid)),
+		Username:        user.Username,
+		CustodyAddress:  common.BytesToAddress(user.CustodyAddress),
+		RecoveryAddress: common.BytesToAddress(user.RecoveryAddress),
+		Signer:          common.BytesToAddress(user.Signer),
+	}
+	// deserialize app keys since they are stored as bytes
+	if len(user.AppKeys) != 0 {
+		appKeys, err := deserializeAppKeys(user.AppKeys)
+		if err != nil {
+			log.Fatalf("Cannot deserialize app keys %w", err)
+			return
+		}
+		fud.AppKeys = appKeys
+	}
+
+	log.Warnf("User with FID %d found: %+v", fid, fud)
 }

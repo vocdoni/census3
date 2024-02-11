@@ -194,7 +194,6 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 			return nil, 0, fromBlock, false, nil, err
 		}
 
-		//log.Debugf("Processing user with FID %s", fid)
 		// create a new user data and add for saving
 		userData := &FarcasterUserData{
 			FID:             fid,
@@ -249,11 +248,11 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 					RecoveryAddress: common.BytesToAddress(fid.RecoveryAddress),
 					Signer:          common.BytesToAddress(fid.Signer),
 				}
-				//log.Debugf("Processing user with FID %d", fid.Fid)
 				// if not app keys are found, set the signer to the first key
 				alteredSignerKey := common.Address{}
 				if len(fid.AppKeys) == 0 {
-					alteredSignerKey = common.BytesToAddress(keys[0].Key[:]) // no need to hash as the value is already hashed because it is an indexed value in the event
+					// no need to hash as the value is already hashed because it is an indexed value in the event
+					alteredSignerKey = common.BytesToAddress(keys[0].Key[:])
 					userData.Signer = alteredSignerKey
 				}
 				// create key list
@@ -273,7 +272,6 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 				}
 				// append the new keys to the user data
 				userData.AppKeys = append(userData.AppKeys, k...)
-				//log.Debugf("Found %d keys for user %d", len(keys), fid.Fid)
 
 				// append modified user data to the list for saving
 				usersDBDataPost = append(usersDBDataPost, userData)
@@ -305,11 +303,9 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 		}
 		totalSupply = big.NewInt(int64(ts))
 	}
-
-	p.getUserByFID(ctx, 14364)
-
-	// here we return the hashed signer and the farcasterID for adding the user to the scanner database
-	return usersCensusData /*uint64(len(newRegisters))*/, uint64(len(usersCensusData)), uint64(blockToReturn), synced, totalSupply, nil
+	// usersCensusData is a map of signers and their balances set to 1 to indicate that the user exists
+	// signer is the address calculated as keccak256(fid.AppKeys[0])
+	return usersCensusData, uint64(len(usersCensusData)), uint64(blockToReturn), synced, totalSupply, nil
 }
 
 // updates farcaster database with the users data
@@ -403,7 +399,6 @@ func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, t
 			return newFIDs, lastBlock, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster ID Registry]: %w", err))
 		}
 		newFIDs[logData.Id] = logData.To
-		// log.Debugf("Found LOG on Farcaster id registry where user %s registered with custody key %s", logData.Id.String(), logData.To.String())
 	}
 
 	log.Infow("saving blocks",
@@ -415,7 +410,6 @@ func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, t
 
 	p.contracts.idRegistrySynced.Store(synced)
 
-	// log.Debugf("New FIDs found: %v", newFIDs)
 	return newFIDs, lastBlock, synced, nil
 }
 
@@ -450,7 +444,6 @@ func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, 
 			Key:      logData.Key,
 			KeyBytes: logData.KeyBytes[:],
 		}
-		// append logData.KeyBytes to the user with FID logData.Fid
 		// note that logData.Key is the Keccak256 of logData.KeyBytes because logData.Key is an indexed EVM event value
 		newKeys[logData.Fid.Uint64()] = append(newKeys[logData.Fid.Uint64()], nld)
 	}
@@ -464,7 +457,6 @@ func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, 
 
 	p.contracts.keyRegistrySynced.Store(synced)
 
-	// log.Debugf("New keys found: %v", newKeys)
 	return newKeys, lastBlock, synced, nil
 }
 
@@ -723,16 +715,16 @@ func deserializeAppKeys(serializedData []byte) ([]common.Hash, error) {
 }
 
 // given a FID returns the user data stored in the farcaster database
-func (p *FarcasterProvider) getUserByFID(ctx context.Context, fid uint64) {
+func (p *FarcasterProvider) getUserByFID(ctx context.Context, fid uint64) *FarcasterUserData {
 	user, err := p.db.QueriesRO.GetUserByFID(ctx, fid)
 	// if error is sql.ErrNoRows, the user does not exist print log.Warn
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.Fatalf("Cannot read from DB %w", err)
-		return
+		return nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		log.Warnf("User with FID %d not found", fid)
-		return
+		return nil
 	}
 	fud := &FarcasterUserData{
 		FID:             big.NewInt(int64(user.Fid)),
@@ -746,10 +738,9 @@ func (p *FarcasterProvider) getUserByFID(ctx context.Context, fid uint64) {
 		appKeys, err := deserializeAppKeys(user.AppKeys)
 		if err != nil {
 			log.Fatalf("Cannot deserialize app keys %w", err)
-			return
+			return nil
 		}
 		fud.AppKeys = appKeys
 	}
-
-	log.Warnf("User with FID %d found: %+v", fid, fud)
+	return fud
 }

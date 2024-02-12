@@ -28,7 +28,9 @@ func TestGitcoinPassport(t *testing.T) {
 	c := qt.New(t)
 
 	tempDBDir := t.TempDir()
-	defer os.RemoveAll(tempDBDir)
+	defer func() {
+		c.Assert(os.RemoveAll(tempDBDir), qt.IsNil)
+	}()
 	testDB, err := db.Init(tempDBDir, "gitcoinpassport.sql")
 	c.Assert(err, qt.IsNil)
 

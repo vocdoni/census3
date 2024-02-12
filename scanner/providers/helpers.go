@@ -9,8 +9,23 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"go.vocdoni.io/dvote/log"
 )
+
+// ClientSupportsGetCode checks if the given client supports the `eth_getCode`
+// method. It returns true if it is supported and false otherwise.
+func ClientSupportsGetCode(ctx context.Context, cli *ethclient.Client, controlAddr common.Address) bool {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	// get the latest block number
+	lastBlock, err := cli.BlockNumber(ctx)
+	if err != nil {
+		return false
+	}
+	_, err = cli.CodeAt(ctx, controlAddr, big.NewInt(int64(lastBlock/2)))
+	return err == nil
+}
 
 // CalcPartialHolders calculates the partial holders from the current and new holders
 // maps. It returns a map with the partial holders and their balances. The final

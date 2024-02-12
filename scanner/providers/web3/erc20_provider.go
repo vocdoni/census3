@@ -307,19 +307,15 @@ func (p *ERC20HolderProvider) LatestBlockNumber(ctx context.Context, _ []byte) (
 // CreationBlock returns the creation block of the current token set in the
 // provider. It gets the creation block from the client. It also receives an
 // external ID but it is not used by the provider. It uses the
-// creationBlockInRange function to calculate the creation block in the range
-// of blocks.
+// creationBlock function to calculate the creation block of a web3 provider
+// contract.
 func (p *ERC20HolderProvider) CreationBlock(ctx context.Context, _ []byte) (uint64, error) {
-	var err error
 	if p.creationBlock == 0 {
-		var lastBlock uint64
-		lastBlock, err = p.LatestBlockNumber(ctx, nil)
-		if err != nil {
-			return 0, err
-		}
-		p.creationBlock, err = creationBlockInRange(p.client, ctx, p.address, 0, lastBlock)
+		var err error
+		p.creationBlock, err = creationBlock(p.client, ctx, p.address)
+		return p.creationBlock, err
 	}
-	return p.creationBlock, err
+	return p.creationBlock, nil
 }
 
 // IconURI method is not implemented for ERC20 tokens.

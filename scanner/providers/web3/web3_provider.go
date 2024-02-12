@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -22,6 +23,24 @@ type Web3ProviderRef struct {
 type Web3ProviderConfig struct {
 	Web3ProviderRef
 	Endpoints NetworkEndpoints
+}
+
+// creationBlock function returns the block number of the creation of a contract
+// address. It uses the `eth_getCode` method to get the contract code at the
+// block number provided. If the method is not supported, it returns 0 and nil.
+func creationBlock(client *ethclient.Client, ctx context.Context, addr common.Address) (uint64, error) {
+	// check if the current client supports `eth_getCode` method, if not, return
+	// 1 and nil. It is assumed that the contract is created at block 1 to start
+	// scanning from the first block.
+	if !providers.ClientSupportsGetCode(ctx, client, addr) {
+		return 1, nil
+	}
+	// get the latest block number
+	lastBlock, err := client.BlockNumber(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return creationBlockInRange(client, ctx, addr, 0, lastBlock)
 }
 
 // creationBlockInRange function finds the block number of a contract between

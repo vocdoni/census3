@@ -186,7 +186,6 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-
 		// init Gitcoin external provider
 		gitcoinProvider := new(gitcoin.GitcoinPassport)
 		if err := gitcoinProvider.Init(gitcoin.GitcoinPassportConf{

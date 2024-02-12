@@ -21,6 +21,9 @@ WHERE address = sqlc.arg(address);
 -- name: DeleteScore :execresult
 DELETE FROM scores WHERE address = sqlc.arg(address);
 
+-- name: TotalSupplyScores :many
+SELECT score FROM scores;
+
 -- name: NewStampScore :execresult
 INSERT INTO stamps (address, name, score) VALUES (?, ?, ?);
 
@@ -43,5 +46,24 @@ WHERE address = sqlc.arg(address)
 -- name: GetStampsForAddress :many
 SELECT name, score FROM stamps WHERE address = sqlc.arg(address);
 
+-- name: GetStampScoreForAddress :one
+SELECT score 
+FROM stamps 
+WHERE address = sqlc.arg(address) 
+    AND name = sqlc.arg(stamp);
+
 -- name: DeleteStampForAddress :execresult
 DELETE FROM stamps WHERE address = sqlc.arg(address);
+
+-- name: AvailableStamps :many
+SELECT DISTINCT(name) FROM stamps;
+
+-- name: ExistsStamp :one
+SELECT EXISTS (
+    SELECT name FROM (
+        SELECT DISTINCT(name) FROM stamps
+    ) WHERE name = sqlc.arg(stamp)
+);
+
+-- name: StampTotalSupplyScores :many
+SELECT score FROM stamps WHERE name = sqlc.arg(stamp);

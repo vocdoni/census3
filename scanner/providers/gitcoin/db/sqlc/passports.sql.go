@@ -13,6 +13,33 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 )
 
+const availableStamps = `-- name: AvailableStamps :many
+SELECT DISTINCT(name) FROM stamps
+`
+
+func (q *Queries) AvailableStamps(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, availableStamps)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteScore = `-- name: DeleteScore :execresult
 DELETE FROM scores WHERE address = ?
 `
@@ -27,6 +54,21 @@ DELETE FROM stamps WHERE address = ?
 
 func (q *Queries) DeleteStampForAddress(ctx context.Context, address annotations.Address) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteStampForAddress, address)
+}
+
+const existsStamp = `-- name: ExistsStamp :one
+SELECT EXISTS (
+    SELECT name FROM (
+        SELECT DISTINCT(name) FROM stamps
+    ) WHERE name = ?
+)
+`
+
+func (q *Queries) ExistsStamp(ctx context.Context, stamp string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, existsStamp, stamp)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const getScore = `-- name: GetScore :one
@@ -70,6 +112,25 @@ func (q *Queries) GetScores(ctx context.Context) ([]GetScoresRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const getStampScoreForAddress = `-- name: GetStampScoreForAddress :one
+SELECT score 
+FROM stamps 
+WHERE address = ? 
+    AND name = ?
+`
+
+type GetStampScoreForAddressParams struct {
+	Address annotations.Address
+	Stamp   string
+}
+
+func (q *Queries) GetStampScoreForAddress(ctx context.Context, arg GetStampScoreForAddressParams) (annotations.BigInt, error) {
+	row := q.db.QueryRowContext(ctx, getStampScoreForAddress, arg.Address, arg.Stamp)
+	var score annotations.BigInt
+	err := row.Scan(&score)
+	return score, err
 }
 
 const getStampScores = `-- name: GetStampScores :many
@@ -195,6 +256,60 @@ func (q *Queries) StampScoreExists(ctx context.Context, arg StampScoreExistsPara
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const stampTotalSupplyScores = `-- name: StampTotalSupplyScores :many
+SELECT score FROM stamps WHERE name = ?
+`
+
+func (q *Queries) StampTotalSupplyScores(ctx context.Context, stamp string) ([]annotations.BigInt, error) {
+	rows, err := q.db.QueryContext(ctx, stampTotalSupplyScores, stamp)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []annotations.BigInt
+	for rows.Next() {
+		var score annotations.BigInt
+		if err := rows.Scan(&score); err != nil {
+			return nil, err
+		}
+		items = append(items, score)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const totalSupplyScores = `-- name: TotalSupplyScores :many
+SELECT score FROM scores
+`
+
+func (q *Queries) TotalSupplyScores(ctx context.Context) ([]annotations.BigInt, error) {
+	rows, err := q.db.QueryContext(ctx, totalSupplyScores)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []annotations.BigInt
+	for rows.Next() {
+		var score annotations.BigInt
+		if err := rows.Scan(&score); err != nil {
+			return nil, err
+		}
+		items = append(items, score)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateScore = `-- name: UpdateScore :execresult

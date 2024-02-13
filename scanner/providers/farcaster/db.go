@@ -159,7 +159,9 @@ func (p *FarcasterProvider) createUser(ctx context.Context, qtx *queries.Queries
 	return nil
 }
 
-func (p *FarcasterProvider) updateUserAppKeys(ctx context.Context, qtx *queries.Queries, user queries.User, appKeys []common.Hash) error {
+func (p *FarcasterProvider) updateUserAppKeys(
+	ctx context.Context, qtx *queries.Queries, user queries.User, appKeys []common.Hash,
+) error {
 	// serialize app keys before saving
 	serializedAppKeys := make([]byte, 0)
 	var err error

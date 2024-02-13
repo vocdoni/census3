@@ -48,7 +48,8 @@ type FarcasterAPIResponseVerificationsByFID struct {
 	NextPageToken string                      `json:"nextPageToken"`
 }
 
-func (p *FarcasterProvider) apiVerificationsByFID(fid *big.Int, address common.Address, offset int) (*FarcasterAPIResponseVerificationsByFID, error) {
+func (p *FarcasterProvider) apiVerificationsByFID(fid *big.Int, address common.Address, offset int,
+) (*FarcasterAPIResponseVerificationsByFID, error) {
 	// compose the endpoint for the request
 	strURL, err := url.JoinPath(p.apiEndpoint, fmt.Sprintf(verificationsByFidURI, fid.String()))
 	if err != nil {
@@ -59,8 +60,8 @@ func (p *FarcasterProvider) apiVerificationsByFID(fid *big.Int, address common.A
 		return nil, err
 	}
 	q := endpoint.Query()
-	//q.Add("limit", fmt.Sprint(FARCASTER_MAX_LIMIT))
-	//q.Add("offset", fmt.Sprint(offset))
+	// q.Add("limit", fmt.Sprint(FARCASTER_MAX_LIMIT))
+	// q.Add("offset", fmt.Sprint(offset))
 	endpoint.RawQuery = q.Encode()
 	// create request and add headers
 	req, err := http.NewRequest("GET", endpoint.String(), nil)
@@ -127,8 +128,8 @@ func (p *FarcasterProvider) apiUserDataByFID(fid *big.Int) (*FarcasterAPIRespons
 		return nil, err
 	}
 	q := endpoint.Query()
-	//q.Add("limit", fmt.Sprint(FARCASTER_MAX_LIMIT))
-	//q.Add("offset", fmt.Sprint(offset))
+	// q.Add("limit", fmt.Sprint(FARCASTER_MAX_LIMIT))
+	// q.Add("offset", fmt.Sprint(offset))
 	endpoint.RawQuery = q.Encode()
 	// create request and add headers
 	req, err := http.NewRequest("GET", endpoint.String(), nil)

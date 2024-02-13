@@ -1,53 +1,16 @@
--- name: CreateHolder :execresult
-INSERT INTO holders (id)
-VALUES (?);
 
--- name: TokensByHolderID :many
-SELECT tokens.*
-FROM tokens
-JOIN token_holders ON tokens.id = token_holders.token_id
-WHERE token_holders.holder_id = ?;
+-- name: ListTokenHolders :many
+SELECT *
+FROM token_holders
+WHERE token_id = ? AND chain_id = ? AND external_id = ?;
 
--- name: TokenHoldersByTokenID :many
-SELECT holders.*, token_holders.balance
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ?;
-
--- name: TokenHoldersByTokenIDAndExternalID :many
-SELECT holders.*, token_holders.balance
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? AND token_holders.external_id = ?;
-
--- name: TokenHoldersByTokenIDAndChainIDAndExternalID :many
-SELECT holders.*, token_holders.balance
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? AND token_holders.chain_id = ? AND token_holders.external_id = ?;
-
--- name: TokenHolderByTokenIDAndHolderID :one
-SELECT holders.*, token_holders.*
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? 
-AND token_holders.chain_id = ?
-AND token_holders.holder_id = ?;
-
--- name: TokenHolderByTokenIDAndHolderIDAndChainIDAndExternalID :one
-SELECT holders.*, token_holders.*
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? 
-    AND token_holders.holder_id = ? 
-    AND token_holders.chain_id = ?
-    AND token_holders.external_id = ?;
-
--- name: TokenHolderByTokenIDAndBlockIDAndHolderID :one
-SELECT holders.*, token_holders.balance
-FROM holders
-JOIN token_holders ON holders.id = token_holders.holder_id
-WHERE token_holders.token_id = ? AND token_holders.holder_id = ? AND token_holders.block_id = ?;
+-- name: GetTokenHolder :one
+SELECT *
+FROM token_holders
+WHERE token_id = ? 
+    AND holder_id = ? 
+    AND chain_id = ?
+    AND external_id = ?;
 
 -- name: ExistTokenHolder :one
 SELECT EXISTS (
@@ -58,13 +21,6 @@ SELECT EXISTS (
         AND chain_id = ?
         AND external_id = ?
 );
-
--- name: LastBlockByTokenID :one
-SELECT block_id 
-FROM token_holders
-WHERE token_id = ?
-ORDER BY block_id DESC
-LIMIT 1;
 
 -- name: CountTokenHolders :one
 SELECT COUNT(holder_id) 
@@ -97,13 +53,6 @@ WHERE token_id = sqlc.arg(token_id)
     AND chain_id = sqlc.arg(chain_id) 
     AND external_id = sqlc.arg(external_id);
 
--- name: DeleteTokenHolder :execresult
-DELETE FROM token_holders
-WHERE token_id = sqlc.arg(token_id) 
-    AND holder_id = sqlc.arg(holder_id) 
-    AND chain_id = sqlc.arg(chain_id)
-    AND external_id = sqlc.arg(external_id);
-
 -- name: TokenHoldersByTokenIDAndChainIDAndMinBalance :many
 SELECT token_holders.holder_id, token_holders.balance
 FROM token_holders
@@ -112,7 +61,7 @@ WHERE token_holders.token_id = ?
     AND token_holders.external_id = ?
     AND token_holders.balance >= ?;
 
--- name: DeleteTokenHoldersByTokenIDAndChainIDAndExternalID :execresult
+-- name: DeleteTokenHolder :execresult
 DELETE FROM token_holders WHERE token_id = ? AND chain_id = ? AND external_id = ?;
 
 -- name: TokenHoldersByStrategyID :many

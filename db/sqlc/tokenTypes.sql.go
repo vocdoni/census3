@@ -11,21 +11,16 @@ import (
 )
 
 const createTokenType = `-- name: CreateTokenType :execresult
-INSERT INTO token_types (type_name)
-VALUES (?)
+INSERT INTO token_types (id, type_name) VALUES (?, ?)
 `
 
-func (q *Queries) CreateTokenType(ctx context.Context, typeName string) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createTokenType, typeName)
+type CreateTokenTypeParams struct {
+	ID       uint64
+	TypeName string
 }
 
-const deleteTokenType = `-- name: DeleteTokenType :execresult
-DELETE FROM token_types
-WHERE id = ?
-`
-
-func (q *Queries) DeleteTokenType(ctx context.Context, id uint64) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteTokenType, id)
+func (q *Queries) CreateTokenType(ctx context.Context, arg CreateTokenTypeParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, createTokenType, arg.ID, arg.TypeName)
 }
 
 const listTokenTypes = `-- name: ListTokenTypes :many
@@ -56,36 +51,8 @@ func (q *Queries) ListTokenTypes(ctx context.Context) ([]TokenType, error) {
 	return items, nil
 }
 
-const tokenTypeByID = `-- name: TokenTypeByID :one
-SELECT id, type_name FROM token_types
-WHERE id = ?
-LIMIT 1
-`
-
-func (q *Queries) TokenTypeByID(ctx context.Context, id uint64) (TokenType, error) {
-	row := q.db.QueryRowContext(ctx, tokenTypeByID, id)
-	var i TokenType
-	err := row.Scan(&i.ID, &i.TypeName)
-	return i, err
-}
-
-const tokenTypeByName = `-- name: TokenTypeByName :one
-SELECT id, type_name FROM token_types
-WHERE type_name = ?
-LIMIT 1
-`
-
-func (q *Queries) TokenTypeByName(ctx context.Context, typeName string) (TokenType, error) {
-	row := q.db.QueryRowContext(ctx, tokenTypeByName, typeName)
-	var i TokenType
-	err := row.Scan(&i.ID, &i.TypeName)
-	return i, err
-}
-
 const updateTokenType = `-- name: UpdateTokenType :execresult
-UPDATE token_types
-SET type_name = ?
-WHERE id = ?
+UPDATE token_types SET type_name = ? WHERE id = ?
 `
 
 type UpdateTokenTypeParams struct {

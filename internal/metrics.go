@@ -1,6 +1,8 @@
 package internal
 
-import "github.com/VictoriaMetrics/metrics"
+import (
+	"github.com/VictoriaMetrics/metrics"
+)
 
 const (
 	LastAnalysedBlockByChainPrefix = `census3_last_analysed_block_by_chain_`

@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/internal"
-	"github.com/vocdoni/census3/roundedcensus"
+	"github.com/vocdoni/census3/internal/roundedcensus"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -140,7 +140,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	}
 	// init some variables to get computed in the following steps
 	strategyHolders, censusWeight, totalTokensBlockNumber, err := CalculateStrategyHolders(
-		internalCtx, capi.db.QueriesRO, capi.w3p, req.StrategyID, strategy.Predicate)
+		internalCtx, capi.db.QueriesRO, capi.holderProviders, req.StrategyID, strategy.Predicate)
 	if err != nil {
 		return 0, ErrEvalStrategyPredicate.WithErr(err)
 	}

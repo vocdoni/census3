@@ -460,7 +460,9 @@ func (p *FarcasterProvider) CensusKeys(data map[common.Address]*big.Int) (map[co
 	return data, nil
 }
 
-func (p *FarcasterProvider) storeNewRegisteredUsers(ctx context.Context, newRegisters map[*big.Int]common.Address, fromBlock uint64) ([]*FarcasterUserData, error) {
+func (p *FarcasterProvider) storeNewRegisteredUsers(
+	ctx context.Context, newRegisters map[*big.Int]common.Address, fromBlock uint64,
+) ([]*FarcasterUserData, error) {
 	usersDBData := make([]*FarcasterUserData, 0)
 	for fid, to := range newRegisters {
 		// if the user already exists in the database skip it
@@ -506,7 +508,9 @@ func (p *FarcasterProvider) storeNewRegisteredUsers(ctx context.Context, newRegi
 	return usersDBData, nil
 }
 
-func (p *FarcasterProvider) storeNewAppKeys(ctx context.Context, fidsFromDB []queries.User, newKeys map[uint64][]KRLogData) error {
+func (p *FarcasterProvider) storeNewAppKeys(
+	ctx context.Context, fidsFromDB []queries.User, newKeys map[uint64][]KRLogData,
+) error {
 	if len(fidsFromDB) != 0 {
 		usersDBDataPost := make([]*FarcasterUserData, 0)
 		// iterate the users and update the database with the new app keys

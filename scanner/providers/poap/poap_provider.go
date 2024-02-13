@@ -420,3 +420,10 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 	}
 	return &eventRes, nil
 }
+
+// CensusKeys method returns the holders and balances provided transformed. The
+// POAP provider does not need to transform the holders and balances, so it
+// returns the data as is.
+func (p *POAPHolderProvider) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
+	return data, nil
+}

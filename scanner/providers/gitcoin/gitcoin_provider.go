@@ -335,3 +335,10 @@ func (g *GitcoinPassport) CreationBlock(_ context.Context, _ []byte) (uint64, er
 func (g *GitcoinPassport) IconURI(_ []byte) (string, error) {
 	return "", nil
 }
+
+// CensusKeys method returns the holders and balances provided transformed.
+// The Gitcoin Passport provider does not need to transform the holders and
+// balances, so it returns the data as is.
+func (p *GitcoinPassport) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
+	return data, nil
+}

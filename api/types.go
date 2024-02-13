@@ -168,6 +168,10 @@ type TokenHoldersAtBlock struct {
 	Holders     map[string]string `json:"holders"`
 }
 
+type GetTokenHolderResponse struct {
+	Balance string `json:"balance"`
+}
+
 type GetHoldersAtLastBlockResponse struct {
 	Done           bool                 `json:"done"`
 	Error          error                `json:"error"`

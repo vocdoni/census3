@@ -196,6 +196,7 @@ WHERE token_id = ?
     AND holder_id = ? 
     AND chain_id = ?
     AND external_id = ?
+    AND balance > '0'
 `
 
 type GetTokenHolderParams struct {

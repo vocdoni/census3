@@ -123,6 +123,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusBadRequest,
 		Err:        fmt.Errorf("malformed pagination params"),
 	}
+	ErrNoTokenHolderFound = apirest.APIerror{
+		Code:       4022,
+		HTTPstatus: apirest.HTTPstatusNotFound,
+		Err:        fmt.Errorf("token holder not found for the token provided"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,

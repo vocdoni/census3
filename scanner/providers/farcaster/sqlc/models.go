@@ -15,4 +15,5 @@ type User struct {
 	CustodyAddress  annotations.Address
 	AppKeys         annotations.Bytes
 	RecoveryAddress annotations.Address
+	LinkedEvm       annotations.Bytes
 }

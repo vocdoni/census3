@@ -5,19 +5,12 @@ import (
 	"context"
 	"database/sql"
 	"embed"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pressly/goose/v3"
 	fcir "github.com/vocdoni/census3/contracts/farcaster/idRegistry"
 	fckr "github.com/vocdoni/census3/contracts/farcaster/keyRegistry"
 	"github.com/vocdoni/census3/scanner/providers"
@@ -44,46 +37,12 @@ var (
 	FarcasterIDRegistryType  = []byte{0}
 	FarcasterKeyRegistryType = []byte{1}
 
+	ArrayTypeHash    = []byte{0}
+	ArrayTypeAddress = []byte{1}
+
 	ErrUserAlreadyExists = errors.New("user already exists")
 	VoidAddress          = common.Address{}
 )
-
-type FarcasterProviderConf struct {
-	Endpoints web3.NetworkEndpoints
-	DB        *DB
-}
-
-type FarcasterContracts struct {
-	keyRegistry       *fckr.FarcasterKeyRegistry
-	idRegistry        *fcir.FarcasterIDRegistry
-	idRegistrySynced  atomic.Bool
-	keyRegistrySynced atomic.Bool
-}
-
-type FarcasterProvider struct {
-	endpoints web3.NetworkEndpoints
-	client    *ethclient.Client
-	db        *DB
-
-	contracts        FarcasterContracts
-	lastNetworkBlock uint64
-}
-
-type FarcasterUserData struct {
-	// FID is the Farcaster ID
-	FID *big.Int
-	// Username is the username of the user
-	Username string
-	// CustodyAddress is the custody address of the user
-	CustodyAddress common.Address
-	// RecoveryAddress is the address used to recover the user's account
-	RecoveryAddress common.Address
-	// Signer is the hash of the ED25519 public key of the user
-	// user to sign Farcaster verifiable messages
-	Signer common.Address
-	// AppKeys is the array of keys of the user found in the KeyRegistry
-	AppKeys []common.Hash
-}
 
 func (p *FarcasterProvider) Init(iconf any) error {
 	// parse the config and set the endpoints
@@ -91,6 +50,12 @@ func (p *FarcasterProvider) Init(iconf any) error {
 	if !ok {
 		return errors.New("invalid config type, it must be Web3ProviderConfig")
 	}
+	if conf.APICooldown == 0 {
+		conf.APICooldown = defaultAPICooldown
+	}
+	p.apiEndpoint = conf.APIEndpoint
+	p.apiCooldown = conf.APICooldown
+	p.accessToken = conf.AccessToken
 	p.endpoints = conf.Endpoints
 	p.db = conf.DB
 	p.contracts.idRegistrySynced.Store(false)
@@ -185,28 +150,9 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 
 	// save new users registered on the database
 	// from the logs of the IDRegistry we can obtain the user FID and the custody and recovery addresses
-	usersDBData := make([]*FarcasterUserData, 0)
-	for fid, to := range newRegisters {
-		// if the user already exists in the database skip it
-		if _, err := p.db.QueriesRO.GetUserByFID(ctx, fid.Uint64()); err == nil {
-			continue
-		} else if !errors.Is(err, sql.ErrNoRows) {
-			return nil, 0, fromBlock, false, nil, err
-		}
-
-		// create a new user data and add for saving
-		userData := &FarcasterUserData{
-			FID:             fid,
-			CustodyAddress:  to,
-			RecoveryAddress: common.HexToAddress(defaultRecoveryAddress),
-		}
-		usersDBData = append(usersDBData, userData)
-	}
-
-	// update the database with the new users
-	log.Debugf("Updating farcaster database with %d users", len(usersDBData))
-	if err := p.updateFarcasterDB(ctx, usersDBData); err != nil {
-		return nil, 0, fromBlock, false, nil, err
+	usersDBData, err := p.storeNewRegisteredUsers(ctx, newRegisters, fromBlock)
+	if err != nil {
+		return nil, 0, fromBlock, false, nil, fmt.Errorf("cannot store new registered users into farcaster DB %w", err)
 	}
 
 	// read the logs from the KeyRegistry
@@ -233,58 +179,11 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 		return nil, 0, fromBlock, false, nil, err
 	}
 
-	usersCensusData := make(map[common.Address]*big.Int)
-	if len(fidsFromDB) != 0 {
-		usersDBDataPost := make([]*FarcasterUserData, 0)
-		// iterate the users and update the database with the new app keys
-		for _, fid := range fidsFromDB {
-			// check if the user has new keys to add
-			if keys, ok := newKeys[fid.Fid]; !ok {
-				continue
-			} else {
-				userData := &FarcasterUserData{
-					FID:             big.NewInt(int64(fid.Fid)),
-					CustodyAddress:  common.BytesToAddress(fid.CustodyAddress),
-					RecoveryAddress: common.BytesToAddress(fid.RecoveryAddress),
-					Signer:          common.BytesToAddress(fid.Signer),
-				}
-				// if not app keys are found, set the signer to the first key
-				alteredSignerKey := common.Address{}
-				if len(fid.AppKeys) == 0 {
-					// no need to hash as the value is already hashed because it is an indexed value in the event
-					alteredSignerKey = common.BytesToAddress(keys[0].Key[:])
-					userData.Signer = alteredSignerKey
-				}
-				// create key list
-				k := make([]common.Hash, 0)
-				for _, key := range keys {
-					h := common.Hash{}
-					h.SetBytes(key.KeyBytes)
-					k = append(k, h)
-				}
-				// deserialize app keys since they are stored as bytes
-				if len(fid.AppKeys) != 0 {
-					appKeys, err := deserializeAppKeys(fid.AppKeys)
-					if err != nil {
-						return nil, 0, fromBlock, false, nil, err
-					}
-					userData.AppKeys = appKeys
-				}
-				// append the new keys to the user data
-				userData.AppKeys = append(userData.AppKeys, k...)
-
-				// append modified user data to the list for saving
-				usersDBDataPost = append(usersDBDataPost, userData)
-				// add the user to the map for storing on the scanner database
-				usersCensusData[alteredSignerKey] = big.NewInt(1)
-			}
-		}
-		// update the farcaster database with the new data
-		log.Debugf("Updating farcaster database with %d users after key registry scan", len(usersDBDataPost))
-		if err := p.updateFarcasterDB(ctx, usersDBDataPost); err != nil {
-			return nil, 0, fromBlock, false, nil, err
-		}
+	// store new app keys
+	if err := p.storeNewAppKeys(ctx, fidsFromDB, newKeys); err != nil {
+		return nil, 0, fromBlock, false, nil, fmt.Errorf("cannot store new app keys %w", err)
 	}
+
 	// NOTE: we are assuming that the key registry is synced if the id registry is synced
 	// Return the smallest block for starting next iteration from there
 	blockToReturn := 0
@@ -303,77 +202,15 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 		}
 		totalSupply = big.NewInt(int64(ts))
 	}
+
+	usersCensusData := make(map[common.Address]*big.Int)
+	for _, user := range usersDBData {
+		for _, key := range user.LinkedEVM {
+			usersCensusData[key] = big.NewInt(1)
+		}
+	}
 	// usersCensusData is a map of signers and their balances set to 1 to indicate that the user exists
-	// signer is the address calculated as keccak256(fid.AppKeys[0])
 	return usersCensusData, uint64(len(usersCensusData)), uint64(blockToReturn), synced, totalSupply, nil
-}
-
-// updates farcaster database with the users data
-func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*FarcasterUserData) error {
-	// init db transaction
-	internalCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	tx, err := p.db.RW.BeginTx(internalCtx, nil)
-	if err != nil {
-		return fmt.Errorf("cannot update farcaster db: %w", err)
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
-			log.Errorw(err, "farcaster transaction rollback failed")
-		}
-	}()
-
-	qtx := p.db.QueriesRW.WithTx(tx)
-	// iterate the users and update the database
-	// if the user does not exist on the database create a new one
-	// if it exists update the user data
-	for _, userData := range usersData {
-		// check if the user exists
-		_, errGetUser := qtx.GetUserByFID(internalCtx, userData.FID.Uint64())
-		if errGetUser != nil {
-			// if not exists create a new user
-			if errors.Is(errGetUser, sql.ErrNoRows) {
-				if _, err := qtx.CreateUser(internalCtx, queries.CreateUserParams{
-					Fid: userData.FID.Uint64(),
-					// Username:        userData.Username,
-					CustodyAddress:  userData.CustodyAddress[:],
-					RecoveryAddress: userData.RecoveryAddress[:],
-					Signer:          make([]byte, 0),
-					AppKeys:         make([]byte, 0),
-				}); err != nil {
-					if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-						return fmt.Errorf("cannot update farcaster db: %w", ErrUserAlreadyExists)
-					}
-					return fmt.Errorf("cannot update farcaster db: %w", err)
-				}
-			} else {
-				return fmt.Errorf("cannot update farcaster db: %w", errGetUser)
-			}
-		} else { // if user exists update the user data
-			// serialize app keys before saving
-			serializedAppKeys := make([]byte, 0)
-			if len(userData.AppKeys) != 0 {
-				serializedAppKeys, err = serializeAppKeys(userData.AppKeys)
-				if err != nil {
-					return fmt.Errorf("cannot update farcaster db: %w", err)
-				}
-			}
-			if _, err := qtx.UpdateUser(internalCtx, queries.UpdateUserParams{
-				Fid: userData.FID.Uint64(),
-				// Username:        userData.Username,
-				CustodyAddress:  userData.CustodyAddress[:],
-				RecoveryAddress: userData.RecoveryAddress[:],
-				Signer:          userData.Signer[:],
-				AppKeys:         serializedAppKeys,
-			}); err != nil {
-				return fmt.Errorf("cannot update farcaster db: %w", err)
-			}
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("cannot update farcaster db: %w", err)
-	}
-	return nil
 }
 
 // ScanLogsIDRegistry scans the logs of the Farcaster ID Registry contract
@@ -413,11 +250,6 @@ func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, t
 	p.contracts.idRegistrySynced.Store(synced)
 
 	return newFIDs, lastBlock, synced, nil
-}
-
-type KRLogData struct {
-	Key      common.Hash
-	KeyBytes []byte
 }
 
 // ScanLogsKeyRegistry scans the logs of the Farcaster Key Registry contract
@@ -628,133 +460,95 @@ func (p *FarcasterProvider) CensusKeys(data map[common.Address]*big.Int) (map[co
 	return data, nil
 }
 
-// DB
-
-// DB struct abstact a safe connection with the database using sqlc queries,
-// sqlite as a database engine and go-sqlite3 as a driver.
-type DB struct {
-	RW *sql.DB
-	RO *sql.DB
-
-	QueriesRW *queries.Queries
-	QueriesRO *queries.Queries
-}
-
-// Close function stops all internal connections to the database
-func (db *DB) CloseDB() error {
-	if err := db.RW.Close(); err != nil {
-		return err
-	}
-	return db.RO.Close()
-}
-
-// Init function starts a database using the data path provided as argument. It
-// opens two different connections, one for read only, and another for read and
-// write, with different configurations, optimized for each use case.
-func InitDB(dataDir string, dbName string) (*DB, error) {
-	if dbName == "" {
-		return nil, fmt.Errorf("database name is required")
-	}
-	dbFile := filepath.Join(dataDir, dbName)
-	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
-		if err := os.MkdirAll(dataDir, os.ModePerm); err != nil {
-			return nil, fmt.Errorf("error creating a new database file: %w", err)
+func (p *FarcasterProvider) storeNewRegisteredUsers(ctx context.Context, newRegisters map[*big.Int]common.Address, fromBlock uint64) ([]*FarcasterUserData, error) {
+	usersDBData := make([]*FarcasterUserData, 0)
+	for fid, to := range newRegisters {
+		// if the user already exists in the database skip it
+		if _, err := p.db.QueriesRO.GetUserByFID(ctx, fid.Uint64()); err == nil {
+			continue
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("cannot get user by fid %w", err)
 		}
-	}
-	// sqlite doesn't support multiple concurrent writers.
-	// For that reason, rwDB is limited to one open connection.
-	// Per https://github.com/mattn/go-sqlite3/issues/1022#issuecomment-1067353980,
-	// we use WAL to allow multiple concurrent readers at the same time.
-	rwDB, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rwc&_journal_mode=wal&_txlock=immediate&_synchronous=normal", dbFile))
-	if err != nil {
-		return nil, fmt.Errorf("error opening database: %w", err)
-	}
-	rwDB.SetMaxOpenConns(1)
-	rwDB.SetMaxIdleConns(2)
-	rwDB.SetConnMaxIdleTime(10 * time.Minute)
-	rwDB.SetConnMaxLifetime(time.Hour)
 
-	roDB, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=ro&_journal_mode=wal", dbFile))
-	if err != nil {
-		return nil, fmt.Errorf("error opening database: %w", err)
-	}
-	// Increasing these numbers can allow for more queries to run concurrently,
-	// but it also increases the memory used by sqlite and our connection pool.
-	// Most read-only queries we run are quick enough, so a small number seems OK.
-	roDB.SetMaxOpenConns(10)
-	roDB.SetMaxIdleConns(20)
-	roDB.SetConnMaxIdleTime(5 * time.Minute)
-	roDB.SetConnMaxLifetime(time.Hour)
-
-	// get census3 goose migrations and setup for sqlite3
-	if err := goose.SetDialect("sqlite3"); err != nil {
-		return nil, fmt.Errorf("error setting up driver for sqlite: %w", err)
-	}
-	goose.SetBaseFS(migrationsFS)
-	// perform goose up
-	if err := goose.Up(rwDB, "migrations"); err != nil {
-		return nil, fmt.Errorf("error during goose up: %w", err)
-	}
-	// init sqlc
-	return &DB{
-		RW:        rwDB,
-		RO:        roDB,
-		QueriesRW: queries.New(rwDB),
-		QueriesRO: queries.New(roDB),
-	}, nil
-}
-
-// Encode/Decode app_keys
-func serializeAppKeys(data []common.Hash) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(data)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func deserializeAppKeys(serializedData []byte) ([]common.Hash, error) {
-	var data []common.Hash
-	buf := bytes.NewBuffer(serializedData)
-	dec := gob.NewDecoder(buf)
-	err := dec.Decode(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-/*
-// given a FID returns the user data stored in the farcaster database
-func (p *FarcasterProvider) getUserByFID(ctx context.Context, fid uint64) *FarcasterUserData {
-	user, err := p.db.QueriesRO.GetUserByFID(ctx, fid)
-	// if error is sql.ErrNoRows, the user does not exist print log.Warn
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		log.Fatalf("Cannot read from DB %w", err)
-		return nil
-	}
-	if errors.Is(err, sql.ErrNoRows) {
-		log.Warnf("User with FID %d not found", fid)
-		return nil
-	}
-	fud := &FarcasterUserData{
-		FID:             big.NewInt(int64(user.Fid)),
-		Username:        user.Username,
-		CustodyAddress:  common.BytesToAddress(user.CustodyAddress),
-		RecoveryAddress: common.BytesToAddress(user.RecoveryAddress),
-		Signer:          common.BytesToAddress(user.Signer),
-	}
-	// deserialize app keys since they are stored as bytes
-	if len(user.AppKeys) != 0 {
-		appKeys, err := deserializeAppKeys(user.AppKeys)
+		// get the linked EVM addresses from the API
+		res, err := p.apiVerificationsByFID(fid, common.Address{}, 0)
 		if err != nil {
-			log.Fatalf("Cannot deserialize app keys %w", err)
-			return nil
+			return nil, fmt.Errorf("farcaster api: cannot get verifications by FID: %w", err)
 		}
-		fud.AppKeys = appKeys
+		// get verification eth addresses
+		linkedEVM := make([]common.Address, 0)
+		for _, message := range res.Messages {
+			linkedEVM = append(linkedEVM, common.HexToAddress(message.Data.VerificationAddEthAddressBody.Address))
+		}
+
+		// get signer
+		res2, err := p.apiUserDataByFID(fid)
+		if err != nil {
+			return nil, fmt.Errorf("farcaster api: cannot get user data by FID: %w", err)
+		}
+
+		// create a new user data and add for saving
+		userData := &FarcasterUserData{
+			FID: fid,
+			// Username:     "",
+			Signer:          common.HexToHash(res2.Signer),
+			CustodyAddress:  to,
+			RecoveryAddress: common.HexToAddress(defaultRecoveryAddress),
+			LinkedEVM:       linkedEVM,
+		}
+		usersDBData = append(usersDBData, userData)
 	}
-	return fud
+	// update the database with the new users
+	log.Debugf("Updating farcaster database with %d users", len(usersDBData))
+	if err := p.updateFarcasterDB(ctx, usersDBData); err != nil {
+		return nil, fmt.Errorf("cannot update farcaster DB %w", err)
+	}
+	return usersDBData, nil
 }
-*/
+
+func (p *FarcasterProvider) storeNewAppKeys(ctx context.Context, fidsFromDB []queries.User, newKeys map[uint64][]KRLogData) error {
+	if len(fidsFromDB) != 0 {
+		usersDBDataPost := make([]*FarcasterUserData, 0)
+		// iterate the users and update the database with the new app keys
+		for _, fid := range fidsFromDB {
+			// check if the user has new keys to add
+			if keys, ok := newKeys[fid.Fid]; !ok {
+				continue
+			} else {
+				userData := &FarcasterUserData{
+					FID: big.NewInt(int64(fid.Fid)),
+				}
+				// create key list
+				k := make([]common.Hash, 0)
+				for _, key := range keys {
+					h := common.Hash{}
+					h.SetBytes(key.KeyBytes)
+					k = append(k, h)
+				}
+				// deserialize app keys since they are stored as bytes
+				if len(fid.AppKeys) != 0 {
+					iAppKeys, err := deserializeArray(fid.AppKeys, ArrayTypeHash)
+					if err != nil {
+						return fmt.Errorf("cannot deserialize past app keys %w", err)
+					}
+					appKeys, ok := iAppKeys.([]common.Hash)
+					if !ok {
+						return fmt.Errorf("cannot deserialize past app keys %w", err)
+					}
+					userData.AppKeys = appKeys
+				}
+				// append the new keys to the user data
+				userData.AppKeys = append(userData.AppKeys, k...)
+				// append modified user data to the list for saving
+				usersDBDataPost = append(usersDBDataPost, userData)
+				// add the user to the map for storing on the scanner database
+			}
+		}
+		// update the farcaster database with the new data
+		log.Debugf("Updating farcaster database with %d users after key registry scan", len(usersDBDataPost))
+		if err := p.updateFarcasterDB(ctx, usersDBDataPost); err != nil {
+			return fmt.Errorf("cannot update farcaster DB %w", err)
+		}
+	}
+	return nil
+}

@@ -40,7 +40,7 @@ func (capi *census3API) initTokenHandlers() error {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/holders/{holderID}", "GET",
-		api.MethodAccessTypePublic, capi.isTokenHolder); err != nil {
+		api.MethodAccessTypePublic, capi.getTokenHolder); err != nil {
 		return err
 	}
 	return capi.endpoint.RegisterMethod("/tokens/types", "GET",
@@ -533,7 +533,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
-func (capi *census3API) isTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+func (capi *census3API) getTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get contract address from the tokenID query param and decode check if
 	// it is provided, if not return an error
 	strAddress := ctx.URLParam("tokenID")
@@ -565,17 +565,33 @@ func (capi *census3API) isTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCont
 	holderID := common.HexToAddress(strHolderID)
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
 	defer cancel()
-
-	exists, err := capi.db.QueriesRO.ExistTokenHolder(internalCtx, queries.ExistTokenHolderParams{
+	// get token holder information from the database
+	holder, err := capi.db.QueriesRO.GetTokenHolder(internalCtx, queries.GetTokenHolderParams{
 		TokenID:    address.Bytes(),
 		HolderID:   holderID.Bytes(),
 		ChainID:    uint64(chainID),
 		ExternalID: externalID,
 	})
 	if err != nil {
+		// if the error is sql.ErrNoRows, return a 404 error, otherwise return
+		// a 500 error
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNoTokenHolderFound.WithErr(err)
+		}
 		return ErrCantGetTokenHolders.WithErr(err)
 	}
-	return ctx.Send([]byte(strconv.FormatBool(exists)), api.HTTPstatusOK)
+	balance, ok := new(big.Int).SetString(holder.Balance, 10)
+	if !ok {
+		return ErrCantGetTokenHolders.With("error parsing balance")
+	}
+	// build response and send it
+	res, err := json.Marshal(&GetTokenHolderResponse{
+		Balance: balance.String(),
+	})
+	if err != nil {
+		return ErrEncodeTokenHolders.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
 }
 
 // getTokenTypes handler returns the list of string names of the currently

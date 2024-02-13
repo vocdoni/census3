@@ -546,7 +546,7 @@ Returns the list of holders with their balances for a strategy. This endpoint on
 
 | URL key | Description | Example |
 |:---|:---|:---|
-| `pageSize` | (optional) Defines the number of results per page. By default, `100`. | `?pageSize=2` |
+| `pageSize` | (optional) Defines the number of results per page. By default, `1000`. | `?pageSize=2` |
 | `nextCursor` | (optional) When is defined, it is used to get the page results, going forward. By default, `""`. | `?nextCursor=0x1234` |
 | `prevCursor` | (optional) When is defined, it is used to get the page results, going backwards. By default, `""`. | `?prevCursor=0x1234` |
 

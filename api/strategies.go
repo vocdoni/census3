@@ -608,7 +608,7 @@ func (capi *census3API) listStrategyHolders(msg *api.APIdata, ctx *httprouter.HT
 			StrategyID: strategyID,
 		})
 	} else {
-		rows, err = qtx.NextStrategyTokenHoldersPage(internalCtx, queries.NextStrategyTokenHoldersPageParams{
+		rows, err = qtx.PrevStrategyTokenHoldersPage(internalCtx, queries.PrevStrategyTokenHoldersPageParams{
 			PageCursor: bCursor,
 			Limit:      dbPageSize,
 			StrategyID: strategyID,

@@ -128,6 +128,9 @@ func main() {
 		panic(err)
 	}
 	config.farcaster = pviper.GetBool("farcaster")
+	if err := pviper.BindPFlag("farcaster", flag.Lookup("farcaster")); err != nil {
+		panic(err)
+	}
 	// init logger
 	log.Init(config.logLevel, "stdout", nil)
 	// check if the web3 providers are defined

@@ -87,4 +87,8 @@ type HolderProvider interface {
 	// IconURI returns the icon URI of the icon asset of the current token set
 	// in the provider.
 	IconURI(id []byte) (string, error)
+	// CensusKeys method returns the holders and balances provided transformed.
+	// The transformation strategy is defined by the provider. The returned
+	// map will be used to build the census.
+	CensusKeys(holders map[common.Address]*big.Int) (map[common.Address]*big.Int, error)
 }

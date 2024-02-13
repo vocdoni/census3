@@ -13,6 +13,7 @@ import (
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/internal/roundedcensus"
+	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -150,8 +151,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 	// compute the new censusId and censusType
 	newCensusID := InnerCensusID(totalTokensBlockNumber, req.StrategyID, req.Anonymous)
 	// check if the census already exists
-	_, err = qtx.CensusByID(internalCtx, newCensusID)
-	if err != nil {
+	if _, err = qtx.CensusByID(internalCtx, newCensusID); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return 0, ErrCantCreateCensus.WithErr(err)
 		}
@@ -160,35 +160,35 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		// exists
 		return newCensusID, ErrCensusAlreadyExists
 	}
+	// to check if the census is for farcaster, find any farcaster token type in
+	// the strategy
+	isForFarcaster, err := qtx.StrategyTokensContainsType(internalCtx, queries.StrategyTokensContainsTypeParams{
+		StrategyID: req.StrategyID,
+		TypeID:     providers.CONTRACT_TYPE_FARCASTER,
+	})
+	if err != nil {
+		return 0, ErrCantCreateCensus.WithErr(err)
+	}
+	// transform the census holders and get the final accuracy
+	holders, finalAccuracy, err := capi.transformCensus(strategyHolders, req.Anonymous, isForFarcaster)
+	if err != nil {
+		return 0, ErrCantCreateCensus.WithErr(err)
+	}
 	// check the censusType
 	censusType := defaultCensusType
-	finalAccuracy := 100.0
 	if req.Anonymous {
+		// anonymous censuses are not compatible with farcaster tokens, so if
+		// both are enabled, return an error
+		if isForFarcaster {
+			return 0, ErrCantCreateCensus.With("farcaster tokens are not compatible with anonymous censuses")
+		}
 		censusType = anonymousCensusType
-		// Round census balances using the default configuration
-		censusParticipants := []*roundedcensus.Participant{}
-		for address, balance := range strategyHolders {
-			censusParticipants = append(censusParticipants, &roundedcensus.Participant{
-				Address: address.String(),
-				Balance: balance,
-			})
-		}
-		res, accuracy, err := roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig)
-		if err != nil {
-			log.Errorf("min accuracy couldn't be reached for strategy %d: %.2f: %v", req.StrategyID, accuracy, err)
-		}
-		// update the census holders with the rounded balances and the final accuracy
-		strategyHolders = map[common.Address]*big.Int{}
-		for _, participant := range res {
-			strategyHolders[common.HexToAddress(participant.Address)] = participant.Balance
-		}
-		finalAccuracy = accuracy
 	}
 	// create a census tree and publish on IPFS
 	root, uri, _, err := CreateAndPublishCensus(capi.censusDB, capi.storage, CensusOptions{
 		ID:      newCensusID,
 		Type:    censusType,
-		Holders: strategyHolders,
+		Holders: holders,
 	})
 	if err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
@@ -229,6 +229,52 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		internal.NumberOfCensusesByTypePrefix, censusType,
 	)).Inc()
 	return newCensusID, nil
+}
+
+// transformCensus method transforms the census holders using the configured
+// providers and returns the final accuracy of the census. If the census is
+// anonymous, it rounds the balances and returns the final accuracy. If the
+// census is for farcaster, it uses the farcaster provider to transform the
+// holders. If none of the previous conditions are met, it returns the same
+// holders and an accuracy of 100%.
+func (capi *census3API) transformCensus(holders map[common.Address]*big.Int,
+	anonymous, farcaster bool,
+) (map[common.Address]*big.Int, float64, error) {
+	// if the census is anonymous, round the balances and return the final accuracy
+	if anonymous {
+		// Round census balances using the default configuration
+		censusParticipants := []*roundedcensus.Participant{}
+		for address, balance := range holders {
+			censusParticipants = append(censusParticipants, &roundedcensus.Participant{
+				Address: address.String(),
+				Balance: balance,
+			})
+		}
+		res, accuracy, err := roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig)
+		if err != nil {
+			return nil, 0, err
+		}
+		// update the census holders with the rounded balances and the final accuracy
+		finalHolders := map[common.Address]*big.Int{}
+		for _, participant := range res {
+			finalHolders[common.HexToAddress(participant.Address)] = participant.Balance
+		}
+		return finalHolders, accuracy, nil
+	}
+	// if farcaster is enabled, use the farcaster provider to transform the holders
+	if farcaster {
+		provider, ok := capi.holderProviders[providers.CONTRACT_TYPE_FARCASTER]
+		if !ok {
+			return nil, 0, fmt.Errorf("farcaster provider not configured")
+		}
+		farcasterHolders, err := provider.CensusKeys(holders)
+		if err != nil {
+			return nil, 0, err
+		}
+		return farcasterHolders, 100, nil
+	}
+	// by default, return the same holders and an accuracy of 100%
+	return holders, 100, nil
 }
 
 // enqueueCensus handler returns the current status of the queue item

@@ -314,3 +314,10 @@ func (p *ERC721HolderProvider) CreationBlock(ctx context.Context, _ []byte) (uin
 func (p *ERC721HolderProvider) IconURI(_ []byte) (string, error) {
 	return "", nil
 }
+
+// CensusKeys method returns the holders and balances provided transformed. The
+// ERC721 provider does not need to transform the holders and balances, so it
+// returns the data as is.
+func (p *ERC721HolderProvider) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
+	return data, nil
+}

@@ -620,6 +620,14 @@ func (p *FarcasterProvider) KeysOf(fid *big.Int) ([][]byte, error) {
 	return p.contracts.keyRegistry.KeysOf(nil, fid, 1) // 1 is the default key state
 }
 
+// CensusKeys method returns the holders and balances provided transformed. The
+// Farcaster resolve the FID of the provided addresses, grouping them by FID and
+// returning the balances of the FID.
+func (p *FarcasterProvider) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
+	// TODO: modify to the provider implementation
+	return data, nil
+}
+
 // DB
 
 // DB struct abstact a safe connection with the database using sqlc queries,

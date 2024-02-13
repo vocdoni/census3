@@ -228,7 +228,6 @@ Returns the holder balance if the holder ID is already registered in the databas
 
 ```json
 {
-    "holderID": "0x1234",
     "balance": "1234567890"
 }
 ```

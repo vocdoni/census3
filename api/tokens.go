@@ -586,8 +586,7 @@ func (capi *census3API) getTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCon
 	}
 	// build response and send it
 	res, err := json.Marshal(&GetTokenHolderResponse{
-		HolderID: holderID.String(),
-		Balance:  balance.String(),
+		Balance: balance.String(),
 	})
 	if err != nil {
 		return ErrEncodeTokenHolders.WithErr(err)

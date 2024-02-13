@@ -169,8 +169,7 @@ type TokenHoldersAtBlock struct {
 }
 
 type GetTokenHolderResponse struct {
-	HolderID string `json:"holderID"`
-	Balance  string `json:"balance"`
+	Balance string `json:"balance"`
 }
 
 type GetHoldersAtLastBlockResponse struct {

@@ -280,7 +280,7 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 			}
 		}
 		// update the farcaster database with the new data
-		log.Debugf("Updating farcaster database with %d users after key registy scan", len(usersDBDataPost))
+		log.Debugf("Updating farcaster database with %d users after key registry scan", len(usersDBDataPost))
 		if err := p.updateFarcasterDB(ctx, usersDBDataPost); err != nil {
 			return nil, 0, fromBlock, false, nil, err
 		}
@@ -335,7 +335,7 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 			if errors.Is(errGetUser, sql.ErrNoRows) {
 				if _, err := qtx.CreateUser(internalCtx, queries.CreateUserParams{
 					Fid: userData.FID.Uint64(),
-					//Username:        userData.Username,
+					// Username:        userData.Username,
 					CustodyAddress:  userData.CustodyAddress[:],
 					RecoveryAddress: userData.RecoveryAddress[:],
 					Signer:          make([]byte, 0),
@@ -360,7 +360,7 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 			}
 			if _, err := qtx.UpdateUser(internalCtx, queries.UpdateUserParams{
 				Fid: userData.FID.Uint64(),
-				//Username:        userData.Username,
+				// Username:        userData.Username,
 				CustodyAddress:  userData.CustodyAddress[:],
 				RecoveryAddress: userData.RecoveryAddress[:],
 				Signer:          userData.Signer[:],
@@ -377,7 +377,9 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 }
 
 // ScanLogsIDRegistry scans the logs of the Farcaster ID Registry contract
-func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, toBlock uint64) (map[*big.Int]common.Address, uint64, bool, error) {
+func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, toBlock uint64) (
+	map[*big.Int]common.Address, uint64, bool, error,
+) {
 	startTime := time.Now()
 	logs, lastBlock, synced, err := web3.RangeOfLogs(
 		ctx,
@@ -419,7 +421,9 @@ type KRLogData struct {
 }
 
 // ScanLogsKeyRegistry scans the logs of the Farcaster Key Registry contract
-func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, toBlock uint64) (map[uint64][]KRLogData, uint64, bool, error) {
+func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, toBlock uint64) (
+	map[uint64][]KRLogData, uint64, bool, error,
+) {
 	startTime := time.Now()
 	logs, lastBlock, synced, err := web3.RangeOfLogs(
 		ctx,
@@ -555,7 +559,7 @@ func (p *FarcasterProvider) BlockRootHash(ctx context.Context, blockNumber uint6
 	return blockHeader.Root.Bytes(), nil
 }
 
-// LatestBlockNumber returns the latest block number of the farcaster contracs set
+// LatestBlockNumber returns the latest block number of the farcaster contracts set
 // in the provider. It gets the latest block number from the client. It also
 // receives an external ID but it is not used by the provider.
 func (p *FarcasterProvider) LatestBlockNumber(ctx context.Context, _ []byte) (uint64, error) {
@@ -714,6 +718,7 @@ func deserializeAppKeys(serializedData []byte) ([]common.Hash, error) {
 	return data, nil
 }
 
+/*
 // given a FID returns the user data stored in the farcaster database
 func (p *FarcasterProvider) getUserByFID(ctx context.Context, fid uint64) *FarcasterUserData {
 	user, err := p.db.QueriesRO.GetUserByFID(ctx, fid)
@@ -744,3 +749,4 @@ func (p *FarcasterProvider) getUserByFID(ctx context.Context, fid uint64) *Farca
 	}
 	return fud
 }
+*/

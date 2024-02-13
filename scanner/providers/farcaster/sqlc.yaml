@@ -24,3 +24,5 @@ sql:
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
         - column: "users.custody_address"
           go_type: "github.com/vocdoni/census3/db/annotations.Address"
+        - column: "users.linked_evm"
+          go_type: "github.com/vocdoni/census3/db/annotations.Bytes"

@@ -26,16 +26,17 @@ import (
 )
 
 type Census3Config struct {
-	dataDir, logLevel, connectKey  string
-	listOfWeb3Providers            []string
-	port                           int
-	poapAPIEndpoint, poapAuthToken string
-	gitcoinEndpoint                string
-	gitcoinCooldown                time.Duration
-	scannerCoolDown                time.Duration
-	adminToken                     string
-	initialTokens                  string
-	farcaster                      bool
+	dataDir, logLevel, connectKey            string
+	listOfWeb3Providers                      []string
+	port                                     int
+	poapAPIEndpoint, poapAuthToken           string
+	gitcoinEndpoint                          string
+	gitcoinCooldown                          time.Duration
+	scannerCoolDown                          time.Duration
+	adminToken                               string
+	initialTokens                            string
+	farcasterAPIEndpoint, farcasterAuthToken string
+	farcasterCoolDown                        time.Duration
 }
 
 func main() {
@@ -61,7 +62,9 @@ func main() {
 	flag.DurationVar(&config.scannerCoolDown, "scannerCoolDown", 120*time.Second, "the time to wait before next scanner iteration")
 	flag.StringVar(&config.adminToken, "adminToken", "", "the admin UUID token for the API")
 	flag.StringVar(&config.initialTokens, "initialTokens", "", "path of the initial tokens json file")
-	flag.BoolVar(&config.farcaster, "farcaster", false, "enable farcaster support")
+	flag.StringVar(&config.farcasterAPIEndpoint, "farcasterAPIEndpoint", "", "Farcaster API endpoint")
+	flag.StringVar(&config.farcasterAuthToken, "farcasterAuthToken", "", "farcaster API access token")
+	flag.DurationVar(&config.farcasterCoolDown, "farcasterCoolDown", 6*time.Hour, "Farcaster API cooldown")
 	flag.Parse()
 	// init viper to read config file
 	pviper := viper.New()
@@ -123,13 +126,18 @@ func main() {
 		panic(err)
 	}
 	config.initialTokens = pviper.GetString("initialTokens")
-	if err := pviper.BindPFlag("farcaster", flag.Lookup("farcaster")); err != nil {
+	if err := pviper.BindPFlag("farcasterEndpoint", flag.Lookup("farcasterEndpoint")); err != nil {
 		panic(err)
 	}
-	config.farcaster = pviper.GetBool("farcaster")
-	if err := pviper.BindPFlag("farcaster", flag.Lookup("farcaster")); err != nil {
+	config.farcasterAPIEndpoint = pviper.GetString("farcasterAPIEndpoint")
+	if err := pviper.BindPFlag("farcasterAuthToken", flag.Lookup("farcasterAuthToken")); err != nil {
 		panic(err)
 	}
+	config.farcasterAuthToken = pviper.GetString("farcasterAuthToken")
+	if err := pviper.BindPFlag("farcasterCooldown", flag.Lookup("farcasterCooldown")); err != nil {
+		panic(err)
+	}
+	config.farcasterCoolDown = pviper.GetDuration("farcasterCoolDown")
 	// init logger
 	log.Init(config.logLevel, "stdout", nil)
 	// check if the web3 providers are defined
@@ -212,7 +220,7 @@ func main() {
 
 	// if farcaster is enabled, init the farcaster database and the provider
 	var farcasterDB *farcaster.DB
-	if config.farcaster {
+	if config.farcasterAPIEndpoint != "" {
 		log.Debugf("farcaster support enabled")
 		farcasterDB, err = farcaster.InitDB(config.dataDir, "farcaster.sql")
 		if err != nil {
@@ -220,6 +228,10 @@ func main() {
 		}
 		farcasterProvider := new(farcaster.FarcasterProvider)
 		if err := farcasterProvider.Init(farcaster.FarcasterProviderConf{
+			APIEndpoint: config.farcasterAPIEndpoint,
+			APICooldown: config.farcasterCoolDown,
+			AccessToken: config.farcasterAuthToken,
+
 			Endpoints: w3p,
 			DB:        farcasterDB,
 		}); err != nil {
@@ -281,7 +293,7 @@ func main() {
 			log.Fatal(err)
 		}
 		// if farcaster is enabled, close the farcaster database
-		if config.farcaster {
+		if config.farcasterAPIEndpoint != "" {
 			if err := farcasterDB.CloseDB(); err != nil {
 				log.Fatal(err)
 			}

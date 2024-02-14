@@ -18,6 +18,9 @@ SELECT * FROM users WHERE fid = ?;
 -- name: GetUserByUsername :one
 SELECT * FROM users WHERE username = ?;
 
+-- name: GetUserByLinkedEVM :one
+SELECT * FROM users WHERE linked_evm = ?;
+
 -- name: ListUsers :many
 SELECT * FROM users ORDER BY fid ASC;
 

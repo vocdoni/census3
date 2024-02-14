@@ -59,7 +59,7 @@ func paginationFromCtx(ctx *httprouter.HTTPContext) (int32, int32, string, bool,
 	// by default go forward, if the previous cursor is provided, go backwards
 	goForward := prevCursor == ""
 	cursor := nextCursor
-	if nextCursor == "" {
+	if !goForward {
 		cursor = prevCursor
 	}
 	// return the page size, the cursor and the direction

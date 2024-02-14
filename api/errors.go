@@ -278,4 +278,9 @@ var (
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error deleting token"),
 	}
+	ErrCantGetStrategyHolders = apirest.APIerror{
+		Code:       5030,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error getting strategy holders"),
+	}
 )

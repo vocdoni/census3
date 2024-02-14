@@ -20,6 +20,7 @@ const (
 	getStrategiesTimeout         = time.Second * 10
 	getStrategyTimeout           = time.Second * 10
 	getTokensStrategyTimeout     = time.Second * 10
+	getStrategyHoldersTimeout    = time.Second * 20
 	// tokens
 	getTokensTimeout   = time.Second * 20
 	createTokenTimeout = time.Second * 10
@@ -28,7 +29,7 @@ const (
 )
 
 const (
-	defaultPageSize               = int32(10)
+	defaultPageSize               = int32(1000)
 	defaultCensusType             = models.Census_ARBO_BLAKE2B
 	anonymousCensusType           = models.Census_ARBO_POSEIDON
 	strategyHoldersCacheThreshold = 500

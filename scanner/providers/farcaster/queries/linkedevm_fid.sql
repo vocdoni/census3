@@ -16,3 +16,12 @@ JOIN linkedevm_fid l ON u.fid = l.fid;
 
 -- name: ListUsersNotLinkedEVM :many
 SELECT * FROM users WHERE fid NOT IN (SELECT fid FROM linkedevm_fid);
+
+-- name: GetFIDByLinkedEVM :many
+SELECT fid FROM linkedevm_fid WHERE evm_address = ?;
+
+-- name: GetFidsByLinkedEVM :many
+SELECT users.fid, users.signer
+FROM users
+JOIN linkedevm_fid ON users.fid = linkedevm_fid.fid
+WHERE linkedevm_fid.evm_address = ?;

@@ -49,6 +49,68 @@ func (q *Queries) DeleteLinkedEVMFID(ctx context.Context, arg DeleteLinkedEVMFID
 	return q.db.ExecContext(ctx, deleteLinkedEVMFID, arg.Fid, arg.EvmAddress)
 }
 
+const getFIDByLinkedEVM = `-- name: GetFIDByLinkedEVM :many
+SELECT fid FROM linkedevm_fid WHERE evm_address = ?
+`
+
+func (q *Queries) GetFIDByLinkedEVM(ctx context.Context, evmAddress []byte) ([]uint64, error) {
+	rows, err := q.db.QueryContext(ctx, getFIDByLinkedEVM, evmAddress)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uint64
+	for rows.Next() {
+		var fid uint64
+		if err := rows.Scan(&fid); err != nil {
+			return nil, err
+		}
+		items = append(items, fid)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFidsByLinkedEVM = `-- name: GetFidsByLinkedEVM :many
+SELECT users.fid, users.signer
+FROM users
+JOIN linkedevm_fid ON users.fid = linkedevm_fid.fid
+WHERE linkedevm_fid.evm_address = ?
+`
+
+type GetFidsByLinkedEVMRow struct {
+	Fid    uint64
+	Signer annotations.Bytes
+}
+
+func (q *Queries) GetFidsByLinkedEVM(ctx context.Context, evmAddress []byte) ([]GetFidsByLinkedEVMRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFidsByLinkedEVM, evmAddress)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFidsByLinkedEVMRow
+	for rows.Next() {
+		var i GetFidsByLinkedEVMRow
+		if err := rows.Scan(&i.Fid, &i.Signer); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLinkedEVMFID = `-- name: GetLinkedEVMFID :many
 SELECT evm_address FROM linkedevm_fid WHERE fid = ?
 `
@@ -77,7 +139,7 @@ func (q *Queries) GetLinkedEVMFID(ctx context.Context, fid uint64) ([][]byte, er
 }
 
 const listUsersNotLinkedEVM = `-- name: ListUsersNotLinkedEVM :many
-SELECT fid, username, signer, custody_address, app_keys, recovery_address, linked_evm FROM users WHERE fid NOT IN (SELECT fid FROM linkedevm_fid)
+SELECT fid, signer, custody_address, app_keys, recovery_address FROM users WHERE fid NOT IN (SELECT fid FROM linkedevm_fid)
 `
 
 func (q *Queries) ListUsersNotLinkedEVM(ctx context.Context) ([]User, error) {
@@ -91,12 +153,10 @@ func (q *Queries) ListUsersNotLinkedEVM(ctx context.Context) ([]User, error) {
 		var i User
 		if err := rows.Scan(
 			&i.Fid,
-			&i.Username,
 			&i.Signer,
 			&i.CustodyAddress,
 			&i.AppKeys,
 			&i.RecoveryAddress,
-			&i.LinkedEvm,
 		); err != nil {
 			return nil, err
 		}

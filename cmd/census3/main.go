@@ -127,7 +127,7 @@ func main() {
 		panic(err)
 	}
 	config.initialTokens = pviper.GetString("initialTokens")
-	if err := pviper.BindPFlag("farcasterEndpoint", flag.Lookup("farcasterEndpoint")); err != nil {
+	if err := pviper.BindPFlag("farcasterAPIEndpoint", flag.Lookup("farcasterAPIEndpoint")); err != nil {
 		panic(err)
 	}
 	config.farcasterAPIEndpoint = pviper.GetString("farcasterAPIEndpoint")

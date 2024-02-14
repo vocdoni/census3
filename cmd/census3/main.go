@@ -65,7 +65,7 @@ func main() {
 	flag.StringVar(&config.initialTokens, "initialTokens", "", "path of the initial tokens json file")
 	flag.StringVar(&config.farcasterAPIEndpoint, "farcasterAPIEndpoint", "", "Farcaster API endpoint")
 	flag.StringVar(&config.farcasterAuthToken, "farcasterAuthToken", "", "farcaster API access token")
-	flag.DurationVar(&config.farcasterCoolDown, "farcasterCoolDown", 6*time.Hour, "Farcaster API cooldown")
+	flag.DurationVar(&config.farcasterCoolDown, "farcasterCoolDown", time.Millisecond*1, "Farcaster API cooldown")
 	flag.Parse()
 	// init viper to read config file
 	pviper := viper.New()
@@ -135,7 +135,7 @@ func main() {
 		panic(err)
 	}
 	config.farcasterAuthToken = pviper.GetString("farcasterAuthToken")
-	if err := pviper.BindPFlag("farcasterCooldown", flag.Lookup("farcasterCooldown")); err != nil {
+	if err := pviper.BindPFlag("farcasterCoolDown", flag.Lookup("farcasterCoolDown")); err != nil {
 		panic(err)
 	}
 	config.farcasterCoolDown = pviper.GetDuration("farcasterCoolDown")

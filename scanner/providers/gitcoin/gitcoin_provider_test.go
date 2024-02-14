@@ -2,14 +2,14 @@ package gitcoin
 
 import (
 	"context"
-	"math/big"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	qt "github.com/frankban/quicktest"
 	"github.com/vocdoni/census3/scanner/providers"
+	"github.com/vocdoni/census3/scanner/providers/gitcoin/db"
 )
 
 var (
@@ -26,6 +26,14 @@ var (
 
 func TestGitcoinPassport(t *testing.T) {
 	c := qt.New(t)
+
+	tempDBDir := t.TempDir()
+	defer func() {
+		c.Assert(os.RemoveAll(tempDBDir), qt.IsNil)
+	}()
+	testDB, err := db.Init(tempDBDir, "gitcoinpassport.sql")
+	c.Assert(err, qt.IsNil)
+
 	// start the mocked server with the static file
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -35,7 +43,7 @@ func TestGitcoinPassport(t *testing.T) {
 	})
 	// create the provider
 	provider := new(GitcoinPassport)
-	c.Assert(provider.Init(GitcoinPassportConf{endpoints["/original"], time.Second * 2}), qt.IsNil)
+	c.Assert(provider.Init(GitcoinPassportConf{endpoints["/original"], time.Second * 2, testDB}), qt.IsNil)
 	// start the first download
 	emptyBalances, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
@@ -52,26 +60,21 @@ func TestGitcoinPassport(t *testing.T) {
 		c.Assert(exists, qt.Equals, true, qt.Commentf(strAddr))
 		c.Assert(balance.String(), qt.Equals, expectedBalance)
 	}
+	c.Assert(provider.SetLastBalances(context.TODO(), nil, holders, 0), qt.IsNil)
 	// start the second download expecting to use the cached data
 	sameBalances, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	// empty results because the data the same
 	c.Assert(len(sameBalances), qt.Equals, 0)
-
-	provider.apiEndpoint = endpoints["/updated"]
-	provider.lastUpdate.Store(time.Time{})
-	emptyBalances, _, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
+	// start a new one over the new endpoint
+	testDB, err = db.Init(tempDBDir, "gitcoinpassport.sql")
 	c.Assert(err, qt.IsNil)
-	c.Assert(len(emptyBalances), qt.Equals, 0)
-
-	time.Sleep(2 * time.Second)
-	// check the balances
-	currentHolders := make(map[common.Address]*big.Int)
-	for addr, balance := range expectedOriginalHolders {
-		currentHolders[common.HexToAddress(addr)], _ = new(big.Int).SetString(balance, 10)
-	}
-	c.Assert(provider.SetLastBalances(context.TODO(), nil, currentHolders, 0), qt.IsNil)
-	holders, _, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
+	newProvider := new(GitcoinPassport)
+	c.Assert(newProvider.Init(GitcoinPassportConf{endpoints["/updated"], time.Second * 2, testDB}), qt.IsNil)
+	// new endpoint with one change
+	time.Sleep(time.Second * 5)
+	c.Assert(newProvider.SetLastBalances(context.TODO(), nil, holders, 0), qt.IsNil)
+	holders, _, _, _, _, err = newProvider.HoldersBalances(context.TODO(), nil, 1)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(holders), qt.Equals, len(expectedUpdatedHolders))
 	for addr, balance := range holders {

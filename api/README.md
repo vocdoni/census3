@@ -239,7 +239,7 @@ Returns the holder balance if the holder ID is already registered in the databas
 | 400 | `malformed token information` | 4001 |
 | 400 | `malformed chain ID` | 4018 |
 | 404 | `no token found` | 4003 |
-| 404 | `token holder not found for the token provided` | 4022 |
+| 404 | `token holder not found for the token provided` | 4023 |
 | 500 | `error getting token holders` | 5006 | 
 
 --- 

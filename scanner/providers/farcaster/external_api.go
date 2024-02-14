@@ -9,14 +9,13 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"go.vocdoni.io/dvote/log"
 )
 
 var (
-	defaultAPICooldown    = time.Hour * 6
-	verificationsByFidURI = "verificationsByFid?fid=%s"
-	userDataByFidURI      = "userDataByFid?fid=%s&user_data_type=1"
+	defaultAPICooldown    = time.Millisecond * 1
+	verificationsByFidURI = "v1/verificationsByFid?fid=%d"
+	userDataByFidURI      = "v1/userDataByFid?fid=%d&user_data_type=1"
 )
 
 type VerificationAddEthAddressBody struct {
@@ -48,14 +47,15 @@ type FarcasterAPIResponseVerificationsByFID struct {
 	NextPageToken string                      `json:"nextPageToken"`
 }
 
-func (p *FarcasterProvider) apiVerificationsByFID(fid *big.Int, address common.Address, offset int,
+func (p *FarcasterProvider) apiVerificationsByFID(fid *big.Int,
 ) (*FarcasterAPIResponseVerificationsByFID, error) {
 	// compose the endpoint for the request
-	strURL, err := url.JoinPath(p.apiEndpoint, fmt.Sprintf(verificationsByFidURI, fid.String()))
+	baseURL, err := url.Parse(p.apiEndpoint)
 	if err != nil {
 		return nil, err
 	}
-	endpoint, err := url.Parse(strURL)
+	fidPath := fmt.Sprintf(verificationsByFidURI, fid)
+	endpoint, err := baseURL.Parse(fidPath)
 	if err != nil {
 		return nil, err
 	}
@@ -119,11 +119,13 @@ type FarcasterAPIResponseUserDataByFID struct {
 
 func (p *FarcasterProvider) apiUserDataByFID(fid *big.Int) (*FarcasterAPIResponseUserDataByFID, error) {
 	// compose the endpoint for the request
-	strURL, err := url.JoinPath(p.apiEndpoint, fmt.Sprintf(userDataByFidURI, fid.String()))
+	// compose the endpoint for the request
+	baseURL, err := url.Parse(p.apiEndpoint)
 	if err != nil {
 		return nil, err
 	}
-	endpoint, err := url.Parse(strURL)
+	fidPath := fmt.Sprintf(userDataByFidURI, fid)
+	endpoint, err := baseURL.Parse(fidPath)
 	if err != nil {
 		return nil, err
 	}

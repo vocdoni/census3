@@ -126,6 +126,9 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 				return fmt.Errorf("cannot update user data %w", err)
 			}
 		}
+		if err := p.createLinkedEVMFID(ctx, qtx, userData.LinkedEVM, userData.FID.Uint64()); err != nil {
+			return fmt.Errorf("cannot update farcaster db: %w", err)
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("cannot update farcaster db: %w", err)
@@ -155,6 +158,20 @@ func (p *FarcasterProvider) createUser(ctx context.Context, qtx *queries.Queries
 			return fmt.Errorf("cannot update farcaster db: %w", ErrUserAlreadyExists)
 		}
 		return fmt.Errorf("cannot update farcaster db: %w", err)
+	}
+	return nil
+}
+
+func (p *FarcasterProvider) createLinkedEVMFID(
+	ctx context.Context, qtx *queries.Queries, linkedEVM []common.Address, fid uint64,
+) error {
+	for _, evmKey := range linkedEVM {
+		if _, err := qtx.CreateLinkedEVMFID(ctx, queries.CreateLinkedEVMFIDParams{
+			Fid:        fid,
+			EvmAddress: evmKey[:],
+		}); err != nil {
+			return fmt.Errorf("cannot update farcaster db: %w", err)
+		}
 	}
 	return nil
 }

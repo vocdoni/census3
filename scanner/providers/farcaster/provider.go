@@ -502,7 +502,7 @@ func (p *FarcasterProvider) storeNewRegisteredUsers(
 		}
 
 		// get the linked EVM addresses from the API
-		res, err := p.apiVerificationsByFID(fid, common.Address{}, 0)
+		res, err := p.apiVerificationsByFID(fid)
 		if err != nil {
 			return nil, fmt.Errorf("farcaster api: cannot get verifications by FID: %w", err)
 		}
@@ -573,9 +573,21 @@ func (p *FarcasterProvider) storeNewAppKeys(
 				// append the new keys to the user data
 				userData.AppKeys = append(userData.AppKeys, k...)
 				// append modified user data to the list for saving
+				res, err := p.apiVerificationsByFID(userData.FID)
+				if err != nil {
+					return fmt.Errorf("farcaster api: cannot get verifications by FID: %w", err)
+				}
+				// get verification eth addresses
+				linkedEVM := make([]common.Address, 0)
+				for _, message := range res.Messages {
+					linkedEVM = append(linkedEVM, common.HexToAddress(message.Data.VerificationAddEthAddressBody.Address))
+				}
+				userData.LinkedEVM = linkedEVM
 				usersDBDataPost = append(usersDBDataPost, userData)
-				// add the user to the map for storing on the scanner database
+				// get the linked EVM addresses from the API
+
 			}
+
 		}
 		// update the farcaster database with the new data
 		log.Debugf("Updating farcaster database with %d users after key registry scan", len(usersDBDataPost))

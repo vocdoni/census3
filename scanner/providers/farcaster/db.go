@@ -137,21 +137,11 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 }
 
 func (p *FarcasterProvider) createUser(ctx context.Context, qtx *queries.Queries, userData *FarcasterUserData) error {
-	serializedLinkedEVM := make([]byte, 0)
-	var err error
-	if len(userData.LinkedEVM) != 0 {
-		serializedLinkedEVM, err = serializeArray(userData.LinkedEVM)
-		if err != nil {
-			return fmt.Errorf("cannot update farcaster db: %w", err)
-		}
-	}
 	if _, err := qtx.CreateUser(ctx, queries.CreateUserParams{
-		Fid: userData.FID.Uint64(),
-		// Username:        userData.Username,
+		Fid:             userData.FID.Uint64(),
 		Signer:          userData.Signer[:],
 		CustodyAddress:  userData.CustodyAddress[:],
 		RecoveryAddress: userData.RecoveryAddress[:],
-		LinkedEvm:       serializedLinkedEVM,
 		AppKeys:         make([]byte, 0),
 	}); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {

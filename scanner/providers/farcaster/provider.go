@@ -475,7 +475,7 @@ func (p *FarcasterProvider) CensusKeys(data map[common.Address]*big.Int) (map[co
 	finalCensus := make(map[common.Address]*big.Int)
 	for addr := range data {
 		// get the user by linked EVM to get the FID
-		user, err := qtx.GetUserByLinkedEVM(internalCtx, addr.Bytes())
+		user, err := qtx.GetFidsByLinkedEVM(internalCtx, addr.Bytes())
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				continue
@@ -484,7 +484,7 @@ func (p *FarcasterProvider) CensusKeys(data map[common.Address]*big.Int) (map[co
 		}
 		// this assignment groups the addresses by FID, no matter the balance,
 		// it will be 1 for each FID
-		finalCensus[common.BytesToAddress(user.LinkedEvm)] = big.NewInt(1)
+		finalCensus[common.Address(user[0].Signer)] = big.NewInt(1)
 	}
 	return finalCensus, nil
 }
@@ -509,7 +509,7 @@ func (p *FarcasterProvider) storeNewRegisteredUsers(
 		// get verification eth addresses
 		linkedEVM := make([]common.Address, 0)
 		for _, message := range res.Messages {
-			linkedEVM = append(linkedEVM, common.HexToAddress(message.Data.VerificationAddEthAddressBody.Address))
+			linkedEVM = append(linkedEVM, common.HexToAddress(message.Data.VerificationAddAddressBody.Address))
 		}
 
 		// get signer
@@ -520,8 +520,7 @@ func (p *FarcasterProvider) storeNewRegisteredUsers(
 
 		// create a new user data and add for saving
 		userData := &FarcasterUserData{
-			FID: fid,
-			// Username:     "",
+			FID:             fid,
 			Signer:          common.HexToHash(res2.Signer),
 			CustodyAddress:  to,
 			RecoveryAddress: common.HexToAddress(defaultRecoveryAddress),
@@ -580,14 +579,12 @@ func (p *FarcasterProvider) storeNewAppKeys(
 				// get verification eth addresses
 				linkedEVM := make([]common.Address, 0)
 				for _, message := range res.Messages {
-					linkedEVM = append(linkedEVM, common.HexToAddress(message.Data.VerificationAddEthAddressBody.Address))
+					linkedEVM = append(linkedEVM, common.HexToAddress(message.Data.VerificationAddAddressBody.Address))
 				}
 				userData.LinkedEVM = linkedEVM
 				usersDBDataPost = append(usersDBDataPost, userData)
 				// get the linked EVM addresses from the API
-
 			}
-
 		}
 		// update the farcaster database with the new data
 		log.Debugf("Updating farcaster database with %d users after key registry scan", len(usersDBDataPost))

@@ -18,18 +18,18 @@ var (
 	userDataByFidURI      = "v1/userDataByFid?fid=%d&user_data_type=1"
 )
 
-type VerificationAddEthAddressBody struct {
+type VerificationAddAddressBody struct {
 	Address      string `json:"address"`
 	EthSignature string `json:"ethSignature"`
 	BlockHash    string `json:"blockHash"`
 }
 
 type MessageDataVerificationsByFID struct {
-	Type                          string                        `json:"type"`
-	Fid                           int                           `json:"fid"`
-	Timestamp                     int64                         `json:"timestamp"`
-	Network                       string                        `json:"network"`
-	VerificationAddEthAddressBody VerificationAddEthAddressBody `json:"verificationAddEthAddressBody"`
+	Type                       string                     `json:"type"`
+	Fid                        int                        `json:"fid"`
+	Timestamp                  int64                      `json:"timestamp"`
+	Network                    string                     `json:"network"`
+	VerificationAddAddressBody VerificationAddAddressBody `json:"verificationAddAddressBody"`
 }
 
 type MessageVerificationsByFID struct {

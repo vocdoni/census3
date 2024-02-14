@@ -15,10 +15,8 @@ type LinkedevmFid struct {
 
 type User struct {
 	Fid             uint64
-	Username        string
 	Signer          annotations.Bytes
 	CustodyAddress  annotations.Address
 	AppKeys         annotations.Bytes
 	RecoveryAddress annotations.Address
-	LinkedEvm       annotations.Bytes
 }

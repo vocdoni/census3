@@ -37,34 +37,28 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 const createUser = `-- name: CreateUser :execresult
 INSERT INTO users (
     fid,
-    username,
     signer,
     custody_address,
     app_keys,
-    recovery_address,
-    linked_evm)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+    recovery_address)
+VALUES (?, ?, ?, ?, ?)
 `
 
 type CreateUserParams struct {
 	Fid             uint64
-	Username        string
 	Signer          annotations.Bytes
 	CustodyAddress  annotations.Address
 	AppKeys         annotations.Bytes
 	RecoveryAddress annotations.Address
-	LinkedEvm       annotations.Bytes
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, createUser,
 		arg.Fid,
-		arg.Username,
 		arg.Signer,
 		arg.CustodyAddress,
 		arg.AppKeys,
 		arg.RecoveryAddress,
-		arg.LinkedEvm,
 	)
 }
 
@@ -88,7 +82,7 @@ func (q *Queries) GetUserAppKeys(ctx context.Context, fid uint64) (annotations.B
 }
 
 const getUserByFID = `-- name: GetUserByFID :one
-SELECT fid, username, signer, custody_address, app_keys, recovery_address, linked_evm FROM users WHERE fid = ?
+SELECT fid, signer, custody_address, app_keys, recovery_address FROM users WHERE fid = ?
 `
 
 func (q *Queries) GetUserByFID(ctx context.Context, fid uint64) (User, error) {
@@ -96,63 +90,12 @@ func (q *Queries) GetUserByFID(ctx context.Context, fid uint64) (User, error) {
 	var i User
 	err := row.Scan(
 		&i.Fid,
-		&i.Username,
 		&i.Signer,
 		&i.CustodyAddress,
 		&i.AppKeys,
 		&i.RecoveryAddress,
-		&i.LinkedEvm,
 	)
 	return i, err
-}
-
-const getUserByLinkedEVM = `-- name: GetUserByLinkedEVM :one
-SELECT fid, username, signer, custody_address, app_keys, recovery_address, linked_evm FROM users WHERE linked_evm = ?
-`
-
-func (q *Queries) GetUserByLinkedEVM(ctx context.Context, linkedEvm annotations.Bytes) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByLinkedEVM, linkedEvm)
-	var i User
-	err := row.Scan(
-		&i.Fid,
-		&i.Username,
-		&i.Signer,
-		&i.CustodyAddress,
-		&i.AppKeys,
-		&i.RecoveryAddress,
-		&i.LinkedEvm,
-	)
-	return i, err
-}
-
-const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT fid, username, signer, custody_address, app_keys, recovery_address, linked_evm FROM users WHERE username = ?
-`
-
-func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
-	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
-	var i User
-	err := row.Scan(
-		&i.Fid,
-		&i.Username,
-		&i.Signer,
-		&i.CustodyAddress,
-		&i.AppKeys,
-		&i.RecoveryAddress,
-		&i.LinkedEvm,
-	)
-	return i, err
-}
-
-const getUserLinkedEVM = `-- name: GetUserLinkedEVM :one
-SELECT linked_evm FROM users WHERE fid = ?
-`
-
-func (q *Queries) GetUserLinkedEVM(ctx context.Context, fid uint64) (annotations.Bytes, error) {
-	row := q.db.QueryRowContext(ctx, getUserLinkedEVM, fid)
-	var linked_evm annotations.Bytes
-	err := row.Scan(&linked_evm)
-	return linked_evm, err
 }
 
 const getUserSigner = `-- name: GetUserSigner :one
@@ -167,7 +110,7 @@ func (q *Queries) GetUserSigner(ctx context.Context, fid uint64) (annotations.By
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT fid, username, signer, custody_address, app_keys, recovery_address, linked_evm FROM users ORDER BY fid ASC
+SELECT fid, signer, custody_address, app_keys, recovery_address FROM users ORDER BY fid ASC
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -181,12 +124,10 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 		var i User
 		if err := rows.Scan(
 			&i.Fid,
-			&i.Username,
 			&i.Signer,
 			&i.CustodyAddress,
 			&i.AppKeys,
 			&i.RecoveryAddress,
-			&i.LinkedEvm,
 		); err != nil {
 			return nil, err
 		}
@@ -218,9 +159,7 @@ func (q *Queries) UpdateCustodyAddress(ctx context.Context, arg UpdateCustodyAdd
 
 const updateUser = `-- name: UpdateUser :execresult
 UPDATE users 
-SET username = ?,
-    signer = ?,
-    linked_evm = ?,
+SET signer = ?,
     custody_address = ?,
     app_keys = ?,
     recovery_address = ?
@@ -228,9 +167,7 @@ WHERE fid = ?
 `
 
 type UpdateUserParams struct {
-	Username        string
 	Signer          annotations.Bytes
-	LinkedEvm       annotations.Bytes
 	CustodyAddress  annotations.Address
 	AppKeys         annotations.Bytes
 	RecoveryAddress annotations.Address
@@ -239,9 +176,7 @@ type UpdateUserParams struct {
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, updateUser,
-		arg.Username,
 		arg.Signer,
-		arg.LinkedEvm,
 		arg.CustodyAddress,
 		arg.AppKeys,
 		arg.RecoveryAddress,
@@ -262,21 +197,6 @@ type UpdateUserAppKeysParams struct {
 
 func (q *Queries) UpdateUserAppKeys(ctx context.Context, arg UpdateUserAppKeysParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, updateUserAppKeys, arg.AppKeys, arg.Fid)
-}
-
-const updateUserLinkedEVM = `-- name: UpdateUserLinkedEVM :execresult
-UPDATE users
-SET linked_evm = ?
-WHERE fid = ?
-`
-
-type UpdateUserLinkedEVMParams struct {
-	LinkedEvm annotations.Bytes
-	Fid       uint64
-}
-
-func (q *Queries) UpdateUserLinkedEVM(ctx context.Context, arg UpdateUserLinkedEVMParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateUserLinkedEVM, arg.LinkedEvm, arg.Fid)
 }
 
 const updateUserRecoveryAddress = `-- name: UpdateUserRecoveryAddress :execresult
@@ -307,19 +227,4 @@ type UpdateUserSignerParams struct {
 
 func (q *Queries) UpdateUserSigner(ctx context.Context, arg UpdateUserSignerParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, updateUserSigner, arg.Signer, arg.Fid)
-}
-
-const updateUsername = `-- name: UpdateUsername :execresult
-UPDATE users
-SET username = ?
-WHERE fid = ?
-`
-
-type UpdateUsernameParams struct {
-	Username string
-	Fid      uint64
-}
-
-func (q *Queries) UpdateUsername(ctx context.Context, arg UpdateUsernameParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateUsername, arg.Username, arg.Fid)
 }

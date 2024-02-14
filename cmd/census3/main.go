@@ -18,6 +18,7 @@ import (
 	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/scanner"
 	"github.com/vocdoni/census3/scanner/providers"
+	"github.com/vocdoni/census3/scanner/providers/farcaster"
 	"github.com/vocdoni/census3/scanner/providers/gitcoin"
 	"github.com/vocdoni/census3/scanner/providers/poap"
 	"github.com/vocdoni/census3/scanner/providers/web3"
@@ -25,15 +26,17 @@ import (
 )
 
 type Census3Config struct {
-	dataDir, logLevel, connectKey  string
-	listOfWeb3Providers            []string
-	port                           int
-	poapAPIEndpoint, poapAuthToken string
-	gitcoinEndpoint                string
-	gitcoinCooldown                time.Duration
-	scannerCoolDown                time.Duration
-	adminToken                     string
-	initialTokens                  string
+	dataDir, logLevel, connectKey            string
+	listOfWeb3Providers                      []string
+	port                                     int
+	poapAPIEndpoint, poapAuthToken           string
+	gitcoinEndpoint                          string
+	gitcoinCooldown                          time.Duration
+	scannerCoolDown                          time.Duration
+	adminToken                               string
+	initialTokens                            string
+	farcasterAPIEndpoint, farcasterAuthToken string
+	farcasterCoolDown                        time.Duration
 }
 
 func main() {
@@ -59,6 +62,9 @@ func main() {
 	flag.DurationVar(&config.scannerCoolDown, "scannerCoolDown", 120*time.Second, "the time to wait before next scanner iteration")
 	flag.StringVar(&config.adminToken, "adminToken", "", "the admin UUID token for the API")
 	flag.StringVar(&config.initialTokens, "initialTokens", "", "path of the initial tokens json file")
+	flag.StringVar(&config.farcasterAPIEndpoint, "farcasterAPIEndpoint", "", "Farcaster API endpoint")
+	flag.StringVar(&config.farcasterAuthToken, "farcasterAuthToken", "", "farcaster API access token")
+	flag.DurationVar(&config.farcasterCoolDown, "farcasterCoolDown", 6*time.Hour, "Farcaster API cooldown")
 	flag.Parse()
 	// init viper to read config file
 	pviper := viper.New()
@@ -120,6 +126,18 @@ func main() {
 		panic(err)
 	}
 	config.initialTokens = pviper.GetString("initialTokens")
+	if err := pviper.BindPFlag("farcasterAPIEndpoint", flag.Lookup("farcasterAPIEndpoint")); err != nil {
+		panic(err)
+	}
+	config.farcasterAPIEndpoint = pviper.GetString("farcasterAPIEndpoint")
+	if err := pviper.BindPFlag("farcasterAuthToken", flag.Lookup("farcasterAuthToken")); err != nil {
+		panic(err)
+	}
+	config.farcasterAuthToken = pviper.GetString("farcasterAuthToken")
+	if err := pviper.BindPFlag("farcasterCooldown", flag.Lookup("farcasterCooldown")); err != nil {
+		panic(err)
+	}
+	config.farcasterCoolDown = pviper.GetDuration("farcasterCoolDown")
 	// init logger
 	log.Init(config.logLevel, "stdout", nil)
 	// check if the web3 providers are defined
@@ -132,12 +150,14 @@ func main() {
 		log.Fatal(err)
 	}
 	// init the database
-	database, err := db.Init(config.dataDir)
+	database, err := db.Init(config.dataDir, "census3.sql")
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	// start the holder scanner with the database and the providers
 	hc := scanner.NewScanner(database, w3p, config.scannerCoolDown)
+
 	// init the web3 token providers
 	erc20Provider := new(web3.ERC20HolderProvider)
 	if err := erc20Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
@@ -154,6 +174,7 @@ func main() {
 		log.Fatal(err)
 		return
 	}
+
 	// set the providers in the scanner and the API
 	if err := hc.SetProviders(erc20Provider, erc721Provider, erc777Provider); err != nil {
 		log.Fatal(err)
@@ -195,6 +216,33 @@ func main() {
 			return
 		}
 		apiProviders[gitcoinProvider.Type()] = gitcoinProvider
+	}
+
+	// if farcaster is enabled, init the farcaster database and the provider
+	var farcasterDB *farcaster.DB
+	if config.farcasterAPIEndpoint != "" {
+		log.Debugf("farcaster support enabled")
+		farcasterDB, err = farcaster.InitDB(config.dataDir, "farcaster.sql")
+		if err != nil {
+			log.Fatal(err)
+		}
+		farcasterProvider := new(farcaster.FarcasterProvider)
+		if err := farcasterProvider.Init(farcaster.FarcasterProviderConf{
+			APIEndpoint: config.farcasterAPIEndpoint,
+			APICooldown: config.farcasterCoolDown,
+			AccessToken: config.farcasterAuthToken,
+
+			Endpoints: w3p,
+			DB:        farcasterDB,
+		}); err != nil {
+			log.Fatal(err)
+			return
+		}
+		if err := hc.SetProviders(farcasterProvider); err != nil {
+			log.Fatal(err)
+			return
+		}
+		apiProviders[farcasterProvider.Type()] = farcasterProvider
 	}
 
 	// if the admin token is not defined, generate a random one
@@ -243,6 +291,12 @@ func main() {
 		}
 		if err := database.Close(); err != nil {
 			log.Fatal(err)
+		}
+		// if farcaster is enabled, close the farcaster database
+		if config.farcasterAPIEndpoint != "" {
+			if err := farcasterDB.CloseDB(); err != nil {
+				log.Fatal(err)
+			}
 		}
 		log.Infof("all routines ended")
 	}()

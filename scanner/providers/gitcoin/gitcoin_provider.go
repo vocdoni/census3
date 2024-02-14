@@ -249,7 +249,7 @@ func (g *GitcoinPassport) IsSynced(_ []byte) bool {
 }
 
 // Address returns the address of the Gitcoin Passport contract.
-func (g *GitcoinPassport) Address() common.Address {
+func (g *GitcoinPassport) Address(_ []byte) common.Address {
 	return common.HexToAddress(hexAddress)
 }
 
@@ -334,4 +334,11 @@ func (g *GitcoinPassport) CreationBlock(_ context.Context, _ []byte) (uint64, er
 // IconURI is not implemented for Gitcoin Passport.
 func (g *GitcoinPassport) IconURI(_ []byte) (string, error) {
 	return "", nil
+}
+
+// CensusKeys method returns the holders and balances provided transformed.
+// The Gitcoin Passport provider does not need to transform the holders and
+// balances, so it returns the data as is.
+func (p *GitcoinPassport) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
+	return data, nil
 }

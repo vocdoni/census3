@@ -240,7 +240,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		}
 	}
 	// get token information from the external provider
-	address := provider.Address()
+	address := provider.Address([]byte(req.ExternalID))
 	name, err := provider.Name([]byte(req.ExternalID))
 	if err != nil {
 		return ErrCantGetToken.WithErr(err)

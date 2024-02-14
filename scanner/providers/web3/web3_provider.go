@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/vocdoni/census3/scanner/providers"
+	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -23,6 +24,7 @@ type Web3ProviderRef struct {
 type Web3ProviderConfig struct {
 	Web3ProviderRef
 	Endpoints NetworkEndpoints
+	DB        *db.Database
 }
 
 // creationBlock function returns the block number of the creation of a contract
@@ -74,11 +76,11 @@ func sourceCodeLenAt(client *ethclient.Client, ctx context.Context, addr common.
 	return len(sourceCode), err
 }
 
-// rangeOfLogs function returns the logs of a token contract between the
+// RangeOfLogs function returns the logs of a token contract between the
 // provided block numbers. It returns the logs, the last block scanned and an
 // error if any. It filters the logs by the topic hash and for the token
 // contract address provided.
-func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Address,
+func RangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Address,
 	fromBlock, lastBlock uint64, hexTopics ...string,
 ) ([]types.Log, uint64, bool, error) {
 	// if the range is too big, scan only a part of it using the constant

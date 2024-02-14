@@ -31,6 +31,8 @@ const (
 	KeyRegistryAddress       = "0x00000000Fc1237824fb747aBDE0FF18990E59b7e"
 	ChainID                  = 10
 	defaultRecoveryAddress   = "0x00000000fcb080a4d6c39a9354da9eb9bc104cd7"
+	// timeouts
+	censusKeysTimeout = time.Second * 10
 )
 
 var (
@@ -456,8 +458,35 @@ func (p *FarcasterProvider) KeysOf(fid *big.Int) ([][]byte, error) {
 // Farcaster resolve the FID of the provided addresses, grouping them by FID and
 // returning the balances of the FID.
 func (p *FarcasterProvider) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
-	// TODO: modify to the provider implementation
-	return data, nil
+	internalCtx, cancel := context.WithTimeout(context.Background(), censusKeysTimeout)
+	defer cancel()
+	// create a db tx to query the users by linked EVM
+	tx, err := p.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating tx: %w", err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Warnw("error rolling back tx", "err", err)
+		}
+	}()
+	qtx := p.db.QueriesRO.WithTx(tx)
+	// fill the final census with the FID's of the users
+	finalCensus := make(map[common.Address]*big.Int)
+	for addr := range data {
+		// get the user by linked EVM to get the FID
+		user, err := qtx.GetUserByLinkedEVM(internalCtx, addr.Bytes())
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, fmt.Errorf("error getting user by linked EVM: %w", err)
+		}
+		// this assignment groups the addresses by FID, no matter the balance,
+		// it will be 1 for each FID
+		finalCensus[common.BytesToAddress(user.LinkedEvm)] = big.NewInt(1)
+	}
+	return finalCensus, nil
 }
 
 func (p *FarcasterProvider) storeNewRegisteredUsers(

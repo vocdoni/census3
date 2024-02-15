@@ -261,18 +261,18 @@ func (capi *census3API) transformCensus(holders map[common.Address]*big.Int,
 		}
 		return finalHolders, accuracy, nil
 	}
-	// if farcaster is enabled, use the farcaster provider to transform the holders
-	if farcaster {
-		provider, ok := capi.holderProviders[providers.CONTRACT_TYPE_FARCASTER]
-		if !ok {
-			return nil, 0, fmt.Errorf("farcaster provider not configured")
-		}
-		farcasterHolders, err := provider.CensusKeys(holders)
-		if err != nil {
-			return nil, 0, err
-		}
-		return farcasterHolders, 100, nil
-	}
+	// // if farcaster is enabled, use the farcaster provider to transform the holders
+	// if farcaster {
+	// 	provider, ok := capi.holderProviders[providers.CONTRACT_TYPE_FARCASTER]
+	// 	if !ok {
+	// 		return nil, 0, fmt.Errorf("farcaster provider not configured")
+	// 	}
+	// 	farcasterHolders, err := provider.CensusKeys(holders)
+	// 	if err != nil {
+	// 		return nil, 0, err
+	// 	}
+	// 	return farcasterHolders, 100, nil
+	// }
 	// by default, return the same holders and an accuracy of 100%
 	return holders, 100, nil
 }

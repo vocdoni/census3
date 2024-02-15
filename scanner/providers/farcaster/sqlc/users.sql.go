@@ -8,20 +8,7 @@ package queries
 import (
 	"context"
 	"database/sql"
-
-	"github.com/vocdoni/census3/db/annotations"
 )
-
-const countUserAppKeys = `-- name: CountUserAppKeys :one
-SELECT COUNT(app_keys) FROM users WHERE fid = ?
-`
-
-func (q *Queries) CountUserAppKeys(ctx context.Context, fid uint64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUserAppKeys, fid)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
 
 const countUsers = `-- name: CountUsers :one
 SELECT COUNT(*) FROM users
@@ -35,31 +22,11 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 }
 
 const createUser = `-- name: CreateUser :execresult
-INSERT INTO users (
-    fid,
-    signer,
-    custody_address,
-    app_keys,
-    recovery_address)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO users (fid) VALUES (?)
 `
 
-type CreateUserParams struct {
-	Fid             uint64
-	Signer          annotations.Bytes
-	CustodyAddress  annotations.Address
-	AppKeys         annotations.Bytes
-	RecoveryAddress annotations.Address
-}
-
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createUser,
-		arg.Fid,
-		arg.Signer,
-		arg.CustodyAddress,
-		arg.AppKeys,
-		arg.RecoveryAddress,
-	)
+func (q *Queries) CreateUser(ctx context.Context, fid uint64) (sql.Result, error) {
+	return q.db.ExecContext(ctx, createUser, fid)
 }
 
 const deleteUser = `-- name: DeleteUser :execresult
@@ -70,68 +37,33 @@ func (q *Queries) DeleteUser(ctx context.Context, fid uint64) (sql.Result, error
 	return q.db.ExecContext(ctx, deleteUser, fid)
 }
 
-const getUserAppKeys = `-- name: GetUserAppKeys :one
-SELECT app_keys FROM users WHERE fid = ?
-`
-
-func (q *Queries) GetUserAppKeys(ctx context.Context, fid uint64) (annotations.Bytes, error) {
-	row := q.db.QueryRowContext(ctx, getUserAppKeys, fid)
-	var app_keys annotations.Bytes
-	err := row.Scan(&app_keys)
-	return app_keys, err
-}
-
 const getUserByFID = `-- name: GetUserByFID :one
-SELECT fid, signer, custody_address, app_keys, recovery_address FROM users WHERE fid = ?
+SELECT fid FROM users WHERE fid = ?
 `
 
-func (q *Queries) GetUserByFID(ctx context.Context, fid uint64) (User, error) {
+func (q *Queries) GetUserByFID(ctx context.Context, fid uint64) (uint64, error) {
 	row := q.db.QueryRowContext(ctx, getUserByFID, fid)
-	var i User
-	err := row.Scan(
-		&i.Fid,
-		&i.Signer,
-		&i.CustodyAddress,
-		&i.AppKeys,
-		&i.RecoveryAddress,
-	)
-	return i, err
-}
-
-const getUserSigner = `-- name: GetUserSigner :one
-SELECT signer FROM users WHERE fid = ?
-`
-
-func (q *Queries) GetUserSigner(ctx context.Context, fid uint64) (annotations.Bytes, error) {
-	row := q.db.QueryRowContext(ctx, getUserSigner, fid)
-	var signer annotations.Bytes
-	err := row.Scan(&signer)
-	return signer, err
+	err := row.Scan(&fid)
+	return fid, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT fid, signer, custody_address, app_keys, recovery_address FROM users ORDER BY fid ASC
+SELECT fid FROM users ORDER BY fid ASC
 `
 
-func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
+func (q *Queries) ListUsers(ctx context.Context) ([]uint64, error) {
 	rows, err := q.db.QueryContext(ctx, listUsers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []User
+	var items []uint64
 	for rows.Next() {
-		var i User
-		if err := rows.Scan(
-			&i.Fid,
-			&i.Signer,
-			&i.CustodyAddress,
-			&i.AppKeys,
-			&i.RecoveryAddress,
-		); err != nil {
+		var fid uint64
+		if err := rows.Scan(&fid); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, fid)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -140,91 +72,4 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateCustodyAddress = `-- name: UpdateCustodyAddress :execresult
-UPDATE users
-SET custody_address = ?
-WHERE fid = ?
-`
-
-type UpdateCustodyAddressParams struct {
-	CustodyAddress annotations.Address
-	Fid            uint64
-}
-
-func (q *Queries) UpdateCustodyAddress(ctx context.Context, arg UpdateCustodyAddressParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateCustodyAddress, arg.CustodyAddress, arg.Fid)
-}
-
-const updateUser = `-- name: UpdateUser :execresult
-UPDATE users 
-SET signer = ?,
-    custody_address = ?,
-    app_keys = ?,
-    recovery_address = ?
-WHERE fid = ?
-`
-
-type UpdateUserParams struct {
-	Signer          annotations.Bytes
-	CustodyAddress  annotations.Address
-	AppKeys         annotations.Bytes
-	RecoveryAddress annotations.Address
-	Fid             uint64
-}
-
-func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateUser,
-		arg.Signer,
-		arg.CustodyAddress,
-		arg.AppKeys,
-		arg.RecoveryAddress,
-		arg.Fid,
-	)
-}
-
-const updateUserAppKeys = `-- name: UpdateUserAppKeys :execresult
-UPDATE users
-SET app_keys = ?
-WHERE fid = ?
-`
-
-type UpdateUserAppKeysParams struct {
-	AppKeys annotations.Bytes
-	Fid     uint64
-}
-
-func (q *Queries) UpdateUserAppKeys(ctx context.Context, arg UpdateUserAppKeysParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateUserAppKeys, arg.AppKeys, arg.Fid)
-}
-
-const updateUserRecoveryAddress = `-- name: UpdateUserRecoveryAddress :execresult
-UPDATE users
-SET recovery_address = ?
-WHERE fid = ?
-`
-
-type UpdateUserRecoveryAddressParams struct {
-	RecoveryAddress annotations.Address
-	Fid             uint64
-}
-
-func (q *Queries) UpdateUserRecoveryAddress(ctx context.Context, arg UpdateUserRecoveryAddressParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateUserRecoveryAddress, arg.RecoveryAddress, arg.Fid)
-}
-
-const updateUserSigner = `-- name: UpdateUserSigner :execresult
-UPDATE users
-SET signer = ?
-WHERE fid = ?
-`
-
-type UpdateUserSignerParams struct {
-	Signer annotations.Bytes
-	Fid    uint64
-}
-
-func (q *Queries) UpdateUserSigner(ctx context.Context, arg UpdateUserSignerParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateUserSigner, arg.Signer, arg.Fid)
 }

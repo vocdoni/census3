@@ -8,15 +8,11 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 )
 
-type LinkedevmFid struct {
-	Fid        uint64
-	EvmAddress []byte
+type FidAppkey struct {
+	Fid    uint64
+	AppKey annotations.Bytes
 }
 
 type User struct {
-	Fid             uint64
-	Signer          annotations.Bytes
-	CustodyAddress  annotations.Address
-	AppKeys         annotations.Bytes
-	RecoveryAddress annotations.Address
+	Fid uint64
 }

@@ -91,7 +91,7 @@ func InitDB(dataDir string, dbName string) (*DB, error) {
 }
 
 // updates farcaster database with the users data
-func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*FarcasterUserData) error {
+func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []FarcasterUserData) error {
 	// init db transaction
 	internalCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -111,24 +111,20 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 	// if it exists all info except appkeys is already stored, so just update appkeys
 	for _, userData := range usersData {
 		// check if the user exists
-		user, errGetUser := qtx.GetUserByFID(internalCtx, userData.FID.Uint64())
-		if errGetUser != nil {
+		_, err := qtx.GetUserByFID(internalCtx, userData.FID)
+		if err != nil {
 			// if not exists create a new user
-			if errors.Is(errGetUser, sql.ErrNoRows) {
+			if errors.Is(err, sql.ErrNoRows) {
 				if err := p.createUser(internalCtx, qtx, userData); err != nil {
 					return fmt.Errorf("cannot create user %w", err)
 				}
 			} else {
-				return fmt.Errorf("cannot update farcaster db: %w", errGetUser)
-			}
-		} else { // if user exists update the user app keys, all other data is already stored
-			if err := p.updateUserAppKeys(internalCtx, qtx, user, userData.AppKeys); err != nil {
-				return fmt.Errorf("cannot update user data %w", err)
+				return fmt.Errorf("cannot update farcaster db: %w", err)
 			}
 		}
-		if err := p.createLinkedEVMFID(ctx, qtx, userData.LinkedEVM, userData.FID.Uint64()); err != nil {
-			return fmt.Errorf("cannot update farcaster db: %w", err)
-		}
+		// if err := p.createLinkedEVMFID(ctx, qtx, userData.LinkedEVM, userData.FID.Uint64()); err != nil {
+		// 	return fmt.Errorf("cannot update farcaster db: %w", err)
+		// }
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("cannot update farcaster db: %w", err)
@@ -136,14 +132,8 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []*
 	return nil
 }
 
-func (p *FarcasterProvider) createUser(ctx context.Context, qtx *queries.Queries, userData *FarcasterUserData) error {
-	if _, err := qtx.CreateUser(ctx, queries.CreateUserParams{
-		Fid:             userData.FID.Uint64(),
-		Signer:          userData.Signer[:],
-		CustodyAddress:  userData.CustodyAddress[:],
-		RecoveryAddress: userData.RecoveryAddress[:],
-		AppKeys:         make([]byte, 0),
-	}); err != nil {
+func (p *FarcasterProvider) createUser(ctx context.Context, qtx *queries.Queries, userData FarcasterUserData) error {
+	if _, err := qtx.CreateUser(ctx, userData.FID); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return fmt.Errorf("cannot update farcaster db: %w", ErrUserAlreadyExists)
 		}
@@ -152,35 +142,24 @@ func (p *FarcasterProvider) createUser(ctx context.Context, qtx *queries.Queries
 	return nil
 }
 
-func (p *FarcasterProvider) createLinkedEVMFID(
-	ctx context.Context, qtx *queries.Queries, linkedEVM []common.Address, fid uint64,
+func (p *FarcasterProvider) createFidAppKey(
+	ctx context.Context, fid uint64, appKey common.Hash,
 ) error {
-	for _, evmKey := range linkedEVM {
-		if _, err := qtx.CreateLinkedEVMFID(ctx, queries.CreateLinkedEVMFIDParams{
-			Fid:        fid,
-			EvmAddress: evmKey[:],
-		}); err != nil {
-			return fmt.Errorf("cannot update farcaster db: %w", err)
-		}
+	if _, err := p.db.QueriesRW.CreateFidAppKey(ctx, queries.CreateFidAppKeyParams{
+		Fid:    fid,
+		AppKey: appKey[:],
+	}); err != nil {
+		return fmt.Errorf("cannot update farcaster db: %w", err)
 	}
 	return nil
 }
 
-func (p *FarcasterProvider) updateUserAppKeys(
-	ctx context.Context, qtx *queries.Queries, user queries.User, appKeys []common.Hash,
+func (p *FarcasterProvider) deleteFidAppKey(
+	ctx context.Context, fid uint64, appKey common.Hash,
 ) error {
-	// serialize app keys before saving
-	serializedAppKeys := make([]byte, 0)
-	var err error
-	if len(appKeys) != 0 {
-		serializedAppKeys, err = serializeArray(appKeys)
-		if err != nil {
-			return fmt.Errorf("cannot update farcaster db: %w", err)
-		}
-	}
-	if _, err := qtx.UpdateUserAppKeys(ctx, queries.UpdateUserAppKeysParams{
-		Fid:     user.Fid,
-		AppKeys: serializedAppKeys,
+	if _, err := p.db.QueriesRW.DeleteFidAppKey(ctx, queries.DeleteFidAppKeyParams{
+		Fid:    fid,
+		AppKey: appKey[:],
 	}); err != nil {
 		return fmt.Errorf("cannot update farcaster db: %w", err)
 	}

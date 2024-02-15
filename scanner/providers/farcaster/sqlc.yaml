@@ -16,13 +16,5 @@ sql:
           go_type: "uint64"
           nullable: false
         # Force these blobs to be our "bytes" types.
-        - column: "users.signer"
+        - column: "fid_appkeys.app_key"
           go_type: "github.com/vocdoni/census3/db/annotations.Bytes"
-        - column: "users.app_keys"
-          go_type: "github.com/vocdoni/census3/db/annotations.Bytes"
-        - column: "users.recovery_address"
-          go_type: "github.com/vocdoni/census3/db/annotations.Address"
-        - column: "users.custody_address"
-          go_type: "github.com/vocdoni/census3/db/annotations.Address"
-        - column: "linkedevm_fid.linked_evm"
-          go_type: "github.com/vocdoni/census3/db/annotations.Address"

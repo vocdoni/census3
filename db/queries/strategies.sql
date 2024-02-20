@@ -62,6 +62,13 @@ FROM strategy_tokens st
 JOIN tokens t ON st.token_id = t.id AND st.chain_id = t.chain_id AND st.external_id = t.external_id
 WHERE st.strategy_id = ?;
 
+-- name: StrategyTokensContainsType :one
+SELECT EXISTS(
+    SELECT 1 FROM strategy_tokens st
+    JOIN tokens t ON st.token_id = t.id AND st.chain_id = t.chain_id AND st.external_id = t.external_id
+    WHERE st.strategy_id = sqlc.arg(strategy_id) AND t.type_id = sqlc.arg(type_id)
+);
+
 -- name: DeleteStrategiesByToken :execresult
 DELETE FROM strategies WHERE id IN (
     SELECT strategy_id FROM strategy_tokens WHERE token_id = ? AND chain_id = ? AND external_id = ?

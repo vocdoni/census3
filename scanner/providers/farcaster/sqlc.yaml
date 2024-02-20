@@ -1,0 +1,20 @@
+version: "2"
+sql:
+- schema: "migrations"
+  queries: "queries"
+  engine: "mysql"
+  gen:
+    go:
+      package: "queries"
+      out: "sqlc"
+      overrides:
+        # Defaults to int32 for integers, which is a bit small, use uint64 instead.
+        - db_type: "int"
+          go_type: "uint64"
+          nullable: true
+        - db_type: "int"
+          go_type: "uint64"
+          nullable: false
+        # Force these blobs to be our "bytes" types.
+        - column: "fid_appkeys.app_key"
+          go_type: "github.com/vocdoni/census3/db/annotations.Bytes"

@@ -238,7 +238,10 @@ func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, t
 		web3.LOG_TOPIC_FARCASTER_REGISTER,
 	)
 	if err != nil {
-		return nil, 0, false, err
+		if !errors.Is(err, web3.ErrTooManyRequests) {
+			return nil, 0, false, err
+		}
+		log.Debug("too many requests error, handling scanned logs")
 	}
 	// encode the number of new registers
 	newFIDs := make(map[uint64]common.Address, 0)

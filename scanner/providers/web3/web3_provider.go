@@ -134,6 +134,11 @@ func RangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 					log.Warnf("too much results on query, decreasing blocks to %d", blocksRange)
 					continue
 				}
+				// if error is about too many requests, return the logs scanned
+				// until now and the last block scanned with an specific error
+				if strings.Contains(strings.ToLower(err.Error()), "too many requests") {
+					return finalLogs, fromBlock, false, errors.Join(ErrTooManyRequests, fmt.Errorf("%s: %w", addr.Hex(), err))
+				}
 				return finalLogs, fromBlock, false, errors.Join(ErrScanningTokenLogs, fmt.Errorf("%s: %w", addr.Hex(), err))
 			}
 			// if there are logs, add them to the final list and update the

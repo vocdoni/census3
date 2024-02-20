@@ -12,6 +12,22 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 )
 
+const checkFidAppKeyExists = `-- name: CheckFidAppKeyExists :one
+SELECT EXISTS (SELECT 1 FROM fid_appkeys WHERE fid = ? AND app_key = ?)
+`
+
+type CheckFidAppKeyExistsParams struct {
+	Fid    uint64
+	AppKey annotations.Bytes
+}
+
+func (q *Queries) CheckFidAppKeyExists(ctx context.Context, arg CheckFidAppKeyExistsParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, checkFidAppKeyExists, arg.Fid, arg.AppKey)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createFidAppKey = `-- name: CreateFidAppKey :execresult
 INSERT INTO fid_appkeys (fid, app_key) VALUES (?, ?)
 `

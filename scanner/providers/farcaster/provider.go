@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	fcir "github.com/vocdoni/census3/contracts/farcaster/idRegistry"
 	fckr "github.com/vocdoni/census3/contracts/farcaster/keyRegistry"
 	"github.com/vocdoni/census3/scanner/providers"
+	queries "github.com/vocdoni/census3/scanner/providers/farcaster/sqlc"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
 )
@@ -169,35 +169,34 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 		return nil, 0, fromBlock, false, nil, err
 	}
 
-	// add app keys to the database
-	if err := p.addAppKeys(ctx, fidList, addedKeys); err != nil {
+	// add app keys to the database and get the added ones
+	ak, err := p.addAppKeys(ctx, fidList, addedKeys)
+	if err != nil {
 		return nil, 0, fromBlock, false, nil, fmt.Errorf("cannot store new app keys %w", err)
 	}
 
-	// remove app keys from the database
-	if err := p.deleteAppKeys(ctx, fidList, removedKeys); err != nil {
+	// remove app keys from the database on get the removed ones
+	rk, err := p.deleteAppKeys(ctx, fidList, removedKeys)
+	if err != nil {
 		return nil, 0, fromBlock, false, nil, fmt.Errorf("cannot delete app keys %w", err)
 	}
 
 	// filter app keys that will be included in the scanner database
 	scannerKeys := make(map[common.Address]*big.Int)
-	for fid, addedAppkey := range addedKeys {
-		// get all app keys for each user
-		existingAppKeys, err := p.db.QueriesRO.GetFidAppKeys(ctx, fid)
-		if err != nil {
-			return nil, 0, fromBlock, false, nil, err
+	avoidKeys := make(map[common.Address]bool)
+	for _, removedAppkey := range rk {
+		for _, kr := range removedAppkey {
+			keyAddress := common.BytesToAddress(kr[:])
+			scannerKeys[keyAddress] = big.NewInt(-1)
+			avoidKeys[keyAddress] = true
 		}
-
-		keysToAdd := make([]common.Address, 0)
-		for _, key := range existingAppKeys {
-			for _, kr := range addedAppkey {
-				if bytes.Equal(key, kr[:]) {
-					keysToAdd = append(keysToAdd, common.Address(crypto.Keccak256(kr[:])))
-				}
+	}
+	for _, addedAppkey := range ak {
+		for _, kr := range addedAppkey {
+			keyAddress := common.BytesToAddress(kr[:])
+			if _, ok := avoidKeys[keyAddress]; !ok {
+				scannerKeys[keyAddress] = big.NewInt(1)
 			}
-		}
-		for _, key := range keysToAdd {
-			scannerKeys[key] = big.NewInt(1)
 		}
 	}
 
@@ -283,10 +282,8 @@ func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, 
 	if err != nil {
 		return nil, nil, 0, false, err
 	}
-	// encode the number of new registers
 	addedKeys := make(map[uint64][][]byte, 0)
 	removedKeys := make(map[uint64][][]byte, 0)
-	// iterate the logs and update the balances
 	for _, currentLog := range logs {
 		switch currentLog.Topics[0].Hex()[2:] {
 		case web3.LOG_TOPIC_FARCASTER_ADDKEY:
@@ -294,16 +291,16 @@ func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, 
 			if err != nil {
 				return nil, nil, 0, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster Key Registry]: %w", err))
 			}
-			fid := new(big.Int).Set(logData.Fid).Uint64()
 			// note that logData.Key is the Keccak256 of logData.KeyBytes because logData.Key is an indexed EVM event value
-			addedKeys[fid] = append(addedKeys[fid], logData.KeyBytes[:])
+			fid := logData.Fid.Uint64()
+			addedKeys[fid] = append(addedKeys[fid], logData.Key[:])
 		case web3.LOG_TOPIC_FARCASTER_REMOVEKEY:
 			logData, err := p.contracts.keyRegistry.ParseRemove(currentLog)
 			if err != nil {
 				return nil, nil, 0, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster Key Registry]: %w", err))
 			}
-			fid := new(big.Int).Set(logData.Fid).Uint64()
-			removedKeys[fid] = append(removedKeys[fid], logData.KeyBytes[:])
+			fid := logData.Fid.Uint64()
+			removedKeys[fid] = append(removedKeys[fid], logData.Key[:])
 		default:
 			return nil, nil, 0, false, fmt.Errorf("unknown log topic")
 		}
@@ -472,7 +469,6 @@ func (p *FarcasterProvider) storeNewRegisteredUsers(
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("cannot get user by fid %w", err)
 		}
-		// create a new user data and add for saving
 		userData := FarcasterUserData{
 			FID: fid,
 		}
@@ -488,51 +484,66 @@ func (p *FarcasterProvider) storeNewRegisteredUsers(
 
 func (p *FarcasterProvider) addAppKeys(
 	ctx context.Context, fidList []uint64, addedKeys map[uint64][][]byte,
-) error {
+) (map[uint64][][]byte, error) {
 	if len(fidList) == 0 {
-		return nil
+		return nil, nil
 	}
-	// iterate the users and update the database with the new app keys
+	ak := make(map[uint64][][]byte, 0)
 	for _, fid := range fidList {
-		// check if the user has new keys to add
-		if keys, ok := addedKeys[fid]; !ok {
+		keys, ok := addedKeys[fid]
+		if !ok {
 			continue
-		} else {
-			// create key list
-			for _, key := range keys {
-				h := common.Hash{}
-				h.SetBytes(key)
-				// create ref for each fid and key on fid_appkeys table
-				if err := p.createFidAppKey(ctx, fid, h); err != nil {
-					return fmt.Errorf("cannot create fid app key %w", err)
-				}
+		}
+		for _, key := range keys {
+			exists, err := p.db.QueriesRO.CheckFidAppKeyExists(ctx, queries.CheckFidAppKeyExistsParams{
+				Fid:    fid,
+				AppKey: key[:],
+			})
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, fmt.Errorf("cannot get fid app keys %w", err)
+			} else if exists {
+				continue
 			}
+			h := common.Hash{}
+			h.SetBytes(key)
+			// create ref for each fid and key on fid_appkeys table
+			if err := p.createFidAppKey(ctx, fid, h); err != nil {
+				return nil, fmt.Errorf("cannot create fid app key %w", err)
+			}
+			ak[fid] = append(ak[fid], key)
 		}
 	}
-	return nil
+	return ak, nil
 }
 
 func (p *FarcasterProvider) deleteAppKeys(
 	ctx context.Context, fidList []uint64, deletedKeys map[uint64][][]byte,
-) error {
+) (map[uint64][][]byte, error) {
 	if len(fidList) == 0 {
-		return nil
+		return nil, nil
 	}
-	// iterate the users and update the database with the new app keys
+	dk := make(map[uint64][][]byte, 0)
 	for _, fid := range fidList {
-		// check if the user has new keys to add
-		if keys, ok := deletedKeys[fid]; !ok {
+		keys, ok := deletedKeys[fid]
+		if !ok {
 			continue
-		} else {
-			// create key list
-			for _, key := range keys {
+		}
+		for _, key := range keys {
+			exists, err := p.db.QueriesRO.CheckFidAppKeyExists(ctx, queries.CheckFidAppKeyExistsParams{
+				Fid:    fid,
+				AppKey: key[:],
+			})
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, fmt.Errorf("cannot get fid app keys %w", err)
+			} else if exists {
 				h := common.Hash{}
 				h.SetBytes(key)
 				if err := p.deleteFidAppKey(ctx, fid, h); err != nil {
-					return fmt.Errorf("cannot create fid app key %w", err)
+					return nil, fmt.Errorf("cannot delete fid app key %w", err)
 				}
+				dk[fid] = append(dk[fid], key)
 			}
 		}
 	}
-	return nil
+	return dk, nil
 }

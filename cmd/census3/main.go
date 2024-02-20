@@ -62,7 +62,7 @@ func main() {
 	flag.DurationVar(&config.scannerCoolDown, "scannerCoolDown", 120*time.Second, "the time to wait before next scanner iteration")
 	flag.StringVar(&config.adminToken, "adminToken", "", "the admin UUID token for the API")
 	flag.StringVar(&config.initialTokens, "initialTokens", "", "path of the initial tokens json file")
-	flag.BoolVar(&config.farcaster, "farcaster", true, "enables farcaster support")
+	flag.BoolVar(&config.farcaster, "farcaster", false, "enables farcaster support")
 	flag.Parse()
 	// init viper to read config file
 	pviper := viper.New()

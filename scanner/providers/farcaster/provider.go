@@ -337,12 +337,13 @@ func (p *FarcasterProvider) IsSynced(_ []byte) bool {
 
 // Address returns the address of the Farcaster contract given the contract type.
 func (p *FarcasterProvider) Address(contractType []byte) common.Address {
-	if bytes.Equal(contractType, FarcasterIDRegistryType) {
-		return common.HexToAddress(IdRegistryAddress)
-	} else if bytes.Equal(contractType, FarcasterKeyRegistryType) {
+	// if the contract type is defined and it is the Key Registry, return the
+	// Key Registry address
+	if bytes.Equal(contractType, FarcasterKeyRegistryType) {
 		return common.HexToAddress(KeyRegistryAddress)
 	}
-	return common.Address{}
+	// by default return the ID Registry address
+	return common.HexToAddress(IdRegistryAddress)
 }
 
 // Type returns the type of the current token set in the provider.
@@ -426,13 +427,18 @@ func (p *FarcasterProvider) LatestBlockNumber(ctx context.Context, _ []byte) (ui
 
 // CreationBlock is not implemented for Farcaster contracts.
 func (p *FarcasterProvider) CreationBlock(ctx context.Context, contractType []byte) (uint64, error) {
+	// if the contract type is defined and it is the ID Registry, return the
+	// creation block of the ID Registry
 	if bytes.Equal(contractType, FarcasterIDRegistryType) {
 		return p.idRegistryCreationBlock(), nil
 	}
+	// if the contract type is defined and it is the Key Registry, return the
+	// creation block of the Key Registry
 	if bytes.Equal(contractType, FarcasterKeyRegistryType) {
 		return p.keyRegistryCreationBlock(), nil
 	}
-	return 0, fmt.Errorf("unknown type")
+	// by default return the creation block of the key registry
+	return p.keyRegistryCreationBlock(), nil
 }
 
 // IDRegistryCreationBlock returns the creation block of the Farcaster ID Registry

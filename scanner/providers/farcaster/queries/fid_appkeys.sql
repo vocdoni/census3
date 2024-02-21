@@ -12,3 +12,6 @@ SELECT fid FROM fid_appkeys WHERE app_key = ?;
 
 -- name: CheckFidAppKeyExists :one
 SELECT EXISTS (SELECT 1 FROM fid_appkeys WHERE fid = ? AND app_key = ?);
+
+-- name: ListAppKeys :many
+SELECT app_key FROM fid_appkeys ORDER BY app_key ASC;

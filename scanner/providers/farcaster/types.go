@@ -1,8 +1,12 @@
 package farcaster
 
 import (
+	"context"
+	"math/big"
+	"sync"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	fcir "github.com/vocdoni/census3/contracts/farcaster/idRegistry"
 	fckr "github.com/vocdoni/census3/contracts/farcaster/keyRegistry"
@@ -19,6 +23,7 @@ type FarcasterContracts struct {
 	idRegistry        *fcir.FarcasterIDRegistry
 	idRegistrySynced  atomic.Bool
 	keyRegistrySynced atomic.Bool
+	lastBlock         atomic.Uint64
 }
 
 type FarcasterProvider struct {
@@ -26,9 +31,14 @@ type FarcasterProvider struct {
 	endpoints        web3.NetworkEndpoints
 	client           *ethclient.Client
 	contracts        FarcasterContracts
-	lastNetworkBlock uint64
+	lastNetworkBlock atomic.Uint64
 	// db
 	db *DB
+	// iteration vars
+	currentScannerHolders    map[common.Address]*big.Int
+	currentScannerHoldersMtx *sync.Mutex
+	scannerCtx               context.Context
+	cancelScanner            context.CancelFunc
 }
 
 type FarcasterUserData struct {

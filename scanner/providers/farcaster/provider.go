@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -61,7 +60,6 @@ func (p *FarcasterProvider) Init(iconf any) error {
 	// set vars to sync the contracts in background
 	p.lastNetworkBlock.Store(0)
 	p.currentScannerHolders = make(map[common.Address]*big.Int)
-	p.currentScannerHoldersMtx = &sync.Mutex{}
 	// set the contracts vars to nil
 	p.contracts.idRegistrySynced.Store(false)
 	p.contracts.keyRegistrySynced.Store(false)

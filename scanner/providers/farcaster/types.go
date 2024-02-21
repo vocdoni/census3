@@ -36,7 +36,7 @@ type FarcasterProvider struct {
 	db *DB
 	// iteration vars
 	currentScannerHolders    map[common.Address]*big.Int
-	currentScannerHoldersMtx *sync.Mutex
+	currentScannerHoldersMtx sync.Mutex
 	scannerCtx               context.Context
 	cancelScanner            context.CancelFunc
 }

@@ -158,7 +158,10 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 	// that way we can be sure that the KeyRegistry is synced with the IDRegistry
 	addedKeys, removedKeys, lastBlock2, synced, errLogsKeyRegistry := p.ScanLogsKeyRegistry(ctx, fromBlock, lastBlock)
 	if errLogsKeyRegistry != nil {
-		return nil, 0, fromBlock, false, nil, errLogsKeyRegistry
+		if !errors.Is(errLogsKeyRegistry, web3.ErrTooManyRequests) {
+			return nil, 0, fromBlock, false, nil, errLogsKeyRegistry
+		}
+		log.Debug("too many requests error, handling scanned logs")
 	}
 
 	// at this point we have the new registered users, the added app keys and the removed ones
@@ -283,7 +286,10 @@ func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, 
 		web3.LOG_TOPIC_FARCASTER_REMOVEKEY,
 	)
 	if err != nil {
-		return nil, nil, 0, false, err
+		if !errors.Is(err, web3.ErrTooManyRequests) {
+			return nil, nil, 0, false, err
+		}
+		log.Debug("too many requests error, handling scanned logs")
 	}
 	addedKeys := make(map[uint64][][]byte, 0)
 	removedKeys := make(map[uint64][][]byte, 0)

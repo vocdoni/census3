@@ -39,6 +39,11 @@ var (
 
 	ErrUserAlreadyExists = errors.New("user already exists")
 	VoidAddress          = common.Address{}
+
+	// timeouts
+	TooManyReqeustsTimeout  = 30 * time.Second
+	IterationCooldown       = 15 * time.Second
+	IterationSyncedCooldown = 60 * time.Second
 )
 
 func (p *FarcasterProvider) Init(iconf any) error {
@@ -47,50 +52,103 @@ func (p *FarcasterProvider) Init(iconf any) error {
 	if !ok {
 		return errors.New("invalid config type, it must be Web3ProviderConfig")
 	}
+	if conf.Endpoints == nil {
+		return errors.New("endpoints not defined")
+	}
 	p.endpoints = conf.Endpoints
 	p.db = conf.DB
+	// set vars to sync the contracts in background
+	p.lastNetworkBlock.Store(0)
+	p.currentScannerHolders = make(map[common.Address]*big.Int)
+	// set the contracts vars to nil
 	p.contracts.idRegistrySynced.Store(false)
 	p.contracts.keyRegistrySynced.Store(false)
 
+	// check if latests blocks are stored in the database, if they exist, set
+	// them in the provider, if not, set them to 0 in both places, the provider
+	// and the database. By default, the last block is the creation block of the
+	// key registry, because in the gap between the creation of the ID and Key
+	// registries, there are no logs to scan.
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	idRegistryLastBlock, err := p.db.QueriesRO.LastBlock(ctx, IdRegistryAddress)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("cannot get last block from farcaster DB %w", err)
+		}
+		// create the row in the database
+		if _, err := p.db.QueriesRW.InsertLatestBlock(ctx, queries.InsertLatestBlockParams{
+			Contract:    IdRegistryAddress,
+			BlockNumber: keyRegistryCreationBlock,
+		}); err != nil {
+			return fmt.Errorf("cannot create last block in farcaster DB %w", err)
+		}
+		idRegistryLastBlock = keyRegistryCreationBlock
+	}
+	keyRegistryLastBlock, err := p.db.QueriesRO.LastBlock(ctx, KeyRegistryAddress)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("cannot get last block from farcaster DB %w", err)
+		}
+		// create the row in the database
+		if _, err := p.db.QueriesRW.InsertLatestBlock(ctx, queries.InsertLatestBlockParams{
+			Contract:    KeyRegistryAddress,
+			BlockNumber: keyRegistryCreationBlock,
+		}); err != nil {
+			return fmt.Errorf("cannot create last block in farcaster DB %w", err)
+		}
+		keyRegistryLastBlock = keyRegistryCreationBlock
+	}
+	// choose as last block the smallest between the id and key registry last blocks
+	lastBlock := idRegistryLastBlock
+	if keyRegistryLastBlock < idRegistryLastBlock {
+		lastBlock = keyRegistryLastBlock
+	}
+	p.contracts.lastBlock.Store(uint64(lastBlock))
+	// init the web3 client and contracts
+	currentEndpoint, exists := p.endpoints.EndpointByChainID(ChainID)
+	if !exists {
+		return errors.New("endpoint not found for the given chainID")
+	}
+	// connect to the endpoint and set the client
+	p.client, err = currentEndpoint.GetClient(web3.DefaultMaxWeb3ClientRetries)
+	if err != nil {
+		return errors.Join(web3.ErrConnectingToWeb3Client, fmt.Errorf("[FARCASTER]: %w", err))
+	}
+	// parse the addresses and initialize the contracts
+	idRegistryAddress := common.HexToAddress(IdRegistryAddress)
+	keyRegistryAddress := common.HexToAddress(KeyRegistryAddress)
+	if p.contracts.idRegistry, err = fcir.NewFarcasterIDRegistry(idRegistryAddress, p.client); err != nil {
+		return errors.Join(web3.ErrInitializingContract, fmt.Errorf("[FARCASTER ID REGISTRY] %s: %w", idRegistryAddress, err))
+	}
+	if p.contracts.keyRegistry, err = fckr.NewFarcasterKeyRegistry(keyRegistryAddress, p.client); err != nil {
+		return errors.Join(web3.ErrInitializingContract, fmt.Errorf("[FARCASTER KEY REGISTRY] %s: %w", keyRegistryAddress, err))
+	}
+	p.contracts.idRegistrySynced.Store(false)
+	p.contracts.keyRegistrySynced.Store(false)
+	// start the internal scanner
+	p.scannerCtx, p.cancelScanner = context.WithCancel(context.Background())
+	go p.initInternalScanner()
 	return nil
 }
 
 // SetRef sets the reference of the token desired to use to the provider. It
 // receives a Web3ProviderRef struct with the address and chainID of the token
 // to use. It connects to the endpoint and initializes the contract.
-func (p *FarcasterProvider) SetRef(iref any) error {
-	if p.endpoints == nil {
-		return errors.New("endpoints not defined")
-	}
-	currentEndpoint, exists := p.endpoints.EndpointByChainID(ChainID)
-	if !exists {
-		return errors.New("endpoint not found for the given chainID")
-	}
-	// connect to the endpoint
-	client, err := currentEndpoint.GetClient(web3.DefaultMaxWeb3ClientRetries)
-	if err != nil {
-		return errors.Join(web3.ErrConnectingToWeb3Client, fmt.Errorf("[FARCASTER]: %w", err))
-	}
-	// set the client, parse the addresses and initialize the contracts
-	p.client = client
-	idRegistryAddress := common.HexToAddress(IdRegistryAddress)
-	keyRegistryAddress := common.HexToAddress(KeyRegistryAddress)
-	if p.contracts.idRegistry, err = fcir.NewFarcasterIDRegistry(idRegistryAddress, client); err != nil {
-		return errors.Join(web3.ErrInitializingContract, fmt.Errorf("[FARCASTER ID REGISTRY] %s: %w", idRegistryAddress, err))
-	}
-	if p.contracts.keyRegistry, err = fckr.NewFarcasterKeyRegistry(keyRegistryAddress, client); err != nil {
-		return errors.Join(web3.ErrInitializingContract, fmt.Errorf("[FARCASTER KEY REGISTRY] %s: %w", keyRegistryAddress, err))
-	}
-
-	p.contracts.idRegistrySynced.Store(false)
-	p.contracts.keyRegistrySynced.Store(false)
+func (p *FarcasterProvider) SetRef(_ any) error {
 	return nil
 }
 
 // SetLastBalances method is not implemented for Farcaster contracts.
 func (p *FarcasterProvider) SetLastBalances(_ context.Context, _ []byte,
-	_ map[common.Address]*big.Int, _ uint64,
+	currentScannerBalances map[common.Address]*big.Int, _ uint64,
 ) error {
+	p.currentScannerHoldersMtx.Lock()
+	defer p.currentScannerHoldersMtx.Unlock()
+	p.currentScannerHolders = make(map[common.Address]*big.Int)
+	for k, v := range currentScannerBalances {
+		p.currentScannerHolders[k] = new(big.Int).Set(v)
+	}
 	return nil
 }
 
@@ -99,236 +157,45 @@ func (p *FarcasterProvider) SetLastBalances(_ context.Context, _ []byte,
 // HoldersBalances from the given from point in time. It helps to avoid
 // GetBlockNumber calls to the provider.
 func (p *FarcasterProvider) SetLastBlockNumber(blockNumber uint64) {
-	p.lastNetworkBlock = blockNumber
+	p.lastNetworkBlock.Store(blockNumber)
 }
 
-// HoldersBalances returns the balances of the token holders for the current
-// defined token (using SetRef method). It returns the balances of the holders
-// for this token from the block number provided to the latest posible block
-// number (chosen between the last block number of the network and the maximun
-// number of blocks to scan). It calls to rangeOfLogs to get the logs of the
-// token transfers in the range of blocks and then it iterates the logs to
-// calculate the balances of the holders. It returns the balances, the number
-// of new transfers, the last block scanned, if the provider is synced and an
-// error if it exists.
+// HoldersBalances method ignores every param provided unless the context. It
+// returns the difference between the current holders and the last holders
+// scanned by the provider. It also returns the number of logs scanned (same to
+// the number of new holders), the last block scanned, if the provider is synced
+// and the total supply of the token. It gets the current holders from the
+// internal database and the current holders from the scanner and calculates the
+// partial holders.
 func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
 	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
 ) {
-	// calculate the range of blocks to scan, by default take the last block
-	// scanned and scan to the latest block, calculate the latest block if the
-	// current last network block is not defined
-	toBlock := p.lastNetworkBlock
-	if toBlock == 0 {
-		var err error
-		toBlock, err = p.LatestBlockNumber(ctx, nil)
-		if err != nil {
-			return nil, 0, fromBlock, false, big.NewInt(0), err
-		}
-	}
-
-	log.Infow("scan iteration",
-		"address IDRegistry", IdRegistryAddress,
-		"type", p.TypeName(),
-		"from", fromBlock,
-		"to", toBlock)
-
-	// read logs from the IDRegistry
-	// iterate scanning the logs in the range of blocks until the last block is reached
-	newRegisters, lastBlock, _, errLogsIDRegistry := p.ScanLogsIDRegistry(ctx, fromBlock, toBlock)
-	if errLogsIDRegistry != nil {
-		return nil, 0, fromBlock, false, nil, errLogsIDRegistry
-	}
-
-	// save new users registered on the database
-	// from the logs of the IDRegistry we can obtain the user FID and the custody and recovery addresses
-	if err := p.storeNewRegisteredUsers(ctx, newRegisters, fromBlock); err != nil {
-		return nil, 0, fromBlock, false, nil, fmt.Errorf("cannot store new registered users into farcaster DB %w", err)
-	}
-
-	// read the logs from the KeyRegistry
-	log.Infow("scan iteration",
-		"address KeyRegistry", KeyRegistryAddress,
-		"type", p.TypeName(),
-		"from", fromBlock,
-		"to", toBlock)
-
-	// iterate scanning the logs in the range of blocks until the last block is reached
-	// note that the scanning will be done using as toBlock the last block scanned that was
-	// returned by the IDRegistry scanning process
-	// that way we can be sure that the KeyRegistry is synced with the IDRegistry
-	addedKeys, removedKeys, lastBlock2, synced, errLogsKeyRegistry := p.ScanLogsKeyRegistry(ctx, fromBlock, lastBlock)
-	if errLogsKeyRegistry != nil {
-		if !errors.Is(errLogsKeyRegistry, web3.ErrTooManyRequests) {
-			return nil, 0, fromBlock, false, nil, errLogsKeyRegistry
-		}
-		log.Debug("too many requests error, handling scanned logs")
-	}
-
-	// at this point we have the new registered users, the added app keys and the removed ones
-
-	// get existing users from the database
-	fidList, err := p.db.QueriesRO.ListUsers(ctx)
+	// check if both contracts are synced
+	isSynced := p.contracts.idRegistrySynced.Load() && p.contracts.keyRegistrySynced.Load()
+	// get current holders from internal db
+	appKeys, err := p.db.QueriesRO.ListAppKeys(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, 0, fromBlock, false, nil, err
+		return nil, 0, fromBlock, isSynced, nil, fmt.Errorf("cannot get app keys from farcaster DB %s", err.Error())
 	}
-
-	// add app keys to the database and get the added ones
-	ak, err := p.addAppKeys(ctx, fidList, addedKeys)
-	if err != nil {
-		return nil, 0, fromBlock, false, nil, fmt.Errorf("cannot store new app keys %w", err)
+	currentHolders := make(map[common.Address]*big.Int)
+	for _, appKey := range appKeys {
+		currentHolders[common.BytesToAddress(appKey)] = big.NewInt(1)
 	}
-
-	// remove app keys from the database on get the removed ones
-	rk, err := p.deleteAppKeys(ctx, fidList, removedKeys)
-	if err != nil {
-		return nil, 0, fromBlock, false, nil, fmt.Errorf("cannot delete app keys %w", err)
+	totalSupply := big.NewInt(int64(len(currentHolders)))
+	// get the current holders from the scanner
+	p.currentScannerHoldersMtx.Lock()
+	currentScannerHolders := make(map[common.Address]*big.Int)
+	for k, v := range p.currentScannerHolders {
+		currentScannerHolders[k] = new(big.Int).Set(v)
 	}
-
-	// filter app keys that will be included in the scanner database
-	scannerKeys := make(map[common.Address]*big.Int)
-	avoidKeys := make(map[common.Address]bool)
-	for _, removedAppkey := range rk {
-		for _, kr := range removedAppkey {
-			keyAddress := common.BytesToAddress(kr[:])
-			scannerKeys[keyAddress] = big.NewInt(-1)
-			avoidKeys[keyAddress] = true
-		}
-	}
-	for _, addedAppkey := range ak {
-		for _, kr := range addedAppkey {
-			keyAddress := common.BytesToAddress(kr[:])
-			if _, ok := avoidKeys[keyAddress]; !ok {
-				scannerKeys[keyAddress] = big.NewInt(1)
-			}
-		}
-	}
-
-	log.Debugf("returning %d keys from HolderBalances", len(scannerKeys))
-
-	// NOTE: we are assuming that the key registry is synced if the id registry is synced
-	// Return the smallest block for starting next iteration from there
-	blockToReturn := 0
-	if lastBlock >= lastBlock2 {
-		blockToReturn = int(lastBlock2)
-	} else {
-		blockToReturn = int(lastBlock)
-	}
-	totalSupply, err := p.TotalSupply(nil)
-	// if error getting total supply, get old supply from database
-	if err != nil {
-		log.Warnf("Error getting total supply: %s", err.Error())
-		ts, err := p.db.QueriesRO.CountUsers(ctx)
-		if err != nil {
-			return nil, 0, fromBlock, false, nil, err
-		}
-		totalSupply = big.NewInt(int64(ts))
-	}
-	// scannerKeys is a map of keys and their balances set to 1 to indicate that the user app key exists
-	return scannerKeys, uint64(len(scannerKeys)), uint64(blockToReturn), synced, totalSupply, nil
-}
-
-// ScanLogsIDRegistry scans the logs of the Farcaster ID Registry contract
-func (p *FarcasterProvider) ScanLogsIDRegistry(ctx context.Context, fromBlock, toBlock uint64) (
-	map[uint64]common.Address, uint64, bool, error,
-) {
-	startTime := time.Now()
-	logs, lastBlock, synced, err := web3.RangeOfLogs(
-		ctx,
-		p.client,
-		p.Address(FarcasterIDRegistryType),
-		fromBlock,
-		toBlock,
-		web3.LOG_TOPIC_FARCASTER_REGISTER,
-	)
-	if err != nil {
-		if !errors.Is(err, web3.ErrTooManyRequests) {
-			return nil, 0, false, err
-		}
-		log.Debug("too many requests error, handling scanned logs")
-	}
-	// encode the number of new registers
-	newFIDs := make(map[uint64]common.Address, 0)
-	// iterate the logs and update the balances
-	for _, currentLog := range logs {
-		logData, err := p.contracts.idRegistry.ParseRegister(currentLog)
-		if err != nil {
-			return nil, 0, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster ID Registry]: %w", err))
-		}
-		newFIDs[logData.Id.Uint64()] = logData.To
-	}
-
-	log.Infow("saving blocks",
-		"count", len(newFIDs),
-		"logs", len(logs),
-		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
-		"took", time.Since(startTime).Seconds(),
-		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))
-
-	p.contracts.idRegistrySynced.Store(synced)
-
-	log.Debugf("found %d users registered in the id registry contract", len(newFIDs))
-
-	return newFIDs, lastBlock, synced, nil
-}
-
-// ScanLogsKeyRegistry scans the logs of the Farcaster Key Registry contract
-func (p *FarcasterProvider) ScanLogsKeyRegistry(ctx context.Context, fromBlock, toBlock uint64) (
-	map[uint64][][]byte, map[uint64][][]byte, uint64, bool, error,
-) {
-	startTime := time.Now()
-	logs, lastBlock, synced, err := web3.RangeOfLogs(
-		ctx,
-		p.client,
-		p.Address(FarcasterKeyRegistryType),
-		fromBlock,
-		toBlock,
-		web3.LOG_TOPIC_FARCASTER_ADDKEY,
-		web3.LOG_TOPIC_FARCASTER_REMOVEKEY,
-	)
-	if err != nil {
-		if !errors.Is(err, web3.ErrTooManyRequests) {
-			return nil, nil, 0, false, err
-		}
-		log.Debug("too many requests error, handling scanned logs")
-	}
-	addedKeys := make(map[uint64][][]byte, 0)
-	removedKeys := make(map[uint64][][]byte, 0)
-	for _, currentLog := range logs {
-		switch currentLog.Topics[0].Hex()[2:] {
-		case web3.LOG_TOPIC_FARCASTER_ADDKEY:
-			logData, err := p.contracts.keyRegistry.ParseAdd(currentLog)
-			if err != nil {
-				return nil, nil, 0, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster Key Registry]: %w", err))
-			}
-			// note that logData.Key is the Keccak256 of logData.KeyBytes because logData.Key is an indexed EVM event value
-			fid := logData.Fid.Uint64()
-			addedKeys[fid] = append(addedKeys[fid], logData.Key[:])
-		case web3.LOG_TOPIC_FARCASTER_REMOVEKEY:
-			logData, err := p.contracts.keyRegistry.ParseRemove(currentLog)
-			if err != nil {
-				return nil, nil, 0, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster Key Registry]: %w", err))
-			}
-			fid := logData.Fid.Uint64()
-			removedKeys[fid] = append(removedKeys[fid], logData.Key[:])
-		default:
-			return nil, nil, 0, false, fmt.Errorf("unknown log topic")
-		}
-	}
-	log.Infow("saving blocks",
-		"count", len(addedKeys)+len(removedKeys),
-		"logs", len(logs),
-		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
-		"took", time.Since(startTime).Seconds(),
-		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock),
-	)
-	p.contracts.keyRegistrySynced.Store(synced)
-	log.Debugf("found %d keys added for users registered in the key registry contract", len(addedKeys))
-	log.Debugf("found %d keys removed for users registered in the key registry contract", len(removedKeys))
-	return addedKeys, removedKeys, lastBlock, synced, nil
+	p.currentScannerHoldersMtx.Unlock()
+	resultingHolders := providers.CalcPartialHolders(currentScannerHolders, currentHolders)
+	return resultingHolders, uint64(len(resultingHolders)), p.contracts.lastBlock.Load(), isSynced, totalSupply, nil
 }
 
 // Close method is not implemented for Farcaster Key Registry.
 func (p *FarcasterProvider) Close() error {
+	p.cancelScanner()
 	return nil
 }
 
@@ -450,16 +317,6 @@ func (p *FarcasterProvider) CreationBlock(ctx context.Context, contractType []by
 	return p.keyRegistryCreationBlock(), nil
 }
 
-// IDRegistryCreationBlock returns the creation block of the Farcaster ID Registry
-func (p *FarcasterProvider) idRegistryCreationBlock() uint64 {
-	return idRegistryCreationBlock
-}
-
-// KeyRegistryCreationBlock returns the creation block of the Farcaster Key Registry
-func (p *FarcasterProvider) keyRegistryCreationBlock() uint64 {
-	return keyRegistryCreationBlock
-}
-
 // IconURI method is not implemented for Farcaster Key Registry tokens.
 func (p *FarcasterProvider) IconURI(_ []byte) (string, error) {
 	return "", nil
@@ -470,6 +327,248 @@ func (p *FarcasterProvider) IconURI(_ []byte) (string, error) {
 // returning the balances of the FID.
 func (p *FarcasterProvider) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
 	return nil, nil
+}
+
+// IDRegistryCreationBlock returns the creation block of the Farcaster ID Registry
+func (p *FarcasterProvider) idRegistryCreationBlock() uint64 {
+	return idRegistryCreationBlock
+}
+
+// KeyRegistryCreationBlock returns the creation block of the Farcaster Key Registry
+func (p *FarcasterProvider) keyRegistryCreationBlock() uint64 {
+	return keyRegistryCreationBlock
+}
+
+// initInternalScanner method initializes the internal scanner of the provider.
+// In each iteration, it launches a new scanIteration and sleeps for a while
+// before the next iteration. It also updates the last block scanned and the
+// sync vars of the provider.
+func (p *FarcasterProvider) initInternalScanner() {
+	for {
+		select {
+		case <-p.scannerCtx.Done():
+			return
+		default:
+			lastBlock, idrSynced, krSynced, err := p.scanIteration(p.scannerCtx)
+			if err != nil {
+				log.Errorf("error scanning iteration: %s", err.Error())
+				continue
+			}
+			p.contracts.lastBlock.Store(lastBlock)
+			log.Debugw("scanning iteration finished, sleeping...",
+				"lastBlock", lastBlock,
+				"idRegistrySynced", idrSynced,
+				"keyRegistrySynced", krSynced)
+			// if the IDRegistry and KeyRegistry are synced, sleep for 10 seconds
+			// before the next iteration
+			if idrSynced && krSynced {
+				time.Sleep(IterationSyncedCooldown)
+			} else {
+				time.Sleep(IterationCooldown)
+			}
+		}
+	}
+}
+
+// scanIteration method scans the logs of the Farcaster ID and Key Registries
+// contracts. It returns the last block scanned, if the ID Registry is synced,
+// if the Key Registry is synced and an error if it exists. It calls to
+// scanLogsIDRegistry and scanLogsKeyRegistry to get the logs of the contracts
+// and then it stores the new registered users and the added and removed app
+// keys in the database. It also updates the sync vars of the provider.
+func (p *FarcasterProvider) scanIteration(ctx context.Context) (uint64, bool, bool, error) {
+	isIDRegistrySynced := p.contracts.idRegistrySynced.Load()
+	isKeyRegistrySynced := p.contracts.keyRegistrySynced.Load()
+	// calculate the range of blocks to scan, by default take the last block
+	// scanned and scan to the latest block, calculate the latest block if the
+	// current last network block is not defined
+	fromBlock := p.contracts.lastBlock.Load()
+	toBlock := p.lastNetworkBlock.Load()
+	if toBlock == 0 {
+		var err error
+		toBlock, err = p.LatestBlockNumber(ctx, nil)
+		if err != nil {
+			return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
+				fmt.Errorf("cannot get latest block number %s", err.Error())
+		}
+	}
+	log.Infow("scan iteration",
+		"address IDRegistry", IdRegistryAddress,
+		"type", p.TypeName(),
+		"from", fromBlock,
+		"to", toBlock)
+	// read logs from the IDRegistry
+	// iterate scanning the logs in the range of blocks until the last block is reached
+	newRegisters, idrLastBlock, idrSynced, err := p.scanLogsIDRegistry(ctx, fromBlock, toBlock)
+	if err != nil {
+		if !errors.Is(err, web3.ErrTooManyRequests) {
+			return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
+				fmt.Errorf("cannot scan logs from IDRegistry %s", err.Error())
+		}
+		// if the error is about too many requests, sleep 30 seconds and
+		// return an error to retry
+		log.Debug("too many requests, sleeping for a while...")
+		time.Sleep(TooManyReqeustsTimeout)
+	}
+
+	// save new users registered on the database
+	// from the logs of the IDRegistry we can obtain the user FID and the custody and recovery addresses
+	if err := p.storeNewRegisteredUsers(ctx, newRegisters, fromBlock); err != nil {
+		return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
+			fmt.Errorf("cannot store new registered users into farcaster DB %s", err.Error())
+	}
+	// read the logs from the KeyRegistry
+	log.Infow("scan iteration",
+		"address KeyRegistry", KeyRegistryAddress,
+		"type", p.TypeName(),
+		"from", fromBlock,
+		"to", toBlock)
+	// iterate scanning the logs in the range of blocks until the last block is
+	// reached note that the scanning will be done using as toBlock the last
+	// block scanned that was returned by the IDRegistry scanning process, that
+	// way we can be sure that the KeyRegistry is synced with the IDRegistry
+	addedKeys, removedKeys, krLastBlock, krSynced, err := p.scanLogsKeyRegistry(ctx, fromBlock, idrLastBlock)
+	if err != nil {
+		if !errors.Is(err, web3.ErrTooManyRequests) {
+			return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
+				fmt.Errorf("cannot scan logs from KeyRegistry %s", err.Error())
+		}
+		// if the error is about too many requests, sleep 30 seconds and
+		// return an error to retry
+		log.Debug("too many requests, sleeping for a while...")
+		time.Sleep(TooManyReqeustsTimeout)
+	}
+	// at this point we have the new registered users, the added app keys and
+	// the removed ones
+
+	// get existing users from the database
+	fidList, err := p.db.QueriesRO.ListUsers(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
+			fmt.Errorf("cannot get users from farcaster DB %s", err.Error())
+	}
+	// add app keys to the database and get the added ones
+	if err := p.addAppKeys(ctx, fidList, addedKeys); err != nil {
+		return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
+			fmt.Errorf("cannot store new app keys %s", err.Error())
+	}
+	// remove app keys from the database on get the removed ones
+	if err := p.deleteAppKeys(ctx, fidList, removedKeys); err != nil {
+		return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
+			fmt.Errorf("cannot delete app keys %s", err.Error())
+	}
+	// update sync vars and the last block scanned in the provider database
+	p.contracts.idRegistrySynced.Store(idrSynced)
+	p.contracts.keyRegistrySynced.Store(krSynced)
+	if _, err := p.db.QueriesRW.SetLastBlock(ctx, queries.SetLastBlockParams{
+		Contract:    IdRegistryAddress,
+		BlockNumber: int64(idrLastBlock),
+	}); err != nil {
+		return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
+			fmt.Errorf("cannot update last block in farcaster DB %s", err.Error())
+	}
+	if _, err := p.db.QueriesRW.SetLastBlock(ctx, queries.SetLastBlockParams{
+		Contract:    KeyRegistryAddress,
+		BlockNumber: int64(krLastBlock),
+	}); err != nil {
+		return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
+			fmt.Errorf("cannot update last block in farcaster DB %s", err.Error())
+	}
+	// update the last block scanned with the smallest between the last block
+	// of the IDRegistry and the KeyRegistry
+	lastBlock := idrLastBlock
+	if krLastBlock < idrLastBlock {
+		lastBlock = krLastBlock
+	}
+	return lastBlock, idrSynced, krSynced, nil
+}
+
+// scanLogsIDRegistry scans the logs of the Farcaster ID Registry contract
+func (p *FarcasterProvider) scanLogsIDRegistry(ctx context.Context, fromBlock, toBlock uint64) (
+	map[uint64]common.Address, uint64, bool, error,
+) {
+	startTime := time.Now()
+	logs, lastBlock, synced, err := web3.RangeOfLogs(
+		ctx,
+		p.client,
+		p.Address(FarcasterIDRegistryType),
+		fromBlock,
+		toBlock,
+		web3.LOG_TOPIC_FARCASTER_REGISTER,
+	)
+	if err != nil && !errors.Is(err, web3.ErrTooManyRequests) {
+		return nil, fromBlock, false, err
+	}
+	// encode the number of new registers
+	newFIDs := make(map[uint64]common.Address, 0)
+	// iterate the logs and update the balances
+	for _, currentLog := range logs {
+		logData, err := p.contracts.idRegistry.ParseRegister(currentLog)
+		if err != nil {
+			return nil, 0, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster ID Registry]: %w", err))
+		}
+		newFIDs[logData.Id.Uint64()] = logData.To
+	}
+	log.Infow("saving blocks",
+		"count", len(newFIDs),
+		"logs", len(logs),
+		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
+		"took", time.Since(startTime).Seconds(),
+		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))
+	return newFIDs, lastBlock, synced, nil
+}
+
+// scanLogsKeyRegistry scans the logs of the Farcaster Key Registry contract
+func (p *FarcasterProvider) scanLogsKeyRegistry(ctx context.Context, fromBlock, toBlock uint64) (
+	map[uint64][][]byte, map[uint64][][]byte, uint64, bool, error,
+) {
+	startTime := time.Now()
+	logs, lastBlock, synced, err := web3.RangeOfLogs(
+		ctx,
+		p.client,
+		p.Address(FarcasterKeyRegistryType),
+		fromBlock,
+		toBlock,
+		web3.LOG_TOPIC_FARCASTER_ADDKEY,
+		web3.LOG_TOPIC_FARCASTER_REMOVEKEY,
+	)
+	if err != nil && !errors.Is(err, web3.ErrTooManyRequests) {
+		return nil, nil, 0, false, err
+	}
+	addedKeys := make(map[uint64][][]byte, 0)
+	removedKeys := make(map[uint64][][]byte, 0)
+	for _, currentLog := range logs {
+		switch currentLog.Topics[0].Hex()[2:] {
+		case web3.LOG_TOPIC_FARCASTER_ADDKEY:
+			logData, err := p.contracts.keyRegistry.ParseAdd(currentLog)
+			if err != nil {
+				return nil, nil, 0, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster Key Registry]: %w", err))
+			}
+			// note that logData.Key is the Keccak256 of logData.KeyBytes because logData.Key is an indexed EVM event value
+			fid := logData.Fid.Uint64()
+			addedKeys[fid] = append(addedKeys[fid], logData.Key[:])
+		case web3.LOG_TOPIC_FARCASTER_REMOVEKEY:
+			logData, err := p.contracts.keyRegistry.ParseRemove(currentLog)
+			if err != nil {
+				return nil, nil, 0, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster Key Registry]: %w", err))
+			}
+			fid := logData.Fid.Uint64()
+			removedKeys[fid] = append(removedKeys[fid], logData.Key[:])
+		default:
+			return nil, nil, 0, false, fmt.Errorf("unknown log topic")
+		}
+	}
+	log.Infow("saving blocks",
+		"count", len(addedKeys)+len(removedKeys),
+		"logs", len(logs),
+		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
+		"took", time.Since(startTime).Seconds(),
+		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock),
+	)
+	p.contracts.keyRegistrySynced.Store(synced)
+	log.Debugf("found %d keys added for users registered in the key registry contract", len(addedKeys))
+	log.Debugf("found %d keys removed for users registered in the key registry contract", len(removedKeys))
+	return addedKeys, removedKeys, lastBlock, synced, nil
 }
 
 func (p *FarcasterProvider) storeNewRegisteredUsers(
@@ -495,70 +594,4 @@ func (p *FarcasterProvider) storeNewRegisteredUsers(
 		return fmt.Errorf("cannot update farcaster DB %w", err)
 	}
 	return nil
-}
-
-func (p *FarcasterProvider) addAppKeys(
-	ctx context.Context, fidList []uint64, addedKeys map[uint64][][]byte,
-) (map[uint64][][]byte, error) {
-	if len(fidList) == 0 {
-		return nil, nil
-	}
-	ak := make(map[uint64][][]byte, 0)
-	for _, fid := range fidList {
-		keys, ok := addedKeys[fid]
-		if !ok {
-			continue
-		}
-		for _, key := range keys {
-			exists, err := p.db.QueriesRO.CheckFidAppKeyExists(ctx, queries.CheckFidAppKeyExistsParams{
-				Fid:    fid,
-				AppKey: key[:],
-			})
-			if err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, fmt.Errorf("cannot get fid app keys %w", err)
-			} else if exists {
-				continue
-			}
-			h := common.Hash{}
-			h.SetBytes(key)
-			// create ref for each fid and key on fid_appkeys table
-			if err := p.createFidAppKey(ctx, fid, h); err != nil {
-				return nil, fmt.Errorf("cannot create fid app key %w", err)
-			}
-			ak[fid] = append(ak[fid], key)
-		}
-	}
-	return ak, nil
-}
-
-func (p *FarcasterProvider) deleteAppKeys(
-	ctx context.Context, fidList []uint64, deletedKeys map[uint64][][]byte,
-) (map[uint64][][]byte, error) {
-	if len(fidList) == 0 {
-		return nil, nil
-	}
-	dk := make(map[uint64][][]byte, 0)
-	for _, fid := range fidList {
-		keys, ok := deletedKeys[fid]
-		if !ok {
-			continue
-		}
-		for _, key := range keys {
-			exists, err := p.db.QueriesRO.CheckFidAppKeyExists(ctx, queries.CheckFidAppKeyExistsParams{
-				Fid:    fid,
-				AppKey: key[:],
-			})
-			if err != nil && !errors.Is(err, sql.ErrNoRows) {
-				return nil, fmt.Errorf("cannot get fid app keys %w", err)
-			} else if exists {
-				h := common.Hash{}
-				h.SetBytes(key)
-				if err := p.deleteFidAppKey(ctx, fid, h); err != nil {
-					return nil, fmt.Errorf("cannot delete fid app key %w", err)
-				}
-				dk[fid] = append(dk[fid], key)
-			}
-		}
-	}
-	return dk, nil
 }

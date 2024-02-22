@@ -484,7 +484,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 	created, updated := 0, 0
 	for addr, balance := range holders {
 		// get the current token holder from the database
-		currentTokenHolder, err := qtx.GetTokenHolder(ctx, queries.GetTokenHolderParams{
+		currentTokenHolder, err := qtx.GetTokenHolderEvenZero(ctx, queries.GetTokenHolderEvenZeroParams{
 			TokenID:    token.Address.Bytes(),
 			ChainID:    token.ChainID,
 			ExternalID: token.ExternalID,
@@ -513,6 +513,11 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		currentBalance, ok := new(big.Int).SetString(currentTokenHolder.Balance, 10)
 		if !ok {
 			return fmt.Errorf("error parsing current token holder balance")
+		}
+		// if both balances are zero, continue with the next holder to prevent
+		// UNIQUES constraint errors
+		if balance.Cmp(big.NewInt(0)) == 0 && currentBalance.Cmp(big.NewInt(0)) == 0 {
+			continue
 		}
 		// calculate the new balance of the holder by adding the current balance
 		// and the new balance

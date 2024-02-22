@@ -13,6 +13,14 @@ WHERE token_id = ?
     AND external_id = ?
     AND balance > '0';
 
+-- name: GetTokenHolderEvenZero :one
+SELECT *
+FROM token_holders
+WHERE token_id = ? 
+    AND holder_id = ? 
+    AND chain_id = ?
+    AND external_id = ?;
+
 -- name: ExistTokenHolder :one
 SELECT EXISTS (
     SELECT holder_id 

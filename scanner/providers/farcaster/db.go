@@ -165,3 +165,65 @@ func (p *FarcasterProvider) deleteFidAppKey(
 	}
 	return nil
 }
+
+func (p *FarcasterProvider) addAppKeys(
+	ctx context.Context, fidList []uint64, addedKeys map[uint64][][]byte,
+) error {
+	if len(fidList) == 0 {
+		return nil
+	}
+	for _, fid := range fidList {
+		keys, ok := addedKeys[fid]
+		if !ok {
+			continue
+		}
+		for _, key := range keys {
+			exists, err := p.db.QueriesRO.CheckFidAppKeyExists(ctx, queries.CheckFidAppKeyExistsParams{
+				Fid:    fid,
+				AppKey: key[:],
+			})
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("cannot get fid app keys %w", err)
+			} else if exists {
+				continue
+			}
+			h := common.Hash{}
+			h.SetBytes(key)
+			// create ref for each fid and key on fid_appkeys table
+			if err := p.createFidAppKey(ctx, fid, h); err != nil {
+				return fmt.Errorf("cannot create fid app key %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (p *FarcasterProvider) deleteAppKeys(
+	ctx context.Context, fidList []uint64, deletedKeys map[uint64][][]byte,
+) error {
+	if len(fidList) == 0 {
+		return nil
+	}
+	for _, fid := range fidList {
+		keys, ok := deletedKeys[fid]
+		if !ok {
+			continue
+		}
+		for _, key := range keys {
+			exists, err := p.db.QueriesRO.CheckFidAppKeyExists(ctx, queries.CheckFidAppKeyExistsParams{
+				Fid:    fid,
+				AppKey: key[:],
+			})
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("cannot get fid app keys %w", err)
+			} else if exists {
+				h := common.Hash{}
+				h.SetBytes(key)
+				if err := p.deleteFidAppKey(ctx, fid, h); err != nil {
+					return fmt.Errorf("cannot delete fid app key %w", err)
+				}
+			}
+		}
+	}
+	return nil
+}

@@ -174,8 +174,8 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	p.synced.Store(synced)
 	totalSupply, err := p.TotalSupply(nil)
 	if err != nil {
-		return nil, newTransfers, lastBlock, false, big.NewInt(0),
-			errors.Join(ErrGettingTotalSupply, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+		log.Warn("error getting total supply, it will retry in the next iteration", "error", err)
+		return balances, newTransfers, lastBlock, synced, nil, nil
 	}
 	return balances, newTransfers, lastBlock, synced, totalSupply, nil
 }

@@ -137,8 +137,11 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	// is reached
 	startTime := time.Now()
 	logs, lastBlock, synced, err := RangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrTooManyRequests) {
 		return nil, 0, fromBlock, false, big.NewInt(0), err
+	}
+	if errors.Is(err, ErrTooManyRequests) {
+		log.Warnf("too many requests, the provider will continue in the next iteration from block %d", lastBlock)
 	}
 	// encode the number of new transfers
 	newTransfers := uint64(len(logs))

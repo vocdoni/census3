@@ -25,7 +25,7 @@ const (
 	getTokensTimeout   = time.Second * 20
 	createTokenTimeout = time.Second * 10
 	getTokenTimeout    = time.Second * 15
-	deleteTokenTimeout = time.Second * 60
+	deleteTokenTimeout = time.Minute * 5
 )
 
 const (

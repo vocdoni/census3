@@ -182,3 +182,8 @@ type GetStrategyHoldersResponse struct {
 	Holders    map[string]string `json:"holders"`
 	Pagination *Pagination       `json:"pagination"`
 }
+
+type DeleteTokenQueueResponse struct {
+	Done  bool  `json:"done"`
+	Error error `json:"error"`
+}

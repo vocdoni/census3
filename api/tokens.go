@@ -36,7 +36,11 @@ func (capi *census3API) initTokenHandlers() error {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}", "DELETE",
-		api.MethodAccessTypeAdmin, capi.deleteToken); err != nil {
+		api.MethodAccessTypeAdmin, capi.launchDeleteToken); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/queue/{queueID}", "GET",
+		api.MethodAccessTypeAdmin, capi.enqueueDeleteToken); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/holders/{holderID}", "GET",
@@ -326,11 +330,90 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 
-// deleteToken function handler deletes the token with the given ID from the
-// database. It returns a 400 error if the provided ID is wrong or empty, a 404
-// error if the token is not found or a 500 error if something fails. This
-// endpoint is protected for admin.
-func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+// deleteToken function deletes the token with the given ID from the database.
+// It first checks if the token exists in the database and then deletes it. It
+// also deletes the strategies and token holders associated with the token. It
+// returns a 404 error if the token is not found or a 500 error if something
+// fails.
+func (capi *census3API) deleteToken(address common.Address, chainID uint64, externalID string) error {
+	internalCtx, cancel := context.WithTimeout(context.Background(), deleteTokenTimeout)
+	defer cancel()
+	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetTokens.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Errorw(err, "error rolling back tokens transaction")
+		}
+	}()
+	qtx := capi.db.QueriesRO.WithTx(tx)
+	// check if the token exists in the database
+	if _, err := qtx.ExistsAndUnique(internalCtx, queries.ExistsAndUniqueParams{
+		ID:         address.Bytes(),
+		ChainID:    chainID,
+		ExternalID: externalID,
+	}); err != nil {
+		return ErrNotFoundToken.WithErr(err)
+	}
+	// delete the token holders
+	if _, err := qtx.DeleteTokenHolder(internalCtx, queries.DeleteTokenHolderParams{
+		TokenID:    address.Bytes(),
+		ChainID:    chainID,
+		ExternalID: externalID,
+	}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	// delete strategies tokens
+	if _, err := qtx.DeleteStrategyTokensByToken(internalCtx,
+		queries.DeleteStrategyTokensByTokenParams{
+			TokenID:    address.Bytes(),
+			ChainID:    chainID,
+			ExternalID: externalID,
+		}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	// delete its strategies
+	res, err := qtx.DeleteStrategiesByToken(internalCtx, queries.DeleteStrategiesByTokenParams{
+		TokenID:    address.Bytes(),
+		ChainID:    chainID,
+		ExternalID: externalID,
+	})
+	if err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	deletedStrategies, err := res.RowsAffected()
+	if err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	currentStrategies := internal.TotalNumberOfStrategies.Get()
+	if uDeletedStrategies := uint64(deletedStrategies); currentStrategies > uDeletedStrategies {
+		currentStrategies -= uDeletedStrategies
+	} else {
+		currentStrategies = 0
+	}
+	// delete the token
+	if _, err := qtx.DeleteToken(internalCtx, queries.DeleteTokenParams{
+		ID:         address.Bytes(),
+		ChainID:    chainID,
+		ExternalID: externalID,
+	}); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	if err := tx.Commit(); err != nil {
+		return ErrCantDeleteToken.WithErr(err)
+	}
+	// update metrics
+	internal.TotalNumberOfTokens.Dec()
+	internal.TotalNumberOfStrategies.Set(currentStrategies)
+	return nil
+}
+
+// launchDeleteToken function handler deletes the token with the given ID from
+// the database. The delete process is executed in background so a queue ID is
+// returned to track the status of the process. It returns a 400 error if the
+// provided inputs are wrong or empty or a 500 error if something fails.
+func (capi *census3API) launchDeleteToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get contract address from the tokenID query param and decode check if
 	// it is provided, if not return an error
 	strAddress := ctx.URLParam("tokenID")
@@ -353,77 +436,55 @@ func (capi *census3API) deleteToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// get externalID from query params and decode it as string, it is optional
 	// so if it's not provided continue
 	externalID := ctx.Request.URL.Query().Get("externalID")
-	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), deleteTokenTimeout)
-	defer cancel()
-	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
-	if err != nil {
-		return ErrCantGetTokens.WithErr(err)
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
-			log.Errorw(err, "error rolling back tokens transaction")
+	// enqueue the delete token process
+	queueID := capi.queue.Enqueue()
+	go func() {
+		// delete the token from the database, if something fails update the
+		// queue process with the error
+		if err := capi.deleteToken(address, uint64(chainID), externalID); err != nil {
+			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+				log.Errorf("error updating delete token queue process with error: %v", err)
+			}
+			return
+		}
+		// update the queue process with the result
+		if ok := capi.queue.Update(queueID, true, nil, nil); !ok {
+			log.Errorf("error updating delete token queue process with error: %v", err)
 		}
 	}()
-	qtx := capi.db.QueriesRO.WithTx(tx)
-	// check if the token exists in the database
-	if _, err := qtx.ExistsAndUnique(internalCtx, queries.ExistsAndUniqueParams{
-		ID:         address.Bytes(),
-		ChainID:    uint64(chainID),
-		ExternalID: externalID,
-	}); err != nil {
-		return ErrNotFoundToken.WithErr(err)
-	}
-	// delete the token holders
-	if _, err := qtx.DeleteTokenHolder(internalCtx, queries.DeleteTokenHolderParams{
-		TokenID:    address.Bytes(),
-		ChainID:    uint64(chainID),
-		ExternalID: externalID,
-	}); err != nil {
-		return ErrCantDeleteToken.WithErr(err)
-	}
-	// delete strategies tokens
-	if _, err := qtx.DeleteStrategyTokensByToken(internalCtx,
-		queries.DeleteStrategyTokensByTokenParams{
-			TokenID:    address.Bytes(),
-			ChainID:    uint64(chainID),
-			ExternalID: externalID,
-		}); err != nil {
-		return ErrCantDeleteToken.WithErr(err)
-	}
-	// delete its strategies
-	res, err := qtx.DeleteStrategiesByToken(internalCtx, queries.DeleteStrategiesByTokenParams{
-		TokenID:    address.Bytes(),
-		ChainID:    uint64(chainID),
-		ExternalID: externalID,
+	// encoding the result and response it
+	res, err := json.Marshal(QueueResponse{
+		QueueID: queueID,
 	})
 	if err != nil {
-		return ErrCantDeleteToken.WithErr(err)
+		return ErrEncodeCensus.WithErr(err)
 	}
-	deletedStrategies, err := res.RowsAffected()
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// enqueueDeleteToken function handler returns the status of the delete token
+// process with the given queue ID. It returns a 400 error if the provided ID is
+// wrong or empty, a 404 error if the token is not found in the queue or a 500
+// error if something fails.
+func (capi *census3API) enqueueDeleteToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	queueID := ctx.URLParam("queueID")
+	if queueID == "" {
+		return ErrMalformedCensusQueueID
+	}
+	// try to get and check if the census is in the queue
+	exists, done, _, err := capi.queue.Done(queueID)
+	if !exists {
+		return ErrNotFoundToken.Withf("the ID %s does not exist in the queue", queueID)
+	}
+	status := &DeleteTokenQueueResponse{
+		Done:  done,
+		Error: err,
+	}
+	response, err := json.Marshal(status)
 	if err != nil {
 		return ErrCantDeleteToken.WithErr(err)
 	}
-	currentStrategies := internal.TotalNumberOfStrategies.Get()
-	if uDeletedStrategies := uint64(deletedStrategies); currentStrategies > uDeletedStrategies {
-		currentStrategies -= uDeletedStrategies
-	} else {
-		currentStrategies = 0
-	}
-	// delete the token
-	if _, err := qtx.DeleteToken(internalCtx, queries.DeleteTokenParams{
-		ID:         address.Bytes(),
-		ChainID:    uint64(chainID),
-		ExternalID: externalID,
-	}); err != nil {
-		return ErrCantDeleteToken.WithErr(err)
-	}
-	if err := tx.Commit(); err != nil {
-		return ErrCantDeleteToken.WithErr(err)
-	}
-	// update metrics
-	internal.TotalNumberOfTokens.Dec()
-	internal.TotalNumberOfStrategies.Set(currentStrategies)
-	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
+	return ctx.Send(response, api.HTTPstatusOK)
 }
 
 // getToken function handler returns the information of the given token address

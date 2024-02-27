@@ -16,7 +16,7 @@ var DefaultNetworkEndpoint = &NetworkEndpoint{
 	ChainID:   5,
 	Name:      "Goerli",
 	ShortName: "gor",
-	URIs:      []string{"https://eth-goerli.api.onfinality.io/public"},
+	URIs:      []string{"https://rpc.ankr.com/eth_goerli"},
 }
 
 const (

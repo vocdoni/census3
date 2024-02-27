@@ -329,6 +329,12 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	internal.NewStrategiesByTime.Update(1)
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
+
+// deleteToken function deletes the token with the given ID from the database.
+// It first checks if the token exists in the database and then deletes it. It
+// also deletes the strategies and token holders associated with the token. It
+// returns a 404 error if the token is not found or a 500 error if something
+// fails.
 func (capi *census3API) deleteToken(address common.Address, chainID uint64, externalID string) error {
 	internalCtx, cancel := context.WithTimeout(context.Background(), deleteTokenTimeout)
 	defer cancel()
@@ -403,10 +409,10 @@ func (capi *census3API) deleteToken(address common.Address, chainID uint64, exte
 	return nil
 }
 
-// launchDeleteToken function handler deletes the token with the given ID from the
-// database. It returns a 400 error if the provided ID is wrong or empty, a 404
-// error if the token is not found or a 500 error if something fails. This
-// endpoint is protected for admin.
+// launchDeleteToken function handler deletes the token with the given ID from
+// the database. The delete process is executed in background so a queue ID is
+// returned to track the status of the process. It returns a 400 error if the
+// provided inputs are wrong or empty or a 500 error if something fails.
 func (capi *census3API) launchDeleteToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get contract address from the tokenID query param and decode check if
 	// it is provided, if not return an error
@@ -456,6 +462,10 @@ func (capi *census3API) launchDeleteToken(msg *api.APIdata, ctx *httprouter.HTTP
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// enqueueDeleteToken function handler returns the status of the delete token
+// process with the given queue ID. It returns a 400 error if the provided ID is
+// wrong or empty, a 404 error if the token is not found in the queue or a 500
+// error if something fails.
 func (capi *census3API) enqueueDeleteToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	queueID := ctx.URLParam("queueID")
 	if queueID == "" {

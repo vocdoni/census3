@@ -440,7 +440,8 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
-			log.Error(err)
+			log.Errorf("error rolling back tx: %v, token=%s chainID=%d externalID=%s",
+				err, token.Address.Hex(), token.ChainID, token.ExternalID)
 		}
 	}()
 	qtx := s.db.QueriesRW.WithTx(tx)
@@ -539,11 +540,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		}
 		updated++
 	}
-	// close the database tx and commit it
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	log.Debugw("token holders saved",
+	log.Debugw("committing token holders",
 		"token", token.Address.Hex(),
 		"chainID", token.ChainID,
 		"externalID", token.ExternalID,
@@ -551,6 +548,10 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		"synced", token.Synced,
 		"created", created,
 		"updated", updated)
+	// close the database tx and commit it
+	if err := tx.Commit(); err != nil {
+		return err
+	}
 	return nil
 }
 

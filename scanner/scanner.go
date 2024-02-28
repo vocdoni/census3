@@ -540,7 +540,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		}
 		updated++
 	}
-	log.Debugw("commiting token holders",
+	log.Debugw("committing token holders",
 		"token", token.Address.Hex(),
 		"chainID", token.ChainID,
 		"externalID", token.ExternalID,

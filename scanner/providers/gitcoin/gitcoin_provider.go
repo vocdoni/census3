@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,7 +25,6 @@ import (
 )
 
 const (
-	dateLayout      = "2006-01-02T15:04:05.999Z"
 	hexAddress      = "0x000000000000000000000000000000000000006C"
 	gitcoinSymbol   = "GPS"
 	gitcoinName     = "Gitcoin Passport Score"
@@ -37,15 +35,6 @@ const (
 	saveScoreTimeout = time.Second * 10
 )
 
-type gitcoinScoreResult struct {
-	Passport struct {
-		Address string `json:"address"`
-	} `json:"passport"`
-	Score       string         `json:"score"`
-	StampScores map[string]any `json:"stamp_scores"`
-	Date        string         `json:"last_score_timestamp"`
-}
-
 type GitcoinPassport struct {
 	// public endpoint to download the json
 	apiEndpoint string
@@ -54,7 +43,7 @@ type GitcoinPassport struct {
 	db         *db.DB
 	ctx        context.Context
 	cancel     context.CancelFunc
-	scoresChan chan *gitcoinScoreResult
+	scoresChan chan *GitcoinScore
 	waiter     *sync.WaitGroup
 	synced     *atomic.Bool
 	// internal vars to manage the balances
@@ -92,7 +81,7 @@ func (g *GitcoinPassport) Init(iconf any) error {
 	g.db = conf.DB
 	// init download variables
 	g.ctx, g.cancel = context.WithCancel(context.Background())
-	g.scoresChan = make(chan *gitcoinScoreResult)
+	g.scoresChan = make(chan *GitcoinScore)
 	g.waiter = new(sync.WaitGroup)
 	g.synced = new(atomic.Bool)
 	g.synced.Store(false)
@@ -216,17 +205,11 @@ func (g *GitcoinPassport) ChainID() uint64 {
 }
 
 // Name returns the name of the Gitcoin Passport contract. If a stamp is
-// provided, check if it exists and if so, compose the name with it.
+// provided, compose the name with it.
 func (g *GitcoinPassport) Name(stamp []byte) (string, error) {
 	if len(stamp) > 0 {
-		// if stamp is provided, check that it exists
-		ctx, cancel := context.WithTimeout(context.Background(), symbolTimeout)
-		defer cancel()
-		// if the stamp does not exists, return an error
-		if exists, err := g.db.QueriesRO.ExistsStamp(ctx, string(stamp)); err != nil || !exists {
-			return "", fmt.Errorf("error parsing stamp provided")
-		}
-		// if it exists, format token name like gitcoinName:stamp
+		// if a stamp name is provided, compose following the format:
+		//   stamp gitcoinName
 		return fmt.Sprintf("%s %s", string(stamp), gitcoinName), nil
 	}
 	// if no stamp is provided, return the base gitcoin passport symbol
@@ -234,17 +217,11 @@ func (g *GitcoinPassport) Name(stamp []byte) (string, error) {
 }
 
 // Symbol returns the symbol of the Gitcoin Passport contract. If a stamp is
-// provided, check if it exists and if so, compose the symbol with it.
+// provided, compose the symbol with it.
 func (g *GitcoinPassport) Symbol(stamp []byte) (string, error) {
 	if len(stamp) > 0 {
-		// if stamp is provided, check that it exists
-		ctx, cancel := context.WithTimeout(context.Background(), symbolTimeout)
-		defer cancel()
-		// if the stamp does not exists, return an error
-		if exists, err := g.db.QueriesRO.ExistsStamp(ctx, string(stamp)); err != nil || !exists {
-			return "", fmt.Errorf("error parsing stamp provided")
-		}
-		// if it exists, format token symbol like gitcoinSymbol:stamp
+		/// if a stamp name is provided, compose following the format:
+		//   gitcoinSymbol:stamp
 		return fmt.Sprintf("%s:%s", gitcoinSymbol, string(stamp)), nil
 	}
 	// if no stamp is provided, return the base gitcoin passport symbol
@@ -279,6 +256,9 @@ func (g *GitcoinPassport) TotalSupply(stamp []byte) (*big.Int, error) {
 
 	totalSupply := big.NewInt(0)
 	for _, score := range totalSupplyScores {
+		if score == "" {
+			continue
+		}
 		bScore, ok := new(big.Int).SetString(string(score), 10)
 		if !ok {
 			return nil, fmt.Errorf("error parsing score from database")
@@ -420,30 +400,23 @@ func (g *GitcoinPassport) updateScores() error {
 				"elapsed", time.Since(elapsed).Seconds())
 		}
 		// parse the line
-		score := &gitcoinScoreResult{}
+		score := &GitcoinScore{}
 		if err := json.Unmarshal(scanner.Bytes(), score); err != nil {
 			if strings.Contains(err.Error(), "unexpected end of JSON input") {
 				return fmt.Errorf("%v: if the process has been stopped manually, ignore this error", err)
 			}
 			return fmt.Errorf("error parsing json: %w", err)
 		}
-		// if the score is greater than 0 store it
-		if score.Score != "" && score.Score != "0E-9" {
-			addr := common.HexToAddress(score.Passport.Address)
-			fBalance, err := strconv.ParseFloat(score.Score, 64)
+		// if the score is greater than 0 and the evidence is valid, store it
+		if score.Valid() {
+			date, err := score.Timestamp()
 			if err != nil {
-				return fmt.Errorf("error parsing score: %w", err)
+				return fmt.Errorf("error parsing date: %w", err)
 			}
-			if fBalance != 0 {
-				date, err := time.Parse(dateLayout, score.Date)
-				if err != nil {
-					return fmt.Errorf("error parsing date: %w", err)
-				}
-				if lastUpdate, exists := lastBalancesUpdates[addr]; !exists || date.After(lastUpdate) {
-					g.scoresChan <- score
-					validBalances++
-					lastBalancesUpdates[addr] = date
-				}
+			if lastUpdate, exists := lastBalancesUpdates[score.Address()]; !exists || date.After(lastUpdate) {
+				g.scoresChan <- score
+				validBalances++
+				lastBalancesUpdates[score.Address()] = date
 			}
 		}
 	}
@@ -454,7 +427,7 @@ func (g *GitcoinPassport) updateScores() error {
 	return nil
 }
 
-func (g *GitcoinPassport) saveScore(score *gitcoinScoreResult) error {
+func (g *GitcoinPassport) saveScore(score *GitcoinScore) error {
 	internalCtx, cancel := context.WithTimeout(g.ctx, saveScoreTimeout)
 	defer cancel()
 	// create a db tx to store the score
@@ -468,14 +441,16 @@ func (g *GitcoinPassport) saveScore(score *gitcoinScoreResult) error {
 		}
 	}()
 	qtx := g.db.QueriesRW.WithTx(tx)
-	// parse address and balance
-	address := common.HexToAddress(score.Passport.Address)
-	fBalance, err := strconv.ParseFloat(score.Score, 64)
-	if err != nil {
-		return fmt.Errorf("error parsing score: %w", err)
+	// parse address, balance and stamps
+	dbAddress := annotations.Address(score.Address().String())
+	balance := score.Score()
+	if balance == nil {
+		return fmt.Errorf("error parsing balance")
 	}
-	dbAddress := annotations.Address(address.String())
-	balance := big.NewInt(int64(fBalance))
+	stamps, err := score.Stamps()
+	if err != nil {
+		return fmt.Errorf("error parsing stamps: %w", err)
+	}
 	// get the current score, if it does not exist create it and its stamps
 	currentScore, err := qtx.GetScore(internalCtx, dbAddress)
 	if err != nil {
@@ -489,24 +464,13 @@ func (g *GitcoinPassport) saveScore(score *gitcoinScoreResult) error {
 		}); err != nil {
 			return fmt.Errorf("error creating score: %w", err)
 		}
-		for name, stampScore := range score.StampScores {
-			fStampScore, err := parseFloat(stampScore)
-			if err != nil {
-				log.Warnw("error parsing stamp score",
-					"error", err.Error(),
-					"score", stampScore,
-					"address", address.String(),
-					"name", name)
-				continue
-			}
-			if stampBalance := big.NewInt(int64(fStampScore)); stampBalance.Cmp(big.NewInt(0)) == 1 {
-				if _, err := qtx.NewStampScore(internalCtx, queries.NewStampScoreParams{
-					Address: dbAddress,
-					Name:    name,
-					Score:   annotations.BigInt(stampBalance.String()),
-				}); err != nil {
-					return fmt.Errorf("error creating stamp: %w", err)
-				}
+		for name, stampScore := range stamps {
+			if _, err := qtx.NewStampScore(internalCtx, queries.NewStampScoreParams{
+				Address: dbAddress,
+				Name:    name,
+				Score:   annotations.BigInt(stampScore.String()),
+			}); err != nil {
+				return fmt.Errorf("error creating stamp: %w", err)
 			}
 		}
 		g.lastInsert.Store(time.Now().Unix())
@@ -526,39 +490,17 @@ func (g *GitcoinPassport) saveScore(score *gitcoinScoreResult) error {
 		return fmt.Errorf("error deleting stamps: %w", err)
 	}
 	// add the current stamps
-	for name, stampScore := range score.StampScores {
-		fStampScore, err := parseFloat(stampScore)
-		if err != nil {
-			log.Warnw("error parsing stamp score",
-				"error", err.Error(),
-				"score", stampScore,
-				"address", address.String(),
-				"name", name)
-			continue
-		}
-		if stampBalance := big.NewInt(int64(fStampScore)); stampBalance.Cmp(big.NewInt(0)) == 1 {
-			if _, err := qtx.NewStampScore(internalCtx, queries.NewStampScoreParams{
-				Address: dbAddress,
-				Name:    name,
-				Score:   annotations.BigInt(fmt.Sprint(int64(fStampScore))),
-			}); err != nil {
-				return fmt.Errorf("error creating stamp: %w", err)
-			}
+	for name, stampScore := range stamps {
+		if _, err := qtx.NewStampScore(internalCtx, queries.NewStampScoreParams{
+			Address: dbAddress,
+			Name:    name,
+			Score:   annotations.BigInt(stampScore.String()),
+		}); err != nil {
+			return fmt.Errorf("error creating stamp: %w", err)
 		}
 	}
 	g.lastInsert.Store(time.Now().Unix())
 	return tx.Commit()
-}
-
-func parseFloat(input any) (float64, error) {
-	switch value := input.(type) {
-	case string:
-		return strconv.ParseFloat(value, 64)
-	case float64:
-		return value, nil
-	default:
-		return 0, fmt.Errorf("invalid type")
-	}
 }
 
 // CensusKeys method returns the holders and balances provided transformed.

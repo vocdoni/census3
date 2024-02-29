@@ -11,8 +11,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/internal"
-	"github.com/vocdoni/census3/internal/roundedcensus"
+	"github.com/vocdoni/census3/helpers/roundedcensus"
+	"github.com/vocdoni/census3/metrics"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
@@ -224,9 +224,9 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	// update metrics
-	internal.TotalNumberOfCensuses.Inc()
-	internal.NumberOfCensusesByType.GetOrCreateCounter(fmt.Sprintf("%s%d",
-		internal.NumberOfCensusesByTypePrefix, censusType,
+	metrics.TotalNumberOfCensuses.Inc()
+	metrics.NumberOfCensusesByType.GetOrCreateCounter(fmt.Sprintf("%s%d",
+		metrics.NumberOfCensusesByTypePrefix, censusType,
 	)).Inc()
 	return newCensusID, nil
 }

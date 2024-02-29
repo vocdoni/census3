@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/internal/lexer"
+	"github.com/vocdoni/census3/helpers/lexer"
 )
 
 const (

@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/internal"
-	"github.com/vocdoni/census3/internal/lexer"
+	"github.com/vocdoni/census3/helpers/lexer"
+	"github.com/vocdoni/census3/metrics"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/httprouter"
@@ -323,10 +323,10 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrCantGetToken.WithErr(err)
 	}
 	// update metrics
-	internal.TotalNumberOfTokens.Inc()
-	internal.NewTokensByTime.Update(1)
-	internal.TotalNumberOfStrategies.Inc()
-	internal.NewStrategiesByTime.Update(1)
+	metrics.TotalNumberOfTokens.Inc()
+	metrics.NewTokensByTime.Update(1)
+	metrics.TotalNumberOfStrategies.Inc()
+	metrics.NewStrategiesByTime.Update(1)
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 
@@ -386,7 +386,7 @@ func (capi *census3API) deleteToken(address common.Address, chainID uint64, exte
 	if err != nil {
 		return ErrCantDeleteToken.WithErr(err)
 	}
-	currentStrategies := internal.TotalNumberOfStrategies.Get()
+	currentStrategies := metrics.TotalNumberOfStrategies.Get()
 	if uDeletedStrategies := uint64(deletedStrategies); currentStrategies > uDeletedStrategies {
 		currentStrategies -= uDeletedStrategies
 	} else {
@@ -404,8 +404,8 @@ func (capi *census3API) deleteToken(address common.Address, chainID uint64, exte
 		return ErrCantDeleteToken.WithErr(err)
 	}
 	// update metrics
-	internal.TotalNumberOfTokens.Dec()
-	internal.TotalNumberOfStrategies.Set(currentStrategies)
+	metrics.TotalNumberOfTokens.Dec()
+	metrics.TotalNumberOfStrategies.Set(currentStrategies)
 	return nil
 }
 

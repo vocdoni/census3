@@ -445,42 +445,6 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		}
 	}()
 	qtx := s.db.QueriesRW.WithTx(tx)
-	tokenInfo, err := qtx.GetToken(internalCtx,
-		queries.GetTokenParams{
-			ID:         token.Address.Bytes(),
-			ChainID:    token.ChainID,
-			ExternalID: token.ExternalID,
-		})
-	if err != nil {
-		return err
-	}
-	// update the balance synced status and last block in the database
-	_, err = qtx.UpdateTokenStatus(internalCtx, queries.UpdateTokenStatusParams{
-		ID:                token.Address.Bytes(),
-		ChainID:           token.ChainID,
-		ExternalID:        token.ExternalID,
-		Synced:            synced,
-		LastBlock:         int64(lastBlock),
-		AnalysedTransfers: tokenInfo.AnalysedTransfers + int64(newTransfers),
-		TotalSupply:       annotations.BigInt(token.totalSupply.String()),
-	})
-	if err != nil {
-		return err
-	}
-	log.Debugw("token status saved",
-		"synced", synced,
-		"token", token.Address.Hex(),
-		"chainID", token.ChainID,
-		"externalID", token.ExternalID,
-		"totalSupply", token.totalSupply.String(),
-		"block", lastBlock)
-	if len(holders) == 0 {
-		log.Debugw("no holders to save, skipping...",
-			"token", token.Address.Hex(),
-			"chainID", token.ChainID,
-			"externalID", token.ExternalID)
-		return tx.Commit()
-	}
 	// create, update or delete token holders
 	created, updated := 0, 0
 	for addr, balance := range holders {
@@ -540,14 +504,54 @@ func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
 		}
 		updated++
 	}
-	log.Debugw("committing token holders",
+	// print the number of created and updated token holders if there are any,
+	// else, print that there are no holders to save
+	if len(holders) == 0 {
+		log.Debugw("no holders to save",
+			"token", token.Address.Hex(),
+			"chainID", token.ChainID,
+			"externalID", token.ExternalID)
+	} else {
+		log.Debugw("committing token holders",
+			"token", token.Address.Hex(),
+			"chainID", token.ChainID,
+			"externalID", token.ExternalID,
+			"block", token.LastBlock,
+			"synced", token.Synced,
+			"created", created,
+			"updated", updated)
+	}
+	// get the token info from the database to update ir
+	tokenInfo, err := qtx.GetToken(internalCtx,
+		queries.GetTokenParams{
+			ID:         token.Address.Bytes(),
+			ChainID:    token.ChainID,
+			ExternalID: token.ExternalID,
+		})
+	if err != nil {
+		return err
+	}
+	// update the synced status, last block, the number of analysed transfers
+	// (for debug) and the total supply in the database
+	_, err = qtx.UpdateTokenStatus(internalCtx, queries.UpdateTokenStatusParams{
+		ID:                token.Address.Bytes(),
+		ChainID:           token.ChainID,
+		ExternalID:        token.ExternalID,
+		Synced:            synced,
+		LastBlock:         int64(lastBlock),
+		AnalysedTransfers: tokenInfo.AnalysedTransfers + int64(newTransfers),
+		TotalSupply:       annotations.BigInt(token.totalSupply.String()),
+	})
+	if err != nil {
+		return err
+	}
+	log.Debugw("token status saved",
+		"synced", synced,
 		"token", token.Address.Hex(),
 		"chainID", token.ChainID,
 		"externalID", token.ExternalID,
-		"block", token.LastBlock,
-		"synced", token.Synced,
-		"created", created,
-		"updated", updated)
+		"totalSupply", token.totalSupply.String(),
+		"block", lastBlock)
 	// close the database tx and commit it
 	if err := tx.Commit(); err != nil {
 		return err

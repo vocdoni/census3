@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gocid "github.com/ipfs/go-cid"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/internal"
-	"github.com/vocdoni/census3/internal/lexer"
-	"github.com/vocdoni/census3/internal/roundedcensus"
-	"github.com/vocdoni/census3/internal/strategyoperators"
+	"github.com/vocdoni/census3/helpers/lexer"
+	"github.com/vocdoni/census3/helpers/roundedcensus"
+	"github.com/vocdoni/census3/helpers/strategyoperators"
+	"github.com/vocdoni/census3/metrics"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -276,8 +276,8 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 		return ErrCantCreateStrategy.WithErr(err)
 	}
 	// update metrics
-	internal.TotalNumberOfStrategies.Inc()
-	internal.NewStrategiesByTime.Update(1)
+	metrics.TotalNumberOfStrategies.Inc()
+	metrics.NewStrategiesByTime.Update(1)
 	response, err := json.Marshal(map[string]any{"strategyID": strategyID})
 	if err != nil {
 		return ErrEncodeStrategy.WithErr(err)
@@ -427,8 +427,8 @@ func (capi *census3API) importStrategyDump(ipfsURI string, dump []byte) (uint64,
 	if err := tx.Commit(); err != nil {
 		return 0, ErrCantCreateStrategy.WithErr(err)
 	}
-	internal.TotalNumberOfStrategies.Inc()
-	internal.NewStrategiesByTime.Update(1)
+	metrics.TotalNumberOfStrategies.Inc()
+	metrics.NewStrategiesByTime.Update(1)
 	return uint64(strategyID), nil
 }
 

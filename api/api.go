@@ -15,7 +15,7 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/internal/queue"
+	"github.com/vocdoni/census3/helpers/queue"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"

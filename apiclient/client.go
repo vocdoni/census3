@@ -112,11 +112,8 @@ func (c *HTTPclient) Request(method string, jsonBody any, urlPath ...string) ([]
 			"Content-Type":  []string{"application/json"},
 		}
 	}
-
 	log.Debugw("http request", "type", method, "path", u.Path, "body", jsonBody)
-	var resp *http.Response
-
-	resp, err = c.c.Do(&http.Request{
+	resp, err := c.c.Do(&http.Request{
 		Method: method,
 		URL:    u,
 		Header: headers,
@@ -127,7 +124,6 @@ func (c *HTTPclient) Request(method string, jsonBody any, urlPath ...string) ([]
 			return io.NopCloser(bytes.NewBuffer(body))
 		}(),
 	})
-
 	if err != nil {
 		return nil, 0, err
 	}

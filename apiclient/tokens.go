@@ -9,11 +9,12 @@ import (
 	"net/http"
 
 	"github.com/vocdoni/census3/api"
+	"go.vocdoni.io/dvote/log"
 )
 
 // GetTokens method returns a list of tokens from the API, it accepts a
 // pageSize, nextCursor and prevCursor. If the pageSize is -1 and cursors are
-// empty, it will return all the tokens. If somethign goes wrong, it will return
+// empty, it will return all the tokens. If something goes wrong, it will return
 // an error.
 func (c *HTTPclient) GetTokens(pageSize int, nextCursor, prevCursor string) ([]*api.GetTokensItemResponse, error) {
 	// construct the URL to the API with the pageSize, nextCursor and prevCursor
@@ -32,7 +33,11 @@ func (c *HTTPclient) GetTokens(pageSize int, nextCursor, prevCursor string) ([]*
 	if err != nil {
 		return nil, errors.Join(ErrMakingRequest, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
@@ -67,7 +72,11 @@ func (c *HTTPclient) GetToken(tokenID string, chainID uint64, externalID string)
 	if err != nil {
 		return nil, errors.Join(ErrMakingRequest, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
@@ -108,7 +117,11 @@ func (c *HTTPclient) CreateToken(token *api.CreateTokenRequest) error {
 	if err != nil {
 		return errors.Join(ErrMakingRequest, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusCreated {
 		return errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
@@ -140,7 +153,11 @@ func (c *HTTPclient) DeleteToken(tokenID string, chainID uint64, externalID stri
 	if err != nil {
 		return "", fmt.Errorf("error making DELETE request: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return "", errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
@@ -156,7 +173,9 @@ func (c *HTTPclient) DeleteToken(tokenID string, chainID uint64, externalID stri
 // in the API, it accepts the tokenID, queueID, chainID and externalID. If
 // something goes wrong, it will return an error. It returns the delete queue
 // response.
-func (c *HTTPclient) DeleteTokenQueue(tokenID string, chainID uint64, externalID, queueID string) (*api.DeleteTokenQueueResponse, error) {
+func (c *HTTPclient) DeleteTokenQueue(tokenID string, chainID uint64, externalID,
+	queueID string,
+) (*api.DeleteTokenQueueResponse, error) {
 	// construct the URL to the API with the tokenID, queueID, chainID and
 	// externalID provided
 	endpoint := fmt.Sprintf(DeleteTokenQueueURI, tokenID, queueID, chainID, externalID)
@@ -174,7 +193,11 @@ func (c *HTTPclient) DeleteTokenQueue(tokenID string, chainID uint64, externalID
 	if err != nil {
 		return nil, fmt.Errorf("error making DELETE request: %v", err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
@@ -207,7 +230,11 @@ func (c *HTTPclient) GetTokenHolder(tokenID string, chainID uint64, externalID, 
 	if err != nil {
 		return nil, errors.Join(ErrMakingRequest, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
@@ -242,7 +269,11 @@ func (c *HTTPclient) GetTokenTypes() ([]string, error) {
 	if err != nil {
 		return nil, errors.Join(ErrMakingRequest, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}

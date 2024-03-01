@@ -39,8 +39,11 @@ func (db *DB) Close() error {
 // Init function starts a database using the data path provided as argument. It
 // opens two different connections, one for read only, and another for read and
 // write, with different configurations, optimized for each use case.
-func Init(dataDir string) (*DB, error) {
-	dbFile := filepath.Join(dataDir, "census3.sql")
+func Init(dataDir string, dbName string) (*DB, error) {
+	if dbName == "" {
+		return nil, fmt.Errorf("database name is required")
+	}
+	dbFile := filepath.Join(dataDir, dbName)
 	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
 		if err := os.MkdirAll(dataDir, os.ModePerm); err != nil {
 			return nil, fmt.Errorf("error creating a new database file: %w", err)

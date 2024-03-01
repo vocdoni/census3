@@ -13,6 +13,14 @@ WHERE token_id = ?
     AND external_id = ?
     AND balance > '0';
 
+-- name: GetTokenHolderEvenZero :one
+SELECT *
+FROM token_holders
+WHERE token_id = ? 
+    AND holder_id = ? 
+    AND chain_id = ?
+    AND external_id = ?;
+
 -- name: ExistTokenHolder :one
 SELECT EXISTS (
     SELECT holder_id 
@@ -74,6 +82,34 @@ JOIN strategy_tokens
     AND strategy_tokens.external_id = token_holders.external_id
 WHERE strategy_tokens.strategy_id = ?
     AND strategy_tokens.min_balance <= token_holders.balance;
+
+-- name: NextStrategyTokenHoldersPage :many
+SELECT token_holders.*
+FROM token_holders
+JOIN strategy_tokens 
+    ON strategy_tokens.token_id = token_holders.token_id
+    AND strategy_tokens.chain_id = token_holders.chain_id
+    AND strategy_tokens.external_id = token_holders.external_id
+WHERE strategy_tokens.strategy_id = ?
+    AND strategy_tokens.min_balance <= token_holders.balance
+    AND token_holders.holder_id >= sqlc.arg(page_cursor)
+ORDER BY token_holders.holder_id ASC 
+LIMIT ?;
+
+-- name: PrevStrategyTokenHoldersPage :many
+SELECT * FROM (
+    SELECT token_holders.*
+    FROM token_holders
+    JOIN strategy_tokens 
+        ON strategy_tokens.token_id = token_holders.token_id
+        AND strategy_tokens.chain_id = token_holders.chain_id
+        AND strategy_tokens.external_id = token_holders.external_id
+    WHERE strategy_tokens.strategy_id = ?
+        AND strategy_tokens.min_balance <= token_holders.balance
+        AND token_holders.holder_id <= sqlc.arg(page_cursor)
+    ORDER BY token_holders.holder_id DESC 
+    LIMIT ?
+) as holder ORDER BY holder.holder_id ASC;
 
 -- name: ANDOperator :many
 ;WITH holders_a as (

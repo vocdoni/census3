@@ -124,7 +124,7 @@ var (
 		Err:        fmt.Errorf("malformed pagination params"),
 	}
 	ErrNoTokenHolderFound = apirest.APIerror{
-		Code:       4022,
+		Code:       4023,
 		HTTPstatus: apirest.HTTPstatusNotFound,
 		Err:        fmt.Errorf("token holder not found for the token provided"),
 	}
@@ -277,5 +277,10 @@ var (
 		Code:       5029,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error deleting token"),
+	}
+	ErrCantGetStrategyHolders = apirest.APIerror{
+		Code:       5030,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error getting strategy holders"),
 	}
 )

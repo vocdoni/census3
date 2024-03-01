@@ -1,4 +1,4 @@
-package internal
+package metrics
 
 import (
 	"github.com/VictoriaMetrics/metrics"

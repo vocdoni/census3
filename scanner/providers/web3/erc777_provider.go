@@ -136,9 +136,12 @@ func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	// iterate scanning the logs in the range of blocks until the last block
 	// is reached
 	startTime := time.Now()
-	logs, lastBlock, synced, err := rangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
-	if err != nil {
-		return nil, 0, fromBlock, false, nil, err
+	logs, lastBlock, synced, err := RangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
+	if err != nil && !errors.Is(err, ErrTooManyRequests) {
+		return nil, 0, fromBlock, false, big.NewInt(0), err
+	}
+	if errors.Is(err, ErrTooManyRequests) {
+		log.Warnf("too many requests, the provider will continue in the next iteration from block %d", lastBlock)
 	}
 	// encode the number of new transfers
 	newTransfers := uint64(len(logs))
@@ -188,7 +191,7 @@ func (p *ERC777HolderProvider) IsSynced(_ []byte) bool {
 }
 
 // Address returns the address of the current token set in the provider.
-func (p *ERC777HolderProvider) Address() common.Address {
+func (p *ERC777HolderProvider) Address(_ []byte) common.Address {
 	return p.address
 }
 
@@ -266,7 +269,7 @@ func (p *ERC777HolderProvider) BlockTimestamp(ctx context.Context, blockNumber u
 	if err != nil {
 		return "", err
 	}
-	return time.Unix(int64(blockHeader.Time), 0).Format(timeLayout), nil
+	return time.Unix(int64(blockHeader.Time), 0).Format(TimeLayout), nil
 }
 
 // BlockRootHash returns the root hash of the given block number for the current
@@ -313,4 +316,11 @@ func (p *ERC777HolderProvider) CreationBlock(ctx context.Context, _ []byte) (uin
 // IconURI method is not implemented for ERC777 tokens.
 func (p *ERC777HolderProvider) IconURI(_ []byte) (string, error) {
 	return "", nil
+}
+
+// CensusKeys method returns the holders and balances provided transformed. The
+// ERC777 provider does not need to transform the holders and balances, so it
+// returns the data as is.
+func (p *ERC777HolderProvider) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
+	return data, nil
 }

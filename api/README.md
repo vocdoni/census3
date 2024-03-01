@@ -239,7 +239,7 @@ Returns the holder balance if the holder ID is already registered in the databas
 | 400 | `malformed token information` | 4001 |
 | 400 | `malformed chain ID` | 4018 |
 | 404 | `no token found` | 4003 |
-| 404 | `token holder not found for the token provided` | 4022 |
+| 404 | `token holder not found for the token provided` | 4023 |
 | 500 | `error getting token holders` | 5006 | 
 
 --- 
@@ -541,6 +541,47 @@ Returns the estimation of size and time (in milliseconds) to create the census g
 | 204 | `strategy has not registered holders` | 4017 |
 | 500 | `error getting strategy information` | 5007 | 
 | 500 | `error evaluating strategy predicate` | 5026 |
+
+### GET `/strategies/{strategyID}/holders`
+Returns the list of holders with their balances for a strategy. This endpoint only works with single token strategies like default ones.
+
+**Pagination URL params**
+
+| URL key | Description | Example |
+|:---|:---|:---|
+| `pageSize` | (optional) Defines the number of results per page. By default, `1000`. | `?pageSize=2` |
+| `nextCursor` | (optional) When is defined, it is used to get the page results, going forward. By default, `""`. | `?nextCursor=0x1234` |
+| `prevCursor` | (optional) When is defined, it is used to get the page results, going backwards. By default, `""`. | `?prevCursor=0x1234` |
+
+- 📥 response:
+
+```json
+{
+    "holders": {
+        "0x1": "1",
+        "0x2": "2",
+        "0x3": "3",
+        "0x4": "4",
+        "0x...": "1000",
+    },
+    "pagination": {
+        "nextCursor": "0x5",
+        "prevCursor": "0x1",
+        "pageSize": 5
+    }
+}
+```
+
+- ⚠️ errors:
+
+| HTTP Status  | Message | Internal error |
+|:---:|:---|:---:|
+| 400 | `malformed strategy ID, it must be an integer` | 4002 | 
+| 404 | `no token holders found` | 4004 |
+| 404 | `no strategy found with the ID provided` | 4005 |
+| 400 | `malformed pagination params` | 4022 |
+| 500 | `error encoding token holders` | 5013 |
+| 500 | `error getting strategy holders` | 5030 |
 
 
 ### GET `/strategies/token/{tokenID}?chainID={chainID}&externalID={externalID}`

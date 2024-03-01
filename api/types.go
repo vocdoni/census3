@@ -177,3 +177,13 @@ type GetHoldersAtLastBlockResponse struct {
 	Error          error                `json:"error"`
 	HoldersAtBlock *TokenHoldersAtBlock `json:"holdersAtBlock"`
 }
+
+type GetStrategyHoldersResponse struct {
+	Holders    map[string]string `json:"holders"`
+	Pagination *Pagination       `json:"pagination"`
+}
+
+type DeleteTokenQueueResponse struct {
+	Done  bool  `json:"done"`
+	Error error `json:"error"`
+}

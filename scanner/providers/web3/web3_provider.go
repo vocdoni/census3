@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/vocdoni/census3/scanner/providers"
+	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -23,6 +24,7 @@ type Web3ProviderRef struct {
 type Web3ProviderConfig struct {
 	Web3ProviderRef
 	Endpoints NetworkEndpoints
+	DB        *db.Database
 }
 
 // creationBlock function returns the block number of the creation of a contract
@@ -74,11 +76,11 @@ func sourceCodeLenAt(client *ethclient.Client, ctx context.Context, addr common.
 	return len(sourceCode), err
 }
 
-// rangeOfLogs function returns the logs of a token contract between the
+// RangeOfLogs function returns the logs of a token contract between the
 // provided block numbers. It returns the logs, the last block scanned and an
 // error if any. It filters the logs by the topic hash and for the token
 // contract address provided.
-func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Address,
+func RangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Address,
 	fromBlock, lastBlock uint64, hexTopics ...string,
 ) ([]types.Log, uint64, bool, error) {
 	// if the range is too big, scan only a part of it using the constant
@@ -127,13 +129,18 @@ func rangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 			if err != nil {
 				// if the error is about the query returning more than the maximum
 				// allowed logs, split the range of blocks in half and try again
-				if strings.Contains(err.Error(), "query returned more than") {
+				if strings.Contains(err.Error(), "query returned more than") ||
+					strings.Contains(err.Error(), "exceeds the range allowed") {
 					blocksRange /= 2
 					log.Warnf("too much results on query, decreasing blocks to %d", blocksRange)
 					continue
 				}
-				log.Error(errors.Join(ErrScanningTokenLogs, fmt.Errorf("%s: %w", addr.Hex(), err)))
-				return finalLogs, fromBlock, false, nil
+				// if error is about too many requests, return the logs scanned
+				// until now and the last block scanned with an specific error
+				if strings.Contains(strings.ToLower(err.Error()), "too many requests") {
+					return finalLogs, fromBlock, false, errors.Join(ErrTooManyRequests, fmt.Errorf("%s: %w", addr.Hex(), err))
+				}
+				return finalLogs, fromBlock, false, errors.Join(ErrScanningTokenLogs, fmt.Errorf("%s: %w", addr.Hex(), err))
 			}
 			// if there are logs, add them to the final list and update the
 			// counter

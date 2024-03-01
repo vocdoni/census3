@@ -15,7 +15,7 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/internal/queue"
+	"github.com/vocdoni/census3/helpers/queue"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"
@@ -203,11 +203,19 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 	}()
 	qtx := capi.db.QueriesRW.WithTx(tx)
 	for _, token := range tokens {
+		// if something fails getting the token information, skip it
+		// if something fails interacting with the database, return the error
+
 		// get the correct holder provider for the token type
 		tokenType := providers.TokenTypeID(token.Type)
 		provider, exists := capi.holderProviders[tokenType]
 		if !exists {
-			return ErrCantCreateCensus.With("token type not supported")
+			log.Warnw("token type provided in initial list not supported, check provider is set. SKIPPING...",
+				"tokenID", token.ID,
+				"chainID", token.ChainID,
+				"externalID", token.ExternalID,
+				"type", token.Type)
+			continue
 		}
 		if !provider.IsExternal() {
 			if err := provider.SetRef(web3.Web3ProviderRef{
@@ -218,33 +226,59 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			}
 		}
 		// get token information from the external provider
-		address := provider.Address()
+		address := provider.Address([]byte(token.ExternalID))
 		name, err := provider.Name([]byte(token.ExternalID))
 		if err != nil {
-			return ErrCantGetToken.WithErr(err)
+			log.Warnw("can't get token name",
+				"tokenID", token.ID,
+				"chainID", token.ChainID,
+				"externalID", token.ExternalID,
+				"error", err)
+			continue
 		}
 		symbol, err := provider.Symbol([]byte(token.ExternalID))
 		if err != nil {
-			return ErrCantGetToken.WithErr(err)
+			log.Warnw("can't get token symbol",
+				"tokenID", token.ID,
+				"chainID", token.ChainID,
+				"externalID", token.ExternalID,
+				"error", err)
+			continue
 		}
 		decimals, err := provider.Decimals([]byte(token.ExternalID))
 		if err != nil {
-			return ErrCantGetToken.WithErr(err)
+			log.Warnw("can't get token decimals",
+				"tokenID", token.ID,
+				"chainID", token.ChainID,
+				"externalID", token.ExternalID,
+				"error", err)
+			continue
 		}
 		totalSupply, err := provider.TotalSupply([]byte(token.ExternalID))
 		if err != nil {
-			return ErrCantGetToken.WithErr(err)
+			log.Warnw("can't get token total supply",
+				"tokenID", token.ID,
+				"chainID", token.ChainID,
+				"externalID", token.ExternalID,
+				"error", err)
+			continue
 		}
 		// get the chain address for the token based on the chainID and tokenID
 		chainAddress, ok := capi.w3p.ChainAddress(token.ChainID, address.String())
 		if !ok {
-			return ErrChainIDNotSupported.Withf("chainID: %d, tokenID: %s", token.ChainID, token.ID)
+			log.Warnw("can't get chain address", "chainID", token.ChainID, "tokenID", token.ID)
+			continue
 		}
 		iconURI, err := provider.IconURI([]byte(token.ExternalID))
 		if err != nil {
-			return ErrCantGetToken.WithErr(err)
+			log.Warnw("can't get token icon URI",
+				"tokenID", token.ID,
+				"chainID", token.ChainID,
+				"externalID", token.ExternalID,
+				"error", err)
+			continue
 		}
-
+		// create the token in the database
 		addr := common.HexToAddress(token.ID)
 		_, err = qtx.CreateToken(ctx, queries.CreateTokenParams{
 			ID:            addr.Bytes(),
@@ -252,7 +286,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			Symbol:        symbol,
 			Decimals:      decimals,
 			TotalSupply:   annotations.BigInt(totalSupply.String()),
-			CreationBlock: 0,
+			CreationBlock: int64(token.StartBlock),
 			TypeID:        providers.TokenTypeID(token.Type),
 			Synced:        false,
 			Tags:          token.Tags,
@@ -260,6 +294,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			ChainAddress:  chainAddress,
 			ExternalID:    token.ExternalID,
 			IconUri:       iconURI,
+			LastBlock:     int64(token.StartBlock),
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
@@ -280,6 +315,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 		}); err != nil {
 			return err
 		}
+		log.Infow("token created", "tokenID", token.ID, "chainID", token.ChainID, "externalID", token.ExternalID)
 	}
 	if err := tx.Commit(); err != nil {
 		return err

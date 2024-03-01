@@ -13,8 +13,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/internal/lexer"
-	"github.com/vocdoni/census3/internal/strategyoperators"
+	"github.com/vocdoni/census3/helpers/lexer"
+	"github.com/vocdoni/census3/helpers/strategyoperators"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"
@@ -59,7 +59,7 @@ func paginationFromCtx(ctx *httprouter.HTTPContext) (int32, int32, string, bool,
 	// by default go forward, if the previous cursor is provided, go backwards
 	goForward := prevCursor == ""
 	cursor := nextCursor
-	if nextCursor == "" {
+	if !goForward {
 		cursor = prevCursor
 	}
 	// return the page size, the cursor and the direction

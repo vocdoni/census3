@@ -225,6 +225,41 @@ func (q *Queries) GetTokenHolder(ctx context.Context, arg GetTokenHolderParams) 
 	return i, err
 }
 
+const getTokenHolderEvenZero = `-- name: GetTokenHolderEvenZero :one
+SELECT token_id, holder_id, balance, block_id, chain_id, external_id
+FROM token_holders
+WHERE token_id = ? 
+    AND holder_id = ? 
+    AND chain_id = ?
+    AND external_id = ?
+`
+
+type GetTokenHolderEvenZeroParams struct {
+	TokenID    annotations.Address
+	HolderID   annotations.Address
+	ChainID    uint64
+	ExternalID string
+}
+
+func (q *Queries) GetTokenHolderEvenZero(ctx context.Context, arg GetTokenHolderEvenZeroParams) (TokenHolder, error) {
+	row := q.db.QueryRowContext(ctx, getTokenHolderEvenZero,
+		arg.TokenID,
+		arg.HolderID,
+		arg.ChainID,
+		arg.ExternalID,
+	)
+	var i TokenHolder
+	err := row.Scan(
+		&i.TokenID,
+		&i.HolderID,
+		&i.Balance,
+		&i.BlockID,
+		&i.ChainID,
+		&i.ExternalID,
+	)
+	return i, err
+}
+
 const listTokenHolders = `-- name: ListTokenHolders :many
 SELECT token_id, holder_id, balance, block_id, chain_id, external_id
 FROM token_holders
@@ -239,6 +274,56 @@ type ListTokenHoldersParams struct {
 
 func (q *Queries) ListTokenHolders(ctx context.Context, arg ListTokenHoldersParams) ([]TokenHolder, error) {
 	rows, err := q.db.QueryContext(ctx, listTokenHolders, arg.TokenID, arg.ChainID, arg.ExternalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TokenHolder
+	for rows.Next() {
+		var i TokenHolder
+		if err := rows.Scan(
+			&i.TokenID,
+			&i.HolderID,
+			&i.Balance,
+			&i.BlockID,
+			&i.ChainID,
+			&i.ExternalID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const nextStrategyTokenHoldersPage = `-- name: NextStrategyTokenHoldersPage :many
+SELECT token_holders.token_id, token_holders.holder_id, token_holders.balance, token_holders.block_id, token_holders.chain_id, token_holders.external_id
+FROM token_holders
+JOIN strategy_tokens 
+    ON strategy_tokens.token_id = token_holders.token_id
+    AND strategy_tokens.chain_id = token_holders.chain_id
+    AND strategy_tokens.external_id = token_holders.external_id
+WHERE strategy_tokens.strategy_id = ?
+    AND strategy_tokens.min_balance <= token_holders.balance
+    AND token_holders.holder_id >= ?
+ORDER BY token_holders.holder_id ASC 
+LIMIT ?
+`
+
+type NextStrategyTokenHoldersPageParams struct {
+	StrategyID uint64
+	PageCursor annotations.Address
+	Limit      int32
+}
+
+func (q *Queries) NextStrategyTokenHoldersPage(ctx context.Context, arg NextStrategyTokenHoldersPageParams) ([]TokenHolder, error) {
+	rows, err := q.db.QueryContext(ctx, nextStrategyTokenHoldersPage, arg.StrategyID, arg.PageCursor, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -347,6 +432,58 @@ func (q *Queries) OROperator(ctx context.Context, arg OROperatorParams) ([]OROpe
 	for rows.Next() {
 		var i OROperatorRow
 		if err := rows.Scan(&i.HolderID, &i.BalanceA, &i.BalanceB); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const prevStrategyTokenHoldersPage = `-- name: PrevStrategyTokenHoldersPage :many
+SELECT token_id, holder_id, balance, block_id, chain_id, external_id FROM (
+    SELECT token_holders.token_id, token_holders.holder_id, token_holders.balance, token_holders.block_id, token_holders.chain_id, token_holders.external_id
+    FROM token_holders
+    JOIN strategy_tokens 
+        ON strategy_tokens.token_id = token_holders.token_id
+        AND strategy_tokens.chain_id = token_holders.chain_id
+        AND strategy_tokens.external_id = token_holders.external_id
+    WHERE strategy_tokens.strategy_id = ?
+        AND strategy_tokens.min_balance <= token_holders.balance
+        AND token_holders.holder_id <= ?
+    ORDER BY token_holders.holder_id DESC 
+    LIMIT ?
+) as holder ORDER BY holder.holder_id ASC
+`
+
+type PrevStrategyTokenHoldersPageParams struct {
+	StrategyID uint64
+	PageCursor annotations.Address
+	Limit      int32
+}
+
+func (q *Queries) PrevStrategyTokenHoldersPage(ctx context.Context, arg PrevStrategyTokenHoldersPageParams) ([]TokenHolder, error) {
+	rows, err := q.db.QueryContext(ctx, prevStrategyTokenHoldersPage, arg.StrategyID, arg.PageCursor, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TokenHolder
+	for rows.Next() {
+		var i TokenHolder
+		if err := rows.Scan(
+			&i.TokenID,
+			&i.HolderID,
+			&i.Balance,
+			&i.BlockID,
+			&i.ChainID,
+			&i.ExternalID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

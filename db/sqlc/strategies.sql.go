@@ -364,6 +364,26 @@ func (q *Queries) StrategyTokensByStrategyID(ctx context.Context, strategyID uin
 	return items, nil
 }
 
+const strategyTokensContainsType = `-- name: StrategyTokensContainsType :one
+SELECT EXISTS(
+    SELECT 1 FROM strategy_tokens st
+    JOIN tokens t ON st.token_id = t.id AND st.chain_id = t.chain_id AND st.external_id = t.external_id
+    WHERE st.strategy_id = ? AND t.type_id = ?
+)
+`
+
+type StrategyTokensContainsTypeParams struct {
+	StrategyID uint64
+	TypeID     uint64
+}
+
+func (q *Queries) StrategyTokensContainsType(ctx context.Context, arg StrategyTokensContainsTypeParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, strategyTokensContainsType, arg.StrategyID, arg.TypeID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const updateStrategyIPFSUri = `-- name: UpdateStrategyIPFSUri :execresult
 UPDATE strategies SET uri = ? WHERE id = ?
 `

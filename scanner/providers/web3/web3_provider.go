@@ -129,7 +129,8 @@ func RangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 			if err != nil {
 				// if the error is about the query returning more than the maximum
 				// allowed logs, split the range of blocks in half and try again
-				if strings.Contains(err.Error(), "query returned more than") {
+				if strings.Contains(err.Error(), "query returned more than") ||
+					strings.Contains(err.Error(), "exceeds the range allowed") {
 					blocksRange /= 2
 					log.Warnf("too much results on query, decreasing blocks to %d", blocksRange)
 					continue

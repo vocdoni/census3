@@ -68,8 +68,8 @@ type GetTokensItemResponse struct {
 }
 
 type GetTokensResponse struct {
-	Tokens     []GetTokensItemResponse `json:"tokens"`
-	Pagination *Pagination             `json:"pagination"`
+	Tokens     []*GetTokensItemResponse `json:"tokens"`
+	Pagination *Pagination              `json:"pagination"`
 }
 
 type TokenTypesResponse struct {

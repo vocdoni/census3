@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/vocdoni/census3/api"
+	"go.vocdoni.io/dvote/log"
 )
 
 // GetCensus method returns a census by its ID from the API, it receives the
@@ -30,7 +31,11 @@ func (c *HTTPclient) GetCensus(censusID uint64) (*api.GetCensusResponse, error) 
 	if err != nil {
 		return nil, errors.Join(ErrMakingRequest, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
@@ -68,7 +73,11 @@ func (c *HTTPclient) CreateCensus(request api.CreateCensusRequest) (string, erro
 	if err != nil {
 		return "", errors.Join(ErrMakingRequest, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return "", errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
@@ -100,7 +109,11 @@ func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueueResponse
 	if err != nil {
 		return nil, errors.Join(ErrMakingRequest, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
@@ -113,7 +126,7 @@ func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueueResponse
 }
 
 // GetCensusesByStrategy method returns the censuses of a strategy from the API,
-// it receives the strategyID and returns a slice of GetCensusResponse pointes
+// it receives the strategyID and returns a slice of GetCensusResponse pointers
 // and an error if something went wrong.
 func (c *HTTPclient) GetCensusesByStrategy(strategyID uint64) ([]*api.GetCensusResponse, error) {
 	// construct the URL to the API with the strategyID
@@ -132,7 +145,11 @@ func (c *HTTPclient) GetCensusesByStrategy(strategyID uint64) ([]*api.GetCensusR
 	if err != nil {
 		return nil, errors.Join(ErrMakingRequest, err)
 	}
-	defer res.Body.Close()
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
 	if res.StatusCode != http.StatusOK {
 		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}

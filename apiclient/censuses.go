@@ -3,7 +3,6 @@ package apiclient
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -19,17 +18,17 @@ func (c *HTTPclient) GetCensus(censusID uint64) (*api.GetCensusResponse, error) 
 	endpoint := fmt.Sprintf(GetCensusURI, censusID)
 	u, err := c.constructURL(endpoint)
 	if err != nil {
-		return nil, errors.Join(ErrConstructingURL, err)
+		return nil, fmt.Errorf("%w: %w", ErrConstructingURL, err)
 	}
 	// create the request and send it, if there is an error or the status code
 	// is not 200, return an error
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
-		return nil, errors.Join(ErrCreatingRequest, err)
+		return nil, fmt.Errorf("%w: %w", ErrCreatingRequest, err)
 	}
 	res, err := c.c.Do(req)
 	if err != nil {
-		return nil, errors.Join(ErrMakingRequest, err)
+		return nil, fmt.Errorf("%w: %w", ErrMakingRequest, err)
 	}
 	defer func() {
 		if err := res.Body.Close(); err != nil {
@@ -37,12 +36,12 @@ func (c *HTTPclient) GetCensus(censusID uint64) (*api.GetCensusResponse, error) 
 		}
 	}()
 	if res.StatusCode != http.StatusOK {
-		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
+		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return it
 	response := api.GetCensusResponse{}
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return nil, errors.Join(ErrDecodingResponse, err)
+		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
 	return &response, nil
 }
@@ -55,23 +54,23 @@ func (c *HTTPclient) CreateCensus(request api.CreateCensusRequest) (string, erro
 	// construct the URL to the API
 	url, err := c.constructURL(CreateCensusURI)
 	if err != nil {
-		return "", errors.Join(ErrConstructingURL, err)
+		return "", fmt.Errorf("%w: %w", ErrConstructingURL, err)
 	}
 	// encode the input token to JSON to be sent in the request body
 	requestBody, err := json.Marshal(request)
 	if err != nil {
-		return "", errors.Join(ErrEncodingRequest, err)
+		return "", fmt.Errorf("%w: %w", ErrEncodingRequest, err)
 	}
 	// create the request and send it with the encoded body, if there is an
 	// error or the status code is not 200, return an error
 	req, err := http.NewRequest(HTTPPOST, url, bytes.NewBuffer(requestBody))
 	if err != nil {
-		return "", errors.Join(ErrCreatingRequest, err)
+		return "", fmt.Errorf("%w: %w", ErrCreatingRequest, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	res, err := c.c.Do(req)
 	if err != nil {
-		return "", errors.Join(ErrMakingRequest, err)
+		return "", fmt.Errorf("%w: %w", ErrMakingRequest, err)
 	}
 	defer func() {
 		if err := res.Body.Close(); err != nil {
@@ -79,12 +78,12 @@ func (c *HTTPclient) CreateCensus(request api.CreateCensusRequest) (string, erro
 		}
 	}()
 	if res.StatusCode != http.StatusOK {
-		return "", errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
+		return "", fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return the queueID
 	queueResponse := &api.QueueResponse{}
 	if err := json.NewDecoder(res.Body).Decode(queueResponse); err != nil {
-		return "", errors.Join(ErrDecodingResponse, err)
+		return "", fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
 	return queueResponse.QueueID, nil
 }
@@ -97,17 +96,17 @@ func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueueResponse
 	endpoint := fmt.Sprintf(CreateCensusQueueURI, queueID)
 	u, err := c.constructURL(endpoint)
 	if err != nil {
-		return nil, errors.Join(ErrConstructingURL, err)
+		return nil, fmt.Errorf("%w: %w", ErrConstructingURL, err)
 	}
 	// create the request and send it, if there is an error or the status code
 	// is not 200, return an error
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
-		return nil, errors.Join(ErrCreatingRequest, err)
+		return nil, fmt.Errorf("%w: %w", ErrCreatingRequest, err)
 	}
 	res, err := c.c.Do(req)
 	if err != nil {
-		return nil, errors.Join(ErrMakingRequest, err)
+		return nil, fmt.Errorf("%w: %w", ErrMakingRequest, err)
 	}
 	defer func() {
 		if err := res.Body.Close(); err != nil {
@@ -115,12 +114,12 @@ func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueueResponse
 		}
 	}()
 	if res.StatusCode != http.StatusOK {
-		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
+		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return it
 	response := &api.CensusQueueResponse{}
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return nil, errors.Join(ErrDecodingResponse, err)
+		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
 	return response, nil
 }
@@ -133,17 +132,17 @@ func (c *HTTPclient) GetCensusesByStrategy(strategyID uint64) ([]*api.GetCensusR
 	endpoint := fmt.Sprintf(GetCensusesByStrategyURI, strategyID)
 	u, err := c.constructURL(endpoint)
 	if err != nil {
-		return nil, errors.Join(ErrConstructingURL, err)
+		return nil, fmt.Errorf("%w: %w", ErrConstructingURL, err)
 	}
 	// create the request and send it, if there is an error or the status code
 	// is not 200, return an error
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
-		return nil, errors.Join(ErrCreatingRequest, err)
+		return nil, fmt.Errorf("%w: %w", ErrCreatingRequest, err)
 	}
 	res, err := c.c.Do(req)
 	if err != nil {
-		return nil, errors.Join(ErrMakingRequest, err)
+		return nil, fmt.Errorf("%w: %w", ErrMakingRequest, err)
 	}
 	defer func() {
 		if err := res.Body.Close(); err != nil {
@@ -151,12 +150,12 @@ func (c *HTTPclient) GetCensusesByStrategy(strategyID uint64) ([]*api.GetCensusR
 		}
 	}()
 	if res.StatusCode != http.StatusOK {
-		return nil, errors.Join(ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
+		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return the censuses
 	response := &api.GetCensusesResponse{}
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return nil, errors.Join(ErrDecodingResponse, err)
+		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
 	return response.Censuses, nil
 }

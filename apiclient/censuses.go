@@ -14,6 +14,9 @@ import (
 // censusID and returns a pointer to a GetCensusResponse and an error if something
 // went wrong.
 func (c *HTTPclient) GetCensus(censusID uint64) (*api.GetCensusResponse, error) {
+	if censusID == 0 {
+		return nil, fmt.Errorf("%w: censusID is required", ErrBadInputs)
+	}
 	// construct the URL to the API with the censusID
 	endpoint := fmt.Sprintf(GetCensusURI, censusID)
 	u, err := c.constructURL(endpoint)
@@ -50,7 +53,10 @@ func (c *HTTPclient) GetCensus(censusID uint64) (*api.GetCensusResponse, error) 
 // CreateCensusRequest and returns a queueID and an error if something went wrong.
 // The queueID is used to check the status of the census creation process, it
 // can be checked with the CreateCensusQueue method.
-func (c *HTTPclient) CreateCensus(request api.CreateCensusRequest) (string, error) {
+func (c *HTTPclient) CreateCensus(request *api.CreateCensusRequest) (string, error) {
+	if request == nil || request.StrategyID == 0 {
+		return "", fmt.Errorf("%w: strategyID is required", ErrBadInputs)
+	}
 	// construct the URL to the API
 	url, err := c.constructURL(CreateCensusURI)
 	if err != nil {
@@ -92,6 +98,9 @@ func (c *HTTPclient) CreateCensus(request api.CreateCensusRequest) (string, erro
 // the API, it receives a queueID and returns a pointer to a CensusQueueResponse
 // and an error if something went wrong.
 func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueueResponse, error) {
+	if queueID == "" {
+		return nil, fmt.Errorf("%w: queueID is required", ErrBadInputs)
+	}
 	// construct the URL to the API with the queueID
 	endpoint := fmt.Sprintf(CreateCensusQueueURI, queueID)
 	u, err := c.constructURL(endpoint)
@@ -128,6 +137,9 @@ func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueueResponse
 // it receives the strategyID and returns a slice of GetCensusResponse pointers
 // and an error if something went wrong.
 func (c *HTTPclient) GetCensusesByStrategy(strategyID uint64) ([]*api.GetCensusResponse, error) {
+	if strategyID == 0 {
+		return nil, fmt.Errorf("%w: strategyID is required", ErrBadInputs)
+	}
 	// construct the URL to the API with the strategyID
 	endpoint := fmt.Sprintf(GetCensusesByStrategyURI, strategyID)
 	u, err := c.constructURL(endpoint)

@@ -3,6 +3,10 @@ package apiclient
 import "fmt"
 
 var (
+	// ErrBadInputs is returned when bad inputs are provided to a method. Each
+	// method will specify the inputs it expects and the conditions they must
+	// meet.
+	ErrBadInputs = fmt.Errorf("bad inputs provided")
 	// ErrConstructingURL is returned when there is an error constructing the URL
 	// to make a request to the API. The final URL is parsed and this process can
 	// fail.

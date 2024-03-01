@@ -52,7 +52,7 @@ func (c *HTTPclient) GetTokens(pageSize int, nextCursor, prevCursor string) ([]*
 // and externalID. If something goes wrong, it will return an error.
 func (c *HTTPclient) GetToken(tokenID string, chainID uint64, externalID string) (*api.GetTokenResponse, error) {
 	if tokenID == "" || chainID == 0 {
-		return nil, fmt.Errorf("tokenID and chainID are required")
+		return nil, fmt.Errorf("%w: tokenID and chainID are required", ErrBadInputs)
 	}
 	// construct the URL to the API with the tokenID, chainID and externalID
 	// provided
@@ -92,8 +92,8 @@ func (c *HTTPclient) GetToken(tokenID string, chainID uint64, externalID string)
 // Optional attributes: externalID, tags. If something goes wrong, it will
 // return an error.
 func (c *HTTPclient) CreateToken(token *api.CreateTokenRequest) error {
-	if token.ID == "" || token.Type == "" || token.ChainID == 0 {
-		return fmt.Errorf("ID, Type and ChainID are required")
+	if token == nil || token.ID == "" || token.Type == "" || token.ChainID == 0 {
+		return fmt.Errorf("%w: ID, Type and ChainID are required", ErrBadInputs)
 	}
 	// construct the URL to the API
 	u, err := c.constructURL(CreateTokensURI)
@@ -133,7 +133,7 @@ func (c *HTTPclient) CreateToken(token *api.CreateTokenRequest) error {
 // process using the DeleteTokenQueue method.
 func (c *HTTPclient) DeleteToken(tokenID string, chainID uint64, externalID string) (string, error) {
 	if tokenID == "" || chainID == 0 {
-		return "", fmt.Errorf("tokenID and chainID are required")
+		return "", fmt.Errorf("%w: tokenID and chainID are required", ErrBadInputs)
 	}
 	// construct the URL to the API with the tokenID, chainID and externalID
 	// provided
@@ -175,6 +175,9 @@ func (c *HTTPclient) DeleteToken(tokenID string, chainID uint64, externalID stri
 func (c *HTTPclient) DeleteTokenQueue(tokenID string, chainID uint64, externalID,
 	queueID string,
 ) (*api.DeleteTokenQueueResponse, error) {
+	if tokenID == "" || chainID == 0 || queueID == "" {
+		return nil, fmt.Errorf("%w: tokenID, chainID and queueID are required", ErrBadInputs)
+	}
 	// construct the URL to the API with the tokenID, queueID, chainID and
 	// externalID provided
 	endpoint := fmt.Sprintf(DeleteTokenQueueURI, tokenID, queueID, chainID, externalID)
@@ -212,6 +215,9 @@ func (c *HTTPclient) DeleteTokenQueue(tokenID string, chainID uint64, externalID
 // accepts the tokenID, chainID, externalID and holderID. If something goes
 // wrong, it will return an error.
 func (c *HTTPclient) GetTokenHolder(tokenID string, chainID uint64, externalID, holderID string) (*big.Int, error) {
+	if tokenID == "" || chainID == 0 || holderID == "" {
+		return nil, fmt.Errorf("%w: tokenID, chainID and holderID are required", ErrBadInputs)
+	}
 	// construct the URL to the API with the tokenID, holderID, chainID and
 	// externalID provided
 	endpoint := fmt.Sprintf(GetTokenHolderURI, tokenID, holderID, chainID, externalID)

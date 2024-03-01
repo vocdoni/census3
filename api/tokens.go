@@ -114,7 +114,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	// init response struct with the initial pagination information and empty
 	// list of tokens
 	tokensResponse := GetTokensResponse{
-		Tokens:     []GetTokensItemResponse{},
+		Tokens:     []*GetTokensItemResponse{},
 		Pagination: &Pagination{PageSize: pageSize},
 	}
 	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, goForward)
@@ -126,7 +126,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	// parse results from database to the response format
 	for _, tokenData := range rows {
-		tokensResponse.Tokens = append(tokensResponse.Tokens, GetTokensItemResponse{
+		tokensResponse.Tokens = append(tokensResponse.Tokens, &GetTokensItemResponse{
 			ID:              common.BytesToAddress(tokenData.ID).String(),
 			Type:            providers.TokenTypeName(tokenData.TypeID),
 			Decimals:        tokenData.Decimals,

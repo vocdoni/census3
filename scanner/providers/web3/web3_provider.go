@@ -17,8 +17,9 @@ import (
 )
 
 type Web3ProviderRef struct {
-	HexAddress string
-	ChainID    uint64
+	HexAddress    string
+	ChainID       uint64
+	CreationBlock uint64
 }
 
 type Web3ProviderConfig struct {

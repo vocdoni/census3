@@ -445,7 +445,10 @@ func (q *Queries) PrevTokensPage(ctx context.Context, arg PrevTokensPageParams) 
 
 const tokensByStrategyID = `-- name: TokensByStrategyID :many
 SELECT t.id, t.name, t.symbol, t.decimals, t.total_supply, t.creation_block, t.type_id, t.synced, t.tags, t.chain_id, t.chain_address, t.external_id, t.default_strategy, t.icon_uri, t.created_at, t.last_block, t.analysed_transfers, st.strategy_id, st.token_id, st.min_balance, st.chain_id, st.external_id FROM tokens t
-JOIN strategy_tokens st ON st.token_id = t.id
+JOIN strategy_tokens st 
+ON st.token_id = t.id 
+    AND st.chain_id = t.chain_id 
+    AND st.external_id = t.external_id
 WHERE st.strategy_id = ?
 ORDER BY t.name
 `

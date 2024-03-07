@@ -249,7 +249,6 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
 				return nil, nil, 0, err
 			}
 		}
-
 		currentBlockNumber, err := provider.LatestBlockNumber(ctx, []byte(token.ExternalID))
 		if err != nil {
 			return nil, nil, 0, err

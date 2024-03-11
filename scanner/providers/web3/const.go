@@ -13,10 +13,10 @@ const (
 )
 
 var DefaultNetworkEndpoint = &NetworkEndpoint{
-	ChainID:   5,
-	Name:      "Goerli",
-	ShortName: "gor",
-	URIs:      []string{"https://rpc.ankr.com/eth_goerli"},
+	ChainID:   11155111,
+	Name:      "Sepolia",
+	ShortName: "sep",
+	URIs:      []string{"https://rpc2.sepolia.org"},
 }
 
 const (

@@ -10,6 +10,11 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 )
 
+type Metadatum struct {
+	Attr  string
+	Value string
+}
+
 type Score struct {
 	Address annotations.Address
 	Score   annotations.BigInt

@@ -127,7 +127,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		Pagination: &Pagination{PageSize: pageSize},
 	}
 	// get the next and previous cursors and add them to the response
-	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, cursor, goForward)
+	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, goForward)
 	if nextCursorRow != nil {
 		strategiesResponse.Pagination.NextCursor = fmt.Sprint(nextCursorRow.ID)
 	}
@@ -630,7 +630,7 @@ func (capi *census3API) listStrategyHolders(msg *api.APIdata, ctx *httprouter.HT
 		Pagination: &Pagination{PageSize: pageSize},
 	}
 	// get the next and previous cursors and add them to the response
-	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, cursor, goForward)
+	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, goForward)
 	if nextCursorRow != nil {
 		holdersResponse.Pagination.NextCursor = common.BytesToAddress(nextCursorRow.HolderID).String()
 	}

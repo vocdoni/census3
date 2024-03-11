@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -33,6 +34,7 @@ const (
 	symbolTimeout    = time.Second * 5
 	balanceOfTimeout = time.Second * 10
 	saveScoreTimeout = time.Second * 10
+	metadataTimeout  = time.Second * 5
 )
 
 type GitcoinPassport struct {
@@ -45,12 +47,13 @@ type GitcoinPassport struct {
 	cancel     context.CancelFunc
 	scoresChan chan *GitcoinScore
 	waiter     *sync.WaitGroup
-	synced     *atomic.Bool
+	synced     atomic.Bool
 	// internal vars to manage the balances
 	currentBalances    map[common.Address]*big.Int
 	currentBalancesMtx sync.RWMutex
 	// lastInsert time is used to simulate the last block number
-	lastInsert *atomic.Int64
+	lastInsert     atomic.Int64
+	lastSyncedTime atomic.Int64
 }
 
 type GitcoinPassportConf struct {
@@ -83,11 +86,17 @@ func (g *GitcoinPassport) Init(iconf any) error {
 	g.ctx, g.cancel = context.WithCancel(context.Background())
 	g.scoresChan = make(chan *GitcoinScore)
 	g.waiter = new(sync.WaitGroup)
-	g.synced = new(atomic.Bool)
-	g.synced.Store(false)
+	g.synced = atomic.Bool{}
 	g.currentBalances = make(map[common.Address]*big.Int)
-	g.lastInsert = new(atomic.Int64)
-	g.lastInsert.Store(0)
+	g.lastInsert = atomic.Int64{}
+
+	g.lastSyncedTime = atomic.Int64{}
+	// get the last sync time from the database, if something fails, set it to 0
+	// to force the first update
+	lastSync, err := g.loadLastSync(g.ctx)
+	if err == nil {
+		g.lastSyncedTime.Store(lastSync)
+	}
 
 	g.startScoreUpdates()
 	return nil
@@ -332,21 +341,74 @@ func (g *GitcoinPassport) IconURI(_ []byte) (string, error) {
 	return "", nil
 }
 
+// CensusKeys method returns the holders and balances provided transformed.
+// The Gitcoin Passport provider does not need to transform the holders and
+// balances, so it returns the data as is.
+func (p *GitcoinPassport) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
+	return data, nil
+}
+
+func (g *GitcoinPassport) loadLastSync(ctx context.Context) (int64, error) {
+	internalCtx, cancel := context.WithTimeout(ctx, metadataTimeout)
+	defer cancel()
+	// get the last sync time from the database
+	value, err := g.db.QueriesRO.GetMetadata(internalCtx, "last_sync")
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// create the row if it does not exist to be able to update it
+			// in the future
+			if err := g.db.QueriesRW.NewMetadata(ctx, queries.NewMetadataParams{
+				Attr:  "last_sync",
+				Value: "0",
+			}); err != nil {
+				return 0, fmt.Errorf("error creating last_sync metadata: %w", err)
+			}
+			return 0, nil
+		}
+		return 0, fmt.Errorf("error getting last_sync metadata: %w", err)
+	}
+	// parse the value to time and return it
+	unix, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("error parsing last_sync metadata: %w", err)
+	}
+	return unix, nil
+}
+
+func (g *GitcoinPassport) updateLastSync(ctx context.Context) error {
+	// update the last sync time in the database
+	unixLastSync := time.Now().Unix()
+	g.lastSyncedTime.Store(unixLastSync)
+	if err := g.db.QueriesRW.UpdateMetadata(ctx, queries.UpdateMetadataParams{
+		Attr:  "last_sync",
+		Value: fmt.Sprint(unixLastSync),
+	}); err != nil {
+		return fmt.Errorf("error updating last_sync metadata: %w", err)
+	}
+	return nil
+}
+
 func (g *GitcoinPassport) startScoreUpdates() {
 	log.Debug("starting Gitcoin Passport score updates")
 	g.waiter.Add(1)
 	go func() {
 		defer g.waiter.Done()
-		ticker := time.NewTicker(g.cooldown)
 		for {
 			select {
 			case <-g.ctx.Done():
 				return
 			default:
+				lastSync := time.Unix(g.lastSyncedTime.Load(), 0)
+				if time.Since(lastSync).Abs() < g.cooldown {
+					log.Debugw("last sync time is too recent, waiting...",
+						"cooldown(s)", g.cooldown.Seconds(),
+						"time_to_next_sync(s)", g.cooldown.Seconds()-time.Since(lastSync).Seconds())
+					time.Sleep(30 * time.Second)
+					continue
+				}
 				if err := g.updateScores(); err != nil {
 					log.Warnw("error updating Gitcoin Passport scores", "err", err)
 				}
-				<-ticker.C
 			}
 		}
 	}()
@@ -421,6 +483,10 @@ func (g *GitcoinPassport) updateScores() error {
 		}
 	}
 	g.synced.Store(true)
+	// update the last sync time in the database
+	if err := g.updateLastSync(g.ctx); err != nil {
+		log.Warnw("error updating last sync time", "err", err)
+	}
 	log.Infow("Gitcoin Passport balances download finished",
 		"elapsed", elapsed,
 		"holders", validBalances)
@@ -501,11 +567,4 @@ func (g *GitcoinPassport) saveScore(score *GitcoinScore) error {
 	}
 	g.lastInsert.Store(time.Now().Unix())
 	return tx.Commit()
-}
-
-// CensusKeys method returns the holders and balances provided transformed.
-// The Gitcoin Passport provider does not need to transform the holders and
-// balances, so it returns the data as is.
-func (p *GitcoinPassport) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
-	return data, nil
 }

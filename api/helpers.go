@@ -73,7 +73,7 @@ func paginationFromCtx(ctx *httprouter.HTTPContext) (int32, int32, string, bool,
 // the rows are empty, because the first element is the cursor and there is
 // include it in the following page. It uses generics to support any type of
 // rows. The cursors will alwways be strings.
-func paginationToRequest[T any](rows []T, dbPageSize int32, cursor string, goForward bool) ([]T, *T, *T) {
+func paginationToRequest[T any](rows []T, dbPageSize int32, goForward bool) ([]T, *T, *T) {
 	// if the rows are empty there is no results or next and previous cursor
 	if len(rows) == 0 {
 		return rows, nil, nil
@@ -326,14 +326,17 @@ func TimeToCreateCensus(size uint64) uint64 {
 	// Based on the census3 data (11/24/2023), the value of m and c are:
 	// 	* m = 0.0008017991071149796
 	// 	* c = -1.1262389976474412
+	// Based on the census3 data (3/11/2024), the value of m and c are:
+	// 	* m = 0.00020543644248930586
+	// 	* c = -0.1809418921100489
 
 	// To reproduce the constants, use the following python snippet:
 	// 	import numpy as np
 	//	A = np.array([...])
 	//	B = np.array([...])
 	//	m, c = np.polyfit(A, B, 1)
-	m := 0.0008017991071149796
-	c := -1.1262389976474412
+	m := 0.00020543644248930586
+	c := -0.1809418921100489
 	seconds := m*float64(size) + c
 	if seconds < 0 {
 		seconds = 1

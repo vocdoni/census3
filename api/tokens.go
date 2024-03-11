@@ -107,7 +107,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 		Tokens:     []GetTokensItemResponse{},
 		Pagination: &Pagination{PageSize: pageSize},
 	}
-	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, cursor, goForward)
+	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, goForward)
 	if nextCursorRow != nil {
 		tokensResponse.Pagination.NextCursor = common.BytesToAddress(nextCursorRow.ID).String()
 	}

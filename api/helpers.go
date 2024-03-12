@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
@@ -147,8 +148,33 @@ func CreateAndPublishCensus(
 	// add the holders to the census tree
 	db.Lock()
 	defer db.Unlock()
-	if _, err := ref.Tree().AddBatch(holdersAddresses, holdersValues); err != nil {
-		return nil, "", nil, err
+	if chunkSize := 100; len(holdersAddresses) < chunkSize {
+		if _, err := ref.Tree().AddBatch(holdersAddresses, holdersValues); err != nil {
+			return nil, "", nil, err
+		}
+	} else {
+		var wg sync.WaitGroup
+		errCh := make(chan error, 1)
+		for i := 0; i < len(holdersAddresses); i += chunkSize {
+			end := i + chunkSize
+			if end > len(holdersAddresses) {
+				end = len(holdersAddresses)
+			}
+			wg.Add(1)
+			go func(start, end int) {
+				defer wg.Done()
+				if _, err := ref.Tree().AddBatch(holdersAddresses[start:end], holdersValues[start:end]); err != nil {
+					errCh <- err
+				}
+			}(i, end)
+		}
+		go func() {
+			wg.Wait()
+			close(errCh)
+		}()
+		for err := range errCh {
+			return nil, "", nil, fmt.Errorf("error adding batch of holders: %w", err)
+		}
 	}
 	root, err := ref.Tree().Root()
 	if err != nil {

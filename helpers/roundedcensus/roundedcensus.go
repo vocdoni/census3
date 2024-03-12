@@ -97,6 +97,7 @@ func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) (
 	// calculate outliers and cleaned participants using z-score and start
 	// parallel accuracy optimization loop
 	cleanedParticipants, outliers := zScore(participants, config.OutliersThreshold)
+	sort.Sort(ByBalance(cleanedParticipants))
 	for currentPrivacyThreshold <= maxPrivacyThreshold {
 		wg.Add(1)
 		go func(privacyThreshold int64) {
@@ -195,7 +196,6 @@ func zScore(participants []*Participant, threshold float64) ([]*Participant, []*
 
 // groupAndRoundCensus groups the cleanedParticipants and rounds their balances.
 func groupAndRoundCensus(participants []*Participant, privacyThreshold int64, groupBalanceDiff *big.Int) []*Participant {
-	sort.Sort(ByBalance(participants))
 	var groups [][]*Participant
 	var currentGroup []*Participant
 	for i, participant := range participants {

@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"runtime"
 	"sort"
 	"sync"
 )
@@ -78,13 +79,23 @@ func (a ByBalance) Less(i, j int) bool { return a[i].Balance.Cmp(a[j].Balance) <
 func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) (
 	[]*Participant, float64, error,
 ) {
-	// create vars to parallelize the accuracy optimization loop
-	type iteration struct {
+	// create vars to parallelize the accuracy optimization loop, create a
+	// bestResult struct to store the best accuracy and privacy threshold used
+	// to achieve it, and the best struct to store the best result and a mutex
+	// to update it safely
+	type bestResult struct {
 		accuracy         float64
 		privacyThreshold int64
 	}
-	iterationChan := make(chan iteration)
+	best := struct {
+		sync.Mutex
+		result bestResult
+	}{result: bestResult{accuracy: 0.0}}
+	// create a wait group and a semaphore to limit the number of goroutines to
+	// the number of CPU cores, calculate the maximum privacy
 	var wg sync.WaitGroup
+	numWorkers := runtime.NumCPU() // Limit the number of goroutines to the number of CPU cores
+	goroutineSem := make(chan struct{}, numWorkers)
 	// calculate bounds for the accuracy optimization loop, if the number of
 	// participants divided by the minimum privacy threshold is less than the
 	// minimum privacy threshold, use the minimum privacy threshold as the
@@ -93,58 +104,49 @@ func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) (
 	if maxPrivacyThreshold < config.MinPrivacyThreshold {
 		maxPrivacyThreshold = config.MinPrivacyThreshold
 	}
-	currentPrivacyThreshold := config.MinPrivacyThreshold
-	// calculate outliers and cleaned participants using z-score and start
-	// parallel accuracy optimization loop
+	// calculate outliers and cleaned participants using z-score and sort the
+	// cleaned ones by balance
 	cleanedParticipants, outliers := zScore(participants, config.OutliersThreshold)
-	sort.Sort(ByBalance(cleanedParticipants))
-	for currentPrivacyThreshold <= maxPrivacyThreshold {
+	sortedParticipants := append([]*Participant{}, cleanedParticipants...)
+	sort.Sort(ByBalance(sortedParticipants))
+	// iterate over privacy thresholds using the roundGap function to calculate
+	// the gap between them, and calculate the accuracy for each privacy
+	// threshold using a goroutine for each iteration
+	for current := config.MinPrivacyThreshold; current <= maxPrivacyThreshold; current += roundGap(current) {
+		goroutineSem <- struct{}{} // acquire goroutines semaphore
 		wg.Add(1)
 		go func(privacyThreshold int64) {
 			defer wg.Done()
 			// group and round participants and calculate accuracy
-			groupedParticipants := groupAndRoundCensus(cleanedParticipants, privacyThreshold, config.GroupBalanceDiff)
-			accuracy := calculateAccuracy(cleanedParticipants, groupedParticipants)
-			iterationChan <- iteration{accuracy, privacyThreshold}
-		}(currentPrivacyThreshold)
-		currentPrivacyThreshold += roundGap(currentPrivacyThreshold)
+			groupedParticipants := groupAndRoundCensus(sortedParticipants, privacyThreshold, config.GroupBalanceDiff)
+			accuracy := calculateAccuracy(sortedParticipants, groupedParticipants)
+			// lock best result before checking and updating it
+			best.Lock()
+			// update best result if the current accuracy is higher or if it is
+			// the same and the current privacy threshold is higher
+			if accuracy > best.result.accuracy || (accuracy == best.result.accuracy && privacyThreshold > best.result.privacyThreshold) {
+				best.result = bestResult{accuracy, privacyThreshold}
+			}
+			// unlock best result
+			best.Unlock()
+			<-goroutineSem // release goroutines semaphore
+		}(current)
 	}
 	// close iteration channel when all goroutines are done
-	go func() {
-		wg.Wait()
-		close(iterationChan)
-	}()
-	// consume iteration channel and find the highest accuracy
-	maxAccuracy := 0.0
-	privacyThreshold := int64(0)
-	for iter := range iterationChan {
-		if iter.accuracy >= maxAccuracy {
-			// if the accuracy is the same, choose the highest privacy threshold
-			if iter.accuracy == maxAccuracy {
-				if iter.privacyThreshold > privacyThreshold {
-					maxAccuracy = iter.accuracy
-					privacyThreshold = iter.privacyThreshold
-					continue
-				}
-			}
-			// if the accuracy is higher, update the max accuracy and privacy
-			// threshold
-			maxAccuracy = iter.accuracy
-			privacyThreshold = iter.privacyThreshold
-		}
-	}
-	// calculate the final rounded census with the highest accuracy
-	roundedCensus := groupAndRoundCensus(cleanedParticipants, privacyThreshold, config.GroupBalanceDiff)
-	outliersCensus := groupAndRoundCensus(outliers, privacyThreshold, config.GroupBalanceDiff)
+	wg.Wait()
+	// calculate the final rounded census with the highest calculated accuracy
+	finalPrivacyThreshold := best.result.privacyThreshold
+	roundedCensus := groupAndRoundCensus(sortedParticipants, finalPrivacyThreshold, config.GroupBalanceDiff)
+	outliersCensus := groupAndRoundCensus(outliers, finalPrivacyThreshold, config.GroupBalanceDiff)
 	roundedCensus = append(roundedCensus, outliersCensus...)
 	// return the final rounded census and the highest accuracy, if it does not
 	// satisfy the minimum accuracy requirement for the rounding process, return
 	// an error, if not, just return the final rounded census and the highest
 	// accuracy
-	if maxAccuracy < config.MinAccuracy {
-		return roundedCensus, maxAccuracy, fmt.Errorf("could not find a privacy threshold that satisfies the minimum accuracy")
+	if best.result.accuracy < config.MinAccuracy {
+		return roundedCensus, best.result.accuracy, fmt.Errorf("could not find a privacy threshold that satisfies the minimum accuracy")
 	}
-	return roundedCensus, maxAccuracy, nil
+	return roundedCensus, best.result.accuracy, nil
 }
 
 // zScore identifies and returns outliers based on a specified z-score

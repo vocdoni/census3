@@ -47,6 +47,14 @@ func (capi *census3API) initTokenHandlers() error {
 		api.MethodAccessTypePublic, capi.getTokenHolder); err != nil {
 		return err
 	}
+	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/csv", "GET",
+		api.MethodAccessTypePublic, capi.launchTokenHoldersCSV); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}/csv/queue/{queueID}", "GET",
+		api.MethodAccessTypePublic, capi.enqueueTokenHoldersCSV); err != nil {
+		return err
+	}
 	return capi.endpoint.RegisterMethod("/tokens/types", "GET",
 		api.MethodAccessTypePublic, capi.getTokenTypes)
 }
@@ -653,6 +661,99 @@ func (capi *census3API) getTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCon
 		return ErrEncodeTokenHolders.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) launchTokenHoldersCSV(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get contract address from the tokenID query param and decode check if
+	// it is provided, if not return an error
+	strAddress := ctx.URLParam("tokenID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	address := common.HexToAddress(strAddress)
+	// get chainID from query params and decode it as integer, if it's not
+	// provided or it's not a valid integer return an error
+	strChainID := ctx.Request.URL.Query().Get("chainID")
+	if strChainID == "" {
+		return ErrMalformedChainID.With("chainID is required")
+	}
+	chainID, err := strconv.Atoi(strChainID)
+	if err != nil {
+		return ErrMalformedChainID.WithErr(err)
+	} else if chainID < 0 {
+		return ErrMalformedChainID.With("chainID must be a positive number")
+	}
+	// get externalID from query params and decode it as string, it is optional
+	// so if it's not provided continue
+	externalID := ctx.Request.URL.Query().Get("externalID")
+	queueID := capi.queue.Enqueue()
+	go func() {
+		internalCtx, cancel := context.WithTimeout(context.Background(), tokenHoldersCSVTimeout)
+		defer cancel()
+		// get token holders and their balances from the database
+		holders, err := capi.db.QueriesRO.ListTokenHolders(internalCtx, queries.ListTokenHoldersParams{
+			TokenID:    address.Bytes(),
+			ChainID:    uint64(chainID),
+			ExternalID: externalID,
+		})
+		if err != nil {
+			log.Error(err)
+			capi.queue.Update(queueID, true, nil, ErrCantGetTokenHolders.WithErr(err))
+			return
+		}
+		// build the csv file
+		csvData := "address,balance\n"
+		for _, holder := range holders {
+			balance, ok := new(big.Int).SetString(holder.Balance, 10)
+			if !ok {
+				log.Error("error parsing balance")
+				capi.queue.Update(queueID, true, nil, ErrCantGetTokenHolders.With("error parsing balance"))
+				return
+			}
+			holderAddr := common.BytesToAddress(holder.HolderID)
+			if balance.Cmp(big.NewInt(0)) == 1 {
+				csvData += fmt.Sprintf("%s,%s\n", holderAddr.String(), balance.String())
+			}
+		}
+		capi.queue.Update(queueID, true, map[string]interface{}{"csvContent": []byte(csvData)}, nil)
+	}()
+	res, err := json.Marshal(map[string]string{"queueID": queueID})
+	if err != nil {
+		return ErrCantGetTokenHolders.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) enqueueTokenHoldersCSV(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get contract address from the tokenID query param and decode check if
+	// it is provided, if not return an error
+	strAddress := ctx.URLParam("tokenID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	// get contract address from the tokenID query param and decode check if
+	// it is provided, if not return an error
+	queueID := ctx.URLParam("queueID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	exits, done, data, err := capi.queue.Done(queueID)
+	if !exits {
+		return ErrNotFoundToken.With("queueID not found")
+	}
+	if err != nil {
+		return ErrCantGetTokenHolders.WithErr(err)
+	}
+	if done {
+		csvContent, ok := data["csvContent"].([]byte)
+		if !ok {
+			return ErrMalformedToken.With("csvContent not found")
+		}
+		capi.queue.Dequeue(queueID)
+		ctx.SetResponseContentType("text/csv")
+		return ctx.Send(csvContent, api.HTTPstatusOK)
+	}
+	return ctx.Send([]byte{}, api.HTTPstatusNoContent)
 }
 
 // getTokenTypes handler returns the list of string names of the currently

@@ -22,10 +22,11 @@ const (
 	getTokensStrategyTimeout     = time.Second * 10
 	getStrategyHoldersTimeout    = time.Second * 20
 	// tokens
-	getTokensTimeout   = time.Second * 20
-	createTokenTimeout = time.Second * 10
-	getTokenTimeout    = time.Second * 15
-	deleteTokenTimeout = time.Minute * 5
+	getTokensTimeout       = time.Second * 20
+	createTokenTimeout     = time.Second * 10
+	getTokenTimeout        = time.Second * 15
+	deleteTokenTimeout     = time.Minute * 5
+	tokenHoldersCSVTimeout = time.Minute * 5
 )
 
 const (

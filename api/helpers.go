@@ -189,7 +189,7 @@ func parallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte,
 	// if the number of holders is less than the chunk size, add them in a single
 	// batch, otherwise, add them in chunks of the chunk size
 	chunkSize := 100
-	if len(addresses) >= chunkSize {
+	if len(addresses) <= chunkSize {
 		_, err := ref.Tree().AddBatch(addresses, values)
 		return err
 	}
@@ -393,21 +393,22 @@ func TimeToCreateCensus(size uint64) uint64 {
 	// 	* m = 0.00020543644248930586
 	// 	* c = -0.1809418921100489
 	// Based on the census3 data (3/13/2024), the value of m and c are:
-	// 	* m = 0.000495
-	// 	* c = 4.028
+	// 	* m = 0.000256
+	// 	* c = -0.3035
 
 	// To reproduce the constants, use the following python snippet:
 	// 	import numpy as np
 	//	A = np.array([...])
 	//	B = np.array([...])
 	//	m, c = np.polyfit(A, B, 1)
-	m := 0.000495
-	c := 4.028
+	m := 0.000256
+	c := -0.3035
 	seconds := m*float64(size) + c
 	if seconds < 0 {
 		seconds = 1
 	}
-	return uint64(seconds * 1000) // milliseconds
+	// add 5 seconds to the estimated time to create a census as a safety margin
+	return uint64((seconds + 5) * 1000) // milliseconds
 }
 
 type CacheKey [16]byte

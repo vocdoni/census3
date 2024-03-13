@@ -32,14 +32,28 @@ const app = createApp({
     async created() {
         await this.loadTokens();
     },
-    template: `<div>
-        <select id="tokens" v-model="selectedToken">
-            <option v-for="(token, index) in tokens" :key="index" :value="token">{{ token.name }} ({{ token.symbol }})</option>
-        </select>
-        <button type="button" @click="launchCSV" :disabled="!selectedToken || loading">Generate CSV</button>
-        <span v-if="loading">loading</span>
-        <a v-if="fileURI" :href="fileURI" :download="selectedToken.symbol+'.csv'">Download CSV</a>
-    </div>`,
+    template: `
+    <div id="app" class="container">
+        <h1>hold3rs 📊</h1>
+        <p>A simple web app to get the holders of a token in CSV.</p>
+        <div class="selector-container">
+            <label for="tokens">Select a Token:</label>
+            <select id="tokens" v-model="selectedToken" @change="reset">
+                <option v-for="(token, index) in tokens" :key="index" :value="token">
+                    {{ token.name }} ({{ token.symbol }})
+                </option>
+            </select>
+        </div>
+        <button type="button" @click="launchCSV" :disabled="!selectedToken || loading" class="generate-btn">
+            Generate CSV 📝
+        </button>
+        <span v-if="loading" class="loading-text">
+            <div class="spinner"></div>
+            Loading...
+        </span>
+        <a v-if="fileURI" :href="fileURI" :download="selectedToken.symbol+'.csv'" class="download-link">Download CSV 📥</a>
+    </div>
+    `,
     methods: {
         async loadTokens() {
             const getTokensURI = `${apiURL}/tokens?pageSize=-1`;
@@ -74,6 +88,10 @@ const app = createApp({
                 const body = await response.text();
                 throw new Error(`CSV failed: ${body}`);
             }
+        },
+        reset() {
+            this.loading = false;
+            this.fileURI = null;
         }
     }
 });

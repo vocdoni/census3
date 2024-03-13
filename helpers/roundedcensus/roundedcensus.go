@@ -135,14 +135,13 @@ func GroupAndRoundCensus(participants []*Participant, config GroupsConfig,
 			}
 			// unlock best result
 			best.Unlock()
-			lastProcessed := current - config.MinPrivacyThreshold
+			lastProcessed := privacyThreshold - config.MinPrivacyThreshold
 			if alreadyProcessed := proccessedSetups.Load(); lastProcessed > alreadyProcessed {
 				proccessedSetups.Store(lastProcessed)
 				if progressCh != nil {
-					progressCh <- float64(alreadyProcessed+1) / float64(setupsToProcess) * 100
+					progressCh <- float64(lastProcessed) / float64(setupsToProcess) * 100
 				}
 			}
-			proccessedSetups.CompareAndSwap(lastProcessed, lastProcessed+1)
 			<-goroutineSem // release goroutines semaphore
 		}(current)
 	}

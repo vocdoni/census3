@@ -736,7 +736,8 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(queueID string, strategy
 		calculateStrategyProgress = capi.queue.StepProgressChannel(queueID, 1, 2)
 	}
 	// calculate the strategy holders
-	strategyHolders, _, _, err := capi.CalculateStrategyHolders(internalCtx, strategyID, strategy.Predicate, calculateStrategyProgress)
+	strategyHolders, _, _, err := capi.CalculateStrategyHolders(internalCtx,
+		strategyID, strategy.Predicate, calculateStrategyProgress)
 	if err != nil {
 		return 0, 0, ErrEvalStrategyPredicate.WithErr(err)
 	}

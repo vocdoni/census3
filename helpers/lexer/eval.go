@@ -97,7 +97,10 @@ func (e *Evaluator[T]) EvalToken(p *Token, progressCh chan float64) (T, error) {
 		lastResult = res
 		// send progress update if the channel is provided
 		if progressCh != nil {
-			progressCh <- float64(i+1) / float64(totalChilds) * 100
+			select {
+			case progressCh <- float64(i+1) / float64(totalChilds) * 100:
+			default:
+			}
 		}
 	}
 	// return the last result, from the root part provided

@@ -89,13 +89,12 @@ func (capi *census3API) launchCensusCreation(msg *api.APIdata, ctx *httprouter.H
 	go func() {
 		censusID, err := capi.createAndPublishCensus(req, queueID)
 		if err != nil && !errors.Is(ErrCensusAlreadyExists, err) {
-			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+			if ok := capi.queue.Fail(queueID, err); !ok {
 				log.Errorf("error updating census queue process with error: %v", err)
 			}
 			return
 		}
-		queueData := map[string]any{"censusID": censusID}
-		if ok := capi.queue.Update(queueID, true, queueData, nil); !ok {
+		if ok := capi.queue.Done(queueID, censusID); !ok {
 			log.Errorf("error updating census queue process with error")
 		}
 	}()
@@ -288,21 +287,16 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 		return ErrMalformedCensusQueueID
 	}
 	// try to get and check if the census is in the queue
-	exists, done, data, err := capi.queue.Done(queueID)
+	queueItem, exists := capi.queue.IsDone(queueID)
 	if !exists {
 		return ErrNotFoundCensus.Withf("the ID %s does not exist in the queue", queueID)
 	}
-	// init queue item response
-	queueCensus := CensusQueueResponse{
-		Done:  done,
-		Error: err,
-	}
 	// check if it is not finished or some error occurred
-	if done && err == nil {
+	if queueItem.Done && queueItem.Error == nil {
 		// if everything is ok, get the census information an return it
 		internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), enqueueCensusCreationTimeout)
 		defer cancel()
-		censusID, ok := data["censusID"].(uint64)
+		censusID, ok := queueItem.Data.(uint64)
 		if !ok {
 			log.Errorf("no census id registered on queue item")
 			return ErrCantGetCensus
@@ -320,8 +314,8 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 		if !ok {
 			return ErrCantGetCensus.With("invalid census weight")
 		}
-		// encode census
-		queueCensus.Census = &GetCensusResponse{
+		// encode census information and include it into the queue item
+		queueItem.Data = &GetCensusResponse{
 			CensusID:   currentCensus.ID,
 			StrategyID: currentCensus.StrategyID,
 			MerkleRoot: types.HexBytes(currentCensus.MerkleRoot),
@@ -335,7 +329,7 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 		capi.queue.Dequeue(queueID)
 	}
 	// encode item response and send it
-	res, err := json.Marshal(queueCensus)
+	res, err := json.Marshal(queueItem)
 	if err != nil {
 		return ErrEncodeQueueItem.WithErr(err)
 	}

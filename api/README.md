@@ -423,7 +423,7 @@ Returns the information of the strategy that are in the creation queue.
         "code": 0,
         "error": "error message or null"
     },
-    "strategy": { /* <same_get_strategy_response> */ }
+    "data": { /* <same_get_strategy_response> */ }
 }
 ```
 
@@ -514,7 +514,7 @@ Returns the estimation of size and time (in milliseconds) to create the census g
         "code": 0,
         "error": "error message or null"
     },
-    "estimation": {
+    "data": {
         "size": 15000,
         "timeToCreateCensus": 10900,
         "accuracy": 100.0,
@@ -785,7 +785,7 @@ Returns the information of the census that are in the creation queue.
         "code": 0,
         "error": "error message or null"
     },
-    "census": { /* <same_get_census_response> */ }
+    "data": { /* <same_get_census_response> */ }
 }
 ```
 

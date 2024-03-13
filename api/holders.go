@@ -55,7 +55,7 @@ func (capi *census3API) launchHoldersAtLastBlock(msg *api.APIdata, ctx *httprout
 	go func() {
 		balances, lastBlockNumber, err := capi.listHoldersAtLastBlock(address, uint64(chainID), externalID)
 		if err != nil {
-			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+			if ok := capi.queue.Fail(queueID, err); !ok {
 				log.Errorf("error updating list holders at block queue %s", queueID)
 			}
 			return
@@ -65,7 +65,7 @@ func (capi *census3API) launchHoldersAtLastBlock(msg *api.APIdata, ctx *httprout
 			"block":   lastBlockNumber,
 			"holders": balances,
 		}
-		if ok := capi.queue.Update(queueID, true, queueData, nil); !ok {
+		if ok := capi.queue.Done(queueID, queueData); !ok {
 			log.Errorf("error updating list holders at block queue %s", queueID)
 		}
 	}()
@@ -151,27 +151,17 @@ func (capi *census3API) enqueueHoldersAtLastBlock(msg *api.APIdata, ctx *httprou
 		return ErrMalformedStrategyQueueID
 	}
 	// try to get and check if the strategy is in the queue
-	exists, done, data, err := capi.queue.Done(queueID)
+	queueItem, exists := capi.queue.IsDone(queueID)
 	if !exists {
 		return ErrNotFoundStrategy.Withf("the ID %s does not exist in the queue", queueID)
 	}
-	// init the queue response
-	queueStrategy := GetHoldersAtLastBlockResponse{
-		Done:  done,
-		Error: err,
-	}
 	// check if it is not finished or some error occurred
-	if done && err == nil {
-		queueStrategy.HoldersAtBlock = &TokenHoldersAtBlock{
-			Size:        data["size"].(int),
-			BlockNumber: data["block"].(uint64),
-			Holders:     data["holders"].(map[string]string),
-		}
+	if queueItem.Done && queueItem.Error == nil {
 		// remove the item from the queue
 		capi.queue.Dequeue(queueID)
 	}
 	// encode item response and send it
-	res, err := json.Marshal(queueStrategy)
+	res, err := json.Marshal(queueItem)
 	if err != nil {
 		return ErrEncodeQueueItem.WithErr(err)
 	}

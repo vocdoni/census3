@@ -16,25 +16,22 @@ const QueueIDLen = 20
 // it it throw any error during its execution, and a flexsible data map variable
 // to store resulting information of the enqueued process execution.
 type QueueItem struct {
-	done bool
-	err  error
-	data map[string]any
+	Done     bool    `json:"done"`
+	Error    error   `json:"error"`
+	Data     any     `json:"data"`
+	Progress float64 `json:"progress"`
 }
 
 // BackgroundQueue struct abstracts a background processes queue, including a
-// mutex to make the operations over it safely and also a map of items,
-// identified by the queue item id's.
+// safe map of queue items, and methods to enqueue, dequeue, update and check
+// the status of the queue items.
 type BackgroundQueue struct {
-	mtx       *sync.Mutex
-	processes map[string]QueueItem
+	processes sync.Map
 }
 
 // NewBackgroundQueue function initializes a new queue and return it.
 func NewBackgroundQueue() *BackgroundQueue {
-	return &BackgroundQueue{
-		mtx:       &sync.Mutex{},
-		processes: make(map[string]QueueItem),
-	}
+	return &BackgroundQueue{}
 }
 
 // Enqueue method creates a new queue item and enqueue it into the current
@@ -42,54 +39,137 @@ func NewBackgroundQueue() *BackgroundQueue {
 // false, its error and data to nil. This queue item parameters can be updated
 // using the resulting ID and the queue Update method.
 func (q *BackgroundQueue) Enqueue() string {
-	q.mtx.Lock()
-	defer q.mtx.Unlock()
-
 	id := util.RandomHex(QueueIDLen)
-	q.processes[id] = QueueItem{
-		done: false,
-		err:  nil,
-		data: make(map[string]any),
-	}
+	q.processes.Store(id, QueueItem{
+		Done:  false,
+		Error: nil,
+		Data:  make(map[string]any),
+	})
 	return id
 }
 
 // Dequeue method removes a item from que current queue using the id provided.
 // It returns if the item was in the queue before remove it.
 func (q *BackgroundQueue) Dequeue(id string) bool {
-	q.mtx.Lock()
-	defer q.mtx.Unlock()
-
-	if _, ok := q.processes[id]; !ok {
+	if _, ok := q.processes.Load(id); !ok {
 		return false
 	}
-	delete(q.processes, id)
+	q.processes.Delete(id)
 	return true
 }
 
-// Update method updates the information of a queue item identified by the
-// provided id. It changes the done, data and error parameters of the found
-// queue item to the provided values.
-func (q *BackgroundQueue) Update(id string, done bool, data map[string]any, err error) bool {
-	q.mtx.Lock()
-	defer q.mtx.Unlock()
-
-	if _, ok := q.processes[id]; !ok {
+// UpdateProgress method updates the queue item with the provided id with the
+// progress provided. It returns if the operation was successful, which means
+// that the queue item was in the queue before the update.
+func (q *BackgroundQueue) UpdateProgress(id string, progress float64) bool {
+	if progress < 0 || progress > 100 {
 		return false
 	}
-	q.processes[id] = QueueItem{done: done, err: err, data: data}
+	iQueueItem, ok := q.processes.Load(id)
+	if !ok {
+		return false
+	}
+	queueItem, ok := iQueueItem.(QueueItem)
+	if !ok {
+		return false
+	}
+	queueItem.Progress = progress
+	q.processes.Store(id, queueItem)
 	return true
 }
 
-// Done method returns the queue item information such as it is done or not, if
-// it throws any error and its data. But all this information is only returned
-// if the queue item exists in the queue, returned as first parameter.
-func (q *BackgroundQueue) Done(id string) (bool, bool, map[string]any, error) {
-	q.mtx.Lock()
-	defer q.mtx.Unlock()
-
-	if p, ok := q.processes[id]; ok {
-		return true, p.done, p.data, p.err
+// UpdateData method updates the queue item with the provided id with the data
+// map provided. It returns if the operation was successful, which means that
+// the queue item was in the queue before the update.
+func (q *BackgroundQueue) UpdateData(id string, data any) bool {
+	iQueueItem, ok := q.processes.Load(id)
+	if !ok {
+		return false
 	}
-	return false, false, nil, nil
+	queueItem, ok := iQueueItem.(QueueItem)
+	if !ok {
+		return false
+	}
+	queueItem.Data = data
+	q.processes.Store(id, queueItem)
+	return true
+}
+
+// IsDone method returns if the queue item with the provided id is done or not,
+// its progress, data and error. It also returns if the queue item was in the
+// queue before the operation.
+func (q *BackgroundQueue) IsDone(id string) (QueueItem, bool) {
+	iQueueItem, ok := q.processes.Load(id)
+	if !ok {
+		return QueueItem{}, false
+	}
+	queueItem, ok := iQueueItem.(QueueItem)
+	if !ok {
+		return QueueItem{}, false
+	}
+	return queueItem, true
+}
+
+// Fail method updates the queue item with the provided id as failed, and also
+// stores the provided error into the queue item. It returns if the operation
+// was successful, which means that the queue item was in the queue before the
+// update.
+func (q *BackgroundQueue) Fail(id string, err error) bool {
+	iQueueItem, ok := q.processes.Load(id)
+	if !ok {
+		return false
+	}
+	queueItem, ok := iQueueItem.(QueueItem)
+	if !ok {
+		return false
+	}
+	queueItem.Error = err
+	queueItem.Done = true
+	q.processes.Store(id, queueItem)
+	return true
+}
+
+// Done method updates the queue item with the provided id as done, and also
+// stores the provided data map into the queue item. It returns if the operation
+// was successful, which means that the queue item was in the queue before the
+// update.
+func (q *BackgroundQueue) Done(id string, data any) bool {
+	iQueueItem, ok := q.processes.Load(id)
+	if !ok {
+		return false
+	}
+	queueItem, ok := iQueueItem.(QueueItem)
+	if !ok {
+		return false
+	}
+	queueItem.Done = true
+	queueItem.Progress = 100
+	queueItem.Data = data
+	q.processes.Store(id, queueItem)
+	return true
+}
+
+// ProgressChannel method returns a channel to update the progress of the queue
+// item with the provided id. It returns a channel to send the progress updates
+// and it is safe to close it when the progress updates are done.
+func (q *BackgroundQueue) ProgressChannel(id string, step, totalSteps int) chan float64 {
+	prgressCh := make(chan float64)
+	go func() {
+		for progress := range prgressCh {
+			qi, ok := q.IsDone(id)
+			if !ok || qi.Done {
+				close(prgressCh)
+				return
+			}
+			// calc partial progress of current step
+			stepIndex := step - 1
+			partialStep := 100 / totalSteps
+			stepProgress := float64(stepIndex*partialStep) + progress/float64(totalSteps)
+			if !q.UpdateProgress(id, float64(stepProgress)) {
+				close(prgressCh)
+				return
+			}
+		}
+	}()
+	return prgressCh
 }

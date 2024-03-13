@@ -442,13 +442,13 @@ func (capi *census3API) launchDeleteToken(msg *api.APIdata, ctx *httprouter.HTTP
 		// delete the token from the database, if something fails update the
 		// queue process with the error
 		if err := capi.deleteToken(address, uint64(chainID), externalID); err != nil {
-			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+			if ok := capi.queue.Fail(queueID, err); !ok {
 				log.Errorf("error updating delete token queue process with error: %v", err)
 			}
 			return
 		}
 		// update the queue process with the result
-		if ok := capi.queue.Update(queueID, true, nil, nil); !ok {
+		if ok := capi.queue.Done(queueID, nil); !ok {
 			log.Errorf("error updating delete token queue process with error: %v", err)
 		}
 	}()
@@ -472,15 +472,11 @@ func (capi *census3API) enqueueDeleteToken(msg *api.APIdata, ctx *httprouter.HTT
 		return ErrMalformedCensusQueueID
 	}
 	// try to get and check if the census is in the queue
-	exists, done, _, err := capi.queue.Done(queueID)
+	queueItem, exists := capi.queue.IsDone(queueID)
 	if !exists {
 		return ErrNotFoundToken.Withf("the ID %s does not exist in the queue", queueID)
 	}
-	status := &DeleteTokenQueueResponse{
-		Done:  done,
-		Error: err,
-	}
-	response, err := json.Marshal(status)
+	response, err := json.Marshal(queueItem)
 	if err != nil {
 		return ErrCantDeleteToken.WithErr(err)
 	}

@@ -11,12 +11,11 @@ import (
 	"math/big"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
-	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/lexer"
 	"github.com/vocdoni/census3/helpers/strategyoperators"
-	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"
 	"go.vocdoni.io/dvote/censustree"
@@ -123,8 +122,8 @@ type CensusOptions struct {
 // options provided and publishes it to IPFS. It needs to persist it temporaly
 // into a internal trees database. It returns the root of the tree, the IPFS
 // URI and the tree dump.
-func CreateAndPublishCensus(
-	db *censusdb.CensusDB, storage storagelayer.Storage, opts CensusOptions,
+func CreateAndPublishCensus(db *censusdb.CensusDB, storage storagelayer.Storage,
+	opts CensusOptions, progressCh chan float64,
 ) (types.HexBytes, string, []byte, error) {
 	bID := make([]byte, 8)
 	binary.LittleEndian.PutUint64(bID, opts.ID)
@@ -149,7 +148,7 @@ func CreateAndPublishCensus(
 	db.Lock()
 	defer db.Unlock()
 	// add the holders addresses and values to the census tree in parallel
-	if err := parallelAddBatch(ref, holdersAddresses, holdersValues); err != nil {
+	if err := parallelAddBatch(ref, holdersAddresses, holdersValues, progressCh); err != nil {
 		return nil, "", nil, err
 	}
 	// get the root of the tree
@@ -184,7 +183,9 @@ func CreateAndPublishCensus(
 // dividing the holders in chunks if it is necessary. The holders must be
 // provided as a slice of addresses and a slice of values. If some error occurs,
 // the function stops adding the batch of holders and returns the error.
-func parallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte) error {
+func parallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte,
+	progressCh chan float64,
+) error {
 	// if the number of holders is less than the chunk size, add them in a single
 	// batch, otherwise, add them in chunks of the chunk size
 	chunkSize := 100
@@ -197,6 +198,8 @@ func parallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte) error
 	var wg sync.WaitGroup
 	errCh := make(chan error, 1)
 	// add the batch of holders iterating over the chunks
+	numOfChunks := (len(addresses) + chunkSize - 1) / chunkSize
+	proccessedChunks := atomic.Uint64{}
 	for startOfTheChunk := 0; startOfTheChunk < len(addresses); startOfTheChunk += chunkSize {
 		// calculate end of the chunk
 		endOfTheChunk := startOfTheChunk + chunkSize
@@ -216,6 +219,11 @@ func parallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte) error
 				default:
 					return
 				}
+			}
+			// update the progress and send it to the channel if it is provided
+			proccessedChunks.Add(1)
+			if progressCh != nil {
+				progressCh <- float64(proccessedChunks.Load()) / float64(numOfChunks) * 100
 			}
 		}(startOfTheChunk, endOfTheChunk)
 	}
@@ -263,8 +271,8 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 // The evaluator uses the strategy operators to evaluate the predicate which
 // uses the database queries to get the token holders and their balances, and
 // combines them.
-func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
-	providers map[uint64]providers.HolderProvider, id uint64, predicate string,
+func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
+	strategyID uint64, predicate string, progressCh chan float64,
 ) (map[common.Address]*big.Int, *big.Int, uint64, error) {
 	// TODO: write a benchmark and try to optimize this function
 
@@ -278,7 +286,7 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
 		return nil, nil, 0, err
 	}
 	// get strategy tokens from the database
-	strategyTokens, err := qdb.TokensByStrategyID(ctx, id)
+	strategyTokens, err := capi.db.QueriesRO.TokensByStrategyID(ctx, strategyID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, 0, err
@@ -292,7 +300,7 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
 	// number, used to create the census id.
 	totalTokensBlockNumber := uint64(0)
 	for _, token := range strategyTokens {
-		provider, exists := providers[token.TypeID]
+		provider, exists := capi.holderProviders[token.TypeID]
 		if !exists {
 			return nil, nil, 0, fmt.Errorf("provider not found for token type id %d", token.TypeID)
 		}
@@ -314,7 +322,7 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
 	// it is a complex predicate, create a evaluator and evaluate the predicate
 	if validPredicate.IsLiteral() {
 		// get the strategy holders from the database
-		holders, err := qdb.TokenHoldersByStrategyID(ctx, id)
+		holders, err := capi.db.QueriesRO.TokenHoldersByStrategyID(ctx, strategyID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil, totalTokensBlockNumber, nil
@@ -346,10 +354,10 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
 			}
 		}
 		// init the operators and the predicate evaluator
-		operators := strategyoperators.InitOperators(qdb, tokensInfo)
+		operators := strategyoperators.InitOperators(capi.db.QueriesRO, tokensInfo)
 		eval := lexer.NewEval[*strategyoperators.StrategyIteration](operators.Map())
 		// execute the evaluation of the predicate
-		res, err := eval.EvalToken(validPredicate)
+		res, err := eval.EvalToken(validPredicate, progressCh)
 		if err != nil {
 			return nil, nil, totalTokensBlockNumber, err
 		}

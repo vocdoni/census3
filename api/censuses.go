@@ -139,8 +139,9 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		return 0, ErrInvalidStrategyPredicate.With("empty predicate")
 	}
 	// init some variables to get computed in the following steps
-	strategyHolders, censusWeight, totalTokensBlockNumber, err := CalculateStrategyHolders(
-		internalCtx, capi.db.QueriesRO, capi.holderProviders, req.StrategyID, strategy.Predicate)
+	calculateStrategyProgress := capi.queue.StepProgressChannel(qID, 1, 3)
+	strategyHolders, censusWeight, totalTokensBlockNumber, err := capi.CalculateStrategyHolders(
+		internalCtx, req.StrategyID, strategy.Predicate, calculateStrategyProgress)
 	if err != nil {
 		return 0, ErrEvalStrategyPredicate.WithErr(err)
 	}
@@ -169,7 +170,8 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	// transform the census holders and get the final accuracy
-	holders, finalAccuracy, err := capi.transformCensus(strategyHolders, req.Anonymous, isForFarcaster)
+	censusTransformProgress := capi.queue.StepProgressChannel(qID, 2, 3)
+	holders, finalAccuracy, err := capi.transformCensus(strategyHolders, req.Anonymous, isForFarcaster, censusTransformProgress)
 	if err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
@@ -184,11 +186,12 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 		censusType = anonymousCensusType
 	}
 	// create a census tree and publish on IPFS
+	censusCreationProgress := capi.queue.StepProgressChannel(qID, 3, 3)
 	root, uri, _, err := CreateAndPublishCensus(capi.censusDB, capi.storage, CensusOptions{
 		ID:      newCensusID,
 		Type:    censusType,
 		Holders: holders,
-	})
+	}, censusCreationProgress)
 	if err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
@@ -237,7 +240,7 @@ func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID str
 // holders. If none of the previous conditions are met, it returns the same
 // holders and an accuracy of 100%.
 func (capi *census3API) transformCensus(holders map[common.Address]*big.Int,
-	anonymous, farcaster bool,
+	anonymous, farcaster bool, progressCh chan float64,
 ) (map[common.Address]*big.Int, float64, error) {
 	// if the census is anonymous, round the balances and return the final accuracy
 	if anonymous {
@@ -249,7 +252,7 @@ func (capi *census3API) transformCensus(holders map[common.Address]*big.Int,
 				Balance: balance,
 			})
 		}
-		res, accuracy, err := roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig)
+		res, accuracy, err := roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig, progressCh)
 		if err != nil {
 			return nil, 0, err
 		}

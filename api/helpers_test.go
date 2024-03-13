@@ -57,7 +57,7 @@ func TestCreateAndPublish(t *testing.T) {
 		Type:    defaultCensusType,
 		Holders: testHolders,
 	}
-	root, _, dump, err := CreateAndPublishCensus(db, storage, opts)
+	root, _, dump, err := CreateAndPublishCensus(db, storage, opts, nil)
 	c.Assert(err, qt.IsNil)
 	// encode id
 	bID := make([]byte, 8)

@@ -38,6 +38,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"sync/atomic"
 )
 
 // GroupsConfig represents the configuration for the grouping and rounding process.
@@ -76,9 +77,9 @@ func (a ByBalance) Less(i, j int) bool { return a[i].Balance.Cmp(a[j].Balance) <
 // rounds the balances of the participants with the highest accuracy possible
 // while maintaining a minimum privacy threshold. It discards outliers from the
 // rounding process but returns them in the final list of participants.
-func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) (
-	[]*Participant, float64, error,
-) {
+func GroupAndRoundCensus(participants []*Participant, config GroupsConfig,
+	progressCh chan float64,
+) ([]*Participant, float64, error) {
 	// create vars to parallelize the accuracy optimization loop, create a
 	// bestResult struct to store the best accuracy and privacy threshold used
 	// to achieve it, and the best struct to store the best result and a mutex
@@ -109,6 +110,11 @@ func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) (
 	cleanedParticipants, outliers := zScore(participants, config.OutliersThreshold)
 	sortedParticipants := append([]*Participant{}, cleanedParticipants...)
 	sort.Sort(ByBalance(sortedParticipants))
+	// create some vars to track the progress of the accuracy optimization loop,
+	// incrase the number of setups to process by one to include the last
+	// iteration to calculate the final rounded census for the chosen setup
+	setupsToProcess := maxPrivacyThreshold - config.MinPrivacyThreshold + 1
+	proccessedSetups := atomic.Int64{}
 	// iterate over privacy thresholds using the roundGap function to calculate
 	// the gap between them, and calculate the accuracy for each privacy
 	// threshold using a goroutine for each iteration
@@ -129,6 +135,14 @@ func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) (
 			}
 			// unlock best result
 			best.Unlock()
+			lastProcessed := current - config.MinPrivacyThreshold
+			if alreadyProcessed := proccessedSetups.Load(); lastProcessed > alreadyProcessed {
+				proccessedSetups.Store(lastProcessed)
+				if progressCh != nil {
+					progressCh <- float64(alreadyProcessed+1) / float64(setupsToProcess) * 100
+				}
+			}
+			proccessedSetups.CompareAndSwap(lastProcessed, lastProcessed+1)
 			<-goroutineSem // release goroutines semaphore
 		}(current)
 	}
@@ -139,6 +153,10 @@ func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) (
 	roundedCensus := groupAndRoundCensus(sortedParticipants, finalPrivacyThreshold, config.GroupBalanceDiff)
 	outliersCensus := groupAndRoundCensus(outliers, finalPrivacyThreshold, config.GroupBalanceDiff)
 	roundedCensus = append(roundedCensus, outliersCensus...)
+	// send 100% progress to the channel to indicate the process is done
+	if progressCh != nil {
+		progressCh <- 100
+	}
 	// return the final rounded census and the highest accuracy, if it does not
 	// satisfy the minimum accuracy requirement for the rounding process, return
 	// an error, if not, just return the final rounded census and the highest

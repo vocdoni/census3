@@ -73,8 +73,10 @@ func (q *BackgroundQueue) UpdateProgress(id string, progress float64) bool {
 	if !ok {
 		return false
 	}
-	queueItem.Progress = progress
-	q.processes.Store(id, queueItem)
+	if progress > queueItem.Progress {
+		queueItem.Progress = progress
+		q.processes.Store(id, queueItem)
+	}
 	return true
 }
 
@@ -149,10 +151,10 @@ func (q *BackgroundQueue) Done(id string, data any) bool {
 	return true
 }
 
-// ProgressChannel method returns a channel to update the progress of the queue
-// item with the provided id. It returns a channel to send the progress updates
-// and it is safe to close it when the progress updates are done.
-func (q *BackgroundQueue) ProgressChannel(id string, step, totalSteps int) chan float64 {
+// StepProgressChannel method returns a channel to update the progress of the
+// queue item with the provided id. It returns a channel to send the progress
+// updates and it is safe to close it when the progress updates are done.
+func (q *BackgroundQueue) StepProgressChannel(id string, step, totalSteps int) chan float64 {
 	prgressCh := make(chan float64)
 	go func() {
 		for progress := range prgressCh {

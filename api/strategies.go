@@ -726,8 +726,7 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(strategyID uint64, anony
 		return 0, 0, ErrInvalidStrategyPredicate.With("empty predicate")
 	}
 	// calculate the strategy holders
-	strategyHolders, _, _, err := CalculateStrategyHolders(internalCtx,
-		capi.db.QueriesRO, capi.holderProviders, strategyID, strategy.Predicate)
+	strategyHolders, _, _, err := capi.CalculateStrategyHolders(internalCtx, strategyID, strategy.Predicate, nil)
 	if err != nil {
 		return 0, 0, ErrEvalStrategyPredicate.WithErr(err)
 	}
@@ -745,7 +744,7 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(strategyID uint64, anony
 				})
 			}
 			// calculate the accuracy of the census and return it with the size
-			_, accuracy, _ = roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig)
+			_, accuracy, _ = roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig, nil)
 		}
 		// cache the strategy if the estimated size is greater than the
 		// threshold

@@ -65,7 +65,7 @@ func NewEval[T any](ops []*Operator[T]) *Evaluator[T] {
 // associated operator passing the tokens or values referenced by each token.
 // The child tokens are sorted by descending level ensuring dependencies
 // resolution and storing the partial results.
-func (e *Evaluator[T]) EvalToken(p *Token) (T, error) {
+func (e *Evaluator[T]) EvalToken(p *Token, progressCh chan float64) (T, error) {
 	// get all childs and sort by level
 	childs := p.AllGroups()
 	sort.Slice(childs[:], func(i, j int) bool {
@@ -74,7 +74,8 @@ func (e *Evaluator[T]) EvalToken(p *Token) (T, error) {
 	// create a var to store the last iteration result
 	var lastResult T
 	// iterate over childs
-	for _, c := range childs {
+	totalChilds := len(childs)
+	for i, c := range childs {
 		// parse child operator
 		op := e.findOperator(c.Operator)
 		if op == nil {
@@ -94,6 +95,10 @@ func (e *Evaluator[T]) EvalToken(p *Token) (T, error) {
 		// and continue
 		e.partialResults[fmt.Sprint(c.ID)] = res
 		lastResult = res
+		// send progress update if the channel is provided
+		if progressCh != nil {
+			progressCh <- float64(i+1) / float64(totalChilds) * 100
+		}
 	}
 	// return the last result, from the root part provided
 	return lastResult, nil

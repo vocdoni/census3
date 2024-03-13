@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
@@ -147,13 +148,16 @@ func CreateAndPublishCensus(
 	// add the holders to the census tree
 	db.Lock()
 	defer db.Unlock()
-	if _, err := ref.Tree().AddBatch(holdersAddresses, holdersValues); err != nil {
+	// add the holders addresses and values to the census tree in parallel
+	if err := parallelAddBatch(ref, holdersAddresses, holdersValues); err != nil {
 		return nil, "", nil, err
 	}
+	// get the root of the tree
 	root, err := ref.Tree().Root()
 	if err != nil {
 		return nil, "", nil, err
 	}
+	// get the tree dump
 	data, err := ref.Tree().Dump()
 	if err != nil {
 		return nil, "", nil, err
@@ -176,6 +180,57 @@ func CreateAndPublishCensus(
 	return root, uri, dump, nil
 }
 
+// parallelAddBatch function adds a group holders to the census tree in parallel
+// dividing the holders in chunks if it is necessary. The holders must be
+// provided as a slice of addresses and a slice of values. If some error occurs,
+// the function stops adding the batch of holders and returns the error.
+func parallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte) error {
+	// if the number of holders is less than the chunk size, add them in a single
+	// batch, otherwise, add them in chunks of the chunk size
+	chunkSize := 100
+	if len(addresses) >= chunkSize {
+		_, err := ref.Tree().AddBatch(addresses, values)
+		return err
+	}
+	// create a waitgroup to wait for all the goroutines to finish and an error
+	// channel to stop if any error occurs adding the batch of holders
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	// add the batch of holders iterating over the chunks
+	for startOfTheChunk := 0; startOfTheChunk < len(addresses); startOfTheChunk += chunkSize {
+		// calculate end of the chunk
+		endOfTheChunk := startOfTheChunk + chunkSize
+		if endOfTheChunk > len(addresses) {
+			endOfTheChunk = len(addresses)
+		}
+		// add the batch of holders in a goroutine
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			// add the cuurent chunk of holders
+			if _, err := ref.Tree().AddBatch(addresses[start:end], values[start:end]); err != nil {
+				// if an error occurs, send it to the error channel and return
+				select {
+				case errCh <- err:
+					return
+				default:
+					return
+				}
+			}
+		}(startOfTheChunk, endOfTheChunk)
+	}
+	// wait for all the goroutines to finish and close the error channel
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
+	// return the first error that occurs adding the batch of holders
+	for err := range errCh {
+		return fmt.Errorf("error adding batch of holders: %w", err)
+	}
+	return nil
+}
+
 // InnerCensusID generates a unique identifier by concatenating the BlockNumber, StrategyID,
 // and a numerical representation of the Anonymous flag from a CreateCensusRequest struct.
 // The BlockNumber and StrategyID are concatenated as they are, and the Anonymous flag is
@@ -195,7 +250,7 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 		panic(err)
 	}
 	if result > math.MaxInt64 {
-		panic(err)
+		panic("overflow")
 	}
 	return result
 }
@@ -329,14 +384,17 @@ func TimeToCreateCensus(size uint64) uint64 {
 	// Based on the census3 data (3/11/2024), the value of m and c are:
 	// 	* m = 0.00020543644248930586
 	// 	* c = -0.1809418921100489
+	// Based on the census3 data (3/13/2024), the value of m and c are:
+	// 	* m = 0.000495
+	// 	* c = 4.028
 
 	// To reproduce the constants, use the following python snippet:
 	// 	import numpy as np
 	//	A = np.array([...])
 	//	B = np.array([...])
 	//	m, c = np.polyfit(A, B, 1)
-	m := 0.00020543644248930586
-	c := -0.1809418921100489
+	m := 0.000495
+	c := 4.028
 	seconds := m*float64(size) + c
 	if seconds < 0 {
 		seconds = 1

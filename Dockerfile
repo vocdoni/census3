@@ -13,6 +13,9 @@ RUN --mount=type=cache,sharing=locked,id=gomod,target=/go/pkg/mod/cache \
     go mod download -x
 
 RUN --mount=type=cache,target=/go/pkg/mod/cache go build -o=census3 -ldflags="-s -w  -X=github.com/vocdoni/census3/internal.Version=$(git describe --always --tags --dirty --match='v[0-9]*')" ./cmd/census3
+RUN ls /go/pkg/mod/github.com/wasmerio/wasmer-go@v1.0.4/wasmer/
+RUN ls /go/pkg/mod/github.com/wasmerio/wasmer-go@v1.0.4/wasmer/packaged/
+RUN ls /go/pkg/mod/github.com/wasmerio/wasmer-go@v1.0.4/wasmer/packaged/lib/
 RUN ls /go/pkg/mod/github.com/wasmerio/wasmer-go@v1.0.4/wasmer/packaged/lib/linux-amd64/
 
 FROM debian:bookworm-slim AS base

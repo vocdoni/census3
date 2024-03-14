@@ -745,11 +745,11 @@ func (capi *census3API) enqueueTokenHoldersCSV(msg *api.APIdata, ctx *httprouter
 	if strAddress == "" {
 		return ErrMalformedToken.With("tokenID is required")
 	}
-	// get contract address from the tokenID query param and decode check if
-	// it is provided, if not return an error
+	// get queueID query param and decode check if it is provided, if not return
+	// an error
 	queueID := ctx.URLParam("queueID")
-	if strAddress == "" {
-		return ErrMalformedToken.With("tokenID is required")
+	if queueID == "" {
+		return ErrMalformedToken.With("queueID is required")
 	}
 	exits, done, data, err := capi.queue.Done(queueID)
 	if !exits {

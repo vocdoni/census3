@@ -91,5 +91,3 @@ jobs:
             ghcr.io/vocdoni/${{ github.event.repository.name }}:latest, ghcr.io/vocdoni/${{ github.event.repository.name }}:${{ steps.vars.outputs.branch_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            GO_VERSION=1.22.x

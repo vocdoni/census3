@@ -753,7 +753,7 @@ func (capi *census3API) enqueueTokenHoldersCSV(msg *api.APIdata, ctx *httprouter
 	}
 	exits, done, data, err := capi.queue.Done(queueID)
 	if !exits {
-		return ErrNotFoundToken.With("queueID not found")
+		return ErrCantGetTokenHolders.With("queueID not found")
 	}
 	if err != nil {
 		return ErrCantGetTokenHolders.WithErr(err)

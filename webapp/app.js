@@ -2,11 +2,12 @@ import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js'
 
 // The API URL can be changed with the setAPI function in the browser console 
 // with the admin password and the new URL as parameters
-let apiURL = "http://localhost:7788/api";
+let apiURL = "https://census3-dev.vocdoni.net/api";
 // admin password is a hashed password with SHA-256 that allows to change the 
 // API URL using the setAPI function in the browser console, by default it is
 // the hash of the string "admin"
-const adminPassword = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+// const adminPassword = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+const adminPassword = "9d92eb71f8603415139843fa11b7d823ae8062481a41b051d520404f2c90e4c7";
 
 async function sha256(inputString) {
     const utf8 = new TextEncoder().encode(inputString);
@@ -40,10 +41,10 @@ const app = createApp({
     },
     template: `
     <div id="app" class="container">
-        <h1>hold3rs 📊</h1>
-        <p>A simple web app to get the holders of a token in CSV.</p>
+        <h1>👾 hold3rs</h1>
+        <p>A simple web app to get the holders of a token in CSV from <a href="https://github.com/vocdoni/census3" target="_blank">Census3</a>.</p>
         <div class="selector-container">
-            <label for="tokens">Select a Token:</label>
+            <label for="tokens"><b>Select a Token</b></label>
             <select id="tokens" v-model="selectedToken" @change="reset">
                 <option v-for="(token, index) in tokens" :key="index" :value="token">
                     {{ token.name }} ({{ token.symbol }})

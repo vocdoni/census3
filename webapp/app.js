@@ -1,31 +1,6 @@
-import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js'
+import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js';
 
-// The API URL can be changed with the setAPI function in the browser console 
-// with the admin password and the new URL as parameters
-let apiURL = "https://census3-dev.vocdoni.net/api";
-// admin password is a hashed password with SHA-256 that allows to change the 
-// API URL using the setAPI function in the browser console, by default it is
-// the hash of the string "admin"
-// const adminPassword = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
-const adminPassword = "9d92eb71f8603415139843fa11b7d823ae8062481a41b051d520404f2c90e4c7";
-
-async function sha256(inputString) {
-    const utf8 = new TextEncoder().encode(inputString);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', utf8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((bytes) => bytes.toString(16).padStart(2, '0')).join('');
-}
-
-window.setAPI = async function(password, url) {
-    const hashPassword = await sha256(password);
-    if (hashPassword !== adminPassword) {
-        throw new Error("Invalid password");
-    }
-    apiURL = url;
-    console.log(`API URL set to ${apiURL}`);
-}
-
-console.log(`Using API URL: ${apiURL}. It can be changed with the setAPI function in the browser console with the admin password and the new URL as parameters`);
+const apiURL = "https://census3-dev.vocdoni.net/api";
 
 const app = createApp({
     data() {

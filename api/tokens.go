@@ -696,7 +696,7 @@ func (capi *census3API) launchTokenHoldersCSV(msg *api.APIdata, ctx *httprouter.
 		})
 		if err != nil {
 			log.Error(err)
-			capi.queue.Update(queueID, true, nil, ErrCantGetTokenHolders.WithErr(err))
+			capi.queue.Fail(queueID, ErrCantGetTokenHolders.WithErr(err))
 			return
 		}
 		// build the csv file
@@ -706,26 +706,26 @@ func (capi *census3API) launchTokenHoldersCSV(msg *api.APIdata, ctx *httprouter.
 		// write the header
 		if err := writer.Write([]string{"address", "balance"}); err != nil {
 			log.Error(err)
-			capi.queue.Update(queueID, true, nil, ErrCantGetTokenHolders.WithErr(err))
+			capi.queue.Fail(queueID, ErrCantGetTokenHolders.WithErr(err))
 			return
 		}
 		for _, holder := range holders {
 			balance, ok := new(big.Int).SetString(holder.Balance, 10)
 			if !ok {
 				log.Error("error parsing balance")
-				capi.queue.Update(queueID, true, nil, ErrCantGetTokenHolders.With("error parsing balance"))
+				capi.queue.Fail(queueID, ErrCantGetTokenHolders.With("error parsing balance"))
 				return
 			}
 			holderAddr := common.BytesToAddress(holder.HolderID)
 			if balance.Cmp(big.NewInt(0)) == 1 {
 				if err := writer.Write([]string{holderAddr.String(), balance.String()}); err != nil {
 					log.Error(err)
-					capi.queue.Update(queueID, true, nil, ErrCantGetTokenHolders.WithErr(err))
+					capi.queue.Fail(queueID, ErrCantGetTokenHolders.WithErr(err))
 					return
 				}
 			}
 		}
-		capi.queue.Update(queueID, true, map[string]interface{}{"csvContent": csvContent.Bytes()}, nil)
+		capi.queue.Done(queueID, csvContent.Bytes())
 	}(queueID)
 	res, err := json.Marshal(map[string]string{"queueID": queueID})
 	if err != nil {
@@ -747,15 +747,15 @@ func (capi *census3API) enqueueTokenHoldersCSV(msg *api.APIdata, ctx *httprouter
 	if queueID == "" {
 		return ErrMalformedToken.With("queueID is required")
 	}
-	exits, done, data, err := capi.queue.Done(queueID)
-	if !exits {
+	queueItem, exists := capi.queue.IsDone(queueID)
+	if !exists {
 		return ErrCantGetTokenHolders.With("queueID not found")
 	}
-	if err != nil {
-		return ErrCantGetTokenHolders.WithErr(err)
+	if queueItem.Error != nil {
+		return ErrCantGetTokenHolders.WithErr(queueItem.Error)
 	}
-	if done {
-		csvContent, ok := data["csvContent"].([]byte)
+	if queueItem.Done {
+		csvContent, ok := queueItem.Data.([]byte)
 		if !ok {
 			return ErrMalformedToken.With("csvContent not found")
 		}

@@ -336,9 +336,10 @@ func (g *GitcoinPassport) CreationBlock(_ context.Context, _ []byte) (uint64, er
 	return 1, nil
 }
 
-// IconURI is not implemented for Gitcoin Passport.
-func (g *GitcoinPassport) IconURI(_ []byte) (string, error) {
-	return "", nil
+// IconURI method returns the icon of the stam identified by the externalID
+// provided.
+func (g *GitcoinPassport) IconURI(externalID []byte) (string, error) {
+	return stampIcon(string(externalID)), nil
 }
 
 // CensusKeys method returns the holders and balances provided transformed.

@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -687,7 +689,7 @@ func (capi *census3API) launchTokenHoldersCSV(msg *api.APIdata, ctx *httprouter.
 	// so if it's not provided continue
 	externalID := ctx.Request.URL.Query().Get("externalID")
 	queueID := capi.queue.Enqueue()
-	go func() {
+	go func(queueID string) {
 		internalCtx, cancel := context.WithTimeout(context.Background(), tokenHoldersCSVTimeout)
 		defer cancel()
 		// get token holders and their balances from the database
@@ -702,7 +704,15 @@ func (capi *census3API) launchTokenHoldersCSV(msg *api.APIdata, ctx *httprouter.
 			return
 		}
 		// build the csv file
-		csvData := "address,balance\n"
+		csvContent := &bytes.Buffer{}
+		writer := csv.NewWriter(csvContent)
+		defer writer.Flush()
+		// write the header
+		if err := writer.Write([]string{"address", "balance"}); err != nil {
+			log.Error(err)
+			capi.queue.Update(queueID, true, nil, ErrCantGetTokenHolders.WithErr(err))
+			return
+		}
 		for _, holder := range holders {
 			balance, ok := new(big.Int).SetString(holder.Balance, 10)
 			if !ok {
@@ -712,11 +722,15 @@ func (capi *census3API) launchTokenHoldersCSV(msg *api.APIdata, ctx *httprouter.
 			}
 			holderAddr := common.BytesToAddress(holder.HolderID)
 			if balance.Cmp(big.NewInt(0)) == 1 {
-				csvData += fmt.Sprintf("%s,%s\n", holderAddr.String(), balance.String())
+				if err := writer.Write([]string{holderAddr.String(), balance.String()}); err != nil {
+					log.Error(err)
+					capi.queue.Update(queueID, true, nil, ErrCantGetTokenHolders.WithErr(err))
+					return
+				}
 			}
 		}
-		capi.queue.Update(queueID, true, map[string]interface{}{"csvContent": []byte(csvData)}, nil)
-	}()
+		capi.queue.Update(queueID, true, map[string]interface{}{"csvContent": csvContent.Bytes()}, nil)
+	}(queueID)
 	res, err := json.Marshal(map[string]string{"queueID": queueID})
 	if err != nil {
 		return ErrCantGetTokenHolders.WithErr(err)

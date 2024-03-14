@@ -1,7 +1,12 @@
 import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js'
 
+// The API URL can be changed with the setAPI function in the browser console 
+// with the admin password and the new URL as parameters
 let apiURL = "http://localhost:7788/api";
-const adminPassword = "24dd8660eddc03d6da1b1168ef5f1ff8812bc024af9c7c80dd9bc81a2ca1ce90";
+// admin password is a hashed password with SHA-256 that allows to change the 
+// API URL using the setAPI function in the browser console, by default it is
+// the hash of the string "admin"
+const adminPassword = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
 
 async function sha256(inputString) {
     const utf8 = new TextEncoder().encode(inputString);
@@ -19,6 +24,7 @@ window.setAPI = async function(password, url) {
     console.log(`API URL set to ${apiURL}`);
 }
 
+console.log(`Using API URL: ${apiURL}. It can be changed with the setAPI function in the browser console with the admin password and the new URL as parameters`);
 
 const app = createApp({
     data() {
@@ -56,10 +62,15 @@ const app = createApp({
     `,
     methods: {
         async loadTokens() {
-            const getTokensURI = `${apiURL}/tokens?pageSize=-1`;
-            const response = await fetch(getTokensURI);
-            const data = await response.json();
-            this.tokens = data.tokens;
+            try {
+                const getTokensURI = `${apiURL}/tokens?pageSize=-1`;
+                const response = await fetch(getTokensURI);
+                const data = await response.json();
+                this.tokens = data.tokens;
+            } catch (e) {
+                console.error("error getting the tokens", e);
+                alert("Error getting the tokens :( Please try again later!");
+            }
         },
         async launchCSV() {
             this.fileURI = null;
@@ -67,13 +78,19 @@ const app = createApp({
             if (this.selectedToken.externalID) {
                 launchURI += `&externalID=${this.selectedToken.externalID}`;
             }
-            const response = await fetch(launchURI);
-            const data = await response.json();
-            this.loading = true;
-            const csv = await this.getCSV(this.selectedToken.ID, data.queueID);
-            this.loading = false;
-            const blob = new Blob([csv], { type: 'text/csv' });
-            this.fileURI = URL.createObjectURL(blob);
+            try {
+                const response = await fetch(launchURI);
+                const data = await response.json();
+                this.loading = true;
+                const csv = await this.getCSV(this.selectedToken.ID, data.queueID);
+                this.loading = false;
+                const blob = new Blob([csv], { type: 'text/csv' });
+                this.fileURI = URL.createObjectURL(blob);
+            } catch (e) {
+                this.loading = false;
+                console.error("error creating the csv", e);
+                alert("Error creating the CSV :( Please try again later!");
+            }
         },
         async getCSV(token, queueID) {
             const queueURI = `${apiURL}/tokens/${token}/csv/queue/${queueID}`;

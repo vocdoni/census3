@@ -3,12 +3,17 @@ FROM golang:1.22.1 AS builder
 WORKDIR /src
 COPY . .
 
-ENV CGO_ENABLED=1
+# Purge Go cache to ensure fresh dependency resolution
+RUN go clean -modcache
+RUN go clean -cache
+
 RUN --mount=type=cache,sharing=locked,id=gomod,target=/go/pkg/mod/cache \
-	--mount=type=bind,source=go.sum,target=go.sum \
-	--mount=type=bind,source=go.mod,target=go.mod \
-	go mod download -x
+    --mount=type=bind,source=go.sum,target=go.sum \
+    --mount=type=bind,source=go.mod,target=go.mod \
+    go mod download -x
+
 RUN --mount=type=cache,target=/go/pkg/mod/cache go build -o=census3 -ldflags="-s -w  -X=github.com/vocdoni/census3/internal.Version=$(git describe --always --tags --dirty --match='v[0-9]*')" ./cmd/census3
+RUN ls /go/pkg/mod/github.com/wasmerio/wasmer-go@v1.0.4/wasmer/packaged/lib/linux-amd64/
 
 FROM debian:bookworm-slim AS base
 

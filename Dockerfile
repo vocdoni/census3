@@ -1,11 +1,14 @@
 FROM golang:1.22.1 AS builder
 
 WORKDIR /src
-ENV CGO_ENABLED=1
-RUN go env -w GOCACHE=/go-cache
 COPY . .
-RUN --mount=type=cache,target=/go-cache go mod download
-RUN --mount=type=cache,target=/go-cache go build -o=census3 -ldflags="-s -w  -X=github.com/vocdoni/census3/internal.Version=$(git describe --always --tags --dirty --match='v[0-9]*')" ./cmd/census3
+
+ENV CGO_ENABLED=1
+RUN --mount=type=cache,sharing=locked,id=gomod,target=/go/pkg/mod/cache \
+	--mount=type=bind,source=go.sum,target=go.sum \
+	--mount=type=bind,source=go.mod,target=go.mod \
+	go mod download -x
+RUN --mount=type=cache,target=/go/pkg/mod/cache go build -o=census3 -ldflags="-s -w  -X=github.com/vocdoni/census3/internal.Version=$(git describe --always --tags --dirty --match='v[0-9]*')" ./cmd/census3
 
 FROM debian:bookworm-slim AS base
 

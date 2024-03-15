@@ -5,7 +5,7 @@ import "time"
 const (
 	READ_TIMEOUT = time.Minute
 	SCAN_TIMEOUT = 5 * time.Minute
-	SAVE_TIMEOUT = 2 * time.Minute
+	SAVE_TIMEOUT = 5 * time.Minute
 )
 
 const (

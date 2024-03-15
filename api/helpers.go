@@ -148,11 +148,7 @@ func CreateAndPublishCensus(db *censusdb.CensusDB, storage storagelayer.Storage,
 	db.Lock()
 	defer db.Unlock()
 	// add the holders addresses and values to the census tree in parallel
-<<<<<<< HEAD
-	if err := parallelAddBatch(ref, holdersAddresses, holdersValues, progressCh); err != nil {
-=======
 	if _, err := ref.Tree().AddBatch(holdersAddresses, holdersValues); err != nil {
->>>>>>> main
 		return nil, "", nil, err
 	}
 	// get the root of the tree
@@ -187,7 +183,7 @@ func CreateAndPublishCensus(db *censusdb.CensusDB, storage storagelayer.Storage,
 // dividing the holders in chunks if it is necessary. The holders must be
 // provided as a slice of addresses and a slice of values. If some error occurs,
 // the function stops adding the batch of holders and returns the error.
-func parallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte,
+func ParallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte,
 	progressCh chan float64,
 ) error {
 	// if the number of holders is less than the chunk size, add them in a single

@@ -58,7 +58,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	if currentCensus.Weight.Valid {
 		censusWeight = []byte(currentCensus.Weight.String)
 	}
-	res, err := json.Marshal(GetCensusResponse{
+	res, err := json.Marshal(Census{
 		CensusID:   censusID,
 		StrategyID: currentCensus.StrategyID,
 		MerkleRoot: types.HexBytes(currentCensus.MerkleRoot),
@@ -80,7 +80,7 @@ func (capi *census3API) getCensus(msg *api.APIdata, ctx *httprouter.HTTPContext)
 // with the resulting status or error into the queue.
 func (capi *census3API) launchCensusCreation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// decode request
-	req := &CreateCensusRequest{}
+	req := &Census{}
 	if err := json.Unmarshal(msg.Data, req); err != nil {
 		return ErrMalformedStrategyID.WithErr(err)
 	}
@@ -113,7 +113,7 @@ func (capi *census3API) launchCensusCreation(msg *api.APIdata, ctx *httprouter.H
 // all the required information from the database, and then creates and publish
 // the census merkle tree on IPFS. Then saves the resulting information of the
 // census tree in the database.
-func (capi *census3API) createAndPublishCensus(req *CreateCensusRequest, qID string) (uint64, error) {
+func (capi *census3API) createAndPublishCensus(req *Census, qID string) (uint64, error) {
 	internalCtx, cancel := context.WithTimeout(context.Background(), createAndPublishCensusTimeout)
 	defer cancel()
 	// begin a transaction for group sql queries
@@ -318,7 +318,7 @@ func (capi *census3API) enqueueCensus(msg *api.APIdata, ctx *httprouter.HTTPCont
 			return ErrCantGetCensus.With("invalid census weight")
 		}
 		// encode census information and include it into the queue item
-		queueItem.Data = &GetCensusResponse{
+		queueItem.Data = &Census{
 			CensusID:   currentCensus.ID,
 			StrategyID: currentCensus.StrategyID,
 			MerkleRoot: types.HexBytes(currentCensus.MerkleRoot),
@@ -358,7 +358,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 		return ErrCantGetCensus.WithErr(err)
 	}
 	// parse and encode response
-	censuses := GetCensusesResponse{Censuses: []*GetCensusResponse{}}
+	censuses := Censuses{Censuses: []*Census{}}
 	for _, censusInfo := range rows {
 		// get values for optional parameters
 		if !censusInfo.Weight.Valid {
@@ -369,7 +369,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 			return ErrCantGetCensus.With("invalid census weight")
 		}
 
-		censuses.Censuses = append(censuses.Censuses, &GetCensusResponse{
+		censuses.Censuses = append(censuses.Censuses, &Census{
 			CensusID:   censusInfo.ID,
 			StrategyID: censusInfo.StrategyID,
 			MerkleRoot: types.HexBytes(censusInfo.MerkleRoot),

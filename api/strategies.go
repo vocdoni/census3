@@ -122,8 +122,8 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		return ErrNoStrategies
 	}
 	// parse and encode the strategies
-	strategiesResponse := GetStrategiesResponse{
-		Strategies: []*GetStrategyResponse{},
+	strategiesResponse := Strategies{
+		Strategies: []*Strategy{},
 		Pagination: &Pagination{PageSize: pageSize},
 	}
 	// get the next and previous cursors and add them to the response
@@ -136,7 +136,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 	}
 	// parse and encode strategies
 	for _, strategy := range rows {
-		strategyResponse := &GetStrategyResponse{
+		strategyResponse := &Strategy{
 			ID:        strategy.ID,
 			Alias:     strategy.Alias,
 			Predicate: strategy.Predicate,
@@ -172,7 +172,7 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), createDummyStrategyTimeout)
 	defer cancel()
 
-	req := CreateStrategyRequest{}
+	req := Strategy{}
 	if err := json.Unmarshal(msg.Data, &req); err != nil {
 		return ErrMalformedStrategy.WithErr(err)
 	}
@@ -251,7 +251,7 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 	}
 	// encode and compose final strategy data using the response of GET
 	// strategy endpoint
-	strategyDump, err := json.Marshal(GetStrategyResponse{
+	strategyDump, err := json.Marshal(Strategy{
 		ID:        uint64(strategyID),
 		Alias:     req.Alias,
 		Predicate: req.Predicate,
@@ -346,7 +346,7 @@ func (capi *census3API) importStrategyDump(ipfsURI string, dump []byte) (uint64,
 	internalCtx, cancel := context.WithTimeout(context.Background(), importStrategyTimeout)
 	defer cancel()
 	// decode strategy
-	importedStrategy := GetStrategyResponse{}
+	importedStrategy := Strategy{}
 	if err := json.Unmarshal(dump, &importedStrategy); err != nil {
 		return 0, ErrCantImportStrategy.WithErr(err)
 	}
@@ -461,7 +461,7 @@ func (capi *census3API) enqueueImportStrategy(msg *api.APIdata, ctx *httprouter.
 			return ErrCantGetStrategy.WithErr(err)
 		}
 		// encode census
-		strategy := &GetStrategyResponse{
+		strategy := &Strategy{
 			ID:        strategyData.ID,
 			Alias:     strategyData.Alias,
 			Predicate: strategyData.Predicate,
@@ -516,7 +516,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrCantGetStrategy.WithErr(err)
 	}
 	// parse strategy information
-	strategy := GetStrategyResponse{
+	strategy := Strategy{
 		ID:        strategyData.ID,
 		Alias:     strategyData.Alias,
 		Predicate: strategyData.Predicate,
@@ -851,9 +851,9 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 		return ErrCantGetStrategies.WithErr(err)
 	}
 	// parse and encode strategies
-	strategies := GetStrategiesResponse{Strategies: []*GetStrategyResponse{}}
+	strategies := Strategies{Strategies: []*Strategy{}}
 	for _, strategy := range rows {
-		strategyResponse := &GetStrategyResponse{
+		strategyResponse := &Strategy{
 			ID:        strategy.ID,
 			Alias:     strategy.Alias,
 			Predicate: strategy.Predicate,
@@ -889,7 +889,7 @@ func (capi *census3API) getTokenStrategies(msg *api.APIdata, ctx *httprouter.HTT
 // predicate is valid and well-formatted. If the predicate is valid the handler
 // returns a parsed version of the predicate as a JSON.
 func (capi *census3API) validateStrategyPredicate(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	req := CreateStrategyRequest{}
+	req := Strategy{}
 	if err := json.Unmarshal(msg.Data, &req); err != nil {
 		return ErrMalformedStrategy.WithErr(err)
 	}

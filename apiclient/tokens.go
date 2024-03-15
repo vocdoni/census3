@@ -15,7 +15,7 @@ import (
 // pageSize, nextCursor and prevCursor. If the pageSize is -1 and cursors are
 // empty, it will return all the tokens. If something goes wrong, it will return
 // an error.
-func (c *HTTPclient) GetTokens(pageSize int, nextCursor, prevCursor string) ([]*api.GetTokensItemResponse, error) {
+func (c *HTTPclient) GetTokens(pageSize int, nextCursor, prevCursor string) ([]*api.TokenListItem, error) {
 	// construct the URL to the API with the pageSize, nextCursor and prevCursor
 	endpoint := fmt.Sprintf(GetTokensURI, pageSize, nextCursor, prevCursor)
 	u, err := c.constructURL(endpoint)
@@ -41,7 +41,7 @@ func (c *HTTPclient) GetTokens(pageSize int, nextCursor, prevCursor string) ([]*
 		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return the tokens
-	tokensResponse := &api.GetTokensResponse{}
+	tokensResponse := &api.TokenList{}
 	if err := json.NewDecoder(res.Body).Decode(&tokensResponse); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
@@ -50,7 +50,7 @@ func (c *HTTPclient) GetTokens(pageSize int, nextCursor, prevCursor string) ([]*
 
 // GetToken method returns a token from the API, it accepts the tokenID, chainID
 // and externalID. If something goes wrong, it will return an error.
-func (c *HTTPclient) GetToken(tokenID string, chainID uint64, externalID string) (*api.GetTokenResponse, error) {
+func (c *HTTPclient) GetToken(tokenID string, chainID uint64, externalID string) (*api.Token, error) {
 	if tokenID == "" || chainID == 0 {
 		return nil, fmt.Errorf("%w: tokenID and chainID are required", ErrBadInputs)
 	}
@@ -80,7 +80,7 @@ func (c *HTTPclient) GetToken(tokenID string, chainID uint64, externalID string)
 		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return the token
-	tokenResponse := &api.GetTokenResponse{}
+	tokenResponse := &api.Token{}
 	if err := json.NewDecoder(res.Body).Decode(&tokenResponse); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
@@ -91,7 +91,7 @@ func (c *HTTPclient) GetToken(tokenID string, chainID uint64, externalID string)
 // created. The minimun required token attributes are: ID, type and chainID.
 // Optional attributes: externalID, tags. If something goes wrong, it will
 // return an error.
-func (c *HTTPclient) CreateToken(token *api.CreateTokenRequest) error {
+func (c *HTTPclient) CreateToken(token *api.Token) error {
 	if token == nil || token.ID == "" || token.Type == "" || token.ChainID == 0 {
 		return fmt.Errorf("%w: ID, Type and ChainID are required", ErrBadInputs)
 	}
@@ -244,7 +244,7 @@ func (c *HTTPclient) GetTokenHolder(tokenID string, chainID uint64, externalID, 
 		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return the token holder response
-	holderResponse := &api.GetTokenHolderResponse{}
+	holderResponse := &api.TokenHolderBalance{}
 	if err := json.NewDecoder(res.Body).Decode(&holderResponse); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
@@ -283,7 +283,7 @@ func (c *HTTPclient) GetTokenTypes() ([]string, error) {
 		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return the token types
-	tokenTypesResponse := &api.TokenTypesResponse{}
+	tokenTypesResponse := &api.TokenTypes{}
 	if err := json.NewDecoder(res.Body).Decode(&tokenTypesResponse); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}

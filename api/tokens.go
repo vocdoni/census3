@@ -113,8 +113,8 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	// init response struct with the initial pagination information and empty
 	// list of tokens
-	tokensResponse := GetTokensResponse{
-		Tokens:     []*GetTokensItemResponse{},
+	tokensResponse := TokenList{
+		Tokens:     []*TokenListItem{},
 		Pagination: &Pagination{PageSize: pageSize},
 	}
 	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, goForward)
@@ -126,7 +126,7 @@ func (capi *census3API) getTokens(msg *api.APIdata, ctx *httprouter.HTTPContext)
 	}
 	// parse results from database to the response format
 	for _, tokenData := range rows {
-		tokensResponse.Tokens = append(tokensResponse.Tokens, &GetTokensItemResponse{
+		tokensResponse.Tokens = append(tokensResponse.Tokens, &TokenListItem{
 			ID:              common.BytesToAddress(tokenData.ID).String(),
 			Type:            providers.TokenTypeName(tokenData.TypeID),
 			Decimals:        tokenData.Decimals,
@@ -186,7 +186,7 @@ func (capi *census3API) createDefaultTokenStrategy(ctx context.Context, qtx *que
 	}
 	// encode and compose final strategy data using the response of GET
 	// strategy endpoint
-	strategyDump, err := json.Marshal(GetStrategyResponse{
+	strategyDump, err := json.Marshal(Strategy{
 		ID:        uint64(strategyID),
 		Alias:     alias,
 		Predicate: predicate,
@@ -232,7 +232,7 @@ func (capi *census3API) createDefaultTokenStrategy(ctx context.Context, qtx *que
 // provided as argument. It returns a 400 error if the provided inputs are
 // wrong or empty or a 500 error if something fails.
 func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	req := CreateTokenRequest{}
+	req := Token{}
 	if err := json.Unmarshal(msg.Data, &req); err != nil {
 		log.Errorf("error unmarshalling token information: %s", err)
 		return ErrMalformedToken.WithErr(err)
@@ -573,7 +573,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		return ErrCantGetTokenCount.WithErr(err)
 	}
 	// build response
-	tokenResponse := GetTokenResponse{
+	tokenResponse := Token{
 		ID:          address.String(),
 		Type:        providers.TokenTypeName(tokenData.TypeID),
 		Decimals:    tokenData.Decimals,
@@ -582,7 +582,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		Symbol:      tokenData.Symbol,
 		TotalSupply: string(tokenData.TotalSupply),
 		StartBlock:  uint64(tokenData.CreationBlock),
-		Status: &GetTokenStatusResponse{
+		Status: &TokenStatus{
 			AtBlock:  atBlock,
 			Synced:   tokenData.Synced,
 			Progress: tokenProgress,
@@ -652,7 +652,7 @@ func (capi *census3API) getTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPCon
 		return ErrCantGetTokenHolders.With("error parsing balance")
 	}
 	// build response and send it
-	res, err := json.Marshal(&GetTokenHolderResponse{
+	res, err := json.Marshal(&TokenHolderBalance{
 		Balance: balance.String(),
 	})
 	if err != nil {
@@ -773,7 +773,7 @@ func (capi *census3API) getTokenTypes(msg *api.APIdata, ctx *httprouter.HTTPCont
 	for _, provider := range capi.holderProviders {
 		supportedTypes = append(supportedTypes, provider.TypeName())
 	}
-	res, err := json.Marshal(TokenTypesResponse{supportedTypes})
+	res, err := json.Marshal(TokenTypes{supportedTypes})
 	if err != nil {
 		return ErrEncodeTokenTypes.WithErr(err)
 	}

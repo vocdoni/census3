@@ -258,9 +258,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := apiService.CreateInitialTokens(config.initialTokens); err != nil {
-		log.Warnf("error creating initial tokens: %s", err)
-	}
+	go func() {
+		// create initial tokens in background
+		if err := apiService.CreateInitialTokens(config.initialTokens); err != nil {
+			log.Warnf("error creating initial tokens: %s", err)
+		}
+		log.Info("initial tokens created, or at least tried to")
+	}()
 	ctx, cancel := context.WithCancel(context.Background())
 	go hc.Start(ctx)
 

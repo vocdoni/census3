@@ -187,7 +187,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 	if err := json.Unmarshal(content, &tokens); err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	// create the tokens
 	tx, err := capi.db.RW.BeginTx(ctx, nil)

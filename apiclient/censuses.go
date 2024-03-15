@@ -13,7 +13,7 @@ import (
 // GetCensus method returns a census by its ID from the API, it receives the
 // censusID and returns a pointer to a GetCensusResponse and an error if something
 // went wrong.
-func (c *HTTPclient) GetCensus(censusID uint64) (*api.GetCensusResponse, error) {
+func (c *HTTPclient) GetCensus(censusID uint64) (*api.Census, error) {
 	if censusID == 0 {
 		return nil, fmt.Errorf("%w: censusID is required", ErrBadInputs)
 	}
@@ -42,7 +42,7 @@ func (c *HTTPclient) GetCensus(censusID uint64) (*api.GetCensusResponse, error) 
 		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return it
-	response := api.GetCensusResponse{}
+	response := api.Census{}
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
@@ -53,7 +53,7 @@ func (c *HTTPclient) GetCensus(censusID uint64) (*api.GetCensusResponse, error) 
 // CreateCensusRequest and returns a queueID and an error if something went wrong.
 // The queueID is used to check the status of the census creation process, it
 // can be checked with the CreateCensusQueue method.
-func (c *HTTPclient) CreateCensus(request *api.CreateCensusRequest) (string, error) {
+func (c *HTTPclient) CreateCensus(request *api.Census) (string, error) {
 	if request == nil || request.StrategyID == 0 {
 		return "", fmt.Errorf("%w: strategyID is required", ErrBadInputs)
 	}
@@ -97,7 +97,7 @@ func (c *HTTPclient) CreateCensus(request *api.CreateCensusRequest) (string, err
 // CreateCensusQueue method checks the status of a census creation process from
 // the API, it receives a queueID and returns a pointer to a CensusQueueResponse
 // and an error if something went wrong.
-func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueueResponse, error) {
+func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueue, error) {
 	if queueID == "" {
 		return nil, fmt.Errorf("%w: queueID is required", ErrBadInputs)
 	}
@@ -126,7 +126,7 @@ func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueueResponse
 		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return it
-	response := &api.CensusQueueResponse{}
+	response := &api.CensusQueue{}
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
@@ -136,7 +136,7 @@ func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueueResponse
 // GetCensusesByStrategy method returns the censuses of a strategy from the API,
 // it receives the strategyID and returns a slice of GetCensusResponse pointers
 // and an error if something went wrong.
-func (c *HTTPclient) GetCensusesByStrategy(strategyID uint64) ([]*api.GetCensusResponse, error) {
+func (c *HTTPclient) GetCensusesByStrategy(strategyID uint64) ([]*api.Census, error) {
 	if strategyID == 0 {
 		return nil, fmt.Errorf("%w: strategyID is required", ErrBadInputs)
 	}
@@ -165,7 +165,7 @@ func (c *HTTPclient) GetCensusesByStrategy(strategyID uint64) ([]*api.GetCensusR
 		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return the censuses
-	response := &api.GetCensusesResponse{}
+	response := &api.Censuses{}
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}

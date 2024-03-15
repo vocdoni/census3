@@ -22,6 +22,17 @@ const (
 	// parameters
 	GetTokenTypes = "/tokens/types"
 
+	// Strategies endpoints:
+
+	// GetStrategiesURI is the URI for getting strategies, it accepts a pageSize,
+	// nextCursor and prevCursor
+	GetStrategiesURI = "/strategies?pageSize=%d&nextCursor=%s&prevCursor=%s"
+	// GetStrategyURI is the URI for getting a strategy, it accepts the strategyID
+	GetStrategyURI = "/strategies/%d"
+	// CreateStrategyURI is the URI for creating a strategy, it accepts no
+	// parameters
+	CreateStrategyURI = "/strategies"
+
 	// Censuses endpoints:
 
 	// GetCensusURI is the URI for getting a census, it accepts the censusID

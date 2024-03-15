@@ -297,15 +297,16 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			LastBlock:     int64(token.StartBlock),
 		})
 		if err != nil {
-			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				return nil
+			if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				log.Errorf("error creating token: %s", err)
 			}
-			return err
+			continue
 		}
 		strategyID, err := capi.createDefaultTokenStrategy(ctx, qtx,
 			addr, token.ChainID, chainAddress, symbol, token.ExternalID)
 		if err != nil {
-			return err
+			log.Errorf("error creating default token strategy: %s", err)
+			continue
 		}
 		if _, err := qtx.UpdateTokenDefaultStrategy(ctx, queries.UpdateTokenDefaultStrategyParams{
 			ID:              addr.Bytes(),
@@ -313,7 +314,8 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			ChainID:         token.ChainID,
 			ExternalID:      token.ExternalID,
 		}); err != nil {
-			return err
+			log.Errorf("error updating token default strategy: %s", err)
+			continue
 		}
 		log.Infow("token created", "tokenID", token.ID, "chainID", token.ChainID, "externalID", token.ExternalID)
 	}

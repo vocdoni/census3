@@ -23,14 +23,15 @@ import (
 // ScannerToken includes the information of a token that the scanner needs to
 // scan it.
 type ScannerToken struct {
-	Address     common.Address
-	ChainID     uint64
-	Type        uint64
-	ExternalID  string
-	LastBlock   uint64
-	Ready       bool
-	Synced      bool
-	totalSupply *big.Int
+	Address       common.Address
+	ChainID       uint64
+	Type          uint64
+	ExternalID    string
+	LastBlock     uint64
+	CreationBlock uint64
+	Ready         bool
+	Synced        bool
+	totalSupply   *big.Int
 }
 
 // Scanner is the scanner that scans the tokens and saves the holders in the
@@ -138,6 +139,7 @@ func (s *Scanner) Start(ctx context.Context) {
 				// scan the token
 				holders, newTransfers, lastBlock, synced, totalSupply, err := s.ScanHolders(ctx, token)
 				if err != nil {
+					atSyncGlobal = false
 					log.Error(err)
 					continue
 				}
@@ -203,14 +205,15 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 			totalSupply = nil
 		}
 		tokens = append(tokens, &ScannerToken{
-			Address:     common.BytesToAddress(token.ID),
-			ChainID:     token.ChainID,
-			Type:        token.TypeID,
-			ExternalID:  token.ExternalID,
-			LastBlock:   uint64(token.LastBlock),
-			Ready:       token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
-			Synced:      token.Synced,
-			totalSupply: totalSupply,
+			Address:       common.BytesToAddress(token.ID),
+			ChainID:       token.ChainID,
+			Type:          token.TypeID,
+			ExternalID:    token.ExternalID,
+			LastBlock:     uint64(token.LastBlock),
+			CreationBlock: uint64(token.CreationBlock),
+			Ready:         token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
+			Synced:        token.Synced,
+			totalSupply:   totalSupply,
 		})
 	}
 	// get old not synced tokens from the database (2)
@@ -253,14 +256,15 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 				totalSupply = nil
 			}
 			tokens = append(tokens, &ScannerToken{
-				Address:     common.BytesToAddress(token.ID),
-				ChainID:     token.ChainID,
-				Type:        token.TypeID,
-				ExternalID:  token.ExternalID,
-				LastBlock:   uint64(token.LastBlock),
-				Ready:       token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
-				Synced:      token.Synced,
-				totalSupply: totalSupply,
+				Address:       common.BytesToAddress(token.ID),
+				ChainID:       token.ChainID,
+				Type:          token.TypeID,
+				ExternalID:    token.ExternalID,
+				LastBlock:     uint64(token.LastBlock),
+				CreationBlock: uint64(token.CreationBlock),
+				Ready:         token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
+				Synced:        token.Synced,
+				totalSupply:   totalSupply,
 			})
 		}
 	}
@@ -275,14 +279,15 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 			totalSupply = nil
 		}
 		tokens = append(tokens, &ScannerToken{
-			Address:     common.BytesToAddress(token.ID),
-			ChainID:     token.ChainID,
-			Type:        token.TypeID,
-			ExternalID:  token.ExternalID,
-			LastBlock:   uint64(token.LastBlock),
-			Ready:       token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
-			Synced:      token.Synced,
-			totalSupply: totalSupply,
+			Address:       common.BytesToAddress(token.ID),
+			ChainID:       token.ChainID,
+			Type:          token.TypeID,
+			ExternalID:    token.ExternalID,
+			LastBlock:     uint64(token.LastBlock),
+			CreationBlock: uint64(token.CreationBlock),
+			Ready:         token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
+			Synced:        token.Synced,
+			totalSupply:   totalSupply,
 		})
 	}
 	// update the tokens to scan in the scanner and return them
@@ -320,8 +325,9 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 	// if the provider is not an external one, instance the current token
 	if !provider.IsExternal() {
 		if err := provider.SetRef(web3.Web3ProviderRef{
-			HexAddress: token.Address.Hex(),
-			ChainID:    token.ChainID,
+			HexAddress:    token.Address.Hex(),
+			ChainID:       token.ChainID,
+			CreationBlock: token.CreationBlock,
 		}); err != nil {
 			return nil, 0, token.LastBlock, token.Synced, nil, err
 		}

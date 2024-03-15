@@ -75,6 +75,9 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	if p.contract, err = erc20.NewERC20Contract(address, client); err != nil {
 		return errors.Join(ErrInitializingContract, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 	}
+	if ref.CreationBlock > 0 {
+		p.creationBlock = ref.CreationBlock
+	}
 	// reset the internal attributes
 	p.address = address
 	p.chainID = ref.ChainID
@@ -82,7 +85,6 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	p.symbol = ""
 	p.decimals = 0
 	p.totalSupply = nil
-	p.creationBlock = 0
 	p.lastNetworkBlock = 0
 	p.synced.Store(false)
 	return nil
@@ -117,6 +119,14 @@ func (p *ERC20HolderProvider) SetLastBlockNumber(blockNumber uint64) {
 func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
 	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
 ) {
+	// if the last network block is lower than the last scanned block, and the
+	// last scanned block is equal to the creation block, it means that the
+	// last network block is outdated, so it returns that it is not synced and
+	// an error
+	if fromBlock >= p.lastNetworkBlock && fromBlock == p.creationBlock {
+		return nil, 0, fromBlock, false, big.NewInt(0),
+			errors.New("outdated last network block, it will retry in the next iteration")
+	}
 	// calculate the range of blocks to scan, by default take the last block
 	// scanned and scan to the latest block, calculate the latest block if the
 	// current last network block is not defined

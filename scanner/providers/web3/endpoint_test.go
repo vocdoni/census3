@@ -34,6 +34,6 @@ func TestCheckWeb3Providers(t *testing.T) {
 		c.Assert(ok, qt.IsFalse)
 		prefix, ok := testNetwork.ChainAddress(DefaultNetworkEndpoint.ChainID, "0x1234567890")
 		c.Assert(ok, qt.Equals, true)
-		c.Assert(prefix, qt.Equals, "gor:0x1234567890")
+		c.Assert(prefix, qt.Equals, "sep:0x1234567890")
 	})
 }

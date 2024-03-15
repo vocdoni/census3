@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -188,15 +189,7 @@ func (op *StrategyOperators) andOperator(iter *lexer.Iteration[*StrategyIteratio
 		bDecimals = dataB.decimals
 	}
 	// when both data sources are filled, do the intersection of both lists.
-	data := make(map[string][2]*big.Int)
-	for addressA, balanceA := range dataA.Data {
-		for addressB, balanceB := range dataB.Data {
-			if addressA == addressB {
-				data[addressA] = [2]*big.Int{balanceA, balanceB}
-				break
-			}
-		}
-	}
+	data := intersection(dataA.Data, dataB.Data)
 	// normalize balances and get the comma places moved
 	data, commaPlaces, ok := op.normalizeHolderBalances(data, aDecimals, bDecimals)
 	if !ok {
@@ -275,18 +268,8 @@ func (op *StrategyOperators) orOperator(iter *lexer.Iteration[*StrategyIteration
 	} else {
 		bDecimals = dataB.decimals
 	}
-	// when both data sources are filled, do the intersection of both lists.
-	data := make(map[string][2]*big.Int)
-	for addressA, balanceA := range dataA.Data {
-		data[addressA] = [2]*big.Int{balanceA, nil}
-	}
-	for addressB, balanceB := range dataB.Data {
-		if balanceA, ok := dataA.Data[addressB]; ok {
-			data[addressB] = [2]*big.Int{balanceA, balanceB}
-			continue
-		}
-		data[addressB] = [2]*big.Int{nil, balanceB}
-	}
+	// when both data sources are filled, do the combination of both lists.
+	data := combination(dataA.Data, dataB.Data)
 	// normalize balances and get the comma places moved
 	data, commaPlaces, ok := op.normalizeHolderBalances(data, aDecimals, bDecimals)
 	if !ok {
@@ -422,4 +405,83 @@ func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
 		data[common.BytesToAddress(r.HolderID).String()] = [2]*big.Int{balanceA, balanceB}
 	}
 	return data, nil
+}
+
+// intersection method returns the common token holders between two maps of
+// holders balances. It returns a map with the common holders addresses as keys
+// and the balances of both tokens as values. It uses a buffered channel to
+// process the results in parallel.
+func intersection(dataA, dataB map[string]*big.Int) map[string][2]*big.Int {
+	data := make(map[string][2]*big.Int)
+	var mu sync.Mutex // to safely update 'data'
+	type result struct {
+		address            string
+		balanceA, balanceB *big.Int
+	}
+	resultsChan := make(chan result)
+	var wg sync.WaitGroup
+	for addressA, balanceA := range dataA {
+		wg.Add(1)
+		go func(addressA string, balanceA *big.Int) {
+			defer wg.Done()
+			if balanceB, exists := dataB[addressA]; exists {
+				resultsChan <- result{address: addressA, balanceA: balanceA, balanceB: balanceB}
+			}
+		}(addressA, balanceA)
+	}
+	// close resultsChan when all goroutines are done.
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+	// collect results from the channel.
+	for r := range resultsChan {
+		mu.Lock()
+		data[r.address] = [2]*big.Int{r.balanceA, r.balanceB}
+		mu.Unlock()
+	}
+	return data
+}
+
+// combination method returns the common and not common token holders between
+// two maps of holders balances. It returns a map with the holders addresses as
+// keys and the balances of both tokens as values. It uses a buffered channel to
+// process the results in parallel.
+func combination(dataA, dataB map[string]*big.Int) map[string][2]*big.Int {
+	// init result data with dataA
+	data := make(map[string][2]*big.Int)
+	for addressA, balanceA := range dataA {
+		data[addressA] = [2]*big.Int{balanceA, nil}
+	}
+	type update struct {
+		address  string
+		balanceB *big.Int
+	}
+	// create a buffered channel based on size of dataB to process updates in
+	// parallel
+	updates := make(chan update, len(dataB))
+	var wg sync.WaitGroup
+	for addressB, balanceB := range dataB {
+		wg.Add(1)
+		go func(addressB string, balanceB *big.Int) {
+			defer wg.Done()
+			updates <- update{address: addressB, balanceB: balanceB}
+		}(addressB, balanceB)
+	}
+	// close the updates channel once all goroutines are finished
+	go func() {
+		wg.Wait()
+		close(updates)
+	}()
+	// collect updates from the channel and apply them to data
+	for update := range updates {
+		if balanceA, ok := data[update.address]; ok {
+			// If the address exists in data, update the second balance
+			data[update.address] = [2]*big.Int{balanceA[0], update.balanceB}
+		} else {
+			// If the address doesn't exist in data, add a new entry
+			data[update.address] = [2]*big.Int{nil, update.balanceB}
+		}
+	}
+	return data
 }

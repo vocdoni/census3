@@ -35,7 +35,9 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"runtime"
 	"sort"
+	"sync"
 )
 
 // GroupsConfig represents the configuration for the grouping and rounding process.
@@ -74,30 +76,77 @@ func (a ByBalance) Less(i, j int) bool { return a[i].Balance.Cmp(a[j].Balance) <
 // rounds the balances of the participants with the highest accuracy possible
 // while maintaining a minimum privacy threshold. It discards outliers from the
 // rounding process but returns them in the final list of participants.
-func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) ([]*Participant, float64, error) {
-	cleanedParticipants, outliers := zScore(participants, config.OutliersThreshold)
-
+func GroupAndRoundCensus(participants []*Participant, config GroupsConfig) (
+	[]*Participant, float64, error,
+) {
+	// create vars to parallelize the accuracy optimization loop, create a
+	// bestResult struct to store the best accuracy and privacy threshold used
+	// to achieve it, and the best struct to store the best result and a mutex
+	// to update it safely
+	type bestResult struct {
+		accuracy         float64
+		privacyThreshold int64
+	}
+	best := struct {
+		sync.Mutex
+		result bestResult
+	}{result: bestResult{accuracy: 0.0}}
+	// create a wait group and a semaphore to limit the number of goroutines to
+	// the number of CPU cores, calculate the maximum privacy
+	var wg sync.WaitGroup
+	numWorkers := runtime.NumCPU() // Limit the number of goroutines to the number of CPU cores
+	goroutineSem := make(chan struct{}, numWorkers)
+	// calculate bounds for the accuracy optimization loop, if the number of
+	// participants divided by the minimum privacy threshold is less than the
+	// minimum privacy threshold, use the minimum privacy threshold as the
+	// maximum privacy threshold to iterate at least once
 	maxPrivacyThreshold := int64(len(participants)) / config.MinPrivacyThreshold
-	currentPrivacyThreshold := config.MinPrivacyThreshold
-	maxAccuracy := 0.0
-	maxAccuracyPrivacyThreshold := currentPrivacyThreshold
-	for currentPrivacyThreshold <= maxPrivacyThreshold {
-		groupedParticipants := groupAndRoundCensus(cleanedParticipants, currentPrivacyThreshold, config.GroupBalanceDiff)
-		lastAccuracy := calculateAccuracy(cleanedParticipants, groupedParticipants)
-		if lastAccuracy > maxAccuracy {
-			maxAccuracy = lastAccuracy
-			maxAccuracyPrivacyThreshold = currentPrivacyThreshold
-		}
-		currentPrivacyThreshold += roundGap(currentPrivacyThreshold)
+	if maxPrivacyThreshold < config.MinPrivacyThreshold {
+		maxPrivacyThreshold = config.MinPrivacyThreshold
 	}
-	roundedCensus := groupAndRoundCensus(cleanedParticipants, maxAccuracyPrivacyThreshold, config.GroupBalanceDiff)
-	outliersCensus := groupAndRoundCensus(outliers, maxAccuracyPrivacyThreshold, config.GroupBalanceDiff)
+	// calculate outliers and cleaned participants using z-score and sort the
+	// cleaned ones by balance
+	cleanedParticipants, outliers := zScore(participants, config.OutliersThreshold)
+	sortedParticipants := append([]*Participant{}, cleanedParticipants...)
+	sort.Sort(ByBalance(sortedParticipants))
+	// iterate over privacy thresholds using the roundGap function to calculate
+	// the gap between them, and calculate the accuracy for each privacy
+	// threshold using a goroutine for each iteration
+	for current := config.MinPrivacyThreshold; current <= maxPrivacyThreshold; current += roundGap(current) {
+		goroutineSem <- struct{}{} // acquire goroutines semaphore
+		wg.Add(1)
+		go func(privacyThreshold int64) {
+			defer wg.Done()
+			// group and round participants and calculate accuracy
+			groupedParticipants := groupAndRoundCensus(sortedParticipants, privacyThreshold, config.GroupBalanceDiff)
+			accuracy := calculateAccuracy(sortedParticipants, groupedParticipants)
+			// lock best result before checking and updating it
+			best.Lock()
+			// update best result if the current accuracy is higher or if it is
+			// the same and the current privacy threshold is higher
+			if accuracy > best.result.accuracy || (accuracy == best.result.accuracy && privacyThreshold > best.result.privacyThreshold) {
+				best.result = bestResult{accuracy, privacyThreshold}
+			}
+			// unlock best result
+			best.Unlock()
+			<-goroutineSem // release goroutines semaphore
+		}(current)
+	}
+	// close iteration channel when all goroutines are done
+	wg.Wait()
+	// calculate the final rounded census with the highest calculated accuracy
+	finalPrivacyThreshold := best.result.privacyThreshold
+	roundedCensus := groupAndRoundCensus(sortedParticipants, finalPrivacyThreshold, config.GroupBalanceDiff)
+	outliersCensus := groupAndRoundCensus(outliers, finalPrivacyThreshold, config.GroupBalanceDiff)
 	roundedCensus = append(roundedCensus, outliersCensus...)
-	accuracy := calculateAccuracy(participants, roundedCensus)
-	if accuracy < config.MinAccuracy {
-		return roundedCensus, accuracy, fmt.Errorf("could not find a privacy threshold that satisfies the minimum accuracy")
+	// return the final rounded census and the highest accuracy, if it does not
+	// satisfy the minimum accuracy requirement for the rounding process, return
+	// an error, if not, just return the final rounded census and the highest
+	// accuracy
+	if best.result.accuracy < config.MinAccuracy {
+		return roundedCensus, best.result.accuracy, fmt.Errorf("could not find a privacy threshold that satisfies the minimum accuracy")
 	}
-	return roundedCensus, accuracy, nil
+	return roundedCensus, best.result.accuracy, nil
 }
 
 // zScore identifies and returns outliers based on a specified z-score
@@ -149,7 +198,6 @@ func zScore(participants []*Participant, threshold float64) ([]*Participant, []*
 
 // groupAndRoundCensus groups the cleanedParticipants and rounds their balances.
 func groupAndRoundCensus(participants []*Participant, privacyThreshold int64, groupBalanceDiff *big.Int) []*Participant {
-	sort.Sort(ByBalance(participants))
 	var groups [][]*Participant
 	var currentGroup []*Participant
 	for i, participant := range participants {
@@ -216,6 +264,6 @@ func calculateAccuracy(original, rounded []*Participant) float64 {
 		return 0
 	}
 	lostWeight := new(big.Float).Sub(totalOriginalFloat, new(big.Float).SetInt(totalRounded))
-	accuracy, _ := new(big.Float).Quo(lostWeight, totalOriginalFloat).Float64()
+	accuracy, _ := new(big.Float).Abs(new(big.Float).Quo(lostWeight, totalOriginalFloat)).Float64()
 	return 100 - (accuracy * 100)
 }

@@ -71,6 +71,17 @@ func (q *Queries) ExistsStamp(ctx context.Context, stamp string) (bool, error) {
 	return exists, err
 }
 
+const getMetadata = `-- name: GetMetadata :one
+SELECT value FROM metadata WHERE attr = ?
+`
+
+func (q *Queries) GetMetadata(ctx context.Context, attr string) (string, error) {
+	row := q.db.QueryRowContext(ctx, getMetadata, attr)
+	var value string
+	err := row.Scan(&value)
+	return value, err
+}
+
 const getScore = `-- name: GetScore :one
 SELECT score FROM scores WHERE address = ?
 `
@@ -197,6 +208,20 @@ func (q *Queries) GetStampsForAddress(ctx context.Context, address annotations.A
 	return items, nil
 }
 
+const newMetadata = `-- name: NewMetadata :exec
+INSERT INTO metadata (attr, value) VALUES (?, ?)
+`
+
+type NewMetadataParams struct {
+	Attr  string
+	Value string
+}
+
+func (q *Queries) NewMetadata(ctx context.Context, arg NewMetadataParams) error {
+	_, err := q.db.ExecContext(ctx, newMetadata, arg.Attr, arg.Value)
+	return err
+}
+
 const newScore = `-- name: NewScore :execresult
 INSERT INTO scores (address, score, date) VALUES (?, ?, ?)
 `
@@ -310,6 +335,22 @@ func (q *Queries) TotalSupplyScores(ctx context.Context) ([]annotations.BigInt, 
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateMetadata = `-- name: UpdateMetadata :exec
+UPDATE metadata
+SET value = ?
+WHERE attr = ?
+`
+
+type UpdateMetadataParams struct {
+	Value string
+	Attr  string
+}
+
+func (q *Queries) UpdateMetadata(ctx context.Context, arg UpdateMetadataParams) error {
+	_, err := q.db.ExecContext(ctx, updateMetadata, arg.Value, arg.Attr)
+	return err
 }
 
 const updateScore = `-- name: UpdateScore :execresult

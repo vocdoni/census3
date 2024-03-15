@@ -33,7 +33,10 @@ LIMIT 1;
 
 -- name: TokensByStrategyID :many
 SELECT t.*, st.* FROM tokens t
-JOIN strategy_tokens st ON st.token_id = t.id
+JOIN strategy_tokens st 
+ON st.token_id = t.id 
+    AND st.chain_id = t.chain_id 
+    AND st.external_id = t.external_id
 WHERE st.strategy_id = ?
 ORDER BY t.name;
 

@@ -67,3 +67,14 @@ SELECT EXISTS (
 
 -- name: StampTotalSupplyScores :many
 SELECT score FROM stamps WHERE name = sqlc.arg(stamp);
+
+-- name: NewMetadata :exec
+INSERT INTO metadata (attr, value) VALUES (?, ?);
+
+-- name: UpdateMetadata :exec
+UPDATE metadata
+SET value = sqlc.arg(value)
+WHERE attr = sqlc.arg(attr);
+
+-- name: GetMetadata :one
+SELECT value FROM metadata WHERE attr = sqlc.arg(attr);

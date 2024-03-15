@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
@@ -73,7 +74,7 @@ func paginationFromCtx(ctx *httprouter.HTTPContext) (int32, int32, string, bool,
 // the rows are empty, because the first element is the cursor and there is
 // include it in the following page. It uses generics to support any type of
 // rows. The cursors will alwways be strings.
-func paginationToRequest[T any](rows []T, dbPageSize int32, cursor string, goForward bool) ([]T, *T, *T) {
+func paginationToRequest[T any](rows []T, dbPageSize int32, goForward bool) ([]T, *T, *T) {
 	// if the rows are empty there is no results or next and previous cursor
 	if len(rows) == 0 {
 		return rows, nil, nil
@@ -147,13 +148,16 @@ func CreateAndPublishCensus(
 	// add the holders to the census tree
 	db.Lock()
 	defer db.Unlock()
+	// add the holders addresses and values to the census tree in parallel
 	if _, err := ref.Tree().AddBatch(holdersAddresses, holdersValues); err != nil {
 		return nil, "", nil, err
 	}
+	// get the root of the tree
 	root, err := ref.Tree().Root()
 	if err != nil {
 		return nil, "", nil, err
 	}
+	// get the tree dump
 	data, err := ref.Tree().Dump()
 	if err != nil {
 		return nil, "", nil, err
@@ -176,6 +180,57 @@ func CreateAndPublishCensus(
 	return root, uri, dump, nil
 }
 
+// ParallelAddBatch function adds a group holders to the census tree in parallel
+// dividing the holders in chunks if it is necessary. The holders must be
+// provided as a slice of addresses and a slice of values. If some error occurs,
+// the function stops adding the batch of holders and returns the error.
+func ParallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte) error {
+	// if the number of holders is less than the chunk size, add them in a single
+	// batch, otherwise, add them in chunks of the chunk size
+	chunkSize := 100
+	if len(addresses) <= chunkSize {
+		_, err := ref.Tree().AddBatch(addresses, values)
+		return err
+	}
+	// create a waitgroup to wait for all the goroutines to finish and an error
+	// channel to stop if any error occurs adding the batch of holders
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
+	// add the batch of holders iterating over the chunks
+	for startOfTheChunk := 0; startOfTheChunk < len(addresses); startOfTheChunk += chunkSize {
+		// calculate end of the chunk
+		endOfTheChunk := startOfTheChunk + chunkSize
+		if endOfTheChunk > len(addresses) {
+			endOfTheChunk = len(addresses)
+		}
+		// add the batch of holders in a goroutine
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			// add the cuurent chunk of holders
+			if _, err := ref.Tree().AddBatch(addresses[start:end], values[start:end]); err != nil {
+				// if an error occurs, send it to the error channel and return
+				select {
+				case errCh <- err:
+					return
+				default:
+					return
+				}
+			}
+		}(startOfTheChunk, endOfTheChunk)
+	}
+	// wait for all the goroutines to finish and close the error channel
+	go func() {
+		wg.Wait()
+		close(errCh)
+	}()
+	// return the first error that occurs adding the batch of holders
+	for err := range errCh {
+		return fmt.Errorf("error adding batch of holders: %w", err)
+	}
+	return nil
+}
+
 // InnerCensusID generates a unique identifier by concatenating the BlockNumber, StrategyID,
 // and a numerical representation of the Anonymous flag from a CreateCensusRequest struct.
 // The BlockNumber and StrategyID are concatenated as they are, and the Anonymous flag is
@@ -195,7 +250,7 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 		panic(err)
 	}
 	if result > math.MaxInt64 {
-		panic(err)
+		panic("overflow")
 	}
 	return result
 }
@@ -249,7 +304,6 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
 				return nil, nil, 0, err
 			}
 		}
-
 		currentBlockNumber, err := provider.LatestBlockNumber(ctx, []byte(token.ExternalID))
 		if err != nil {
 			return nil, nil, 0, err
@@ -327,19 +381,26 @@ func TimeToCreateCensus(size uint64) uint64 {
 	// Based on the census3 data (11/24/2023), the value of m and c are:
 	// 	* m = 0.0008017991071149796
 	// 	* c = -1.1262389976474412
+	// Based on the census3 data (3/11/2024), the value of m and c are:
+	// 	* m = 0.00020543644248930586
+	// 	* c = -0.1809418921100489
+	// Based on the census3 data (3/13/2024), the value of m and c are:
+	// 	* m = 0.000256
+	// 	* c = -0.3035
 
 	// To reproduce the constants, use the following python snippet:
 	// 	import numpy as np
 	//	A = np.array([...])
 	//	B = np.array([...])
 	//	m, c = np.polyfit(A, B, 1)
-	m := 0.0008017991071149796
-	c := -1.1262389976474412
+	m := 0.000256
+	c := -0.3035
 	seconds := m*float64(size) + c
 	if seconds < 0 {
 		seconds = 1
 	}
-	return uint64(seconds * 1000) // milliseconds
+	// add 5 seconds to the estimated time to create a census as a safety margin
+	return uint64((seconds + 5) * 1000) // milliseconds
 }
 
 type CacheKey [16]byte

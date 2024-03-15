@@ -103,9 +103,7 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 		return nil, err
 	}
 	// init the censusDB of the API
-	if newAPI.censusDB = censusdb.NewCensusDB(censusesDB); err != nil {
-		return nil, err
-	}
+	newAPI.censusDB = censusdb.NewCensusDB(censusesDB)
 	// init handlers
 	if err := newAPI.initAPIHandlers(); err != nil {
 		return nil, err

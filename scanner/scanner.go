@@ -152,7 +152,11 @@ func (s *Scanner) Start(ctx context.Context) {
 				go func(t *ScannerToken, h map[common.Address]*big.Int, n, lb uint64, sy bool, ts *big.Int) {
 					defer s.waiter.Done()
 					if err = s.SaveHolders(ctx, t, h, n, lb, sy, ts); err != nil {
-						log.Error(err)
+						log.Warnw("error saving tokenholders",
+							"address", t.Address.Hex(),
+							"chainID", t.ChainID,
+							"externalID", t.ExternalID,
+							"error", err)
 					}
 				}(token, holders, newTransfers, lastBlock, synced, totalSupply)
 			}

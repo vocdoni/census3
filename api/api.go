@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,6 +53,7 @@ type census3API struct {
 	downloader      *downloader.Downloader
 	holderProviders map[uint64]providers.HolderProvider
 	cache           *lru.Cache[CacheKey, any]
+	router          *httprouter.HTTProuter
 }
 
 func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
@@ -66,20 +68,20 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 		queue:           queue.NewBackgroundQueue(),
 		holderProviders: conf.HolderProviders,
 		cache:           cache,
+		router:          &httprouter.HTTProuter{},
 	}
 	// get the current chainID
 	log.Infow("starting API", "web3Providers", conf.Web3Providers.String())
 
 	// create a new http router with the hostname and port provided in the conf
-	r := httprouter.HTTProuter{}
-	if err = r.Init(conf.Hostname, conf.Port); err != nil {
+	if err = newAPI.router.Init(conf.Hostname, conf.Port); err != nil {
 		return nil, err
 	}
 	// expose metrics endpoint
-	r.ExposePrometheusEndpoint("/metrics")
+	newAPI.router.ExposePrometheusEndpoint("/metrics")
 
 	// init API using the http router created
-	if newAPI.endpoint, err = api.NewAPI(&r, "/api"); err != nil {
+	if newAPI.endpoint, err = api.NewAPI(newAPI.router, "/api"); err != nil {
 		return nil, err
 	}
 	// set admin token
@@ -103,9 +105,7 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 		return nil, err
 	}
 	// init the censusDB of the API
-	if newAPI.censusDB = censusdb.NewCensusDB(censusesDB); err != nil {
-		return nil, err
-	}
+	newAPI.censusDB = censusdb.NewCensusDB(censusesDB)
 	// init handlers
 	if err := newAPI.initAPIHandlers(); err != nil {
 		return nil, err
@@ -135,6 +135,8 @@ func (capi *census3API) Stop() error {
 }
 
 func (capi *census3API) initAPIHandlers() error {
+	capi.router.AddRawHTTPHandler("/db/export", http.MethodGet, capi.exportDatabase)
+
 	return capi.endpoint.RegisterMethod("/info", "GET",
 		api.MethodAccessTypePublic, capi.getAPIInfo)
 }
@@ -156,6 +158,32 @@ func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext
 		return ErrEncodeAPIInfo
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) exportDatabase(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header is required", http.StatusUnauthorized)
+		return
+	}
+	// Expecting header in the format "Bearer <token>"
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
+		return
+	}
+	if token := parts[1]; token != capi.conf.AdminToken {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+	dbFile := filepath.Join(capi.conf.DataDir, "census3.sql")
+	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
+		http.Error(w, "Database file not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Disposition", "attachment; filename=census3.db")
+	w.Header().Set("Content-Type", "application/octet-stream")
+	http.ServeFile(w, r, dbFile)
 }
 
 // CreateInitialTokens creates the tokens defined in the file provided in the
@@ -189,7 +217,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 	if err := json.Unmarshal(content, &tokens); err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	// create the tokens
 	tx, err := capi.db.RW.BeginTx(ctx, nil)
@@ -297,15 +325,16 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			LastBlock:     int64(token.StartBlock),
 		})
 		if err != nil {
-			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				return nil
+			if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				log.Errorf("error creating token: %s", err)
 			}
-			return err
+			continue
 		}
 		strategyID, err := capi.createDefaultTokenStrategy(ctx, qtx,
 			addr, token.ChainID, chainAddress, symbol, token.ExternalID)
 		if err != nil {
-			return err
+			log.Errorf("error creating default token strategy: %s", err)
+			continue
 		}
 		if _, err := qtx.UpdateTokenDefaultStrategy(ctx, queries.UpdateTokenDefaultStrategyParams{
 			ID:              addr.Bytes(),
@@ -313,7 +342,8 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			ChainID:         token.ChainID,
 			ExternalID:      token.ExternalID,
 		}); err != nil {
-			return err
+			log.Errorf("error updating token default strategy: %s", err)
+			continue
 		}
 		log.Infow("token created", "tokenID", token.ID, "chainID", token.ChainID, "externalID", token.ExternalID)
 	}

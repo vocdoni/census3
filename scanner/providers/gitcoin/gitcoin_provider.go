@@ -257,10 +257,8 @@ func (g *GitcoinPassport) TotalSupply(stamp []byte) (*big.Int, error) {
 		totalSupplyScores, err = g.db.QueriesRO.TotalSupplyScores(ctx)
 	}
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return big.NewInt(0), nil
-		}
-		return nil, fmt.Errorf("error getting scores from database: %v", err)
+		log.Warnw("error getting scores from database", "err", err)
+		return big.NewInt(0), nil
 	}
 
 	totalSupply := big.NewInt(0)
@@ -270,7 +268,8 @@ func (g *GitcoinPassport) TotalSupply(stamp []byte) (*big.Int, error) {
 		}
 		bScore, ok := new(big.Int).SetString(string(score), 10)
 		if !ok {
-			return nil, fmt.Errorf("error parsing score from database")
+			log.Warnw("error parsing score from database", "stamp", string(stamp))
+			return big.NewInt(0), nil
 		}
 		totalSupply.Add(totalSupply, bScore)
 	}

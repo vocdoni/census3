@@ -9,10 +9,12 @@ import (
 var (
 	testLexerOps             = []string{"AND", "OR"}
 	testLexerValidPredicates = map[string]string{
-		"single":      "Monkey$\\ Token",
-		"simple":      "Monkey$\\ Token AND ETH",
-		"nested":      "Monkey$\\ Token AND (ETH OR BTC)",
-		"deep-nested": "(Monkey$\\ Token AND ANT) AND (ETH OR (USDC AND BTC))",
+		"single":       "Monkey$\\ Token",
+		"simple":       "Monkey$\\ Token AND ETH",
+		"repeated-and": "ETH AND ETH",
+		"repeated-or":  "ETH OR ETH",
+		"nested":       "Monkey$\\ Token AND (ETH OR BTC)",
+		"deep-nested":  "(Monkey$\\ Token AND ANT) AND (ETH OR (USDC AND BTC))",
 	}
 	testLexerInvalidPredicates = map[string]string{
 		"single":              "ETH AND",
@@ -33,11 +35,39 @@ var (
 				ID:       0,
 				Level:    0,
 				Operator: "AND",
-				Tokens: map[string]*Token{
-					"Monkey$ Token": {Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
-					"ETH":           {Type: TokenTypeLiteral, Literal: "ETH"},
+				Tokens: []*Token{
+					&Token{Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
+					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
 				},
 				firstToken:  "Monkey$ Token",
+				secondToken: "ETH",
+			},
+		},
+		"repeated-and": {
+			Type: TokenTypeGroup,
+			Childs: &Group{
+				ID:       0,
+				Level:    0,
+				Operator: "AND",
+				Tokens: []*Token{
+					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
+					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
+				},
+				firstToken:  "ETH",
+				secondToken: "ETH",
+			},
+		},
+		"repeated-or": {
+			Type: TokenTypeGroup,
+			Childs: &Group{
+				ID:       0,
+				Level:    0,
+				Operator: "OR",
+				Tokens: []*Token{
+					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
+					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
+				},
+				firstToken:  "ETH",
 				secondToken: "ETH",
 			},
 		},
@@ -48,17 +78,17 @@ var (
 				ID:       0,
 				Level:    0,
 				Operator: "AND",
-				Tokens: map[string]*Token{
-					"Monkey$ Token": {Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
-					"1": {
+				Tokens: []*Token{
+					&Token{Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
+					&Token{
 						Type: TokenTypeGroup,
 						Childs: &Group{
 							ID:       1,
 							Level:    1,
 							Operator: "OR",
-							Tokens: map[string]*Token{
-								"ETH": {Type: TokenTypeLiteral, Literal: "ETH"},
-								"BTC": {Type: TokenTypeLiteral, Literal: "BTC"},
+							Tokens: []*Token{
+								&Token{Type: TokenTypeLiteral, Literal: "ETH"},
+								&Token{Type: TokenTypeLiteral, Literal: "BTC"},
 							},
 							firstToken:  "ETH",
 							secondToken: "BTC",
@@ -76,38 +106,38 @@ var (
 				ID:       0,
 				Level:    0,
 				Operator: "AND",
-				Tokens: map[string]*Token{
-					"1": {
+				Tokens: []*Token{
+					&Token{
 						Type: TokenTypeGroup,
 						Childs: &Group{
 							ID:       1,
 							Level:    1,
 							Operator: "AND",
-							Tokens: map[string]*Token{
-								"Monkey$ Token": {Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
-								"ANT":           {Type: TokenTypeLiteral, Literal: "ANT"},
+							Tokens: []*Token{
+								&Token{Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
+								&Token{Type: TokenTypeLiteral, Literal: "ANT"},
 							},
 							firstToken:  "Monkey$ Token",
 							secondToken: "ANT",
 						},
 					},
-					"2": {
+					&Token{
 						Type: TokenTypeGroup,
 						Childs: &Group{
 							ID:       2,
 							Level:    1,
 							Operator: "OR",
-							Tokens: map[string]*Token{
-								"ETH": {Type: TokenTypeLiteral, Literal: "ETH"},
-								"3": {
+							Tokens: []*Token{
+								&Token{Type: TokenTypeLiteral, Literal: "ETH"},
+								&Token{
 									Type: TokenTypeGroup,
 									Childs: &Group{
 										ID:       3,
 										Level:    1,
 										Operator: "AND",
-										Tokens: map[string]*Token{
-											"USDC": {Type: TokenTypeLiteral, Literal: "USDC"},
-											"BTC":  {Type: TokenTypeLiteral, Literal: "BTC"},
+										Tokens: []*Token{
+											&Token{Type: TokenTypeLiteral, Literal: "USDC"},
+											&Token{Type: TokenTypeLiteral, Literal: "BTC"},
 										},
 										firstToken:  "USDC",
 										secondToken: "BTC",
@@ -129,6 +159,10 @@ var (
 		"single": {"Monkey$ Token"},
 		// Monkey$\\ Token AND ETH
 		"simple": {"Monkey$ Token", "AND", "ETH"},
+		// ETH AND ETH
+		"repeated-and": {"ETH", "AND", "ETH"},
+		// ETH OR ETH
+		"repeated-or": {"ETH", "OR", "ETH"},
 		// Monkey$\\ Token AND (ETH OR BTC)
 		"nested": {"Monkey$ Token", "AND", "(", "ETH", "OR", "BTC", ")"},
 		// (Monkey$\\ Token AND ANT) AND (ETH OR (USDC AND BTC)

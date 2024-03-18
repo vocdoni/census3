@@ -15,7 +15,7 @@ require (
 	github.com/pressly/goose/v3 v3.10.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
-	go.vocdoni.io/dvote v1.10.2-0.20240313131138-93f422096156
+	go.vocdoni.io/dvote v1.10.2-0.20240312161355-15c06c28e91c
 	go.vocdoni.io/proto v1.15.6-0.20240209115732-27836380ccae
 )
 

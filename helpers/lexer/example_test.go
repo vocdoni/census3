@@ -148,7 +148,7 @@ func Example() {
 		panic(err)
 	}
 	// create evaluator and eval with operators
-	res, err := NewEval(operators).EvalToken(rootToken)
+	res, err := NewEval(operators).EvalToken(rootToken, nil)
 	if err != nil {
 		panic(err)
 	}

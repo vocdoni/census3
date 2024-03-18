@@ -306,14 +306,14 @@ func (capi *census3API) launchStrategyImport(msg *api.APIdata, ctx *httprouter.H
 		ipfsURI := fmt.Sprintf("%s%s", capi.downloader.RemoteStorage.URIprefix(), ipfsCID)
 		exists, err := capi.db.QueriesRO.ExistsStrategyByURI(internalCtx, ipfsURI)
 		if err != nil {
-			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+			if !capi.queue.Fail(queueID, err) {
 				log.Errorf("error updating import strategy queue %s", queueID)
 			}
 			return
 		}
 		if exists {
 			err := ErrCantImportStrategy.WithErr(fmt.Errorf("strategy already exists"))
-			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+			if !capi.queue.Fail(queueID, err) {
 				log.Errorf("error updating import strategy queue %s", queueID)
 			}
 			return
@@ -323,13 +323,12 @@ func (capi *census3API) launchStrategyImport(msg *api.APIdata, ctx *httprouter.H
 		capi.downloader.AddToQueue(ipfsURI, func(_ string, dump []byte) {
 			strategyID, err := capi.importStrategyDump(ipfsURI, dump)
 			if err != nil {
-				if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+				if !capi.queue.Fail(queueID, err) {
 					log.Errorf("error updating import strategy queue %s", queueID)
 				}
 				return
 			}
-			queueData := map[string]any{"strategyID": strategyID}
-			if ok := capi.queue.Update(queueID, true, queueData, nil); !ok {
+			if !capi.queue.Done(queueID, strategyID) {
 				log.Errorf("error updating import strategy queue %s", queueID)
 			}
 		}, true)
@@ -439,21 +438,16 @@ func (capi *census3API) enqueueImportStrategy(msg *api.APIdata, ctx *httprouter.
 		return ErrMalformedStrategyQueueID
 	}
 	// try to get and check if the strategy is in the queue
-	exists, done, data, err := capi.queue.Done(queueID)
+	queueItem, exists := capi.queue.IsDone(queueID)
 	if !exists {
 		return ErrNotFoundStrategy.Withf("the ID %s does not exist in the queue", queueID)
 	}
-	// init the queue response
-	queueStrategy := ImportStrategyQueueResponse{
-		Done:  done,
-		Error: err,
-	}
 	// check if it is not finished or some error occurred
-	if done && err == nil {
+	if queueItem.Done && queueItem.Error == nil {
 		// if everything is ok, get the census information an return it
 		internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), enqueueStrategyImportTimeout)
 		defer cancel()
-		strategyID, ok := data["strategyID"].(uint64)
+		strategyID, ok := queueItem.Data.(uint64)
 		if !ok {
 			log.Errorf("no strategy id registered on queue item")
 			return ErrCantGetStrategy
@@ -467,7 +461,7 @@ func (capi *census3API) enqueueImportStrategy(msg *api.APIdata, ctx *httprouter.
 			return ErrCantGetStrategy.WithErr(err)
 		}
 		// encode census
-		queueStrategy.Strategy = &GetStrategyResponse{
+		strategy := &GetStrategyResponse{
 			ID:        strategyData.ID,
 			Alias:     strategyData.Alias,
 			Predicate: strategyData.Predicate,
@@ -481,18 +475,19 @@ func (capi *census3API) enqueueImportStrategy(msg *api.APIdata, ctx *httprouter.
 		}
 		// parse and encode tokens information
 		for _, tokenData := range tokensData {
-			queueStrategy.Strategy.Tokens[tokenData.Symbol] = &StrategyToken{
+			strategy.Tokens[tokenData.Symbol] = &StrategyToken{
 				ID:           common.BytesToAddress(tokenData.ID).String(),
 				ChainAddress: tokenData.ChainAddress,
 				MinBalance:   tokenData.MinBalance,
 				ChainID:      tokenData.ChainID,
 			}
 		}
+		queueItem.Data = strategy
 		// remove the item from the queue
 		capi.queue.Dequeue(queueID)
 	}
 	// encode item response and send it
-	res, err := json.Marshal(queueStrategy)
+	res, err := json.Marshal(queueItem)
 	if err != nil {
 		return ErrEncodeQueueItem.WithErr(err)
 	}
@@ -664,19 +659,18 @@ func (capi *census3API) launchStrategyEstimation(msg *api.APIdata, ctx *httprout
 	// import the strategy from IPFS in background generating a queueID
 	queueID := capi.queue.Enqueue()
 	go func() {
-		size, accuracy, err := capi.estimateStrategySizeAndAccuracy(strategyID, anonymous)
+		size, accuracy, err := capi.estimateStrategySizeAndAccuracy(queueID, strategyID, anonymous)
 		if err != nil {
-			if ok := capi.queue.Update(queueID, true, nil, err); !ok {
+			if !capi.queue.Fail(queueID, err) {
 				log.Errorf("error updating import strategy queue %s", queueID)
 			}
 			return
 		}
-		queueData := map[string]any{
+		if ok := capi.queue.Done(queueID, map[string]any{
 			"size":               uint64(size),
 			"timeToCreateCensus": TimeToCreateCensus(uint64(size)),
 			"accuracy":           accuracy,
-		}
-		if ok := capi.queue.Update(queueID, true, queueData, nil); !ok {
+		}); !ok {
 			log.Errorf("error updating import strategy queue %s", queueID)
 		}
 	}()
@@ -691,7 +685,7 @@ func (capi *census3API) launchStrategyEstimation(msg *api.APIdata, ctx *httprout
 // estimateStrategySizeAndAccuracy function returns the estimated size of the
 // strategy identified by the ID provided. The size is calculated using the strategy
 // predicate. This method should be executed in background.
-func (capi *census3API) estimateStrategySizeAndAccuracy(strategyID uint64, anonymous bool) (int, float64, error) {
+func (capi *census3API) estimateStrategySizeAndAccuracy(queueID string, strategyID uint64, anonymous bool) (int, float64, error) {
 	internalCtx, cancel := context.WithTimeout(context.Background(), createAndPublishCensusTimeout)
 	defer cancel()
 	// check if the strategy size is already cached
@@ -731,9 +725,19 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(strategyID uint64, anony
 	if strategy.Predicate == "" {
 		return 0, 0, ErrInvalidStrategyPredicate.With("empty predicate")
 	}
+	// create a channel to get the progress of the strategy calculation, if the
+	// census is anonymous, the progress will be divided in two steps, the first
+	// one to calculate the strategy holders and the second one to calculate the
+	// accuracy of the census, if not, the progress will have only one step
+	var calculateStrategyProgress chan float64
+	if !anonymous {
+		calculateStrategyProgress = capi.queue.StepProgressChannel(queueID, 1, 1)
+	} else {
+		calculateStrategyProgress = capi.queue.StepProgressChannel(queueID, 1, 2)
+	}
 	// calculate the strategy holders
-	strategyHolders, _, _, err := CalculateStrategyHolders(internalCtx,
-		capi.db.QueriesRO, capi.holderProviders, strategyID, strategy.Predicate)
+	strategyHolders, _, _, err := capi.CalculateStrategyHolders(internalCtx,
+		strategyID, strategy.Predicate, calculateStrategyProgress)
 	if err != nil {
 		return 0, 0, ErrEvalStrategyPredicate.WithErr(err)
 	}
@@ -751,7 +755,8 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(strategyID uint64, anony
 				})
 			}
 			// calculate the accuracy of the census and return it with the size
-			_, accuracy, _ = roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig)
+			accuracyProgress := capi.queue.StepProgressChannel(queueID, 2, 2)
+			_, accuracy, _ = roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig, accuracyProgress)
 		}
 		// cache the strategy if the estimated size is greater than the
 		// threshold
@@ -779,27 +784,17 @@ func (capi *census3API) enqueueStrategyEstimation(msg *api.APIdata, ctx *httprou
 		return ErrMalformedStrategyQueueID
 	}
 	// try to get and check if the strategy is in the queue
-	exists, done, data, err := capi.queue.Done(queueID)
+	queueItem, exists := capi.queue.IsDone(queueID)
 	if !exists {
 		return ErrNotFoundStrategy.Withf("the ID %s does not exist in the queue", queueID)
 	}
-	// init the queue response
-	queueStrategy := GetStrategyEstimationResponse{
-		Done:  done,
-		Error: err,
-	}
 	// check if it is not finished or some error occurred
-	if done && err == nil {
-		queueStrategy.Estimation = &StrategyEstimation{
-			Size:               data["size"].(uint64),
-			TimeToCreateCensus: data["timeToCreateCensus"].(uint64),
-			Accuracy:           data["accuracy"].(float64),
-		}
-		// remove the item from the queue
+	if queueItem.Done && queueItem.Error == nil {
+		// remove the item from the queue and the censusID from the data
 		capi.queue.Dequeue(queueID)
 	}
 	// encode item response and send it
-	res, err := json.Marshal(queueStrategy)
+	res, err := json.Marshal(queueItem)
 	if err != nil {
 		return ErrEncodeQueueItem.WithErr(err)
 	}

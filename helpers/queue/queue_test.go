@@ -30,36 +30,43 @@ func TestEnqueueDequeue(t *testing.T) {
 	q := NewBackgroundQueue()
 
 	id := q.Enqueue()
-	_, ok := q.processes[id]
+	_, ok := q.processes.Load(id)
 	c.Assert(ok, qt.IsTrue)
 	c.Assert(q.Dequeue(id), qt.IsTrue)
-	_, ok = q.processes[id]
+	_, ok = q.processes.Load(id)
 	c.Assert(ok, qt.IsFalse)
 	c.Assert(q.Dequeue(id), qt.IsFalse)
 }
 
-func TestUpdateDone(t *testing.T) {
+func TestDoneIsDone(t *testing.T) {
 	c := qt.New(t)
 
 	q := NewBackgroundQueue()
 
 	id := q.Enqueue()
-	exists, done, _, err := q.Done(id)
+	data := map[string]any{
+		"key": "value",
+	}
+	queueItem, exists := q.IsDone(id)
 	c.Assert(exists, qt.IsTrue)
-	c.Assert(err, qt.IsNil)
-	c.Assert(done, qt.IsFalse)
+	c.Assert(queueItem.Done, qt.IsFalse)
 
-	c.Assert(q.Update(id, true, nil, fmt.Errorf("test error")), qt.IsTrue)
-	exists, done, _, err = q.Done(id)
+	c.Assert(q.Done("wrongID", data), qt.IsFalse)
+	c.Assert(q.Done(id, data), qt.IsTrue)
+
+	queueItem, exists = q.IsDone(id)
+	c.Assert(queueItem.Done, qt.IsTrue)
+	c.Assert(queueItem.Progress, qt.Equals, float64(100))
+	c.Assert(queueItem.Data, qt.DeepEquals, data)
+	c.Assert(queueItem.Error, qt.IsNil)
 	c.Assert(exists, qt.IsTrue)
-	c.Assert(err, qt.IsNotNil)
-	c.Assert(done, qt.IsTrue)
+
+	_, exists = q.IsDone("wrongID")
+	c.Assert(exists, qt.IsFalse)
 
 	c.Assert(q.Dequeue(id), qt.IsTrue)
-	exists, done, _, err = q.Done(id)
+	_, exists = q.IsDone(id)
 	c.Assert(exists, qt.IsFalse)
-	c.Assert(err, qt.IsNil)
-	c.Assert(done, qt.IsFalse)
 }
 
 func TestQueueDataRace(t *testing.T) {
@@ -111,15 +118,15 @@ func TestQueueDataRace(t *testing.T) {
 						return
 					}
 					// if not exists create an error
-					exists, done, data, err := q.Done(queueItemId)
+					qi, exists := q.IsDone(queueItemId)
 					if !exists {
 						asyncErrors.Store(queueItemId, fmt.Errorf("expected queue item not found during done check"))
 						continue
 					}
 					// if it is not done, update it to done
-					if !done {
+					if !qi.Done {
 						// if this actions fails create an error
-						if !q.Update(queueItemId, true, data, err) {
+						if !q.Done(queueItemId, nil) {
 							asyncErrors.Store(queueItemId, fmt.Errorf("expected queue item not found during update"))
 							continue
 						}
@@ -146,14 +153,14 @@ func TestQueueDataRace(t *testing.T) {
 						return
 					}
 					// if not exists create an error
-					exists, done, _, _ := q.Done(queueItemId)
+					qi, exists := q.IsDone(queueItemId)
 					if !exists {
 						asyncErrors.Store(queueItemId, fmt.Errorf("expected queue item not found during done check"))
 						continue
 					}
 					// if it is done, remove it from the queue, and if this action
 					// fails, create an error; unless create a nil error
-					if done {
+					if qi.Done {
 						if !q.Dequeue(queueItemId) {
 							asyncErrors.Store(queueItemId, fmt.Errorf("expected queue item not found during update"))
 						} else {

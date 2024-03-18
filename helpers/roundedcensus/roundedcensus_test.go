@@ -16,7 +16,7 @@ func Test_GroupAndRoundCensus(t *testing.T) {
 		{Address: "0x3", Balance: big.NewInt(3)},
 	}
 
-	result, accuracy, err := GroupAndRoundCensus(participants, DefaultGroupsConfig)
+	result, accuracy, err := GroupAndRoundCensus(participants, DefaultGroupsConfig, nil)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(result), qt.Equals, 3)
 	c.Assert(accuracy, qt.Equals, 50.0)
@@ -26,7 +26,7 @@ func Test_GroupAndRoundCensus(t *testing.T) {
 
 	participants[1].Balance = big.NewInt(1000)
 	participants[2].Balance = big.NewInt(1000000)
-	result, accuracy, err = GroupAndRoundCensus(participants, DefaultGroupsConfig)
+	result, accuracy, err = GroupAndRoundCensus(participants, DefaultGroupsConfig, nil)
 	c.Assert(err, qt.IsNotNil)
 	c.Assert(len(result), qt.Equals, 3)
 	c.Assert(accuracy < 0.01, qt.IsTrue, qt.Commentf("accuracy should be near to 0"))
@@ -48,7 +48,7 @@ func Test_GroupAndRoundCensus(t *testing.T) {
 		{Address: "0x11", Balance: big.NewInt(2)},
 		{Address: "0x12", Balance: big.NewInt(3)},
 	}
-	result, accuracy, err = GroupAndRoundCensus(participants, DefaultGroupsConfig)
+	result, accuracy, err = GroupAndRoundCensus(participants, DefaultGroupsConfig, nil)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(result), qt.Equals, 12)
 	c.Assert(accuracy, qt.Equals, 100.0)

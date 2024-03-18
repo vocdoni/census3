@@ -112,7 +112,7 @@ func TestEval(t *testing.T) {
 			token, err := lx.Parse(predicate)
 			c.Assert(err, qt.IsNil)
 
-			res, err := NewEval[[]int](testEvalOperators).EvalToken(token)
+			res, err := NewEval[[]int](testEvalOperators).EvalToken(token, nil)
 			c.Assert(err, qt.IsNil)
 			c.Assert(res, qt.ContentEquals, results)
 		}
@@ -124,7 +124,7 @@ func TestEval(t *testing.T) {
 			token, err := lx.Parse(predicate)
 			c.Assert(err, qt.IsNil)
 
-			_, err = NewEval[[]int](testEvalOperators).EvalToken(token)
+			_, err = NewEval[[]int](testEvalOperators).EvalToken(token, nil)
 			c.Assert(err, qt.IsNotNil)
 		}
 
@@ -132,7 +132,7 @@ func TestEval(t *testing.T) {
 		c.Assert(err, qt.IsNil)
 		// force undefined data
 		token.Childs.Tokens["naturals"] = NewLiteralToken("naturals")
-		_, err = NewEval[[]int](testEvalOperators).EvalToken(token)
+		_, err = NewEval[[]int](testEvalOperators).EvalToken(token, nil)
 		c.Assert(err, qt.IsNotNil)
 	})
 }

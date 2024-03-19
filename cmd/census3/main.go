@@ -17,7 +17,6 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/scanner"
-	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/farcaster"
 	"github.com/vocdoni/census3/scanner/providers/gitcoin"
 	gitcoinDB "github.com/vocdoni/census3/scanner/providers/gitcoin/db"
@@ -170,11 +169,6 @@ func main() {
 		log.Fatal(err)
 		return
 	}
-	apiProviders := map[uint64]providers.HolderProvider{
-		erc20Provider.Type():  erc20Provider,
-		erc721Provider.Type(): erc721Provider,
-		erc777Provider.Type(): erc777Provider,
-	}
 	// init POAP external provider
 	if config.poapAPIEndpoint != "" {
 		poapProvider := new(poap.POAPHolderProvider)
@@ -189,7 +183,6 @@ func main() {
 			log.Fatal(err)
 			return
 		}
-		apiProviders[poapProvider.Type()] = poapProvider
 	}
 	if config.gitcoinEndpoint != "" {
 		gitcoinDatabase, err := gitcoinDB.Init(config.dataDir, "gitcoinpassport.sql")
@@ -210,7 +203,6 @@ func main() {
 			log.Fatal(err)
 			return
 		}
-		apiProviders[gitcoinProvider.Type()] = gitcoinProvider
 	}
 
 	// if farcaster is enabled, init the farcaster database and the provider
@@ -233,7 +225,6 @@ func main() {
 			log.Fatal(err)
 			return
 		}
-		apiProviders[farcasterProvider.Type()] = farcasterProvider
 	}
 
 	// if the admin token is not defined, generate a random one
@@ -246,14 +237,15 @@ func main() {
 		log.Infof("no admin token defined, using a random one: %s", config.adminToken)
 	}
 	// Start the API
-	apiService, err := api.Init(database, api.Census3APIConf{
+	ctx, cancel := context.WithCancel(context.Background())
+	apiService, err := api.Init(database, hc, api.Census3APIConf{
+		MainCtx:         ctx,
 		Hostname:        "0.0.0.0",
 		Port:            config.port,
 		DataDir:         config.dataDir,
-		Web3Providers:   w3p,
 		GroupKey:        config.connectKey,
-		HolderProviders: apiProviders,
 		AdminToken:      config.adminToken,
+		ScannerCooldown: config.scannerCoolDown,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -265,7 +257,6 @@ func main() {
 		}
 		log.Info("initial tokens created, or at least tried to")
 	}()
-	ctx, cancel := context.WithCancel(context.Background())
 	go hc.Start(ctx)
 
 	metrics.NewCounter(fmt.Sprintf("census3_info{version=%q,chains=%q}",

@@ -283,4 +283,9 @@ var (
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error getting strategy holders"),
 	}
+	ErrDatabaseImport = apirest.APIerror{
+		Code:       5031,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error importing data to the database"),
+	}
 )

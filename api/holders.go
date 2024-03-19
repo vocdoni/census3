@@ -106,7 +106,7 @@ func (capi *census3API) listHoldersAtLastBlock(address common.Address,
 		return nil, 0, ErrCantGetTokenHolders.WithErr(err)
 	}
 	// if the token is external, return an error
-	provider, exists := capi.holderProviders[tokenData.TypeID]
+	provider, exists := capi.scanner.HolderProvider(tokenData.TypeID)
 	if !exists {
 		return nil, 0, ErrCantCreateCensus.With("token type not supported")
 	}

@@ -241,7 +241,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	defer cancel()
 	// get the correct holder provider for the token type
 	tokenType := providers.TokenTypeID(req.Type)
-	provider, exists := capi.holderProviders[tokenType]
+	provider, exists := capi.scanner.HolderProvider(tokenType)
 	if !exists {
 		return ErrCantCreateCensus.With("token type not supported")
 	}
@@ -286,7 +286,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		}
 	}()
 	// get the chain address for the token based on the chainID and tokenID
-	chainAddress, ok := capi.w3p.ChainAddress(req.ChainID, address.String())
+	chainAddress, ok := capi.scanner.Networks().ChainAddress(req.ChainID, address.String())
 	if !ok {
 		return ErrChainIDNotSupported.Withf("chainID: %d, tokenID: %s", req.ChainID, req.ID)
 	}
@@ -540,7 +540,7 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	atBlock := uint64(tokenData.LastBlock)
 	tokenProgress := 100
 	if !tokenData.Synced {
-		provider, exists := capi.holderProviders[tokenData.TypeID]
+		provider, exists := capi.scanner.HolderProvider(tokenData.TypeID)
 		if !exists {
 			return ErrCantCreateCensus.With("token type not supported")
 		}
@@ -770,7 +770,7 @@ func (capi *census3API) enqueueTokenHoldersCSV(msg *api.APIdata, ctx *httprouter
 // supported types of token contracts.
 func (capi *census3API) getTokenTypes(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	supportedTypes := []string{}
-	for _, provider := range capi.holderProviders {
+	for _, provider := range capi.scanner.HolderProviders() {
 		supportedTypes = append(supportedTypes, provider.TypeName())
 	}
 	res, err := json.Marshal(TokenTypesResponse{supportedTypes})

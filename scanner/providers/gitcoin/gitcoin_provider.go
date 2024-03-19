@@ -175,10 +175,23 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, stamp []byte, _ uin
 
 // Close cancels the download context.
 func (g *GitcoinPassport) Close() error {
+	log.Info("gitcoin passport provider 1")
 	g.cancel()
+	log.Info("gitcoin passport provider 2")
 	g.waiter.Wait()
+	log.Info("gitcoin passport provider 3")
+	defer func() {
+		if err := recover(); err != nil {
+			log.Warnw("panic recovered", "err", err)
+		}
+	}()
 	close(g.scoresChan)
-	return g.db.Close()
+	log.Info("gitcoin passport provider 4")
+	if err := g.db.Close(); err != nil {
+		return fmt.Errorf("error closing db: %w", err)
+	}
+	log.Info("gitcoin passport provider 5")
+	return nil
 }
 
 // IsExternal returns true because Gitcoin Passport is an external provider.
@@ -407,6 +420,9 @@ func (g *GitcoinPassport) startScoreUpdates() {
 					continue
 				}
 				if err := g.updateScores(); err != nil {
+					if errors.Is(err, context.Canceled) {
+						return
+					}
 					log.Warnw("error updating Gitcoin Passport scores", "err", err)
 				}
 			}
@@ -416,7 +432,13 @@ func (g *GitcoinPassport) startScoreUpdates() {
 	go func() {
 		defer g.waiter.Done()
 		for score := range g.scoresChan {
-			if err := g.saveScore(score); err != nil && !errors.Is(err, context.Canceled) {
+			// check if the context has been canceled to stop saving scores
+			select {
+			case <-g.ctx.Done():
+				return
+			default:
+			}
+			if err := g.saveScore(score); err != nil {
 				log.Warnw("error saving score", "err", err)
 			}
 		}
@@ -453,6 +475,12 @@ func (g *GitcoinPassport) updateScores() error {
 	lastBalancesUpdates := map[common.Address]time.Time{}
 	scanner := bufio.NewScanner(res.Body)
 	for scanner.Scan() {
+		// check if the context has been canceled to stop the download
+		select {
+		case <-g.ctx.Done():
+			return context.Canceled
+		default:
+		}
 		// update progress
 		bytesRead += len(scanner.Bytes())
 		if iterations++; iterations%10000 == 0 {

@@ -300,7 +300,7 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 	// number, used to create the census id.
 	totalTokensBlockNumber := uint64(0)
 	for _, token := range strategyTokens {
-		provider, exists := capi.holderProviders[token.TypeID]
+		provider, exists := capi.scanner.HolderProvider(token.TypeID)
 		if !exists {
 			return nil, nil, 0, fmt.Errorf("provider not found for token type id %d", token.TypeID)
 		}

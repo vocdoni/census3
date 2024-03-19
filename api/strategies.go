@@ -246,7 +246,7 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 			return ErrCantCreateStrategy.WithErr(err)
 		}
 		// get the chain address of the token
-		chainAddress, _ := capi.w3p.ChainAddress(tokenData.ChainID, tokenData.ID)
+		chainAddress, _ := capi.scanner.Networks().ChainAddress(tokenData.ChainID, tokenData.ID)
 		req.Tokens[symbol].ChainAddress = chainAddress
 	}
 	// encode and compose final strategy data using the response of GET

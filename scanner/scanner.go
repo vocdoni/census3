@@ -100,6 +100,33 @@ func (s *Scanner) SetProviders(newProviders ...providers.HolderProvider) error {
 	return nil
 }
 
+// HolderProviders returns the current providers of the scanner.
+func (s *Scanner) HolderProviders() map[uint64]providers.HolderProvider {
+	return s.providers
+}
+
+// HolderProvider returns the provider of the given type and a boolean indicating
+// if the provider exists. If the type is empty or it have not a registered
+// provider, it returns nil and false.
+func (s *Scanner) HolderProvider(t uint64) (providers.HolderProvider, bool) {
+	provider, ok := s.providers[t]
+	return provider, ok
+}
+
+// SupportedTypes returns the supported token types of the scanner as strings.
+func (s *Scanner) SupportedTypes() []string {
+	supportedTypes := []string{}
+	for typeID := range s.providers {
+		supportedTypes = append(supportedTypes, providers.TokenTypeName(typeID))
+	}
+	return supportedTypes
+}
+
+// Networks returns the network endpoints of the scanner.
+func (s *Scanner) Networks() web3.NetworkEndpoints {
+	return s.networks
+}
+
 // Start starts the scanner. It starts a loop that scans the tokens in the
 // database and saves the holders in the database. It stops when the context is
 // cancelled.
@@ -124,6 +151,9 @@ func (s *Scanner) Start(ctx context.Context) {
 			// get the tokens to scan
 			tokens, err := s.TokensToScan(ctx)
 			if err != nil {
+				if strings.Contains(err.Error(), "database is closed") {
+					return
+				}
 				log.Error(err)
 				continue
 			}
@@ -179,12 +209,15 @@ func (s *Scanner) Start(ctx context.Context) {
 // finish. It also closes the providers.
 func (s *Scanner) Stop() {
 	s.cancel()
+	log.Info("stopping scanner 1")
 	for _, provider := range s.providers {
 		if err := provider.Close(); err != nil {
 			log.Error(err)
 		}
 	}
+	log.Info("stopping scanner 2")
 	s.waiter.Wait()
+	log.Info("stopping scanner 3")
 }
 
 // TokensToScan returns the tokens that the scanner has to scan. It returns the

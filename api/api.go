@@ -17,6 +17,7 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/queue"
+	"github.com/vocdoni/census3/scanner"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"
@@ -33,45 +34,45 @@ import (
 )
 
 type Census3APIConf struct {
+	MainCtx         context.Context
 	Hostname        string
 	Port            int
 	DataDir         string
 	GroupKey        string
-	Web3Providers   web3.NetworkEndpoints
-	HolderProviders map[uint64]providers.HolderProvider
 	AdminToken      string
+	ScannerCooldown time.Duration
 }
 
 type census3API struct {
-	conf            Census3APIConf
-	db              *db.DB
-	endpoint        *api.API
-	censusDB        *censusdb.CensusDB
-	queue           *queue.BackgroundQueue
-	w3p             web3.NetworkEndpoints
-	storage         storagelayer.Storage
-	downloader      *downloader.Downloader
-	holderProviders map[uint64]providers.HolderProvider
-	cache           *lru.Cache[CacheKey, any]
-	router          *httprouter.HTTProuter
+	conf       Census3APIConf
+	db         *db.DB
+	scanner    *scanner.Scanner
+	endpoint   *api.API
+	censusDB   *censusdb.CensusDB
+	queue      *queue.BackgroundQueue
+	storage    storagelayer.Storage
+	downloader *downloader.Downloader
+	cache      *lru.Cache[CacheKey, any]
+	router     *httprouter.HTTProuter
 }
 
-func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
+func Init(db *db.DB, scanner *scanner.Scanner, conf Census3APIConf) (*census3API, error) {
 	cache, err := lru.New[CacheKey, any](apiCacheSize)
 	if err != nil {
 		return nil, err
 	}
 	newAPI := &census3API{
-		conf:            conf,
-		db:              db,
-		w3p:             conf.Web3Providers,
-		queue:           queue.NewBackgroundQueue(),
-		holderProviders: conf.HolderProviders,
-		cache:           cache,
-		router:          &httprouter.HTTProuter{},
+		conf:    conf,
+		db:      db,
+		scanner: scanner,
+		queue:   queue.NewBackgroundQueue(),
+		cache:   cache,
+		router:  &httprouter.HTTProuter{},
 	}
 	// get the current chainID
-	log.Infow("starting API", "web3Providers", conf.Web3Providers.String())
+	log.Infow("starting API",
+		"networks", scanner.Networks().String(),
+		"providers", scanner.SupportedTypes())
 
 	// create a new http router with the hostname and port provided in the conf
 	if err = newAPI.router.Init(conf.Hostname, conf.Port); err != nil {
@@ -139,6 +140,10 @@ func (capi *census3API) initAPIHandlers() error {
 		api.MethodAccessTypePublic, capi.getAPIInfo); err != nil {
 		return err
 	}
+	if err := capi.endpoint.RegisterMethod("/db/import", http.MethodPost,
+		api.MethodAccessTypeAdmin, capi.importDatabase); err != nil {
+		return err
+	}
 	capi.router.AddRawHTTPHandler("/db/export", http.MethodGet, capi.exportDatabase)
 	return nil
 }
@@ -147,7 +152,7 @@ func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext
 	info := &APIInfo{
 		SupportedChains: []SupportedChain{},
 	}
-	for _, provider := range capi.w3p {
+	for _, provider := range capi.scanner.Networks() {
 		info.SupportedChains = append(info.SupportedChains, SupportedChain{
 			ChainID:   provider.ChainID,
 			ShortName: provider.ShortName,
@@ -160,6 +165,63 @@ func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext
 		return ErrEncodeAPIInfo
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) importDatabase(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// create temp file to store the database
+	tmpFile, err := os.CreateTemp(capi.conf.DataDir, "temp-census3.sql")
+	if err != nil {
+		log.Errorw(err, "error creating temp file")
+		return ErrDatabaseImport.WithErr(err)
+	}
+	defer tmpFile.Close()
+	defer os.Remove(tmpFile.Name())
+	// write the request body to the temp file
+	if _, err := tmpFile.Write(msg.Data); err != nil {
+		log.Errorw(err, "error writing temp file")
+		return ErrDatabaseImport.WithErr(err)
+	}
+	fileInfo, err := tmpFile.Stat()
+	if err != nil {
+		log.Errorw(err, "error getting temp file info")
+		return ErrDatabaseImport.WithErr(err)
+	}
+	log.Debugw("importing database", "size (kb)", fileInfo.Size()/1024)
+	// backup scanner networks and providers to stop it and restore it after the import
+	networks := capi.scanner.Networks()
+	providers := []providers.HolderProvider{}
+	for _, provider := range capi.scanner.HolderProviders() {
+		providers = append(providers, provider)
+	}
+	// stop the scanner and close the database
+	if err := capi.db.Close(); err != nil {
+		log.Error("error closing database")
+	}
+	capi.scanner.Stop()
+	// overwrite the database file with the temp file
+	log.Debug("overwriting database")
+	if err := os.Rename(tmpFile.Name(), filepath.Join(capi.conf.DataDir, "census3.sql")); err != nil {
+		log.Errorw(err, "error renaming temp file")
+		return ErrDatabaseImport.WithErr(err)
+	}
+	// open the database
+	capi.db, err = db.Init(capi.conf.DataDir, "census3.sql")
+	if err != nil {
+		log.Errorw(err, "error opening database")
+		return ErrDatabaseImport.WithErr(err)
+	}
+	// restore the database and the scanner and start the scanner
+	capi.scanner = scanner.NewScanner(capi.db, networks, capi.conf.ScannerCooldown)
+	if err := capi.scanner.SetProviders(providers...); err != nil {
+		log.Errorw(err, "error setting providers")
+		return ErrDatabaseImport.WithErr(err)
+	}
+	log.Debug("starting scanner")
+	go capi.scanner.Start(capi.conf.MainCtx)
+	log.Debugw("scanner started",
+		"networks", capi.scanner.Networks().String(),
+		"providers", capi.scanner.SupportedTypes())
+	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
 }
 
 func (capi *census3API) exportDatabase(w http.ResponseWriter, r *http.Request) {
@@ -183,7 +245,7 @@ func (capi *census3API) exportDatabase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Database file not found", http.StatusNotFound)
 		return
 	}
-	w.Header().Set("Content-Disposition", "attachment; filename=census3.db")
+	w.Header().Set("Content-Disposition", "attachment; filename=census3.sql")
 	w.Header().Set("Content-Type", "application/octet-stream")
 	http.ServeFile(w, r, dbFile)
 }
@@ -238,7 +300,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 
 		// get the correct holder provider for the token type
 		tokenType := providers.TokenTypeID(token.Type)
-		provider, exists := capi.holderProviders[tokenType]
+		provider, exists := capi.scanner.HolderProvider(tokenType)
 		if !exists {
 			log.Warnw("token type provided in initial list not supported, check provider is set. SKIPPING...",
 				"tokenID", token.ID,
@@ -294,7 +356,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			continue
 		}
 		// get the chain address for the token based on the chainID and tokenID
-		chainAddress, ok := capi.w3p.ChainAddress(token.ChainID, address.String())
+		chainAddress, ok := capi.scanner.Networks().ChainAddress(token.ChainID, address.String())
 		if !ok {
 			log.Warnw("can't get chain address", "chainID", token.ChainID, "tokenID", token.ID)
 			continue

@@ -288,4 +288,9 @@ var (
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error importing data to the database"),
 	}
+	ErrDatabaseExport = apirest.APIerror{
+		Code:       5032,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error exporting data to the database"),
+	}
 )

@@ -144,7 +144,10 @@ func (capi *census3API) initAPIHandlers() error {
 		api.MethodAccessTypeAdmin, capi.importDatabase); err != nil {
 		return err
 	}
-	capi.router.AddRawHTTPHandler("/db/export", http.MethodGet, capi.exportDatabase)
+	if err := capi.endpoint.RegisterMethod("/db/export", http.MethodGet,
+		api.MethodAccessTypeAdmin, capi.exportDatabase); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -168,94 +171,63 @@ func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext
 }
 
 func (capi *census3API) importDatabase(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// create temp file to store the database
-	tmpFile, err := os.CreateTemp(capi.conf.DataDir, "temp-census3.sql")
-	if err != nil {
-		log.Errorw(err, "error creating temp file")
-		return ErrDatabaseImport.WithErr(err)
-	}
-	defer tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
-	// write the request body to the temp file
-	if _, err := tmpFile.Write(msg.Data); err != nil {
-		log.Errorw(err, "error writing temp file")
-		return ErrDatabaseImport.WithErr(err)
-	}
-	// Ensure the file is properly written and closed before proceeding
-	if err := tmpFile.Sync(); err != nil {
-		log.Errorw(err, "error syncing temp file")
-		return ErrDatabaseImport.WithErr(err)
-	}
-	fileInfo, err := tmpFile.Stat()
-	if err != nil {
-		log.Errorw(err, "error getting temp file info")
-		return ErrDatabaseImport.WithErr(err)
-	}
-	log.Debugw("importing database", "size (kb)", fileInfo.Size()/1024)
-	tmpFile.Close()
-	// backup scanner networks and providers to stop it and restore it after the import
-	networks := capi.scanner.Networks()
-	providers := []providers.HolderProvider{}
-	for _, provider := range capi.scanner.HolderProviders() {
-		providers = append(providers, provider)
-	}
-	// stop the scanner and close the database
-	if err := capi.db.Close(); err != nil {
-		log.Error("error closing database")
-		return ErrDatabaseImport.WithErr(err)
-	}
-	capi.scanner.Stop()
-	// overwrite the database file with the temp file
-	log.Debug("overwriting database")
-	if err := os.Rename(tmpFile.Name(), filepath.Join(capi.conf.DataDir, "census3.sql")); err != nil {
-		log.Errorw(err, "error renaming temp file")
-		return ErrDatabaseImport.WithErr(err)
-	}
-	// open the database
-	database, err := db.Init(capi.conf.DataDir, "census3.sql")
-	if err != nil {
-		log.Errorw(err, "error opening database")
-		return ErrDatabaseImport.WithErr(err)
-	}
-	capi.db = database
-	// restore the database and the scanner and start the scanner
-	capi.scanner = scanner.NewScanner(database, networks, capi.conf.ScannerCooldown)
-	if err := capi.scanner.SetProviders(providers...); err != nil {
-		log.Errorw(err, "error setting providers")
-		return ErrDatabaseImport.WithErr(err)
-	}
-	log.Debug("starting scanner")
-	go capi.scanner.Start(capi.conf.MainCtx)
-	log.Debugw("scanner started",
-		"networks", capi.scanner.Networks().String(),
-		"providers", capi.scanner.SupportedTypes())
+	go func(dbDump []byte) {
+		log.Infow("importing database", "size", len(dbDump)/1024/1024)
+		// backup scanner networks and providers to stop it and restore it after the import
+		networks := capi.scanner.Networks()
+		providers := []providers.HolderProvider{}
+		for _, provider := range capi.scanner.HolderProviders() {
+			providers = append(providers, provider)
+		}
+		log.Debug("closing database and stopping scanner")
+		// stop the scanner and close the database
+		if err := capi.db.Close(); err != nil {
+			log.Error("error closing database")
+			return
+		}
+		capi.scanner.Stop()
+		// overwrite the database file with the temp file, remove the old database and create a new one
+		log.Debug("overwriting database")
+		if err := os.RemoveAll(filepath.Join(capi.conf.DataDir, "census3.sql")); err != nil {
+			log.Errorw(err, "error removing old database")
+			return
+		}
+		// open the database
+		database, err := db.Init(capi.conf.DataDir, "census3.sql")
+		if err != nil {
+			log.Errorw(err, "error opening database")
+			return
+		}
+		if err := database.Import(context.Background(), dbDump); err != nil {
+			log.Errorw(err, "error importing database")
+			return
+		}
+		capi.db = database
+		// restore the database and the scanner and start the scanner
+		capi.scanner = scanner.NewScanner(database, networks, capi.conf.ScannerCooldown)
+		if err := capi.scanner.SetProviders(providers...); err != nil {
+			log.Errorw(err, "error setting providers")
+			return
+		}
+		log.Debug("starting scanner")
+		go capi.scanner.Start(capi.conf.MainCtx)
+		log.Debugw("scanner started",
+			"networks", capi.scanner.Networks().String(),
+			"providers", capi.scanner.SupportedTypes())
+	}(msg.Data)
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
+
 }
 
-func (capi *census3API) exportDatabase(w http.ResponseWriter, r *http.Request) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		http.Error(w, "Authorization header is required", http.StatusUnauthorized)
-		return
+func (capi *census3API) exportDatabase(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	dbDump, err := capi.db.Export(context.Background())
+	if err != nil {
+		log.Errorw(err, "error exporting database")
+		return ErrDatabaseExport.WithErr(err)
 	}
-	// Expecting header in the format "Bearer <token>"
-	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
-		return
-	}
-	if token := parts[1]; token != capi.conf.AdminToken {
-		http.Error(w, "Invalid token", http.StatusUnauthorized)
-		return
-	}
-	dbFile := filepath.Join(capi.conf.DataDir, "census3.sql")
-	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
-		http.Error(w, "Database file not found", http.StatusNotFound)
-		return
-	}
-	w.Header().Set("Content-Disposition", "attachment; filename=census3.sql")
-	w.Header().Set("Content-Type", "application/octet-stream")
-	http.ServeFile(w, r, dbFile)
+	ctx.SetHeader("Content-Disposition", "attachment; filename=census3.sql")
+	ctx.SetHeader("Content-Length", "application/octet-stream")
+	return ctx.Send(dbDump, api.HTTPstatusOK)
 }
 
 // CreateInitialTokens creates the tokens defined in the file provided in the

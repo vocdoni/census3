@@ -54,6 +54,7 @@ type GitcoinPassport struct {
 	// lastInsert time is used to simulate the last block number
 	lastInsert     atomic.Int64
 	lastSyncedTime atomic.Int64
+	removedChan    atomic.Bool
 }
 
 type GitcoinPassportConf struct {
@@ -176,6 +177,9 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, stamp []byte, _ uin
 // Close cancels the download context.
 func (g *GitcoinPassport) Close() error {
 	g.cancel()
+	// wait to close channels and goroutines
+	time.Sleep(time.Second)
+	g.removedChan.Store(true)
 	defer func() {
 		if err := recover(); err != nil {
 			log.Warnw("panic recovered", "err", err)
@@ -498,6 +502,9 @@ func (g *GitcoinPassport) updateScores() error {
 				return fmt.Errorf("error parsing date: %w", err)
 			}
 			if lastUpdate, exists := lastBalancesUpdates[score.Address()]; !exists || date.After(lastUpdate) {
+				if g.removedChan.Load() {
+					return context.Canceled
+				}
 				g.scoresChan <- score
 				validBalances++
 				lastBalancesUpdates[score.Address()] = date

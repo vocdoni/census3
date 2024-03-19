@@ -1,16 +1,21 @@
 package db
 
 import (
+	"bufio"
+	"bytes"
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"go.vocdoni.io/dvote/log"
 )
 
 //go:generate go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.23.0 generate
@@ -90,4 +95,99 @@ func Init(dataDir string, dbName string) (*DB, error) {
 		QueriesRW: queries.New(rwDB),
 		QueriesRO: queries.New(roDB),
 	}, nil
+}
+
+func (db *DB) Import(ctx context.Context, dump []byte) error {
+	tx, err := db.RW.Begin()
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %w", err)
+	}
+	defer tx.Rollback()
+	reader := bytes.NewReader(dump)
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		sql := scanner.Text()
+		if sql == "" {
+			continue
+		}
+		sql = strings.TrimSpace(sql)
+		log.Info(sql)
+		if _, err := tx.ExecContext(ctx, sql); err != nil {
+			log.Warn(sql)
+			return fmt.Errorf("error executing SQL: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %w", err)
+	}
+	return nil
+}
+
+func (db *DB) Export(ctx context.Context) ([]byte, error) {
+	dumpSQL := []byte{}
+	buf := bytes.NewBuffer(dumpSQL)
+	tokens, err := db.exportTokens(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error exporting tokens: %w", err)
+	}
+	buf.Write(tokens)
+	holders, err := db.exportHolders(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error exporting holders: %w", err)
+	}
+	buf.Write(holders)
+	return buf.Bytes(), nil
+}
+
+func (db *DB) exportTokens(ctx context.Context) ([]byte, error) {
+	tokens, err := db.QueriesRO.DumpTokens(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error getting tokens: %w", err)
+	}
+	resultSQL := []byte{}
+	buf := bytes.NewBuffer(resultSQL)
+	for _, token := range tokens {
+		// get default strategy
+		defaultStrategy, err := db.QueriesRO.StrategyByID(ctx, token.DefaultStrategy)
+		if err != nil {
+			return nil, fmt.Errorf("error getting default strategy: %w", err)
+		}
+		strategyTokens, err := db.QueriesRO.StrategyTokens(ctx, token.DefaultStrategy)
+		if err != nil {
+			return nil, fmt.Errorf("error getting strategy tokens: %w", err)
+		}
+		bSynced := 0
+		if token.Synced {
+			bSynced = 1
+		}
+		tokenInsert := fmt.Sprintf("INSERT INTO tokens (id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, last_block) VALUES (X'%x', '%s', '%s', %d, '%s', %d, %d, %d, '%s', %d, '%s', '%s', %d, '%s', %d);\n",
+			token.ID, token.Name, token.Symbol, token.Decimals, token.TotalSupply, token.CreationBlock, token.TypeID, bSynced, token.Tags, token.ChainID, token.ChainAddress, token.ExternalID, token.DefaultStrategy, token.IconUri, token.LastBlock)
+		strategyInsert := fmt.Sprintf("INSERT INTO strategies (id, predicate, alias, uri) VALUES (%d, '%s', '%s', '%s');\n",
+			defaultStrategy.ID, defaultStrategy.Predicate, defaultStrategy.Alias, defaultStrategy.Uri)
+		strategyTokensInsert := ""
+		for _, st := range strategyTokens {
+			strategyTokensInsert += fmt.Sprintf("INSERT INTO strategy_tokens (strategy_id, token_id, min_balance, chain_id, external_id) VALUES (%d, X'%x', '%s', %d, '%s');\n",
+			defaultStrategy.ID, st.TokenID, st.MinBalance, st.ChainID, st.ExternalID)
+		}
+		// write to buffer
+		buf.WriteString(tokenInsert)
+		buf.WriteString(strategyInsert)	
+		buf.WriteString(strategyTokensInsert)
+	}
+	return buf.Bytes(), nil
+}
+
+func (db *DB) exportHolders(ctx context.Context) ([]byte, error) {
+	holders, err := db.QueriesRW.DumpTokenHolers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error getting tokens: %w", err)
+	}
+	resultSQL := []byte{}
+	buf := bytes.NewBuffer(resultSQL)
+	for _, holder := range holders {
+		insert := fmt.Sprintf("INSERT INTO token_holders (token_id, holder_id, balance, block_id, chain_id, external_id) VALUES (X'%x', X'%x', '%s', %d, %d, '%s');\n",
+			holder.TokenID, holder.HolderID, holder.Balance, holder.BlockID, holder.ChainID, holder.ExternalID)
+		buf.WriteString(insert)
+	}
+	return buf.Bytes(), nil
 }

@@ -181,10 +181,8 @@ func (g *Group) AddToken(t *Token) error {
 	}
 	if g.firstToken == "" {
 		g.firstToken = t.Literal
-		// g.Tokens[0] = t
 	} else if g.secondToken == "" {
 		g.secondToken = t.Literal
-		// g.Tokens[1] = t
 	}
 	g.Tokens = append(g.Tokens, t)
 	return nil
@@ -193,7 +191,9 @@ func (g *Group) AddToken(t *Token) error {
 // Complete method returns if the current group is already completed which means
 // that it has an operator and two tokens (first and second one).
 func (g *Group) Complete() bool {
-	return g.Operator != "" && g.firstToken != "" && g.secondToken != "" && len(g.Tokens) == 2
+	return g.Operator != "" && g.firstToken != "" && g.secondToken != "" &&
+		len(g.Tokens) == 2 && g.Tokens[0].Literal == g.firstToken &&
+		g.Tokens[1].Literal == g.secondToken
 }
 
 func ScapeTokenSymbol(symbol string) string {

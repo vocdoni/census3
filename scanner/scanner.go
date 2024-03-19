@@ -170,6 +170,9 @@ func (s *Scanner) Start(ctx context.Context) {
 				holders, newTransfers, lastBlock, synced, totalSupply, err := s.ScanHolders(ctx, token)
 				if err != nil {
 					atSyncGlobal = false
+					if strings.Contains(err.Error(), "database is closed") {
+						return
+					}
 					log.Error(err)
 					continue
 				}
@@ -182,6 +185,9 @@ func (s *Scanner) Start(ctx context.Context) {
 				go func(t *ScannerToken, h map[common.Address]*big.Int, n, lb uint64, sy bool, ts *big.Int) {
 					defer s.waiter.Done()
 					if err = s.SaveHolders(ctx, t, h, n, lb, sy, ts); err != nil {
+						if strings.Contains(err.Error(), "database is closed") {
+							return
+						}
 						log.Warnw("error saving tokenholders",
 							"address", t.Address.Hex(),
 							"chainID", t.ChainID,
@@ -209,15 +215,12 @@ func (s *Scanner) Start(ctx context.Context) {
 // finish. It also closes the providers.
 func (s *Scanner) Stop() {
 	s.cancel()
-	log.Info("stopping scanner 1")
 	for _, provider := range s.providers {
 		if err := provider.Close(); err != nil {
 			log.Error(err)
 		}
 	}
-	log.Info("stopping scanner 2")
 	s.waiter.Wait()
-	log.Info("stopping scanner 3")
 }
 
 // TokensToScan returns the tokens that the scanner has to scan. It returns the

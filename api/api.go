@@ -181,12 +181,18 @@ func (capi *census3API) importDatabase(msg *api.APIdata, ctx *httprouter.HTTPCon
 		log.Errorw(err, "error writing temp file")
 		return ErrDatabaseImport.WithErr(err)
 	}
+	// Ensure the file is properly written and closed before proceeding
+	if err := tmpFile.Sync(); err != nil {
+		log.Errorw(err, "error syncing temp file")
+		return ErrDatabaseImport.WithErr(err)
+	}
 	fileInfo, err := tmpFile.Stat()
 	if err != nil {
 		log.Errorw(err, "error getting temp file info")
 		return ErrDatabaseImport.WithErr(err)
 	}
 	log.Debugw("importing database", "size (kb)", fileInfo.Size()/1024)
+	tmpFile.Close()
 	// backup scanner networks and providers to stop it and restore it after the import
 	networks := capi.scanner.Networks()
 	providers := []providers.HolderProvider{}
@@ -196,6 +202,7 @@ func (capi *census3API) importDatabase(msg *api.APIdata, ctx *httprouter.HTTPCon
 	// stop the scanner and close the database
 	if err := capi.db.Close(); err != nil {
 		log.Error("error closing database")
+		return ErrDatabaseImport.WithErr(err)
 	}
 	capi.scanner.Stop()
 	// overwrite the database file with the temp file
@@ -205,13 +212,14 @@ func (capi *census3API) importDatabase(msg *api.APIdata, ctx *httprouter.HTTPCon
 		return ErrDatabaseImport.WithErr(err)
 	}
 	// open the database
-	capi.db, err = db.Init(capi.conf.DataDir, "census3.sql")
+	database, err := db.Init(capi.conf.DataDir, "census3.sql")
 	if err != nil {
 		log.Errorw(err, "error opening database")
 		return ErrDatabaseImport.WithErr(err)
 	}
+	capi.db = database
 	// restore the database and the scanner and start the scanner
-	capi.scanner = scanner.NewScanner(capi.db, networks, capi.conf.ScannerCooldown)
+	capi.scanner = scanner.NewScanner(database, networks, capi.conf.ScannerCooldown)
 	if err := capi.scanner.SetProviders(providers...); err != nil {
 		log.Errorw(err, "error setting providers")
 		return ErrDatabaseImport.WithErr(err)

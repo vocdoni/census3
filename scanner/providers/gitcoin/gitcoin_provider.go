@@ -175,22 +175,17 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, stamp []byte, _ uin
 
 // Close cancels the download context.
 func (g *GitcoinPassport) Close() error {
-	log.Info("gitcoin passport provider 1")
 	g.cancel()
-	log.Info("gitcoin passport provider 2")
-	g.waiter.Wait()
-	log.Info("gitcoin passport provider 3")
 	defer func() {
 		if err := recover(); err != nil {
 			log.Warnw("panic recovered", "err", err)
 		}
 	}()
 	close(g.scoresChan)
-	log.Info("gitcoin passport provider 4")
+	g.waiter.Wait()
 	if err := g.db.Close(); err != nil {
 		return fmt.Errorf("error closing db: %w", err)
 	}
-	log.Info("gitcoin passport provider 5")
 	return nil
 }
 
@@ -410,17 +405,16 @@ func (g *GitcoinPassport) startScoreUpdates() {
 			select {
 			case <-g.ctx.Done():
 				return
-			default:
+			case <-time.After(5 * time.Second):
 				lastSync := time.Unix(g.lastSyncedTime.Load(), 0)
 				if time.Since(lastSync).Abs() < g.cooldown {
 					log.Debugw("last sync time is too recent, waiting...",
 						"cooldown(s)", g.cooldown.Seconds(),
 						"time_to_next_sync(s)", g.cooldown.Seconds()-time.Since(lastSync).Seconds())
-					time.Sleep(30 * time.Second)
 					continue
 				}
 				if err := g.updateScores(); err != nil {
-					if errors.Is(err, context.Canceled) {
+					if errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "database is closed") {
 						return
 					}
 					log.Warnw("error updating Gitcoin Passport scores", "err", err)

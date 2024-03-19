@@ -196,7 +196,7 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 // Close method is not implemented for Farcaster Key Registry.
 func (p *FarcasterProvider) Close() error {
 	p.cancelScanner()
-	return nil
+	return p.db.CloseDB()
 }
 
 // IsExternal returns false because the provider is not an external API.

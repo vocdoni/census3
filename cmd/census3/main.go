@@ -284,15 +284,6 @@ func main() {
 		if err := apiService.Stop(); err != nil {
 			log.Fatal(err)
 		}
-		if err := database.Close(); err != nil {
-			log.Fatal(err)
-		}
-		// if farcaster is enabled, close the farcaster database
-		if config.farcaster {
-			if err := farcasterDB.CloseDB(); err != nil {
-				log.Fatal(err)
-			}
-		}
 		log.Infof("all routines ended")
 	}()
 	time.Sleep(5 * time.Second)

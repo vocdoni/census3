@@ -131,14 +131,16 @@ func (capi *census3API) Stop() error {
 	if err := capi.storage.Stop(); err != nil {
 		return err
 	}
-	return nil
+	return capi.db.Close()
 }
 
 func (capi *census3API) initAPIHandlers() error {
+	if err := capi.endpoint.RegisterMethod("/info", http.MethodGet,
+		api.MethodAccessTypePublic, capi.getAPIInfo); err != nil {
+		return err
+	}
 	capi.router.AddRawHTTPHandler("/db/export", http.MethodGet, capi.exportDatabase)
-
-	return capi.endpoint.RegisterMethod("/info", "GET",
-		api.MethodAccessTypePublic, capi.getAPIInfo)
+	return nil
 }
 
 func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext) error {

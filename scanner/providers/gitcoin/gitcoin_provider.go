@@ -409,7 +409,7 @@ func (g *GitcoinPassport) startScoreUpdates() {
 			select {
 			case <-g.ctx.Done():
 				return
-			case <-time.After(5 * time.Second):
+			case <-time.After(2 * time.Second):
 				lastSync := time.Unix(g.lastSyncedTime.Load(), 0)
 				if time.Since(lastSync).Abs() < g.cooldown {
 					log.Debugw("last sync time is too recent, waiting...",
@@ -445,6 +445,7 @@ func (g *GitcoinPassport) startScoreUpdates() {
 
 func (g *GitcoinPassport) updateScores() error {
 	// download de json from API endpoint
+	fmt.Println(g.apiEndpoint)
 	req, err := http.NewRequestWithContext(g.ctx, http.MethodGet, g.apiEndpoint, nil)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)

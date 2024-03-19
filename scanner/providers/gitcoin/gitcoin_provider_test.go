@@ -42,13 +42,13 @@ func TestGitcoinPassport(t *testing.T) {
 	})
 	// create the provider
 	provider := new(GitcoinPassport)
-	c.Assert(provider.Init(GitcoinPassportConf{endpoints["/original"], time.Second * 2, testDB}), qt.IsNil)
+	c.Assert(provider.Init(GitcoinPassportConf{endpoints["/original"], time.Second, testDB}), qt.IsNil)
 	// start the first download
 	emptyBalances, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(emptyBalances), qt.Equals, 0)
 	// wait for the download to finish
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 	// check the balances
 	holders, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
@@ -69,9 +69,9 @@ func TestGitcoinPassport(t *testing.T) {
 	testDB, err = db.Init(tempDBDir, "gitcoinpassport.sql")
 	c.Assert(err, qt.IsNil)
 	newProvider := new(GitcoinPassport)
-	c.Assert(newProvider.Init(GitcoinPassportConf{endpoints["/updated"], time.Second * 2, testDB}), qt.IsNil)
+	c.Assert(newProvider.Init(GitcoinPassportConf{endpoints["/updated"], time.Second, testDB}), qt.IsNil)
 	// new endpoint with one change
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 3)
 	c.Assert(newProvider.SetLastBalances(context.TODO(), nil, holders, 0), qt.IsNil)
 	holders, _, _, _, _, err = newProvider.HoldersBalances(context.TODO(), nil, 1)
 	c.Assert(err, qt.IsNil)

@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -102,7 +103,11 @@ func (db *DB) Import(ctx context.Context, dump []byte) error {
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			log.Errorw(err, "error rolling back transaction")
+		}
+	}()
 	reader := bytes.NewReader(dump)
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
@@ -160,18 +165,26 @@ func (db *DB) exportTokens(ctx context.Context) ([]byte, error) {
 		if token.Synced {
 			bSynced = 1
 		}
-		tokenInsert := fmt.Sprintf("INSERT INTO tokens (id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, chain_id, chain_address, external_id, default_strategy, icon_uri, last_block) VALUES (X'%x', '%s', '%s', %d, '%s', %d, %d, %d, '%s', %d, '%s', '%s', %d, '%s', %d);\n",
-			token.ID, token.Name, token.Symbol, token.Decimals, token.TotalSupply, token.CreationBlock, token.TypeID, bSynced, token.Tags, token.ChainID, token.ChainAddress, token.ExternalID, token.DefaultStrategy, token.IconUri, token.LastBlock)
-		strategyInsert := fmt.Sprintf("INSERT INTO strategies (id, predicate, alias, uri) VALUES (%d, '%s', '%s', '%s');\n",
+		tokenInsert := fmt.Sprintf("INSERT INTO tokens "+
+			"(id, name, symbol, decimals, total_supply, creation_block, type_id, synced, tags, "+
+			"chain_id, chain_address, external_id, default_strategy, icon_uri, last_block) "+
+			"VALUES (X'%x', '%s', '%s', %d, '%s', %d, %d, %d, '%s', %d, '%s', '%s', %d, '%s', %d);\n",
+			token.ID, token.Name, token.Symbol, token.Decimals, token.TotalSupply, token.CreationBlock,
+			token.TypeID, bSynced, token.Tags, token.ChainID, token.ChainAddress, token.ExternalID,
+			token.DefaultStrategy, token.IconUri, token.LastBlock)
+		strategyInsert := fmt.Sprintf("INSERT INTO strategies "+
+			"(id, predicate, alias, uri) VALUES (%d, '%s', '%s', '%s');\n",
 			defaultStrategy.ID, defaultStrategy.Predicate, defaultStrategy.Alias, defaultStrategy.Uri)
 		strategyTokensInsert := ""
 		for _, st := range strategyTokens {
-			strategyTokensInsert += fmt.Sprintf("INSERT INTO strategy_tokens (strategy_id, token_id, min_balance, chain_id, external_id) VALUES (%d, X'%x', '%s', %d, '%s');\n",
-			defaultStrategy.ID, st.TokenID, st.MinBalance, st.ChainID, st.ExternalID)
+			strategyTokensInsert += fmt.Sprintf("INSERT INTO strategy_tokens "+
+				"(strategy_id, token_id, min_balance, chain_id, external_id) "+
+				"VALUES (%d, X'%x', '%s', %d, '%s');\n",
+				defaultStrategy.ID, st.TokenID, st.MinBalance, st.ChainID, st.ExternalID)
 		}
 		// write to buffer
 		buf.WriteString(tokenInsert)
-		buf.WriteString(strategyInsert)	
+		buf.WriteString(strategyInsert)
 		buf.WriteString(strategyTokensInsert)
 	}
 	return buf.Bytes(), nil
@@ -185,7 +198,9 @@ func (db *DB) exportHolders(ctx context.Context) ([]byte, error) {
 	resultSQL := []byte{}
 	buf := bytes.NewBuffer(resultSQL)
 	for _, holder := range holders {
-		insert := fmt.Sprintf("INSERT INTO token_holders (token_id, holder_id, balance, block_id, chain_id, external_id) VALUES (X'%x', X'%x', '%s', %d, %d, '%s');\n",
+		insert := fmt.Sprintf("INSERT INTO token_holders "+
+			"(token_id, holder_id, balance, block_id, chain_id, external_id) "+
+			"VALUES (X'%x', X'%x', '%s', %d, %d, '%s');\n",
 			holder.TokenID, holder.HolderID, holder.Balance, holder.BlockID, holder.ChainID, holder.ExternalID)
 		buf.WriteString(insert)
 	}

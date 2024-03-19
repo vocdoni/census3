@@ -216,7 +216,6 @@ func (capi *census3API) importDatabase(msg *api.APIdata, ctx *httprouter.HTTPCon
 			"providers", capi.scanner.SupportedTypes())
 	}(msg.Data)
 	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
-
 }
 
 func (capi *census3API) exportDatabase(msg *api.APIdata, ctx *httprouter.HTTPContext) error {

@@ -55,9 +55,9 @@ func (t *Token) String() string {
 	}
 	// return string group
 	return fmt.Sprintf("(%s %s %s)",
-		t.Childs.Tokens[t.Childs.firstToken],
+		t.Childs.Tokens[0],
 		t.Childs.Operator,
-		t.Childs.Tokens[t.Childs.secondToken],
+		t.Childs.Tokens[1],
 	)
 }
 
@@ -142,7 +142,7 @@ type Group struct {
 	ID          int
 	Operator    string
 	Level       int
-	Tokens      map[string]*Token
+	Tokens      []*Token
 	firstToken  string
 	secondToken string
 }
@@ -153,7 +153,7 @@ func NewEmptyGroup(level int) *Group {
 	return &Group{
 		ID:     rand.Intn(maxGroupID),
 		Level:  level,
-		Tokens: make(map[string]*Token),
+		Tokens: make([]*Token, 0),
 	}
 }
 
@@ -163,8 +163,8 @@ func (g *Group) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
 		"operator": g.Operator,
 		"tokens": []*Token{
-			g.Tokens[g.firstToken],
-			g.Tokens[g.secondToken],
+			g.Tokens[0],
+			g.Tokens[1],
 		},
 	})
 }
@@ -175,25 +175,25 @@ func (g *Group) MarshalJSON() ([]byte, error) {
 // assigns the provided token as first token if the group has not one. If it
 // already has a first token, the provided token will be the second one.
 func (g *Group) AddToken(t *Token) error {
-	if _, ok := g.Tokens[t.Literal]; ok {
-		return nil
-	}
-	if len(g.Tokens) == 2 {
+	// parase Tokens array and if the token is already in the group, skip
+	if g.secondToken != "" {
 		return fmt.Errorf("current group already has two tokens")
 	}
 	if g.firstToken == "" {
 		g.firstToken = t.Literal
-	} else {
+	} else if g.secondToken == "" {
 		g.secondToken = t.Literal
 	}
-	g.Tokens[t.Literal] = t
+	g.Tokens = append(g.Tokens, t)
 	return nil
 }
 
 // Complete method returns if the current group is already completed which means
 // that it has an operator and two tokens (first and second one).
 func (g *Group) Complete() bool {
-	return g.Operator != "" && g.firstToken != "" && g.secondToken != "" && len(g.Tokens) == 2
+	return g.Operator != "" && g.firstToken != "" && g.secondToken != "" &&
+		len(g.Tokens) == 2 && g.Tokens[0].Literal == g.firstToken &&
+		g.Tokens[1].Literal == g.secondToken
 }
 
 func ScapeTokenSymbol(symbol string) string {

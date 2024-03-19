@@ -131,7 +131,7 @@ func TestEval(t *testing.T) {
 		token, err := lx.Parse("even AND odd")
 		c.Assert(err, qt.IsNil)
 		// force undefined data
-		token.Childs.Tokens["naturals"] = NewLiteralToken("naturals")
+		token.Childs.Tokens[1] = NewLiteralToken("naturals")
 		_, err = NewEval[[]int](testEvalOperators).EvalToken(token, nil)
 		c.Assert(err, qt.IsNotNil)
 	})

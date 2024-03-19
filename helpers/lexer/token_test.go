@@ -44,8 +44,8 @@ func TestToken(t *testing.T) {
 		c.Assert(tg.Childs.AddToken(NewLiteralToken("BTC")), qt.IsNil)
 		c.Assert(tg.String(), qt.Equals, "('ETH' AND 'BTC')")
 		c.Assert(tg.Childs.Complete(), qt.IsTrue)
-		// already exists
-		c.Assert(tg.Childs.AddToken(NewLiteralToken("BTC")), qt.IsNil)
+		// full group
+		c.Assert(tg.Childs.AddToken(NewLiteralToken("BTC")), qt.IsNotNil)
 		// full group
 		c.Assert(tg.Childs.AddToken(NewLiteralToken("USDC")), qt.IsNotNil)
 	})

@@ -36,8 +36,8 @@ var (
 				Level:    0,
 				Operator: "AND",
 				Tokens: []*Token{
-					&Token{Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
-					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
+					{Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
+					{Type: TokenTypeLiteral, Literal: "ETH"},
 				},
 				firstToken:  "Monkey$ Token",
 				secondToken: "ETH",
@@ -50,8 +50,8 @@ var (
 				Level:    0,
 				Operator: "AND",
 				Tokens: []*Token{
-					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
-					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
+					{Type: TokenTypeLiteral, Literal: "ETH"},
+					{Type: TokenTypeLiteral, Literal: "ETH"},
 				},
 				firstToken:  "ETH",
 				secondToken: "ETH",
@@ -64,8 +64,8 @@ var (
 				Level:    0,
 				Operator: "OR",
 				Tokens: []*Token{
-					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
-					&Token{Type: TokenTypeLiteral, Literal: "ETH"},
+					{Type: TokenTypeLiteral, Literal: "ETH"},
+					{Type: TokenTypeLiteral, Literal: "ETH"},
 				},
 				firstToken:  "ETH",
 				secondToken: "ETH",
@@ -79,16 +79,16 @@ var (
 				Level:    0,
 				Operator: "AND",
 				Tokens: []*Token{
-					&Token{Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
-					&Token{
+					{Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
+					{
 						Type: TokenTypeGroup,
 						Childs: &Group{
 							ID:       1,
 							Level:    1,
 							Operator: "OR",
 							Tokens: []*Token{
-								&Token{Type: TokenTypeLiteral, Literal: "ETH"},
-								&Token{Type: TokenTypeLiteral, Literal: "BTC"},
+								{Type: TokenTypeLiteral, Literal: "ETH"},
+								{Type: TokenTypeLiteral, Literal: "BTC"},
 							},
 							firstToken:  "ETH",
 							secondToken: "BTC",
@@ -107,37 +107,37 @@ var (
 				Level:    0,
 				Operator: "AND",
 				Tokens: []*Token{
-					&Token{
+					{
 						Type: TokenTypeGroup,
 						Childs: &Group{
 							ID:       1,
 							Level:    1,
 							Operator: "AND",
 							Tokens: []*Token{
-								&Token{Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
-								&Token{Type: TokenTypeLiteral, Literal: "ANT"},
+								{Type: TokenTypeLiteral, Literal: "Monkey$ Token"},
+								{Type: TokenTypeLiteral, Literal: "ANT"},
 							},
 							firstToken:  "Monkey$ Token",
 							secondToken: "ANT",
 						},
 					},
-					&Token{
+					{
 						Type: TokenTypeGroup,
 						Childs: &Group{
 							ID:       2,
 							Level:    1,
 							Operator: "OR",
 							Tokens: []*Token{
-								&Token{Type: TokenTypeLiteral, Literal: "ETH"},
-								&Token{
+								{Type: TokenTypeLiteral, Literal: "ETH"},
+								{
 									Type: TokenTypeGroup,
 									Childs: &Group{
 										ID:       3,
 										Level:    1,
 										Operator: "AND",
 										Tokens: []*Token{
-											&Token{Type: TokenTypeLiteral, Literal: "USDC"},
-											&Token{Type: TokenTypeLiteral, Literal: "BTC"},
+											{Type: TokenTypeLiteral, Literal: "USDC"},
+											{Type: TokenTypeLiteral, Literal: "BTC"},
 										},
 										firstToken:  "USDC",
 										secondToken: "BTC",

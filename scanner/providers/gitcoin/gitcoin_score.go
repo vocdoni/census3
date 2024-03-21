@@ -82,12 +82,8 @@ func parseScore(input any) *big.Int {
 	default:
 		return nil
 	}
-	// if the score is between 0 and 1, set it to 1 to avoid rounding errors
-	if fScore > 0 && fScore < 1 {
-		fScore = 1
-	}
-	// omit scores that are 0
-	if biScore := big.NewInt(int64(math.Round(fScore))); biScore.Cmp(big.NewInt(0)) == 1 {
+	// truncate the score to the nearest integer and return it as a big.Int
+	if biScore := big.NewInt(int64(math.Trunc(fScore))); biScore.Cmp(big.NewInt(0)) == 1 {
 		return biScore
 	}
 	return nil

@@ -10,8 +10,6 @@ import (
 	"math"
 	"math/big"
 	"strconv"
-	"sync"
-	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/helpers/lexer"
@@ -147,9 +145,27 @@ func CreateAndPublishCensus(db *censusdb.CensusDB, storage storagelayer.Storage,
 	// add the holders to the census tree
 	db.Lock()
 	defer db.Unlock()
-	// add the holders addresses and values to the census tree in parallel
-	if _, err := ref.Tree().AddBatch(holdersAddresses, holdersValues); err != nil {
-		return nil, "", nil, err
+	// add the holders addresses and values to the census tree
+	batchSize := 1000
+	if len(holdersAddresses) < batchSize {
+		if _, err := ref.Tree().AddBatch(holdersAddresses, holdersValues); err != nil {
+			return nil, "", nil, err
+		}
+	} else {
+		// iterate over holders in batches to add them to the tree secuentally
+		// and update the progress if the channel is provided
+		for i := 0; i < len(holdersAddresses); i += batchSize {
+			end := i + batchSize
+			if end > len(holdersAddresses) {
+				end = len(holdersAddresses)
+			}
+			if _, err := ref.Tree().AddBatch(holdersAddresses[i:end], holdersValues[i:end]); err != nil {
+				return nil, "", nil, err
+			}
+			if progressCh != nil {
+				progressCh <- float64(end) / float64(len(holdersAddresses)) * 100
+			}
+		}
 	}
 	// get the root of the tree
 	root, err := ref.Tree().Root()
@@ -177,66 +193,6 @@ func CreateAndPublishCensus(db *censusdb.CensusDB, storage storagelayer.Storage,
 		return nil, "", nil, err
 	}
 	return root, uri, dump, nil
-}
-
-// ParallelAddBatch function adds a group holders to the census tree in parallel
-// dividing the holders in chunks if it is necessary. The holders must be
-// provided as a slice of addresses and a slice of values. If some error occurs,
-// the function stops adding the batch of holders and returns the error.
-func ParallelAddBatch(ref *censusdb.CensusRef, addresses, values [][]byte,
-	progressCh chan float64,
-) error {
-	// if the number of holders is less than the chunk size, add them in a single
-	// batch, otherwise, add them in chunks of the chunk size
-	chunkSize := 100
-	if len(addresses) <= chunkSize {
-		_, err := ref.Tree().AddBatch(addresses, values)
-		return err
-	}
-	// create a waitgroup to wait for all the goroutines to finish and an error
-	// channel to stop if any error occurs adding the batch of holders
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
-	// add the batch of holders iterating over the chunks
-	numOfChunks := (len(addresses) + chunkSize - 1) / chunkSize
-	proccessedChunks := atomic.Uint64{}
-	for startOfTheChunk := 0; startOfTheChunk < len(addresses); startOfTheChunk += chunkSize {
-		// calculate end of the chunk
-		endOfTheChunk := startOfTheChunk + chunkSize
-		if endOfTheChunk > len(addresses) {
-			endOfTheChunk = len(addresses)
-		}
-		// add the batch of holders in a goroutine
-		wg.Add(1)
-		go func(start, end int) {
-			defer wg.Done()
-			// add the cuurent chunk of holders
-			if _, err := ref.Tree().AddBatch(addresses[start:end], values[start:end]); err != nil {
-				// if an error occurs, send it to the error channel and return
-				select {
-				case errCh <- err:
-					return
-				default:
-					return
-				}
-			}
-			// update the progress and send it to the channel if it is provided
-			proccessedChunks.Add(1)
-			if progressCh != nil {
-				progressCh <- float64(proccessedChunks.Load()) / float64(numOfChunks) * 100
-			}
-		}(startOfTheChunk, endOfTheChunk)
-	}
-	// wait for all the goroutines to finish and close the error channel
-	go func() {
-		wg.Wait()
-		close(errCh)
-	}()
-	// return the first error that occurs adding the batch of holders
-	for err := range errCh {
-		return fmt.Errorf("error adding batch of holders: %w", err)
-	}
-	return nil
 }
 
 // InnerCensusID generates a unique identifier by concatenating the BlockNumber, StrategyID,

@@ -154,10 +154,14 @@ func RangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 			if err != nil {
 				// if the error is about the query returning more than the maximum
 				// allowed logs, split the range of blocks in half and try again
-				if strings.Contains(err.Error(), "query returned more than") ||
-					strings.Contains(err.Error(), "exceeds the range allowed") {
+				if strings.Contains(strings.ToLower(err.Error()), "query returned more than") ||
+					strings.Contains(strings.ToLower(err.Error()), "exceeds the range allowed") ||
+					strings.Contains(strings.ToLower(err.Error()), "query timeout exceeded") ||
+					strings.Contains(strings.ToLower(err.Error()), "execution aborted (timeout") ||
+					strings.Contains(strings.ToLower(err.Error()), "size is larger than") {
 					blocksRange /= 2
-					log.Warnf("too much results on query, decreasing blocks to %d", blocksRange)
+					log.Warnf("too much results on query, decreasing blocks to %d: %v", blocksRange, err)
+					time.Sleep(RetryWeb3Cooldown)
 					continue
 				}
 				// if error is about too many requests, return the logs scanned

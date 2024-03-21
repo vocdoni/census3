@@ -71,15 +71,17 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	}
 	// set the client, parse the address and initialize the contract
 	p.client = client
-	address := common.HexToAddress(ref.HexAddress)
-	if p.contract, err = erc20.NewERC20Contract(address, client); err != nil {
+	p.address = common.HexToAddress(ref.HexAddress)
+	if p.contract, err = erc20.NewERC20Contract(p.address, client); err != nil {
 		return errors.Join(ErrInitializingContract, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 	}
+	// reset the current creation block, if a creation block is defined in the
+	// reference, update it
+	p.creationBlock = 0
 	if ref.CreationBlock > 0 {
 		p.creationBlock = ref.CreationBlock
 	}
 	// reset the internal attributes
-	p.address = address
 	p.chainID = ref.ChainID
 	p.name = ""
 	p.symbol = ""

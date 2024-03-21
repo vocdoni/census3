@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -35,15 +36,38 @@ func creationBlock(client *ethclient.Client, ctx context.Context, addr common.Ad
 	// check if the current client supports `eth_getCode` method, if not, return
 	// 1 and nil. It is assumed that the contract is created at block 1 to start
 	// scanning from the first block.
-	if !providers.ClientSupportsGetCode(ctx, client, addr) {
+	getCodeSupport := false
+	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
+		if getCodeSupport = providers.ClientSupportsGetCode(ctx, client, addr); getCodeSupport {
+			break
+		}
+		time.Sleep(RetryWeb3Cooldown)
+	}
+	if !getCodeSupport {
 		return 1, nil
 	}
 	// get the latest block number
-	lastBlock, err := client.BlockNumber(ctx)
+	var err error
+	var lastBlock uint64
+	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
+		lastBlock, err = client.BlockNumber(ctx)
+		if err == nil {
+			break
+		}
+		time.Sleep(RetryWeb3Cooldown)
+	}
 	if err != nil {
 		return 0, err
 	}
-	return creationBlockInRange(client, ctx, addr, 0, lastBlock)
+	var creationBlock uint64
+	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
+		creationBlock, err = creationBlockInRange(client, ctx, addr, 0, lastBlock)
+		if err == nil {
+			break
+		}
+		time.Sleep(RetryWeb3Cooldown)
+	}
+	return creationBlock, err
 }
 
 // creationBlockInRange function finds the block number of a contract between

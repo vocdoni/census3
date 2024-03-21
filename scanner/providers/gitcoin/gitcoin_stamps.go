@@ -57,6 +57,32 @@ var stampsIcons = map[string]string{
 	"ZkSync":                "https://ipfs.io/ipfs/bafybeieuv2qxisdhpyye7nsklzf7dlircabomj632su7klhbpg5sv56wl4/zksync.svg",
 }
 
+var stampsNames = map[string]string{
+	"BrightID":              "BrightID",
+	"Civic":                 "Civic",
+	"Coinbase":              "Coinbase",
+	"GTCStaking":            "GTC Staking",
+	"Discord":               "Discord",
+	"Ens":                   "ENS",
+	"Ethereum":              "Ethereum",
+	"Gitcoin":               "Gitcoin",
+	"Github":                "Github",
+	"GnosisSafe":            "Gnosis Safe",
+	"Google":                "Google",
+	"GuildMembership&Roles": "Guild Membership & Roles",
+	"Hololym":               "Holonym",
+	"Idena":                 "Idena",
+	"Lens":                  "Lens",
+	"LinkedIn":              "LinkedIn",
+	"NFTHolder":             "NFT Holder",
+	"PHI":                   "PHI",
+	"ProofOfHumanity":       "Proof of Humanity",
+	"Snapshot":              "Snapshot",
+	"TrustaLabs":            "Trusta Labs",
+	"Twitter":               "Twitter",
+	"ZkSync":                "ZkSync",
+}
+
 const noIconURI = "https://ipfs.io/ipfs/bafybeiehrtssiqivcxq3af2fnyeys5n75cka62irkks66ueq2hgllq43ji/no-image.svg"
 
 func findStamp(alias string) (string, bool) {

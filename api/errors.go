@@ -128,6 +128,11 @@ var (
 		HTTPstatus: apirest.HTTPstatusNotFound,
 		Err:        fmt.Errorf("token holder not found for the token provided"),
 	}
+	ErrBadDatabaseQueue = apirest.APIerror{
+		Code:       4024,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("bad request to database queue"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
@@ -292,5 +297,10 @@ var (
 		Code:       5032,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error exporting data to the database"),
+	}
+	ErrDatabaseQueue = apirest.APIerror{
+		Code:       5033,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error in the database queue"),
 	}
 )

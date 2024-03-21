@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -148,6 +149,10 @@ func (capi *census3API) initAPIHandlers() error {
 		api.MethodAccessTypeAdmin, capi.exportDatabase); err != nil {
 		return err
 	}
+	if err := capi.endpoint.RegisterMethod("/db/queue/{queueID}", http.MethodGet,
+		api.MethodAccessTypeAdmin, capi.queueDatabase); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -171,62 +176,108 @@ func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext
 }
 
 func (capi *census3API) importDatabase(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	go func(dbDump []byte) {
-		log.Infow("importing database", "size", len(dbDump)/1024/1024)
-		// backup scanner networks and providers to stop it and restore it after the import
-		networks := capi.scanner.Networks()
-		providers := []providers.HolderProvider{}
-		for _, provider := range capi.scanner.HolderProviders() {
-			providers = append(providers, provider)
-		}
-		log.Debug("closing database and stopping scanner")
-		// stop the scanner and close the database
-		if err := capi.db.Close(); err != nil {
-			log.Error("error closing database")
-			return
-		}
-		capi.scanner.Stop()
-		// overwrite the database file with the temp file, remove the old database and create a new one
-		log.Debug("overwriting database")
-		if err := os.RemoveAll(filepath.Join(capi.conf.DataDir, "census3.sql")); err != nil {
-			log.Errorw(err, "error removing old database")
-			return
-		}
-		// open the database
-		database, err := db.Init(capi.conf.DataDir, "census3.sql")
-		if err != nil {
-			log.Errorw(err, "error opening database")
-			return
-		}
-		if err := database.Import(context.Background(), dbDump); err != nil {
+	queueID := capi.queue.Enqueue()
+	go func(queueID string, dbDump []byte) {
+		if err := capi.launchDatabaseImport(dbDump); err != nil {
 			log.Errorw(err, "error importing database")
+			if ok := capi.queue.Fail(queueID, err); !ok {
+				log.Error("error marking database import as failed")
+			}
 			return
 		}
-		capi.db = database
-		// restore the database and the scanner and start the scanner
-		capi.scanner = scanner.NewScanner(database, networks, capi.conf.ScannerCooldown)
-		if err := capi.scanner.SetProviders(providers...); err != nil {
-			log.Errorw(err, "error setting providers")
-			return
+		if ok := capi.queue.Done(queueID, nil); !ok {
+			log.Error("error marking database import as done")
 		}
-		log.Debug("starting scanner")
-		go capi.scanner.Start(capi.conf.MainCtx)
-		log.Debugw("scanner started",
-			"networks", capi.scanner.Networks().String(),
-			"providers", capi.scanner.SupportedTypes())
-	}(msg.Data)
-	return ctx.Send([]byte("Ok"), api.HTTPstatusOK)
+	}(queueID, msg.Data)
+	res, err := json.Marshal(map[string]string{"queueID": queueID})
+	if err != nil {
+		log.Errorw(err, "error encoding queueID")
+		return ErrDatabaseQueue.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
 }
 
 func (capi *census3API) exportDatabase(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	dbDump, err := capi.db.Export(context.Background())
+	queueID := capi.queue.Enqueue()
+	go func(queueID string) {
+		dbDump, err := capi.db.Export(context.Background())
+		if err != nil {
+			log.Errorw(err, "error exporting database")
+			if ok := capi.queue.Fail(queueID, err); !ok {
+				log.Error("error marking database export as failed")
+			}
+			return
+		}
+		if ok := capi.queue.Done(queueID, dbDump); !ok {
+			log.Error("error marking database export as done")
+		}
+	}(queueID)
+	res, err := json.Marshal(map[string]string{"queueID": queueID})
 	if err != nil {
-		log.Errorw(err, "error exporting database")
-		return ErrDatabaseExport.WithErr(err)
+		log.Errorw(err, "error encoding queueID")
+		return ErrDatabaseQueue.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+func (capi *census3API) queueDatabase(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	queueID := ctx.URLParam("queueID")
+	if queueID == "" {
+		return ErrBadDatabaseQueue.With("queueID is required")
+	}
+	queueItem, exists := capi.queue.IsDone(queueID)
+	if !exists {
+		return ErrBadDatabaseQueue.With("queueID not found")
+	}
+	if queueItem.Error != nil {
+		return ErrDatabaseQueue.WithErr(queueItem.Error)
+	}
+	if queueItem.Done {
+		defer capi.queue.Dequeue(queueID)
+	}
+	if !queueItem.Done || queueItem.Data == nil {
+		res, err := json.Marshal(queueItem)
+		if err != nil {
+			log.Errorw(err, "error encoding queue item")
+			return ErrDatabaseQueue.WithErr(err)
+		}
+		return ctx.Send(res, api.HTTPstatusOK)
+	}
+	dump, ok := queueItem.Data.([]byte)
+	if !ok {
+		return ErrDatabaseQueue.With("queue item data is not a byte slice")
 	}
 	ctx.SetHeader("Content-Disposition", "attachment; filename=census3.sql")
 	ctx.SetHeader("Content-Length", "application/octet-stream")
-	return ctx.Send(dbDump, api.HTTPstatusOK)
+	return ctx.Send(dump, api.HTTPstatusOK)
+}
+
+func (capi *census3API) launchDatabaseImport(dbDump []byte) error {
+	log.Infow("importing database", "size(bytes)", len(dbDump))
+	// backup the current database creating a copy of it
+	backup, err := capi.db.Export(capi.conf.MainCtx)
+	if err != nil {
+		log.Errorw(err, "error exporting database")
+		return fmt.Errorf("error exporting database: %w", err)
+	}
+	// use the global error to rollback the import if something fails, this
+	// error must be used to store any error that happens during the import
+	defer func() {
+		if err != nil {
+			log.Errorw(err, "error exporting tokens")
+			// rollback the import
+			if err := capi.db.Import(capi.conf.MainCtx, backup); err != nil {
+				log.Errorw(err, "error rolling back database")
+				return
+			}
+		}
+	}()
+	// import the received dump
+	if err = capi.db.Import(capi.conf.MainCtx, dbDump); err != nil {
+		log.Errorw(err, "error importing database")
+		return fmt.Errorf("error importing database: %w", err)
+	}
+	return nil
 }
 
 // CreateInitialTokens creates the tokens defined in the file provided in the

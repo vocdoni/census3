@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -45,6 +46,7 @@ type Scanner struct {
 	networks  web3.NetworkEndpoints
 	providers map[uint64]providers.HolderProvider
 	coolDown  time.Duration
+	pause     atomic.Bool
 
 	tokens                  []*ScannerToken
 	tokensMtx               sync.Mutex
@@ -61,6 +63,7 @@ func NewScanner(db *db.DB, networks web3.NetworkEndpoints, coolDown time.Duratio
 		networks:                networks,
 		providers:               make(map[uint64]providers.HolderProvider),
 		coolDown:                coolDown,
+		pause:                   atomic.Bool{},
 		tokens:                  []*ScannerToken{},
 		tokensMtx:               sync.Mutex{},
 		waiter:                  sync.WaitGroup{},
@@ -98,6 +101,11 @@ func (s *Scanner) SetProviders(newProviders ...providers.HolderProvider) error {
 		s.providers[provider.Type()] = provider
 	}
 	return nil
+}
+
+// SetDatabase overwrites the current database of the scanner with the given one.
+func (s *Scanner) SetDatabase(db *db.DB) {
+	s.db = db
 }
 
 // HolderProviders returns the current providers of the scanner.
@@ -145,15 +153,16 @@ func (s *Scanner) Start(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
+			if s.pause.Load() {
+				time.Sleep(5 * time.Second)
+				continue
+			}
 			// create some variables to track the loop progress
 			itCounter++
 			startTime := time.Now()
 			// get the tokens to scan
 			tokens, err := s.TokensToScan(ctx)
 			if err != nil {
-				if strings.Contains(err.Error(), "database is closed") {
-					return
-				}
 				log.Error(err)
 				continue
 			}
@@ -170,9 +179,6 @@ func (s *Scanner) Start(ctx context.Context) {
 				holders, newTransfers, lastBlock, synced, totalSupply, err := s.ScanHolders(ctx, token)
 				if err != nil {
 					atSyncGlobal = false
-					if strings.Contains(err.Error(), "database is closed") {
-						return
-					}
 					log.Error(err)
 					continue
 				}
@@ -185,9 +191,6 @@ func (s *Scanner) Start(ctx context.Context) {
 				go func(t *ScannerToken, h map[common.Address]*big.Int, n, lb uint64, sy bool, ts *big.Int) {
 					defer s.waiter.Done()
 					if err = s.SaveHolders(ctx, t, h, n, lb, sy, ts); err != nil {
-						if strings.Contains(err.Error(), "database is closed") {
-							return
-						}
 						log.Warnw("error saving tokenholders",
 							"address", t.Address.Hex(),
 							"chainID", t.ChainID,
@@ -221,6 +224,16 @@ func (s *Scanner) Stop() {
 		}
 	}
 	s.waiter.Wait()
+}
+
+// Pause pauses the scanner.
+func (s *Scanner) Pause() {
+	s.pause.Store(true)
+}
+
+// Resume resumes the scanner.
+func (s *Scanner) Resume() {
+	s.pause.Store(false)
 }
 
 // TokensToScan returns the tokens that the scanner has to scan. It returns the

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -35,15 +36,38 @@ func creationBlock(client *ethclient.Client, ctx context.Context, addr common.Ad
 	// check if the current client supports `eth_getCode` method, if not, return
 	// 1 and nil. It is assumed that the contract is created at block 1 to start
 	// scanning from the first block.
-	if !providers.ClientSupportsGetCode(ctx, client, addr) {
+	getCodeSupport := false
+	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
+		if getCodeSupport = providers.ClientSupportsGetCode(ctx, client, addr); getCodeSupport {
+			break
+		}
+		time.Sleep(RetryWeb3Cooldown)
+	}
+	if !getCodeSupport {
 		return 1, nil
 	}
 	// get the latest block number
-	lastBlock, err := client.BlockNumber(ctx)
+	var err error
+	var lastBlock uint64
+	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
+		lastBlock, err = client.BlockNumber(ctx)
+		if err == nil {
+			break
+		}
+		time.Sleep(RetryWeb3Cooldown)
+	}
 	if err != nil {
 		return 0, err
 	}
-	return creationBlockInRange(client, ctx, addr, 0, lastBlock)
+	var creationBlock uint64
+	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
+		creationBlock, err = creationBlockInRange(client, ctx, addr, 0, lastBlock)
+		if err == nil {
+			break
+		}
+		time.Sleep(RetryWeb3Cooldown)
+	}
+	return creationBlock, err
 }
 
 // creationBlockInRange function finds the block number of a contract between
@@ -130,10 +154,14 @@ func RangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Addr
 			if err != nil {
 				// if the error is about the query returning more than the maximum
 				// allowed logs, split the range of blocks in half and try again
-				if strings.Contains(err.Error(), "query returned more than") ||
-					strings.Contains(err.Error(), "exceeds the range allowed") {
+				if strings.Contains(strings.ToLower(err.Error()), "query returned more than") ||
+					strings.Contains(strings.ToLower(err.Error()), "exceeds the range allowed") ||
+					strings.Contains(strings.ToLower(err.Error()), "query timeout exceeded") ||
+					strings.Contains(strings.ToLower(err.Error()), "execution aborted (timeout") ||
+					strings.Contains(strings.ToLower(err.Error()), "size is larger than") {
 					blocksRange /= 2
-					log.Warnf("too much results on query, decreasing blocks to %d", blocksRange)
+					log.Warnf("too much results on query, decreasing blocks to %d: %v", blocksRange, err)
+					time.Sleep(RetryWeb3Cooldown)
 					continue
 				}
 				// if error is about too many requests, return the logs scanned

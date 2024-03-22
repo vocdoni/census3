@@ -4,6 +4,7 @@ import "time"
 
 const (
 	DefaultMaxWeb3ClientRetries = 3
+	RetryWeb3Cooldown           = 500 * time.Millisecond
 )
 
 const (

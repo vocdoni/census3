@@ -327,8 +327,8 @@ func (op *StrategyOperators) andHoldersDBOperator(ctx context.Context,
 	})
 	if err != nil {
 		return nil, fmt.Errorf(
-			"error getting holders of %s (chainID: %d, externalID: %s) and %s (chainID: %d, externalID: %s)",
-			symbolA, chainIDA, externalIDA, symbolB, chainIDB, externalIDB)
+			"error getting holders of %s (chainID: %d, externalID: %s) and %s (chainID: %d, externalID: %s)\nDBerror: %s",
+			symbolA, chainIDA, externalIDA, symbolB, chainIDB, externalIDB, err)
 	}
 	if len(rows) == 0 {
 		return nil, fmt.Errorf(
@@ -383,8 +383,8 @@ func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
 	})
 	if err != nil {
 		return nil, fmt.Errorf(
-			"error getting holders of %s (chainID: %d, externalID: %s) and %s (chainID: %d, externalID: %s)",
-			symbolA, chainIDA, externalIDA, symbolB, chainIDB, externalIDB)
+			"error getting holders of %s (chainID: %d, externalID: %s) and %s (chainID: %d, externalID: %s)\nDBerror: %s",
+			symbolA, chainIDA, externalIDA, symbolB, chainIDB, externalIDB, err)
 	}
 	if len(rows) == 0 {
 		return nil, fmt.Errorf(

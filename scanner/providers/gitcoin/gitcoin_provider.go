@@ -219,7 +219,11 @@ func (g *GitcoinPassport) Name(stamp []byte) (string, error) {
 	if len(stamp) > 0 {
 		// if a stamp name is provided, compose following the format:
 		//   stamp gitcoinName
-		return fmt.Sprintf("%s %s", string(stamp), gitcoinName), nil
+		stampName, ok := stampsNames[string(stamp)]
+		if !ok {
+			return "", fmt.Errorf("stamp name not found")
+		}
+		return fmt.Sprintf("%s %s", stampName, gitcoinName), nil
 	}
 	// if no stamp is provided, return the base gitcoin passport symbol
 	return gitcoinName, nil

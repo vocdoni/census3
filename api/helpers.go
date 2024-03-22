@@ -23,6 +23,12 @@ import (
 	"go.vocdoni.io/proto/build/go/models"
 )
 
+// holdersBatchSize is the number of holders to add to the census tree in a
+// single batch. This is used to avoid adding all the holders at once, which
+// could not allow to track the progress of the census creation. Creating the
+// census in batches allows to update the progress of the census creation.
+const holdersBatchSize = 1000
+
 // paginationFromCtx extracts from the request and returns the page size,
 // the database page size, the current cursor and the direction of that cursor.
 // The page size is the number of elements of the page, the database page size
@@ -146,16 +152,15 @@ func CreateAndPublishCensus(db *censusdb.CensusDB, storage storagelayer.Storage,
 	db.Lock()
 	defer db.Unlock()
 	// add the holders addresses and values to the census tree
-	batchSize := 1000
-	if len(holdersAddresses) < batchSize {
+	if len(holdersAddresses) < holdersBatchSize {
 		if _, err := ref.Tree().AddBatch(holdersAddresses, holdersValues); err != nil {
 			return nil, "", nil, err
 		}
 	} else {
 		// iterate over holders in batches to add them to the tree secuentally
 		// and update the progress if the channel is provided
-		for i := 0; i < len(holdersAddresses); i += batchSize {
-			end := i + batchSize
+		for i := 0; i < len(holdersAddresses); i += holdersBatchSize {
+			end := i + holdersBatchSize
 			if end > len(holdersAddresses) {
 				end = len(holdersAddresses)
 			}

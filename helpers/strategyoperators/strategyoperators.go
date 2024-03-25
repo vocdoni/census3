@@ -88,14 +88,16 @@ type StrategyIteration struct {
 // associated with a SQL database as data source. It brings access to SQL data
 // inside the lexer evaluator operators.
 type StrategyOperators struct {
+	ctx        context.Context
 	db         *queries.Queries
 	tokensInfo map[string]*TokenInformation
 }
 
 // InitOperators function creates a new StrategyOperators struct with the db
 // instance and info about tokens provided.
-func InitOperators(db *queries.Queries, info map[string]*TokenInformation) *StrategyOperators {
+func InitOperators(ctx context.Context, db *queries.Queries, info map[string]*TokenInformation) *StrategyOperators {
 	return &StrategyOperators{
+		ctx:        ctx,
 		db:         db,
 		tokensInfo: info,
 	}

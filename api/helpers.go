@@ -263,7 +263,7 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 // The evaluator uses the strategy operators to evaluate the predicate which
 // uses the database queries to get the token holders and their balances, and
 // combines them.
-func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
+func (capi *census3API) CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
 	providers map[uint64]providers.HolderProvider, id uint64, predicate string,
 ) (map[common.Address]*big.Int, *big.Int, uint64, error) {
 	// TODO: write a benchmark and try to optimize this function
@@ -346,7 +346,7 @@ func CalculateStrategyHolders(ctx context.Context, qdb *queries.Queries,
 			}
 		}
 		// init the operators and the predicate evaluator
-		operators := strategyoperators.InitOperators(qdb, tokensInfo)
+		operators := strategyoperators.InitOperators(capi.conf.MainCtx, capi.db.QueriesRO, tokensInfo)
 		eval := lexer.NewEval[*strategyoperators.StrategyIteration](operators.Map())
 		// execute the evaluation of the predicate
 		res, err := eval.EvalToken(validPredicate)

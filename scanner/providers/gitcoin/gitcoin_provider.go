@@ -328,10 +328,9 @@ func (g *GitcoinPassport) BlockRootHash(_ context.Context, insertTime uint64) ([
 }
 
 // LatestBlockNumber method returns the number of the last block of the network,
-// in this case, the last block number is emulated by the last time where an
-// score was updated or inserted in the database.
+// in this case, the last block number is emulated the current time in unix
 func (g *GitcoinPassport) LatestBlockNumber(_ context.Context, _ []byte) (uint64, error) {
-	return uint64(g.lastInsert.Load()), nil
+	return uint64(time.Now().Unix()), nil
 }
 
 // CreationBlock is not implemented for Gitcoin Passport.

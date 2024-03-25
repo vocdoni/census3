@@ -315,7 +315,7 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 			}
 		}
 		// init the operators and the predicate evaluator
-		operators := strategyoperators.InitOperators(capi.db.QueriesRO, tokensInfo)
+		operators := strategyoperators.InitOperators(capi.conf.MainCtx, capi.db.QueriesRO, tokensInfo)
 		eval := lexer.NewEval[*strategyoperators.StrategyIteration](operators.Map())
 		// execute the evaluation of the predicate
 		res, err := eval.EvalToken(validPredicate, progressCh)

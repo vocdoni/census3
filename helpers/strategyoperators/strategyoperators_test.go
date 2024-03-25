@@ -112,7 +112,7 @@ func mockedStrategyOperator(dataDir string) (*StrategyOperators, error) {
 			return nil, err
 		}
 	}
-	return InitOperators(database.QueriesRO, mockedTokenInformation), tx.Commit()
+	return InitOperators(context.Background(), database.QueriesRO, mockedTokenInformation), tx.Commit()
 }
 
 var combinatorsTestBalances = map[string][2]*big.Int{

@@ -33,6 +33,7 @@ import (
 )
 
 type Census3APIConf struct {
+	MainCtx         context.Context
 	Hostname        string
 	Port            int
 	DataDir         string

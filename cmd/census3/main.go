@@ -246,7 +246,9 @@ func main() {
 		log.Infof("no admin token defined, using a random one: %s", config.adminToken)
 	}
 	// Start the API
+	ctx, cancel := context.WithCancel(context.Background())
 	apiService, err := api.Init(database, api.Census3APIConf{
+		MainCtx:         ctx,
 		Hostname:        "0.0.0.0",
 		Port:            config.port,
 		DataDir:         config.dataDir,
@@ -265,7 +267,6 @@ func main() {
 		}
 		log.Info("initial tokens created, or at least tried to")
 	}()
-	ctx, cancel := context.WithCancel(context.Background())
 	go hc.Start(ctx)
 
 	metrics.NewCounter(fmt.Sprintf("census3_info{version=%q,chains=%q}",

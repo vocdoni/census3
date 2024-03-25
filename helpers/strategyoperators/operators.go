@@ -12,6 +12,12 @@ import (
 	"github.com/vocdoni/census3/helpers/lexer"
 )
 
+// databaseOperatorsTimeout is the timeout used to query the database for holders
+// balances and other information during the AND and OR query operators. It is
+// set to 30 seconds to handle large databases and slow connections and avoid
+// blocking the strategy evaluation for too long.
+const databaseOperatorsTimeout = time.Second * 30
+
 // AND method returns a AND operator function that can be used in a strategy
 // evaluation. The AND operator returns the common token holders between symbols
 // database information or previous operations results. It applies a fixed
@@ -123,7 +129,7 @@ func (op *StrategyOperators) OR_MUL() func(iter *lexer.Iteration[*StrategyIterat
 // a balance normalization to the max number of decimals and also returns the
 // max number of decimals.
 func (op *StrategyOperators) andOperator(iter *lexer.Iteration[*StrategyIteration]) (map[string][2]*big.Int, uint64, error) {
-	interalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	interalCtx, cancel := context.WithTimeout(op.ctx, databaseOperatorsTimeout)
 	defer cancel()
 	// get information about the current operation
 	symbolA, dataA := iter.A()
@@ -203,7 +209,7 @@ func (op *StrategyOperators) andOperator(iter *lexer.Iteration[*StrategyIteratio
 // applies a balance normalization to the max number of decimals and also
 // returns the max number of decimals.
 func (op *StrategyOperators) orOperator(iter *lexer.Iteration[*StrategyIteration]) (map[string][2]*big.Int, uint64, error) {
-	interalCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	interalCtx, cancel := context.WithTimeout(op.ctx, databaseOperatorsTimeout)
 	defer cancel()
 	// get information about the current operation
 	symbolA, dataA := iter.A()

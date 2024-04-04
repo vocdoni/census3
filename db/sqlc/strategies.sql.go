@@ -272,7 +272,7 @@ func (q *Queries) StrategyByID(ctx context.Context, id uint64) (Strategy, error)
 }
 
 const strategyTokens = `-- name: StrategyTokens :many
-SELECT st.token_id, st.min_balance, st.chain_id, st.external_id, t.chain_address, t.symbol
+SELECT st.token_id, st.min_balance, st.chain_id, st.external_id, t.chain_address, t.symbol, t.icon_uri
 FROM strategy_tokens st
 JOIN tokens t ON st.token_id = t.id AND st.chain_id = t.chain_id AND st.external_id = t.external_id
 WHERE st.strategy_id = ?
@@ -285,6 +285,7 @@ type StrategyTokensRow struct {
 	ExternalID   string
 	ChainAddress string
 	Symbol       string
+	IconUri      string
 }
 
 func (q *Queries) StrategyTokens(ctx context.Context, strategyID uint64) ([]StrategyTokensRow, error) {
@@ -303,6 +304,7 @@ func (q *Queries) StrategyTokens(ctx context.Context, strategyID uint64) ([]Stra
 			&i.ExternalID,
 			&i.ChainAddress,
 			&i.Symbol,
+			&i.IconUri,
 		); err != nil {
 			return nil, err
 		}

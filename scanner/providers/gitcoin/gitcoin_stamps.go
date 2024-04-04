@@ -32,6 +32,9 @@ var stamps = map[string]*regexp.Regexp{
 }
 
 var stampsIcons = map[string]string{
+	// include and empty string to match the Gitcoin base token with the same icon
+	// than the Gitcoin stamp
+	"":                      "https://ipfs.io/ipfs/bafybeieuv2qxisdhpyye7nsklzf7dlircabomj632su7klhbpg5sv56wl4/gitcoin.svg",
 	"BrightID":              "https://ipfs.io/ipfs/bafybeieuv2qxisdhpyye7nsklzf7dlircabomj632su7klhbpg5sv56wl4/brightid.svg",
 	"Civic":                 "https://ipfs.io/ipfs/bafybeieuv2qxisdhpyye7nsklzf7dlircabomj632su7klhbpg5sv56wl4/civic.svg",
 	"Coinbase":              "https://ipfs.io/ipfs/bafybeieuv2qxisdhpyye7nsklzf7dlircabomj632su7klhbpg5sv56wl4/coinbase.svg",

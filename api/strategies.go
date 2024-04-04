@@ -536,6 +536,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 			MinBalance:   tokenData.MinBalance,
 			ChainID:      tokenData.ChainID,
 			ExternalID:   tokenData.ExternalID,
+			IconURI:      tokenData.IconUri,
 		}
 	}
 	res, err := json.Marshal(strategy)

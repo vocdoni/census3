@@ -457,7 +457,8 @@ Returns the information of the strategy related to the provided ID.
             "ID": "0x1234",
             "chainID": 5,
             "chainAddress": "gor:0x1234",
-            "externalID": "mon_id_on_external_holder_provider"
+            "externalID": "mon_id_on_external_holder_provider",
+            "iconURI": "https://..."
         },
         "ANT": {
             "ID": "0x1234",
@@ -468,7 +469,8 @@ Returns the information of the strategy related to the provided ID.
         "USDC": {
             "ID": "0x1234",
             "chainID": 1,
-            "chainAddress": "eth:0x1234"
+            "chainAddress": "eth:0x1234",
+            "iconURI": "https://..."
         }
     }
 }

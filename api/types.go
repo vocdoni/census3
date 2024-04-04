@@ -123,6 +123,7 @@ type StrategyToken struct {
 	MinBalance   string `json:"minBalance"`
 	ChainAddress string `json:"chainAddress"`
 	ExternalID   string `json:"externalID,omitempty"`
+	IconURI      string `json:"iconURI,omitempty"`
 }
 
 type CreateStrategyRequest struct {

@@ -26,3 +26,8 @@ type Stamp struct {
 	Name    string
 	Score   annotations.BigInt
 }
+
+type TotalSupply struct {
+	Name        string
+	TotalSupply string
+}

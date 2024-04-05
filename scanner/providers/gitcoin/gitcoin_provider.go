@@ -31,10 +31,12 @@ const (
 	gitcoinName     = "Gitcoin Passport Score"
 	defaultCooldown = time.Hour * 6
 	// timeouts
-	symbolTimeout    = time.Second * 5
-	balanceOfTimeout = time.Second * 20
-	saveScoreTimeout = time.Second * 20
-	metadataTimeout  = time.Second * 5
+	symbolTimeout            = time.Second * 5
+	balanceOfTimeout         = time.Second * 10
+	totalSupplyTimeout       = time.Second * 10
+	updateTotalSupplyTimeout = time.Minute * 2
+	saveScoreTimeout         = time.Minute * 2
+	metadataTimeout          = time.Second * 5
 )
 
 type GitcoinPassport struct {
@@ -250,32 +252,18 @@ func (g *GitcoinPassport) Decimals(_ []byte) (uint64, error) {
 // database. If a stamp is provided, the total supply is calculated with the
 // sum of the holders scores for that stamp.
 func (g *GitcoinPassport) TotalSupply(stamp []byte) (*big.Int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), balanceOfTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), totalSupplyTimeout)
 	defer cancel()
-
-	var err error
-	var totalSupplyScores []annotations.BigInt
-	if len(stamp) > 0 {
-		totalSupplyScores, err = g.db.QueriesRO.StampTotalSupplyScores(ctx, string(stamp))
-	} else {
-		totalSupplyScores, err = g.db.QueriesRO.TotalSupplyScores(ctx)
-	}
+	strTotalSupply, err := g.db.QueriesRO.GetTotalSupply(ctx, string(stamp))
 	if err != nil {
-		log.Warnw("error getting scores from database", "err", err)
-		return big.NewInt(0), nil
-	}
-
-	totalSupply := big.NewInt(0)
-	for _, score := range totalSupplyScores {
-		if score == "" {
-			continue
-		}
-		bScore, ok := new(big.Int).SetString(string(score), 10)
-		if !ok {
-			log.Warnw("error parsing score from database", "stamp", string(stamp))
+		if errors.Is(err, sql.ErrNoRows) {
 			return big.NewInt(0), nil
 		}
-		totalSupply.Add(totalSupply, bScore)
+		return nil, fmt.Errorf("error getting total supply: %w", err)
+	}
+	totalSupply, ok := new(big.Int).SetString(strTotalSupply, 10)
+	if !ok {
+		return big.NewInt(0), fmt.Errorf("error parsing total supply from database")
 	}
 	return totalSupply, nil
 }
@@ -493,6 +481,12 @@ func (g *GitcoinPassport) updateScores() error {
 	log.Infow("Gitcoin Passport balances download finished",
 		"elapsed", elapsed,
 		"holders", validBalances)
+	// launch total supply update in background and return
+	go func() {
+		if err := g.updateTotalSupplies(); err != nil {
+			log.Warnw("error updating total supplies", "err", err)
+		}
+	}()
 	return nil
 }
 
@@ -570,4 +564,88 @@ func (g *GitcoinPassport) saveScore(score *GitcoinScore) error {
 	}
 	g.lastInsert.Store(time.Now().Unix())
 	return tx.Commit()
+}
+
+func (g *GitcoinPassport) updateTotalSupplies() error {
+	log.Debug("updating gitcoin scores total supplies in the database...")
+	internalCtx, cancel := context.WithTimeout(g.ctx, updateTotalSupplyTimeout)
+	defer cancel()
+	// create a db tx to store the score
+	tx, err := g.db.RW.BeginTx(internalCtx, nil)
+	if err != nil {
+		return fmt.Errorf("error creating tx: %w", err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+			log.Warnw("error rolling back tx", "err", err)
+		}
+	}()
+	qtx := g.db.QueriesRW.WithTx(tx)
+	var finalErr error
+	// update the total supply for every stamp
+	ids := externalIDs()
+	log.Info(ids)
+	for i, externalID := range ids {
+		totalSupply, err := calcTotalSupply(internalCtx, qtx, []byte(externalID))
+		if err != nil {
+			log.Warnw("error calculating total supply", "err", err)
+			finalErr = err
+			continue
+		}
+		// try to get the total supply, if it does not exist, create it with the
+		// calculated value
+		if _, err := qtx.GetTotalSupply(internalCtx, externalID); err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				log.Warnw("error getting total supply", "err", err)
+				finalErr = err
+				continue
+			}
+			if err := qtx.NewTotalSupply(internalCtx, queries.NewTotalSupplyParams{
+				Name:        externalID,
+				TotalSupply: totalSupply.String(),
+			}); err != nil {
+				log.Warnw("error creating total supply", "err", err)
+				finalErr = err
+			}
+			continue
+		}
+		// if the total supply exists, update it with the calculated value
+		if err := qtx.UpdateTotalSupply(g.ctx, queries.UpdateTotalSupplyParams{
+			Name:        externalID,
+			TotalSupply: totalSupply.String(),
+		}); err != nil {
+			log.Warnw("error updating total supply", "err", err)
+			finalErr = err
+		}
+		log.Debugf("total supply score updated (%d/%d)", i+1, len(ids))
+	}
+	log.Debug("gitcoin scores total supplies updated")
+	return finalErr
+}
+
+func calcTotalSupply(ctx context.Context, q *queries.Queries, stamp []byte) (*big.Int, error) {
+	var err error
+	var totalSupplyScores []annotations.BigInt
+	if len(stamp) > 0 {
+		totalSupplyScores, err = q.StampTotalSupplyScores(ctx, string(stamp))
+	} else {
+		totalSupplyScores, err = q.TotalSupplyScores(ctx)
+	}
+	if err != nil {
+		log.Warnw("error getting scores from database", "err", err)
+		return big.NewInt(0), nil
+	}
+	totalSupply := big.NewInt(0)
+	for _, score := range totalSupplyScores {
+		if score == "" {
+			continue
+		}
+		bScore, ok := new(big.Int).SetString(string(score), 10)
+		if !ok {
+			log.Warnw("error parsing score from database", "stamp", string(stamp))
+			return big.NewInt(0), nil
+		}
+		totalSupply.Add(totalSupply, bScore)
+	}
+	return totalSupply, nil
 }

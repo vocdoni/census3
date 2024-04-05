@@ -208,6 +208,17 @@ func (q *Queries) GetStampsForAddress(ctx context.Context, address annotations.A
 	return items, nil
 }
 
+const getTotalSupply = `-- name: GetTotalSupply :one
+SELECT total_supply FROM total_supplies WHERE name = ?
+`
+
+func (q *Queries) GetTotalSupply(ctx context.Context, name string) (string, error) {
+	row := q.db.QueryRowContext(ctx, getTotalSupply, name)
+	var total_supply string
+	err := row.Scan(&total_supply)
+	return total_supply, err
+}
+
 const newMetadata = `-- name: NewMetadata :exec
 INSERT INTO metadata (attr, value) VALUES (?, ?)
 `
@@ -248,6 +259,20 @@ type NewStampScoreParams struct {
 
 func (q *Queries) NewStampScore(ctx context.Context, arg NewStampScoreParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, newStampScore, arg.Address, arg.Name, arg.Score)
+}
+
+const newTotalSupply = `-- name: NewTotalSupply :exec
+INSERT INTO total_supplies (name, total_supply) VALUES (?, ?)
+`
+
+type NewTotalSupplyParams struct {
+	Name        string
+	TotalSupply string
+}
+
+func (q *Queries) NewTotalSupply(ctx context.Context, arg NewTotalSupplyParams) error {
+	_, err := q.db.ExecContext(ctx, newTotalSupply, arg.Name, arg.TotalSupply)
+	return err
 }
 
 const scoreExists = `-- name: ScoreExists :one
@@ -385,4 +410,20 @@ type UpdateStampScoreParams struct {
 
 func (q *Queries) UpdateStampScore(ctx context.Context, arg UpdateStampScoreParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, updateStampScore, arg.Score, arg.Address, arg.Name)
+}
+
+const updateTotalSupply = `-- name: UpdateTotalSupply :exec
+UPDATE total_supplies
+SET total_supply = ?
+WHERE name = ?
+`
+
+type UpdateTotalSupplyParams struct {
+	TotalSupply string
+	Name        string
+}
+
+func (q *Queries) UpdateTotalSupply(ctx context.Context, arg UpdateTotalSupplyParams) error {
+	_, err := q.db.ExecContext(ctx, updateTotalSupply, arg.TotalSupply, arg.Name)
+	return err
 }

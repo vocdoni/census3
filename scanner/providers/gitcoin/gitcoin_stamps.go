@@ -121,3 +121,13 @@ func stampIcon(stamp string) string {
 	}
 	return noIconURI
 }
+
+func externalIDs() []string {
+	externalIDs := []string{}
+	for stamp := range stamps {
+		externalIDs = append(externalIDs, stamp)
+	}
+	// include an empty string to match the Gitcoin base token
+	externalIDs = append(externalIDs, "")
+	return externalIDs
+}

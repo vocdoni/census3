@@ -78,3 +78,14 @@ WHERE attr = sqlc.arg(attr);
 
 -- name: GetMetadata :one
 SELECT value FROM metadata WHERE attr = sqlc.arg(attr);
+
+-- name: NewTotalSupply :exec
+INSERT INTO total_supplies (name, total_supply) VALUES (?, ?);
+
+-- name: UpdateTotalSupply :exec
+UPDATE total_supplies
+SET total_supply = sqlc.arg(total_supply)
+WHERE name = sqlc.arg(name);
+
+-- name: GetTotalSupply :one
+SELECT total_supply FROM total_supplies WHERE name = sqlc.arg(name);

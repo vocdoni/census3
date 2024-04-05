@@ -32,7 +32,7 @@ const (
 	defaultCooldown = time.Hour * 6
 	// timeouts
 	symbolTimeout    = time.Second * 5
-	balanceOfTimeout = time.Second * 10
+	balanceOfTimeout = time.Second * 20
 	saveScoreTimeout = time.Second * 10
 	metadataTimeout  = time.Second * 5
 )

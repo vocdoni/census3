@@ -214,7 +214,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 		return err
 	}
 	// parse the tokens file
-	tokens := []GetTokenResponse{}
+	tokens := []Token{}
 	if err := json.Unmarshal(content, &tokens); err != nil {
 		return err
 	}

@@ -16,7 +16,7 @@ import (
 )
 
 type ERC777HolderProvider struct {
-	endpoints NetworkEndpoints
+	endpoints *NetworksManager
 	client    *ethclient.Client
 
 	contract         *erc777.ERC777Contract
@@ -60,19 +60,17 @@ func (p *ERC777HolderProvider) SetRef(iref any) error {
 	if !ok {
 		return errors.New("invalid ref type, it must be Web3ProviderRef")
 	}
-	currentEndpoint, exists := p.endpoints.EndpointByChainID(ref.ChainID)
+	endpoint, exists := p.endpoints.GetEndpoint(ref.ChainID)
 	if !exists {
 		return errors.New("endpoint not found for the given chainID")
 	}
-	// connect to the endpoint
-	client, err := currentEndpoint.GetClient(DefaultMaxWeb3ClientRetries)
-	if err != nil {
-		return errors.Join(ErrConnectingToWeb3Client, fmt.Errorf("[ERC777] %s: %w", ref.HexAddress, err))
+	if p.client = endpoint.Client(); p.client == nil {
+		return errors.New("endpoint not available")
 	}
 	// set the client, parse the address and initialize the contract
-	p.client = client
+	var err error
 	address := common.HexToAddress(ref.HexAddress)
-	if p.contract, err = erc777.NewERC777Contract(address, client); err != nil {
+	if p.contract, err = erc777.NewERC777Contract(address, p.client); err != nil {
 		return errors.Join(ErrInitializingContract, fmt.Errorf("[ERC777] %s: %w", p.address, err))
 	}
 	if ref.CreationBlock > 0 {

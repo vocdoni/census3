@@ -38,7 +38,7 @@ type Census3APIConf struct {
 	Port            int
 	DataDir         string
 	GroupKey        string
-	Web3Providers   web3.NetworkEndpoints
+	Web3Providers   *web3.NetworksManager
 	HolderProviders map[uint64]providers.HolderProvider
 	AdminToken      string
 }
@@ -49,7 +49,7 @@ type census3API struct {
 	endpoint        *api.API
 	censusDB        *censusdb.CensusDB
 	queue           *queue.BackgroundQueue
-	w3p             web3.NetworkEndpoints
+	w3p             *web3.NetworksManager
 	storage         storagelayer.Storage
 	downloader      *downloader.Downloader
 	holderProviders map[uint64]providers.HolderProvider
@@ -146,7 +146,7 @@ func (capi *census3API) getAPIInfo(msg *api.APIdata, ctx *httprouter.HTTPContext
 	info := &APIInfo{
 		SupportedChains: []SupportedChain{},
 	}
-	for _, provider := range capi.w3p {
+	for _, provider := range capi.w3p.SupportedNetworks() {
 		info.SupportedChains = append(info.SupportedChains, SupportedChain{
 			ChainID:   provider.ChainID,
 			ShortName: provider.ShortName,

@@ -16,7 +16,7 @@ import (
 )
 
 type ERC20HolderProvider struct {
-	endpoints NetworkEndpoints
+	endpoints *NetworksManager
 	client    *ethclient.Client
 
 	contract         *erc20.ERC20Contract
@@ -60,19 +60,17 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	if !ok {
 		return errors.New("invalid ref type, it must be Web3ProviderRef")
 	}
-	currentEndpoint, exists := p.endpoints.EndpointByChainID(ref.ChainID)
+	endpoint, exists := p.endpoints.GetEndpoint(ref.ChainID)
 	if !exists {
 		return errors.New("endpoint not found for the given chainID")
 	}
-	// connect to the endpoint
-	client, err := currentEndpoint.GetClient(DefaultMaxWeb3ClientRetries)
-	if err != nil {
-		return errors.Join(ErrConnectingToWeb3Client, fmt.Errorf("[ERC20] %s: %w", ref.HexAddress, err))
+	if p.client = endpoint.Client(); p.client == nil {
+		return errors.New("endpoint not available")
 	}
 	// set the client, parse the address and initialize the contract
-	p.client = client
+	var err error
 	p.address = common.HexToAddress(ref.HexAddress)
-	if p.contract, err = erc20.NewERC20Contract(p.address, client); err != nil {
+	if p.contract, err = erc20.NewERC20Contract(p.address, p.client); err != nil {
 		return errors.Join(ErrInitializingContract, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 	}
 	// reset the current creation block, if a creation block is defined in the

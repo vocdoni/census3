@@ -135,9 +135,14 @@ func main() {
 		log.Fatal("no web3 providers defined")
 	}
 	// check if the web3 providers are valid
-	w3p, err := web3.InitNetworkEndpoints(config.listOfWeb3Providers)
+	w3p, err := web3.NewNetworksManager()
 	if err != nil {
 		log.Fatal(err)
+	}
+	for _, uri := range config.listOfWeb3Providers {
+		if err := w3p.AddEndpoint(uri); err != nil {
+			log.Fatal(err)
+		}
 	}
 	// init the database
 	database, err := db.Init(config.dataDir, "census3.sql")

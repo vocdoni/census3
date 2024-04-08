@@ -25,7 +25,7 @@ type Web3ProviderRef struct {
 
 type Web3ProviderConfig struct {
 	Web3ProviderRef
-	Endpoints NetworkEndpoints
+	Endpoints *NetworksManager
 	DB        *db.Database
 }
 

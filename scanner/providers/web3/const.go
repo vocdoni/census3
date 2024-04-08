@@ -17,7 +17,7 @@ var DefaultNetworkEndpoint = &NetworkEndpoint{
 	ChainID:   11155111,
 	Name:      "Sepolia",
 	ShortName: "sep",
-	URIs:      []string{"https://rpc2.sepolia.org"},
+	URI:       "https://rpc2.sepolia.org",
 }
 
 const (

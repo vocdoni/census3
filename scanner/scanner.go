@@ -42,7 +42,7 @@ type Scanner struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	db        *db.DB
-	networks  web3.NetworkEndpoints
+	networks  *web3.NetworksManager
 	providers map[uint64]providers.HolderProvider
 	coolDown  time.Duration
 
@@ -55,7 +55,7 @@ type Scanner struct {
 
 // NewScanner returns a new scanner instance with the required parameters
 // initialized.
-func NewScanner(db *db.DB, networks web3.NetworkEndpoints, coolDown time.Duration) *Scanner {
+func NewScanner(db *db.DB, networks *web3.NetworksManager, coolDown time.Duration) *Scanner {
 	return &Scanner{
 		db:                      db,
 		networks:                networks,

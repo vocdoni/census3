@@ -142,7 +142,9 @@ func (c *Client) PendingCodeAt(ctx context.Context, account common.Address) ([]b
 // ethclient.Client for the chainID of the Client instance. It returns an error
 // if the chainID is not found in the pool or if the method fails. Required by
 // the bind.ContractBackend interface.
-func (c *Client) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+func (c *Client) SubscribeFilterLogs(ctx context.Context,
+	query ethereum.FilterQuery, ch chan<- types.Log,
+) (ethereum.Subscription, error) {
 	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)

@@ -16,7 +16,7 @@ import (
 )
 
 type ERC777HolderProvider struct {
-	endpoints *NetworksManager
+	endpoints *Web3Pool
 	client    *ethclient.Client
 
 	contract         *erc777.ERC777Contract

@@ -11,10 +11,10 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-// NetworkEndpoint struct contains all the required information about a web3
+// Web3Endpoint struct contains all the required information about a web3
 // provider based on its URI. It includes its chain ID, its name (and shortName)
 // and the URI.
-type NetworkEndpoint struct {
+type Web3Endpoint struct {
 	ChainID   uint64 `json:"chainId"`
 	Name      string `json:"name"`
 	ShortName string `json:"shortName"`
@@ -24,44 +24,44 @@ type NetworkEndpoint struct {
 }
 
 // Client method returns the *ethclient.Client configured for the current
-// NetworkEndpoint.
-func (e *NetworkEndpoint) Client() *ethclient.Client {
+// Web3Endpoint.
+func (e *Web3Endpoint) Client() *ethclient.Client {
 	return e.client
 }
 
-// NetworksManager struct contains a map of chainID-[]*NetworkEndpoint, where
-// the key is the chainID and the value is a list of NetworkEndpoint. It also
-// contains a list of all the NetworkEndpoint metadata. It provides methods to
+// Web3Pool struct contains a map of chainID-[]*Web3Endpoint, where
+// the key is the chainID and the value is a list of Web3Endpoint. It also
+// contains a list of all the Web3Endpoint metadata. It provides methods to
 // add, remove and get endpoints, as well as to get the chainID by short name.
 // It allows to support multiple endpoints for the same chainID and switch
 // between them looking for the available one.
-type NetworksManager struct {
+type Web3Pool struct {
 	mtx      sync.RWMutex
-	networks map[uint64][]*NetworkEndpoint
-	metadata []*NetworkEndpoint
+	networks map[uint64][]*Web3Endpoint
+	metadata []*Web3Endpoint
 }
 
-// NewNetworksManager method returns a new *NetworksManager instance, initialized
+// NewWeb3Pool method returns a new *Web3Pool instance, initialized
 // with the metadata from the external source. It returns an error if the metadata
 // cannot be retrieved or decoded.
-func NewNetworksManager() (*NetworksManager, error) {
+func NewWeb3Pool() (*Web3Pool, error) {
 	// get chains information from external source
 	res, err := http.Get(shortNameSourceUri)
 	if err != nil {
 		return nil, fmt.Errorf("error getting chains information from external source: %v", err)
 	}
-	chainsData := []*NetworkEndpoint{}
+	chainsData := []*Web3Endpoint{}
 	if err := json.NewDecoder(res.Body).Decode(&chainsData); err != nil {
 		return nil, fmt.Errorf("error decoding chains information from external source: %v", err)
 	}
-	return &NetworksManager{networks: make(map[uint64][]*NetworkEndpoint), metadata: chainsData}, nil
+	return &Web3Pool{networks: make(map[uint64][]*Web3Endpoint), metadata: chainsData}, nil
 }
 
-// AddEndpoint method adds a new web3 provider URI to the *NetworksManager
+// AddEndpoint method adds a new web3 provider URI to the *Web3Pool
 // instance. It returns an error if the chain metadata is not found or if the
 // web3 client cannot be initialized.
-func (nm *NetworksManager) AddEndpoint(uri string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), checkNetworkEndpointsTimeout)
+func (nm *Web3Pool) AddEndpoint(uri string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), checkWeb3EndpointsTimeout)
 	defer cancel()
 	// init the web3 client
 	client, err := connect(ctx, uri)
@@ -91,9 +91,9 @@ func (nm *NetworksManager) AddEndpoint(uri string) error {
 	nm.mtx.Lock()
 	defer nm.mtx.Unlock()
 	if _, ok := nm.networks[chainID]; !ok {
-		nm.networks[chainID] = []*NetworkEndpoint{}
+		nm.networks[chainID] = []*Web3Endpoint{}
 	}
-	nm.networks[chainID] = append(nm.networks[chainID], &NetworkEndpoint{
+	nm.networks[chainID] = append(nm.networks[chainID], &Web3Endpoint{
 		ChainID:   chainID,
 		Name:      name,
 		ShortName: shortName,
@@ -105,10 +105,10 @@ func (nm *NetworksManager) AddEndpoint(uri string) error {
 	return nil
 }
 
-// DelEndpoint method removes a web3 provider URI from the *NetworksManager
+// DelEndpoint method removes a web3 provider URI from the *Web3Pool
 // instance. It closes the client and removes the endpoint from the list of
 // endpoints for the chainID where it was found.
-func (nm *NetworksManager) DelEndoint(uri string) {
+func (nm *Web3Pool) DelEndoint(uri string) {
 	nm.mtx.Lock()
 	defer nm.mtx.Unlock()
 	// remove the endpoint from the chain manager when the URI is found, closing
@@ -124,11 +124,11 @@ func (nm *NetworksManager) DelEndoint(uri string) {
 	}
 }
 
-// GetEndpoint method returns the NetworkEndpoint configured for the chainID
+// GetEndpoint method returns the Web3Endpoint configured for the chainID
 // provided. It returns the first available endpoint and sets its available
 // flag to false. If no available endpoint is found, it resets the available
 // flag for all and returns the first one.
-func (nm *NetworksManager) GetEndpoint(chainID uint64) (*NetworkEndpoint, bool) {
+func (nm *Web3Pool) GetEndpoint(chainID uint64) (*Web3Endpoint, bool) {
 	nm.mtx.RLock()
 	defer nm.mtx.RUnlock()
 	// get the endpoints for the chainID provided
@@ -152,9 +152,9 @@ func (nm *NetworksManager) GetEndpoint(chainID uint64) (*NetworkEndpoint, bool) 
 	return endpoints[0], true
 }
 
-// EndpointByChainID method returns the NetworkEndpoint configured for the
+// EndpointByChainID method returns the Web3Endpoint configured for the
 // chainID provided.
-func (nm *NetworksManager) EndpointsByChainID(chainID uint64) ([]*NetworkEndpoint, bool) {
+func (nm *Web3Pool) EndpointsByChainID(chainID uint64) ([]*Web3Endpoint, bool) {
 	nm.mtx.RLock()
 	defer nm.mtx.RUnlock()
 	endpoints, ok := nm.networks[chainID]
@@ -162,7 +162,7 @@ func (nm *NetworksManager) EndpointsByChainID(chainID uint64) ([]*NetworkEndpoin
 }
 
 // URIByChainID method returns the URI configured for the chainID provided.
-func (nm *NetworksManager) URIsByChainID(chainID uint64) ([]string, bool) {
+func (nm *Web3Pool) URIsByChainID(chainID uint64) ([]string, bool) {
 	endpoints, ok := nm.networks[chainID]
 	if !ok {
 		return nil, false
@@ -176,7 +176,7 @@ func (nm *NetworksManager) URIsByChainID(chainID uint64) ([]string, bool) {
 
 // ChainIDByShortName method returns the chainID configured for the networkEndpoint
 // short name provided.
-func (nm *NetworksManager) ChainIDByShortName(shortName string) (uint64, bool) {
+func (nm *Web3Pool) ChainIDByShortName(shortName string) (uint64, bool) {
 	for _, endpoint := range nm.metadata {
 		if endpoint.ShortName == shortName {
 			return endpoint.ChainID, true
@@ -188,7 +188,7 @@ func (nm *NetworksManager) ChainIDByShortName(shortName string) (uint64, bool) {
 // ChainAddress method returns a prefixed string of the hex address provided,
 // with the short name of the networkEndpoint identified by the chain id provided.
 // Read more here: https://eips.ethereum.org/EIPS/eip-3770
-func (nps *NetworksManager) ChainAddress(chainID uint64, hexAddress string) (string, bool) {
+func (nps *Web3Pool) ChainAddress(chainID uint64, hexAddress string) (string, bool) {
 	for _, data := range nps.metadata {
 		if data.ChainID == chainID {
 			return fmt.Sprintf("%s:%s", data.ShortName, hexAddress), true
@@ -197,8 +197,8 @@ func (nps *NetworksManager) ChainAddress(chainID uint64, hexAddress string) (str
 	return "", false
 }
 
-// String method returns a string representation of the *NetworksManager list.
-func (nm *NetworksManager) String() string {
+// String method returns a string representation of the *Web3Pool list.
+func (nm *Web3Pool) String() string {
 	shortNames := map[string]bool{}
 	for _, endpoint := range nm.networks {
 		for _, ep := range endpoint {
@@ -214,7 +214,7 @@ func (nm *NetworksManager) String() string {
 
 // CurrentBlockNumbers method returns a map of uint64-uint64, where the key is
 // the chainID and the value is the current block number of the network.
-func (nm *NetworksManager) CurrentBlockNumbers(ctx context.Context) (map[uint64]uint64, error) {
+func (nm *Web3Pool) CurrentBlockNumbers(ctx context.Context) (map[uint64]uint64, error) {
 	blockNumbers := make(map[uint64]uint64)
 	for chainID := range nm.networks {
 		cli, ok := nm.GetEndpoint(chainID)
@@ -230,15 +230,15 @@ func (nm *NetworksManager) CurrentBlockNumbers(ctx context.Context) (map[uint64]
 	return blockNumbers, nil
 }
 
-// SupportedNetworks method returns a list of all the supported NetworkEndpoint
+// SupportedNetworks method returns a list of all the supported Web3Endpoint
 // metadata. It returns the chainID, name and shortName of unique supported
 // chains.
-func (nm *NetworksManager) SupportedNetworks() []*NetworkEndpoint {
+func (nm *Web3Pool) SupportedNetworks() []*Web3Endpoint {
 	nm.mtx.RLock()
 	defer nm.mtx.RUnlock()
-	var supported []*NetworkEndpoint
+	var supported []*Web3Endpoint
 	for _, endpoints := range nm.networks {
-		supported = append(supported, &NetworkEndpoint{
+		supported = append(supported, &Web3Endpoint{
 			ChainID:   endpoints[0].ChainID,
 			Name:      endpoints[0].Name,
 			ShortName: endpoints[0].ShortName,

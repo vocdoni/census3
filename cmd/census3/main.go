@@ -135,7 +135,7 @@ func main() {
 		log.Fatal("no web3 providers defined")
 	}
 	// check if the web3 providers are valid
-	w3p, err := web3.NewNetworksManager()
+	w3p, err := web3.NewWeb3Pool()
 	if err != nil {
 		log.Fatal(err)
 	}

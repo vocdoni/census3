@@ -38,7 +38,7 @@ type Census3APIConf struct {
 	Port            int
 	DataDir         string
 	GroupKey        string
-	Web3Providers   *web3.NetworksManager
+	Web3Providers   *web3.Web3Pool
 	HolderProviders map[uint64]providers.HolderProvider
 	AdminToken      string
 }
@@ -49,7 +49,7 @@ type census3API struct {
 	endpoint        *api.API
 	censusDB        *censusdb.CensusDB
 	queue           *queue.BackgroundQueue
-	w3p             *web3.NetworksManager
+	w3p             *web3.Web3Pool
 	storage         storagelayer.Storage
 	downloader      *downloader.Downloader
 	holderProviders map[uint64]providers.HolderProvider

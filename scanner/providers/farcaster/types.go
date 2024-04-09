@@ -14,7 +14,7 @@ import (
 )
 
 type FarcasterProviderConf struct {
-	Endpoints *web3.NetworksManager
+	Endpoints *web3.Web3Pool
 	DB        *DB
 }
 
@@ -28,7 +28,7 @@ type FarcasterContracts struct {
 
 type FarcasterProvider struct {
 	// web3
-	endpoints        *web3.NetworksManager
+	endpoints        *web3.Web3Pool
 	client           *ethclient.Client
 	contracts        FarcasterContracts
 	lastNetworkBlock atomic.Uint64

@@ -9,11 +9,11 @@ const (
 
 const (
 	shortNameSourceUri           = "https://chainid.network/chains_mini.json"
-	checkNetworkEndpointsTimeout = time.Second * 10
+	checkWeb3EndpointsTimeout = time.Second * 10
 	TimeLayout                   = "2006-01-02T15:04:05Z07:00"
 )
 
-var DefaultNetworkEndpoint = &NetworkEndpoint{
+var DefaultWeb3Endpoint = &Web3Endpoint{
 	ChainID:   11155111,
 	Name:      "Sepolia",
 	ShortName: "sep",

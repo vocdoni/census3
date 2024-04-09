@@ -8,6 +8,10 @@ type Pagination struct {
 	PageSize   int32  `json:"pageSize"`
 }
 
+type QueueResponse struct {
+	QueueID string `json:"queueID"`
+}
+
 type SupportedChain struct {
 	ChainID   uint64 `json:"chainID"`
 	ShortName string `json:"shortName"`
@@ -18,39 +22,31 @@ type APIInfo struct {
 	SupportedChains []SupportedChain `json:"supportedChains"`
 }
 
-type CreateTokenRequest struct {
-	ID         string `json:"ID"`
-	Type       string `json:"type"`
-	Tags       string `json:"tags"`
-	ChainID    uint64 `json:"chainID"`
-	ExternalID string `json:"externalID"`
-}
-
-type GetTokenStatusResponse struct {
+type TokenStatus struct {
 	AtBlock  uint64 `json:"atBlock"`
 	Synced   bool   `json:"synced"`
 	Progress int    `json:"progress"`
 }
 
-type GetTokenResponse struct {
-	ID              string                  `json:"ID"`
-	Type            string                  `json:"type"`
-	Decimals        uint64                  `json:"decimals"`
-	StartBlock      uint64                  `json:"startBlock"`
-	Symbol          string                  `json:"symbol"`
-	TotalSupply     string                  `json:"totalSupply"`
-	Name            string                  `json:"name"`
-	Status          *GetTokenStatusResponse `json:"status"`
-	Size            uint64                  `json:"size"`
-	DefaultStrategy uint64                  `json:"defaultStrategy,omitempty"`
-	Tags            string                  `json:"tags,omitempty"`
-	ChainID         uint64                  `json:"chainID"`
-	ChainAddress    string                  `json:"chainAddress"`
-	ExternalID      string                  `json:"externalID,omitempty"`
-	IconURI         string                  `json:"iconURI,omitempty"`
+type Token struct {
+	ID              string       `json:"ID"`
+	Type            string       `json:"type"`
+	Decimals        uint64       `json:"decimals"`
+	StartBlock      uint64       `json:"startBlock"`
+	Symbol          string       `json:"symbol"`
+	TotalSupply     string       `json:"totalSupply"`
+	Name            string       `json:"name"`
+	Status          *TokenStatus `json:"status"`
+	Size            uint64       `json:"size"`
+	DefaultStrategy uint64       `json:"defaultStrategy,omitempty"`
+	Tags            string       `json:"tags,omitempty"`
+	ChainID         uint64       `json:"chainID"`
+	ChainAddress    string       `json:"chainAddress"`
+	ExternalID      string       `json:"externalID,omitempty"`
+	IconURI         string       `json:"iconURI,omitempty"`
 }
 
-type GetTokensItemResponse struct {
+type TokenListItem struct {
 	ID              string `json:"ID"`
 	Type            string `json:"type"`
 	Decimals        uint64 `json:"decimals"`
@@ -67,29 +63,20 @@ type GetTokensItemResponse struct {
 	IconURI         string `json:"iconURI,omitempty"`
 }
 
-type GetTokensResponse struct {
-	Tokens     []GetTokensItemResponse `json:"tokens"`
-	Pagination *Pagination             `json:"pagination"`
+type TokenList struct {
+	Tokens     []*TokenListItem `json:"tokens"`
+	Pagination *Pagination      `json:"pagination"`
 }
 
-type TokenTypesResponse struct {
+type TokenTypes struct {
 	SupportedTypes []string `json:"supportedTypes"`
 }
 
-type TokenHoldersResponse struct {
+type TokenHolders struct {
 	Holders map[string]string `json:"holders"`
 }
 
-type CreateCensusRequest struct {
-	StrategyID uint64 `json:"strategyID"`
-	Anonymous  bool   `json:"anonymous"`
-}
-
-type QueueResponse struct {
-	QueueID string `json:"queueID"`
-}
-
-type GetCensusResponse struct {
+type Census struct {
 	CensusID   uint64         `json:"ID"`
 	StrategyID uint64         `json:"strategyID"`
 	MerkleRoot types.HexBytes `json:"merkleRoot"`
@@ -100,21 +87,14 @@ type GetCensusResponse struct {
 	Accuracy   float64        `json:"accuracy"`
 }
 
-type GetCensusesResponse struct {
-	Censuses []*GetCensusResponse `json:"censuses"`
+type Censuses struct {
+	Censuses []*Census `json:"censuses"`
 }
 
-type GetStrategyToken struct {
-	ID         string `json:"ID"`
-	Name       string `json:"name"`
-	MinBalance string `json:"minBalance"`
-	Method     string `json:"method"`
-}
-
-type CensusQueueResponse struct {
-	Done   bool               `json:"done"`
-	Error  error              `json:"error"`
-	Census *GetCensusResponse `json:"census"`
+type CensusQueue struct {
+	Done   bool    `json:"done"`
+	Error  error   `json:"error"`
+	Census *Census `json:"census"`
 }
 
 type StrategyToken struct {
@@ -126,13 +106,7 @@ type StrategyToken struct {
 	IconURI      string `json:"iconURI,omitempty"`
 }
 
-type CreateStrategyRequest struct {
-	Alias     string                    `json:"alias"`
-	Predicate string                    `json:"predicate"`
-	Tokens    map[string]*StrategyToken `json:"tokens"`
-}
-
-type GetStrategyResponse struct {
+type Strategy struct {
 	ID        uint64                    `json:"ID"`
 	Alias     string                    `json:"alias"`
 	Predicate string                    `json:"predicate"`
@@ -140,15 +114,15 @@ type GetStrategyResponse struct {
 	Tokens    map[string]*StrategyToken `json:"tokens"`
 }
 
-type GetStrategiesResponse struct {
-	Strategies []*GetStrategyResponse `json:"strategies"`
-	Pagination *Pagination            `json:"pagination"`
+type Strategies struct {
+	Strategies []*Strategy `json:"strategies"`
+	Pagination *Pagination `json:"pagination"`
 }
 
 type ImportStrategyQueueResponse struct {
-	Done     bool                 `json:"done"`
-	Error    error                `json:"error"`
-	Strategy *GetStrategyResponse `json:"strategy"`
+	Done     bool      `json:"done"`
+	Error    error     `json:"error"`
+	Strategy *Strategy `json:"strategy"`
 }
 
 type StrategyEstimation struct {
@@ -157,7 +131,7 @@ type StrategyEstimation struct {
 	Accuracy           float64 `json:"accuracy"`
 }
 
-type GetStrategyEstimationResponse struct {
+type StrategyEstimationQueue struct {
 	Done       bool                `json:"done"`
 	Error      error               `json:"error"`
 	Estimation *StrategyEstimation `json:"estimation"`
@@ -169,7 +143,7 @@ type TokenHoldersAtBlock struct {
 	Holders     map[string]string `json:"holders"`
 }
 
-type GetTokenHolderResponse struct {
+type TokenHolderBalance struct {
 	Balance string `json:"balance"`
 }
 

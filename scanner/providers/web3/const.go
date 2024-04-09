@@ -8,9 +8,9 @@ const (
 )
 
 const (
-	shortNameSourceUri           = "https://chainid.network/chains_mini.json"
+	shortNameSourceUri        = "https://chainid.network/chains_mini.json"
 	checkWeb3EndpointsTimeout = time.Second * 10
-	TimeLayout                   = "2006-01-02T15:04:05Z07:00"
+	TimeLayout                = "2006-01-02T15:04:05Z07:00"
 )
 
 var DefaultWeb3Endpoint = &Web3Endpoint{

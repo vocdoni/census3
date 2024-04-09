@@ -163,6 +163,8 @@ func (nm *Web3Pool) EndpointsByChainID(chainID uint64) ([]*Web3Endpoint, bool) {
 
 // URIByChainID method returns the URI configured for the chainID provided.
 func (nm *Web3Pool) URIsByChainID(chainID uint64) ([]string, bool) {
+	nm.mtx.RLock()
+	defer nm.mtx.RUnlock()
 	endpoints, ok := nm.networks[chainID]
 	if !ok {
 		return nil, false
@@ -199,6 +201,8 @@ func (nps *Web3Pool) ChainAddress(chainID uint64, hexAddress string) (string, bo
 
 // String method returns a string representation of the *Web3Pool list.
 func (nm *Web3Pool) String() string {
+	nm.mtx.RLock()
+	defer nm.mtx.RUnlock()
 	shortNames := map[string]bool{}
 	for _, endpoint := range nm.networks {
 		for _, ep := range endpoint {
@@ -215,6 +219,8 @@ func (nm *Web3Pool) String() string {
 // CurrentBlockNumbers method returns a map of uint64-uint64, where the key is
 // the chainID and the value is the current block number of the network.
 func (nm *Web3Pool) CurrentBlockNumbers(ctx context.Context) (map[uint64]uint64, error) {
+	nm.mtx.RLock()
+	defer nm.mtx.RUnlock()
 	blockNumbers := make(map[uint64]uint64)
 	for chainID := range nm.networks {
 		cli, ok := nm.GetEndpoint(chainID)

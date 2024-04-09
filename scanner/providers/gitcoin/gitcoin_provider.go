@@ -29,6 +29,8 @@ const (
 	hexAddress      = "0x000000000000000000000000000000000000006C"
 	gitcoinSymbol   = "GPS"
 	gitcoinName     = "Gitcoin Passport Score"
+	decimals        = 2
+	decimalsFactor  = 100 // 10^decimals
 	defaultCooldown = time.Hour * 6
 	// timeouts
 	symbolTimeout    = time.Second * 5
@@ -241,9 +243,11 @@ func (g *GitcoinPassport) Symbol(stamp []byte) (string, error) {
 	return gitcoinSymbol, nil
 }
 
-// Decimals is not implemented for Gitcoin Passport.
+// Decimals return the number of decimals handled by the Gitcoin Passport
+// provider, which is 2. It allows to handle scores with more precision and
+// avoid rounding errors and empty censuses.
 func (g *GitcoinPassport) Decimals(_ []byte) (uint64, error) {
-	return 0, nil
+	return decimals, nil
 }
 
 // TotalSupply method returns the sum of the scores of every holder in the

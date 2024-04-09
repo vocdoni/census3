@@ -23,12 +23,6 @@ type Web3Endpoint struct {
 	available bool
 }
 
-// Client method returns the *ethclient.Client configured for the current
-// Web3Endpoint.
-func (e *Web3Endpoint) Client() *ethclient.Client {
-	return e.client
-}
-
 // Web3Pool struct contains a map of chainID-[]*Web3Endpoint, where
 // the key is the chainID and the value is a list of Web3Endpoint. It also
 // contains a list of all the Web3Endpoint metadata. It provides methods to
@@ -150,6 +144,15 @@ func (nm *Web3Pool) GetEndpoint(chainID uint64) (*Web3Endpoint, bool) {
 		nm.networks[chainID][i].available = true
 	}
 	return endpoints[0], true
+}
+
+// GetClient method returns a new *Client instance for the chainID provided.
+// It returns an error if the endpoint is not found.
+func (nm *Web3Pool) GetClient(chainID uint64) (*Client, error) {
+	if _, ok := nm.GetEndpoint(chainID); !ok {
+		return nil, fmt.Errorf("error getting endpoint for chainID %d", chainID)
+	}
+	return &Client{w3p: nm, chainID: chainID}, nil
 }
 
 // EndpointByChainID method returns the Web3Endpoint configured for the

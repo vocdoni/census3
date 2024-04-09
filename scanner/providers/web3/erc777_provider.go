@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
@@ -17,7 +16,7 @@ import (
 
 type ERC777HolderProvider struct {
 	endpoints *Web3Pool
-	client    *ethclient.Client
+	client    *Client
 
 	contract         *erc777.ERC777Contract
 	address          common.Address
@@ -60,15 +59,12 @@ func (p *ERC777HolderProvider) SetRef(iref any) error {
 	if !ok {
 		return errors.New("invalid ref type, it must be Web3ProviderRef")
 	}
-	endpoint, exists := p.endpoints.GetEndpoint(ref.ChainID)
-	if !exists {
-		return errors.New("endpoint not found for the given chainID")
-	}
-	if p.client = endpoint.Client(); p.client == nil {
-		return errors.New("endpoint not available")
+	var err error
+	p.client, err = p.endpoints.GetClient(ref.ChainID)
+	if err != nil {
+		return fmt.Errorf("error getting web3 client for the given chainID: %w", err)
 	}
 	// set the client, parse the address and initialize the contract
-	var err error
 	address := common.HexToAddress(ref.HexAddress)
 	if p.contract, err = erc777.NewERC777Contract(address, p.client); err != nil {
 		return errors.Join(ErrInitializingContract, fmt.Errorf("[ERC777] %s: %w", p.address, err))

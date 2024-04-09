@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/log"
@@ -32,13 +31,17 @@ type Web3ProviderConfig struct {
 // creationBlock function returns the block number of the creation of a contract
 // address. It uses the `eth_getCode` method to get the contract code at the
 // block number provided. If the method is not supported, it returns 0 and nil.
-func creationBlock(client *ethclient.Client, ctx context.Context, addr common.Address) (uint64, error) {
+func creationBlock(client *Client, ctx context.Context, addr common.Address) (uint64, error) {
 	// check if the current client supports `eth_getCode` method, if not, return
 	// 1 and nil. It is assumed that the contract is created at block 1 to start
 	// scanning from the first block.
+	ethClient, err := client.EthClient()
+	if err != nil {
+		return 0, err
+	}
 	getCodeSupport := false
 	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
-		if getCodeSupport = providers.ClientSupportsGetCode(ctx, client, addr); getCodeSupport {
+		if getCodeSupport = providers.ClientSupportsGetCode(ctx, ethClient, addr); getCodeSupport {
 			break
 		}
 		time.Sleep(RetryWeb3Cooldown)
@@ -47,7 +50,6 @@ func creationBlock(client *ethclient.Client, ctx context.Context, addr common.Ad
 		return 1, nil
 	}
 	// get the latest block number
-	var err error
 	var lastBlock uint64
 	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
 		lastBlock, err = client.BlockNumber(ctx)
@@ -72,7 +74,7 @@ func creationBlock(client *ethclient.Client, ctx context.Context, addr common.Ad
 
 // creationBlockInRange function finds the block number of a contract between
 // the bounds provided as start and end blocks.
-func creationBlockInRange(client *ethclient.Client, ctx context.Context, addr common.Address, start, end uint64) (uint64, error) {
+func creationBlockInRange(client *Client, ctx context.Context, addr common.Address, start, end uint64) (uint64, error) {
 	// if both block numbers are equal, return its value as birthblock
 	if start == end {
 		return start, nil
@@ -95,7 +97,7 @@ func creationBlockInRange(client *ethclient.Client, ctx context.Context, addr co
 
 // SourceCodeLenAt function returns the length of the current contract bytecode
 // at the block number provided.
-func sourceCodeLenAt(client *ethclient.Client, ctx context.Context, addr common.Address, atBlockNumber uint64) (int, error) {
+func sourceCodeLenAt(client *Client, ctx context.Context, addr common.Address, atBlockNumber uint64) (int, error) {
 	blockNumber := new(big.Int).SetUint64(atBlockNumber)
 	sourceCode, err := client.CodeAt(ctx, addr, blockNumber)
 	return len(sourceCode), err
@@ -105,7 +107,7 @@ func sourceCodeLenAt(client *ethclient.Client, ctx context.Context, addr common.
 // provided block numbers. It returns the logs, the last block scanned and an
 // error if any. It filters the logs by the topic hash and for the token
 // contract address provided.
-func RangeOfLogs(ctx context.Context, client *ethclient.Client, addr common.Address,
+func RangeOfLogs(ctx context.Context, client *Client, addr common.Address,
 	fromBlock, lastBlock uint64, hexTopics ...string,
 ) ([]types.Log, uint64, bool, error) {
 	// if the range is too big, scan only a part of it using the constant

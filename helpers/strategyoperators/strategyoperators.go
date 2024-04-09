@@ -154,13 +154,12 @@ func (op *StrategyOperators) holdersBySymbol(ctx context.Context, symbol string)
 		return nil, err
 	}
 	// get token filtered information from the database
-	rows, err := op.db.TokenHoldersByTokenIDAndChainIDAndMinBalance(ctx,
-		queries.TokenHoldersByTokenIDAndChainIDAndMinBalanceParams{
-			TokenID:    address.Bytes(),
-			ChainID:    chainID,
-			Balance:    minBalance.String(),
-			ExternalID: externalID,
-		})
+	rows, err := op.db.TokenHoldersByMinBalance(ctx, queries.TokenHoldersByMinBalanceParams{
+		TokenID:    address.Bytes(),
+		ChainID:    chainID,
+		Balance:    minBalance.String(),
+		ExternalID: externalID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error getting holders of token %s on chainID %d", symbol, chainID)
 	}

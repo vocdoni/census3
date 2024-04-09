@@ -62,7 +62,7 @@ WHERE token_id = sqlc.arg(token_id)
     AND chain_id = sqlc.arg(chain_id) 
     AND external_id = sqlc.arg(external_id);
 
--- name: TokenHoldersByTokenIDAndChainIDAndMinBalance :many
+-- name: TokenHoldersByMinBalance :many
 SELECT token_holders.holder_id, token_holders.balance
 FROM token_holders
 WHERE token_holders.token_id = ? 

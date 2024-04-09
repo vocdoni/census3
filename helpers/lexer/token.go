@@ -47,7 +47,7 @@ func (t *Token) IsLiteral() bool {
 func (t *Token) String() string {
 	// if it is literal envolves between literals delimiters
 	if t.IsLiteral() && t.Literal != "" {
-		return fmt.Sprintf("'%s'", t.Literal)
+		return t.Literal
 	}
 	// if it is group and it has not childs, return empty
 	if t.Childs == nil || len(t.Childs.Tokens) < 2 {

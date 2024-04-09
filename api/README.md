@@ -487,8 +487,32 @@ Returns the information of the strategy related to the provided ID.
 | 500 | `error encoding strategy info` | 5015 | 
 
 
-### GET `/strategies/{strategyID}/estimation?anonymous={true|false}`
+### POST `/strategies/estimation?anonymous={true|false}`
 Enqueue the estimation of size and time (in milliseconds) to create the census generated for the provided strategy. It also calculates the accuracy of the resulting census, it could be different to 100% if the census will be anonymous.
+
+- 📤 request:
+
+```json
+    {
+        "predicate": "(wANT OR ANT) AND USDC",
+        "tokens": {
+            "wANT": {
+                "ID": "0x1324",
+                "chainID": 1,
+                "minBalance": "10000"
+            },
+            "ANT": {
+                "ID": "0x1324",
+                "chainID": 5,
+            },
+            "USDC": {
+                "ID": "0x1324",
+                "chainID": 1,
+                "minBalance": "50"
+            },
+        }
+    }
+```
 
 - 📥 response:
 
@@ -502,7 +526,8 @@ Enqueue the estimation of size and time (in milliseconds) to create the census g
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 400 | `malformed strategy ID, it must be an integer` | 4002 | 
+| 400 | `malformed strategy provided` | 4014 |
+| 400 | `the predicate provided is not valid` | 4015 | 
 | 500 | `error encoding strategy info` | 5015 | 
 
 ### GET `/strategies/{strategyID}/estimation/queue/{queueID}`
@@ -530,7 +555,8 @@ Returns the estimation of size and time (in milliseconds) to create the census g
 
 | HTTP Status  | Message | Internal error |
 |:---:|:---|:---:|
-| 404 | `no strategy found with the ID provided` | 4005 |
+| 404 | `no token found` | 4003 | 
+| 400 | `the predicate includes tokens that are not included in the request` | 4016 | 
 | 400 | `malformed queue ID` | 4020 | 
 | 500 | `error encoding queue item` | 5022 | 
 

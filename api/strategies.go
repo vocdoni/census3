@@ -46,11 +46,11 @@ func (capi *census3API) initStrategiesHandlers() error {
 		api.MethodAccessTypePublic, capi.listStrategyHolders); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/estimation", "GET",
+	if err := capi.endpoint.RegisterMethod("/strategies/estimation", "POST",
 		api.MethodAccessTypePublic, capi.launchStrategyEstimation); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/estimation/queue/{queueID}", "GET",
+	if err := capi.endpoint.RegisterMethod("/strategies/estimation/queue/{queueID}", "GET",
 		api.MethodAccessTypePublic, capi.enqueueStrategyEstimation); err != nil {
 		return err
 	}
@@ -649,18 +649,22 @@ func (capi *census3API) listStrategyHolders(msg *api.APIdata, ctx *httprouter.HT
 // size of the strategy identified by the ID provided. It returns an error if
 // the provided ID is wrong or if the queue item cannot be encoded.
 func (capi *census3API) launchStrategyEstimation(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// get provided strategyID
-	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
-	if err != nil {
-		return ErrMalformedStrategyID.WithErr(err)
+	strategy := CreateStrategyRequest{}
+	if err := json.Unmarshal(msg.Data, &strategy); err != nil {
+		return ErrMalformedStrategy.WithErr(err)
 	}
-	strategyID := uint64(iStrategyID)
+	if strategy.Predicate == "" {
+		return ErrMalformedStrategy.With("no predicate provided")
+	}
+	if len(strategy.Tokens) == 0 {
+		return ErrMalformedStrategy.With("no tokens provided")
+	}
 	// get anonymous from query params and decode it as boolean
 	anonymous := ctx.Request.URL.Query().Get("anonymous") == "true"
 	// import the strategy from IPFS in background generating a queueID
 	queueID := capi.queue.Enqueue()
 	go func() {
-		size, accuracy, err := capi.estimateStrategySizeAndAccuracy(queueID, strategyID, anonymous)
+		size, accuracy, err := capi.estimateStrategySizeAndAccuracy(queueID, strategy, anonymous)
 		if err != nil {
 			if !capi.queue.Fail(queueID, err) {
 				log.Errorf("error updating import strategy queue %s", queueID)
@@ -686,46 +690,11 @@ func (capi *census3API) launchStrategyEstimation(msg *api.APIdata, ctx *httprout
 // estimateStrategySizeAndAccuracy function returns the estimated size of the
 // strategy identified by the ID provided. The size is calculated using the strategy
 // predicate. This method should be executed in background.
-func (capi *census3API) estimateStrategySizeAndAccuracy(queueID string, strategyID uint64, anonymous bool) (int, float64, error) {
+func (capi *census3API) estimateStrategySizeAndAccuracy(queueID string,
+	strategy CreateStrategyRequest, anonymous bool,
+) (int, float64, error) {
 	internalCtx, cancel := context.WithTimeout(context.Background(), createAndPublishCensusTimeout)
 	defer cancel()
-	// check if the strategy size is already cached
-	cacheKey := EncCacheKey(fmt.Sprintf("strategy%d-%t", strategyID, anonymous))
-	if rawData, exists := capi.cache.Get(cacheKey); exists {
-		data, ok := rawData.(map[string]any)
-		if !ok {
-			return 0, 0, ErrCantGetStrategy.With("invalid cache data")
-		}
-		size, ok := data["size"].(int)
-		if !ok {
-			return 0, 0, ErrCantGetStrategy.With("invalid cache data")
-		}
-		accuracy, ok := data["accuracy"].(float64)
-		if !ok {
-			return 0, 0, ErrCantGetStrategy.With("invalid cache data")
-		}
-		return size, accuracy, nil
-	}
-	// begin a transaction for group sql queries
-	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
-	if err != nil {
-		return 0, 0, ErrCantGetStrategy.WithErr(err)
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
-			log.Errorw(err, "holders transaction rollback failed")
-		}
-	}()
-	strategy, err := capi.db.QueriesRO.StrategyByID(internalCtx, strategyID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, 0, ErrNotFoundStrategy.WithErr(err)
-		}
-		return 0, 0, ErrCantGetStrategy.WithErr(err)
-	}
-	if strategy.Predicate == "" {
-		return 0, 0, ErrInvalidStrategyPredicate.With("empty predicate")
-	}
 	// create a channel to get the progress of the strategy calculation, if the
 	// census is anonymous, the progress will be divided in two steps, the first
 	// one to calculate the strategy holders and the second one to calculate the
@@ -738,7 +707,7 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(queueID string, strategy
 	}
 	// calculate the strategy holders
 	strategyHolders, _, _, err := capi.CalculateStrategyHolders(internalCtx,
-		strategyID, strategy.Predicate, calculateStrategyProgress)
+		strategy.Predicate, strategy.Tokens, calculateStrategyProgress)
 	if err != nil {
 		return 0, 0, ErrEvalStrategyPredicate.WithErr(err)
 	}
@@ -758,14 +727,6 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(queueID string, strategy
 			// calculate the accuracy of the census and return it with the size
 			accuracyProgress := capi.queue.StepProgressChannel(queueID, 2, 2)
 			_, accuracy, _ = roundedcensus.GroupAndRoundCensus(censusParticipants, roundedcensus.DefaultGroupsConfig, accuracyProgress)
-		}
-		// cache the strategy if the estimated size is greater than the
-		// threshold
-		if size > strategyHoldersCacheThreshold {
-			capi.cache.Add(cacheKey, map[string]any{
-				"size":     size,
-				"accuracy": accuracy,
-			})
 		}
 		// return the size and resulting accuracy
 		return size, accuracy, nil

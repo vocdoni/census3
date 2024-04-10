@@ -1,5 +1,18 @@
 package web3
 
+// This package contains the Web3Pool struct, which is a pool of Web3Endpoint
+// instances. It allows to add, remove and get endpoints, as well as to get the
+// chainID by short name. It also provides an implementation of the
+// bind.ContractBackend interface for a web3 pool with an specific chainID.
+// It allows to interact with the blockchain using the methods provided by the
+// interface balancing the load between the available endpoints in the pool for
+// every chainID.
+// The pool balances the load between the available endpoints in the pool for
+// every chainID, allowing to use the endpoints concurrently and switch between
+// them flagging them as available if they fail to keep the pool healthy. If
+// every endpoint fails for a chainID, the pool resets the available flag for
+// all the endpoints and starts again.
+
 import (
 	"context"
 	"encoding/json"
@@ -30,9 +43,11 @@ type Web3Endpoint struct {
 // It allows to support multiple endpoints for the same chainID and switch
 // between them looking for the available one.
 type Web3Pool struct {
-	mtx      sync.RWMutex
-	networks map[uint64][]*Web3Endpoint
-	metadata []*Web3Endpoint
+	nextAvailable    sync.Map
+	nextAvailableIdx sync.Map
+	endpointsMtx     sync.RWMutex
+	endpoints        map[uint64][]*Web3Endpoint
+	metadata         []*Web3Endpoint
 }
 
 // NewWeb3Pool method returns a new *Web3Pool instance, initialized
@@ -48,7 +63,10 @@ func NewWeb3Pool() (*Web3Pool, error) {
 	if err := json.NewDecoder(res.Body).Decode(&chainsData); err != nil {
 		return nil, fmt.Errorf("error decoding chains information from external source: %v", err)
 	}
-	return &Web3Pool{networks: make(map[uint64][]*Web3Endpoint), metadata: chainsData}, nil
+	return &Web3Pool{
+		endpoints: make(map[uint64][]*Web3Endpoint),
+		metadata:  chainsData,
+	}, nil
 }
 
 // AddEndpoint method adds a new web3 provider URI to the *Web3Pool
@@ -82,19 +100,26 @@ func (nm *Web3Pool) AddEndpoint(uri string) error {
 		return fmt.Errorf("no chain metadata found for chainID %d", chainID)
 	}
 	// add the endpoint to the chain manager
-	nm.mtx.Lock()
-	defer nm.mtx.Unlock()
-	if _, ok := nm.networks[chainID]; !ok {
-		nm.networks[chainID] = []*Web3Endpoint{}
+	nm.endpointsMtx.Lock()
+	defer nm.endpointsMtx.Unlock()
+	if _, ok := nm.endpoints[chainID]; !ok {
+		nm.endpoints[chainID] = []*Web3Endpoint{}
 	}
-	nm.networks[chainID] = append(nm.networks[chainID], &Web3Endpoint{
+	endpoint := &Web3Endpoint{
 		ChainID:   chainID,
 		Name:      name,
 		ShortName: shortName,
 		URI:       uri,
 		client:    client,
 		available: true,
-	})
+	}
+	nm.endpoints[chainID] = append(nm.endpoints[chainID], endpoint)
+	// set the next available endpoint to the last one added if there is no next
+	// available endpoint for the chainID
+	if _, ok := nm.nextAvailable.Load(chainID); !ok {
+		nm.nextAvailable.Store(chainID, endpoint)
+		nm.nextAvailableIdx.Store(chainID, len(nm.endpoints[chainID])-1)
+	}
 	log.Infow("new web3 uri added", "chainID", chainID, "name", name, "shortName", shortName)
 	return nil
 }
@@ -103,16 +128,28 @@ func (nm *Web3Pool) AddEndpoint(uri string) error {
 // instance. It closes the client and removes the endpoint from the list of
 // endpoints for the chainID where it was found.
 func (nm *Web3Pool) DelEndoint(uri string) {
-	nm.mtx.Lock()
-	defer nm.mtx.Unlock()
+	nm.endpointsMtx.Lock()
+	defer nm.endpointsMtx.Unlock()
 	// remove the endpoint from the chain manager when the URI is found, closing
 	// the client and removing the endpoint from the list of endpoints for the
 	// chainID where it was found
-	for chainID, endpoints := range nm.networks {
+	for chainID, endpoints := range nm.endpoints {
 		for i, endpoint := range endpoints {
 			if endpoint.URI == uri {
 				endpoint.client.Close()
-				nm.networks[chainID] = append(endpoints[:i], endpoints[i+1:]...)
+				nm.endpoints[chainID] = append(endpoints[:i], endpoints[i+1:]...)
+				// if the endpoint removed was the next available, update it
+				if next, ok := nm.nextAvailable.Load(chainID); ok && next.(int) == i {
+					// if the endpoint is not the last in the poll, set the next
+					// available to the previous one, otherwise, remove it
+					if i > 0 {
+						nm.nextAvailable.Store(chainID, nm.endpoints[chainID][i-1])
+						nm.nextAvailableIdx.Store(chainID, i-1)
+					} else {
+						nm.nextAvailable.Delete(chainID)
+						nm.nextAvailableIdx.Delete(chainID)
+					}
+				}
 			}
 		}
 	}
@@ -123,32 +160,54 @@ func (nm *Web3Pool) DelEndoint(uri string) {
 // flag to false. If no available endpoint is found, it resets the available
 // flag for all and returns the first one.
 func (nm *Web3Pool) GetEndpoint(chainID uint64) (*Web3Endpoint, bool) {
-	nm.mtx.RLock()
-	defer nm.mtx.RUnlock()
-	// get the endpoints for the chainID provided
-	endpoints, ok := nm.networks[chainID]
+	log.Debugw("endpoint requested", "chainID", chainID)
+	next, ok := nm.nextAvailable.Load(chainID)
 	if !ok {
 		return nil, false
 	}
-	// check if there is an available endpoint and return it if found, after
-	// setting its available flag to false
-	for i, endpoint := range endpoints {
-		if endpoint.available {
-			nm.networks[chainID][i].available = false
-			return endpoint, true
+	endpoint := next.(*Web3Endpoint)
+	nm.endpointsMtx.RLock()
+	defer nm.endpointsMtx.RUnlock()
+	if !endpoint.available {
+		log.Debugw("no available endpoint found, resetting...", "chainID", chainID)
+		// if no available endpoint is found, reset the available flag for all,
+		// reset the next available to the first one and return it
+		for i := range nm.endpoints[chainID] {
+			nm.endpoints[chainID][i].available = true
+		}
+		nm.nextAvailable.Store(chainID, nm.endpoints[chainID][0])
+		return nm.endpoints[chainID][0], true
+	}
+	// if the endpoint is available, set the next available to the next one
+	nextAvailableIdx := 0
+	if idx, ok := nm.nextAvailableIdx.Load(chainID); ok {
+		nextAvailableIdx = idx.(int) + 1
+		if nextAvailableIdx >= len(nm.endpoints[chainID]) {
+			nextAvailableIdx = 0
 		}
 	}
-	// if no available endpoint is found, reset the available flag for all and
-	// return the first one
-	for i := range endpoints {
-		nm.networks[chainID][i].available = true
+	nm.nextAvailable.Store(chainID, nm.endpoints[chainID][nextAvailableIdx])
+	nm.nextAvailableIdx.Store(chainID, nextAvailableIdx)
+	return endpoint, true
+}
+
+// DisableEndpoint method sets the available flag to false for the URI provided
+// in the chainID provided.
+func (nm *Web3Pool) DisableEndpoint(chainID uint64, uri string) {
+	log.Debugw("endpoint disabled", "chainID")
+	nm.endpointsMtx.Lock()
+	defer nm.endpointsMtx.Unlock()
+	for _, endpoint := range nm.endpoints[chainID] {
+		if endpoint.URI == uri {
+			endpoint.available = false
+		}
 	}
-	return endpoints[0], true
 }
 
 // GetClient method returns a new *Client instance for the chainID provided.
 // It returns an error if the endpoint is not found.
 func (nm *Web3Pool) GetClient(chainID uint64) (*Client, error) {
+	log.Debugw("client requested", "chainID", chainID)
 	if _, ok := nm.GetEndpoint(chainID); !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", chainID)
 	}
@@ -158,17 +217,17 @@ func (nm *Web3Pool) GetClient(chainID uint64) (*Client, error) {
 // EndpointByChainID method returns the Web3Endpoint configured for the
 // chainID provided.
 func (nm *Web3Pool) EndpointsByChainID(chainID uint64) ([]*Web3Endpoint, bool) {
-	nm.mtx.RLock()
-	defer nm.mtx.RUnlock()
-	endpoints, ok := nm.networks[chainID]
+	nm.endpointsMtx.RLock()
+	defer nm.endpointsMtx.RUnlock()
+	endpoints, ok := nm.endpoints[chainID]
 	return endpoints, ok
 }
 
 // URIByChainID method returns the URI configured for the chainID provided.
 func (nm *Web3Pool) URIsByChainID(chainID uint64) ([]string, bool) {
-	nm.mtx.RLock()
-	defer nm.mtx.RUnlock()
-	endpoints, ok := nm.networks[chainID]
+	nm.endpointsMtx.RLock()
+	defer nm.endpointsMtx.RUnlock()
+	endpoints, ok := nm.endpoints[chainID]
 	if !ok {
 		return nil, false
 	}
@@ -204,10 +263,10 @@ func (nps *Web3Pool) ChainAddress(chainID uint64, hexAddress string) (string, bo
 
 // String method returns a string representation of the *Web3Pool list.
 func (nm *Web3Pool) String() string {
-	nm.mtx.RLock()
-	defer nm.mtx.RUnlock()
+	nm.endpointsMtx.RLock()
+	defer nm.endpointsMtx.RUnlock()
 	shortNames := map[string]bool{}
-	for _, endpoint := range nm.networks {
+	for _, endpoint := range nm.endpoints {
 		for _, ep := range endpoint {
 			shortNames[ep.ShortName] = true
 		}
@@ -222,10 +281,10 @@ func (nm *Web3Pool) String() string {
 // CurrentBlockNumbers method returns a map of uint64-uint64, where the key is
 // the chainID and the value is the current block number of the network.
 func (nm *Web3Pool) CurrentBlockNumbers(ctx context.Context) (map[uint64]uint64, error) {
-	nm.mtx.RLock()
-	defer nm.mtx.RUnlock()
+	nm.endpointsMtx.RLock()
+	defer nm.endpointsMtx.RUnlock()
 	blockNumbers := make(map[uint64]uint64)
-	for chainID := range nm.networks {
+	for chainID := range nm.endpoints {
 		cli, ok := nm.GetEndpoint(chainID)
 		if !ok {
 			return nil, fmt.Errorf("error getting endpoint for chainID %d", chainID)
@@ -243,10 +302,10 @@ func (nm *Web3Pool) CurrentBlockNumbers(ctx context.Context) (map[uint64]uint64,
 // metadata. It returns the chainID, name and shortName of unique supported
 // chains.
 func (nm *Web3Pool) SupportedNetworks() []*Web3Endpoint {
-	nm.mtx.RLock()
-	defer nm.mtx.RUnlock()
+	nm.endpointsMtx.RLock()
+	defer nm.endpointsMtx.RUnlock()
 	var supported []*Web3Endpoint
-	for _, endpoints := range nm.networks {
+	for _, endpoints := range nm.endpoints {
 		supported = append(supported, &Web3Endpoint{
 			ChainID:   endpoints[0].ChainID,
 			Name:      endpoints[0].Name,
@@ -256,6 +315,9 @@ func (nm *Web3Pool) SupportedNetworks() []*Web3Endpoint {
 	return supported
 }
 
+// connect method returns a new *ethclient.Client instance for the URI provided.
+// It retries to connect to the web3 provider if it fails, up to the
+// DefaultMaxWeb3ClientRetries times.
 func connect(ctx context.Context, uri string) (client *ethclient.Client, err error) {
 	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
 		if client, err = ethclient.DialContext(ctx, uri); err != nil {

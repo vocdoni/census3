@@ -83,7 +83,8 @@ func creationBlockInRange(client *Client, ctx context.Context, addr common.Addre
 	// code at this block
 	midBlock := (start + end) / 2
 	codeLen, err := sourceCodeLenAt(client, ctx, addr, midBlock)
-	if err != nil && !strings.Contains(err.Error(), fmt.Sprintf("No state available for block %d", midBlock)) {
+	if err != nil && !strings.Contains(err.Error(), fmt.Sprintf("No state available for block %d", midBlock)) &&
+		!strings.Contains(err.Error(), "missing trie node") {
 		return 0, err
 	}
 	// if any code is found, keep trying with the lower half of blocks until

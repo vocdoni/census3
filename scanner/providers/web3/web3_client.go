@@ -39,7 +39,10 @@ func (c *Client) CodeAt(ctx context.Context, account common.Address, blockNumber
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.CodeAt(ctx, account, blockNumber)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.CodeAt(ctx, account, blockNumber)
+	c.checkErr(err)
+	return res, err
 }
 
 // CallContract method wraps the CallContract method from the ethclient.Client
@@ -51,7 +54,10 @@ func (c *Client) CallContract(ctx context.Context, call ethereum.CallMsg, blockN
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.CallContract(ctx, call, blockNumber)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.CallContract(ctx, call, blockNumber)
+	c.checkErr(err)
+	return res, err
 }
 
 // EstimateGas method wraps the EstimateGas method from the ethclient.Client for
@@ -63,7 +69,10 @@ func (c *Client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 	if !ok {
 		return 0, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.EstimateGas(ctx, msg)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.EstimateGas(ctx, msg)
+	c.checkErr(err)
+	return res, err
 }
 
 // FilterLogs method wraps the FilterLogs method from the ethclient.Client for
@@ -75,7 +84,10 @@ func (c *Client) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.FilterLogs(ctx, query)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.FilterLogs(ctx, query)
+	c.checkErr(err)
+	return res, err
 }
 
 // HeaderByNumber method wraps the HeaderByNumber method from the ethclient.Client
@@ -87,7 +99,10 @@ func (c *Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.He
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.HeaderByNumber(ctx, number)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.HeaderByNumber(ctx, number)
+	c.checkErr(err)
+	return res, err
 }
 
 // PendingNonceAt method wraps the PendingNonceAt method from the
@@ -99,7 +114,10 @@ func (c *Client) PendingNonceAt(ctx context.Context, account common.Address) (ui
 	if !ok {
 		return 0, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.PendingNonceAt(ctx, account)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.PendingNonceAt(ctx, account)
+	c.checkErr(err)
+	return res, err
 }
 
 // SuggestGasPrice method wraps the SuggestGasPrice method from the
@@ -111,7 +129,10 @@ func (c *Client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.SuggestGasPrice(ctx)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.SuggestGasPrice(ctx)
+	c.checkErr(err)
+	return res, err
 }
 
 // SendTransaction method wraps the SendTransaction method from the ethclient.Client
@@ -123,7 +144,10 @@ func (c *Client) SendTransaction(ctx context.Context, tx *types.Transaction) err
 	if !ok {
 		return fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.SendTransaction(ctx, tx)
+	// check if the method fails, if it does, disable the endpoint
+	err := endpoint.client.SendTransaction(ctx, tx)
+	c.checkErr(err)
+	return err
 }
 
 // PendingCodeAt method wraps the PendingCodeAt method from the ethclient.Client
@@ -135,7 +159,10 @@ func (c *Client) PendingCodeAt(ctx context.Context, account common.Address) ([]b
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.PendingCodeAt(ctx, account)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.PendingCodeAt(ctx, account)
+	c.checkErr(err)
+	return res, err
 }
 
 // SubscribeFilterLogs method wraps the SubscribeFilterLogs method from the
@@ -149,7 +176,10 @@ func (c *Client) SubscribeFilterLogs(ctx context.Context,
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.SubscribeFilterLogs(ctx, query, ch)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.SubscribeFilterLogs(ctx, query, ch)
+	c.checkErr(err)
+	return res, err
 }
 
 // SuggestGasTipCap method wraps the SuggestGasTipCap method from the
@@ -161,7 +191,10 @@ func (c *Client) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.SuggestGasTipCap(ctx)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.SuggestGasTipCap(ctx)
+	c.checkErr(err)
+	return res, err
 }
 
 // BalanceAt method wraps the BalanceAt method from the ethclient.Client for the
@@ -173,7 +206,10 @@ func (c *Client) BalanceAt(ctx context.Context, account common.Address, blockNum
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.BalanceAt(ctx, account, blockNumber)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.BalanceAt(ctx, account, blockNumber)
+	c.checkErr(err)
+	return res, err
 }
 
 // BlockNumber method wraps the BlockNumber method from the ethclient.Client for
@@ -185,5 +221,15 @@ func (c *Client) BlockNumber(ctx context.Context) (uint64, error) {
 	if !ok {
 		return 0, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
-	return endpoint.client.BlockNumber(ctx)
+	// check if the method fails, if it does, disable the endpoint
+	res, err := endpoint.client.BlockNumber(ctx)
+	c.checkErr(err)
+	return res, err
+}
+
+// checkErr method disables the endpoint if the error is not nil.
+func (c *Client) checkErr(err error) {
+	if err != nil {
+		c.w3p.DisableEndpoint(c.chainID, "")
+	}
 }

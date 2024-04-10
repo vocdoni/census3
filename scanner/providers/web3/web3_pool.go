@@ -21,7 +21,6 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"go.vocdoni.io/dvote/log"
 )
 
 // Web3Endpoint struct contains all the required information about a web3
@@ -33,7 +32,6 @@ type Web3Endpoint struct {
 	ShortName string `json:"shortName"`
 	URI       string
 	client    *ethclient.Client
-	available bool
 }
 
 // Web3Pool struct contains a map of chainID-[]*Web3Endpoint, where
@@ -43,11 +41,11 @@ type Web3Endpoint struct {
 // It allows to support multiple endpoints for the same chainID and switch
 // between them looking for the available one.
 type Web3Pool struct {
-	nextAvailable    sync.Map
-	nextAvailableIdx sync.Map
-	endpointsMtx     sync.RWMutex
-	endpoints        map[uint64][]*Web3Endpoint
-	metadata         []*Web3Endpoint
+	nextAvailable sync.Map // chainID-int
+	unavailable   sync.Map // chainID-[]int
+	endpointsMtx  sync.RWMutex
+	endpoints     map[uint64][]*Web3Endpoint
+	metadata      []*Web3Endpoint
 }
 
 // NewWeb3Pool method returns a new *Web3Pool instance, initialized
@@ -102,25 +100,22 @@ func (nm *Web3Pool) AddEndpoint(uri string) error {
 	// add the endpoint to the chain manager
 	nm.endpointsMtx.Lock()
 	defer nm.endpointsMtx.Unlock()
-	if _, ok := nm.endpoints[chainID]; !ok {
-		nm.endpoints[chainID] = []*Web3Endpoint{}
-	}
 	endpoint := &Web3Endpoint{
 		ChainID:   chainID,
 		Name:      name,
 		ShortName: shortName,
 		URI:       uri,
 		client:    client,
-		available: true,
+	}
+	if _, ok := nm.endpoints[chainID]; !ok {
+		nm.endpoints[chainID] = []*Web3Endpoint{}
 	}
 	nm.endpoints[chainID] = append(nm.endpoints[chainID], endpoint)
 	// set the next available endpoint to the last one added if there is no next
 	// available endpoint for the chainID
 	if _, ok := nm.nextAvailable.Load(chainID); !ok {
-		nm.nextAvailable.Store(chainID, endpoint)
-		nm.nextAvailableIdx.Store(chainID, len(nm.endpoints[chainID])-1)
+		nm.nextAvailable.Store(chainID, len(nm.endpoints[chainID])-1)
 	}
-	log.Infow("new web3 uri added", "chainID", chainID, "name", name, "shortName", shortName)
 	return nil
 }
 
@@ -143,11 +138,9 @@ func (nm *Web3Pool) DelEndoint(uri string) {
 					// if the endpoint is not the last in the poll, set the next
 					// available to the previous one, otherwise, remove it
 					if i > 0 {
-						nm.nextAvailable.Store(chainID, nm.endpoints[chainID][i-1])
-						nm.nextAvailableIdx.Store(chainID, i-1)
+						nm.nextAvailable.Store(chainID, i-1)
 					} else {
 						nm.nextAvailable.Delete(chainID)
-						nm.nextAvailableIdx.Delete(chainID)
 					}
 				}
 			}
@@ -156,47 +149,98 @@ func (nm *Web3Pool) DelEndoint(uri string) {
 }
 
 // GetEndpoint method returns the Web3Endpoint configured for the chainID
-// provided. It returns the first available endpoint and sets its available
-// flag to false. If no available endpoint is found, it resets the available
-// flag for all and returns the first one.
+// provided. It returns the first available endpoint. If no available endpoint
+// is found, it resets the available flag for all, resets the next available to
+// the first one and returns it.
 func (nm *Web3Pool) GetEndpoint(chainID uint64) (*Web3Endpoint, bool) {
+	nm.endpointsMtx.RLock()
+	defer nm.endpointsMtx.RUnlock()
 	next, ok := nm.nextAvailable.Load(chainID)
+	if !ok {
+		if _, ok := nm.endpoints[chainID]; !ok {
+			return nil, false
+		}
+		endpoint := nm.endpoints[chainID][0]
+		if endpoint == nil {
+			return nil, false
+		}
+		// if no available endpoint is found, set all the endpoints as available
+		// and return the first one
+		nm.unavailable.Delete(chainID)
+		nm.nextAvailable.Store(chainID, 0)
+		return nm.endpoints[chainID][0], true
+	}
+	endpointIdx, ok := next.(int)
 	if !ok {
 		return nil, false
 	}
-	endpoint := next.(*Web3Endpoint)
-	nm.endpointsMtx.RLock()
-	defer nm.endpointsMtx.RUnlock()
-	if !endpoint.available {
-		// if no available endpoint is found, reset the available flag for all,
-		// reset the next available to the first one and return it
-		for i := range nm.endpoints[chainID] {
-			nm.endpoints[chainID][i].available = true
-		}
-		nm.nextAvailable.Store(chainID, nm.endpoints[chainID][0])
-		return nm.endpoints[chainID][0], true
+	// use the next available endpoint with the following endpoint for chainID
+	// if there are no more endpoints, use the first one as the next available
+	if _, ok := nm.endpoints[chainID]; !ok {
+		nm.nextAvailable.Delete(chainID)
+		return nil, false
+	}
+	endpoint := nm.endpoints[chainID][endpointIdx]
+	if endpoint == nil {
+		nm.nextAvailable.Delete(chainID)
+		return nil, false
 	}
 	// if the endpoint is available, set the next available to the next one
-	nextAvailableIdx := 0
-	if idx, ok := nm.nextAvailableIdx.Load(chainID); ok {
-		nextAvailableIdx = idx.(int) + 1
-		if nextAvailableIdx >= len(nm.endpoints[chainID]) {
-			nextAvailableIdx = 0
+	nextAvailable := endpointIdx + 1
+	if nextAvailable >= len(nm.endpoints[chainID]) {
+		nextAvailable = 0
+	}
+	nm.nextAvailable.Store(chainID, nextAvailable)
+	// if the endpoint is not available, return call the method again to get the
+	// next available endpoint
+	if unavailable, ok := nm.unavailable.Load(chainID); ok {
+		for _, unavailableIdx := range unavailable.([]int) {
+			if unavailableIdx == endpointIdx {
+				return nm.GetEndpoint(chainID)
+			}
 		}
 	}
-	nm.nextAvailable.Store(chainID, nm.endpoints[chainID][nextAvailableIdx])
-	nm.nextAvailableIdx.Store(chainID, nextAvailableIdx)
+	// if it is available, return it
 	return endpoint, true
 }
 
 // DisableEndpoint method sets the available flag to false for the URI provided
 // in the chainID provided.
 func (nm *Web3Pool) DisableEndpoint(chainID uint64, uri string) {
-	nm.endpointsMtx.Lock()
-	defer nm.endpointsMtx.Unlock()
-	for _, endpoint := range nm.endpoints[chainID] {
+	nm.endpointsMtx.RLock()
+	defer nm.endpointsMtx.RUnlock()
+	// get the chain endpoints
+	chainEndpoints, ok := nm.endpoints[chainID]
+	if !ok {
+		return
+	}
+	// check if the endpoint is already unavailable
+	if unavailable, ok := nm.unavailable.Load(chainID); ok {
+		for _, unavailableIdx := range unavailable.([]int) {
+			if chainEndpoints[unavailableIdx].URI == uri {
+				return
+			}
+		}
+	}
+	// set the endpoint as unavailable
+	for i, endpoint := range chainEndpoints {
 		if endpoint.URI == uri {
-			endpoint.available = false
+			if unavailable, ok := nm.unavailable.Load(chainID); !ok {
+				nm.unavailable.Store(chainID, []int{i})
+			} else {
+				nm.unavailable.Store(chainID, append(unavailable.([]int), i))
+			}
+			if next, ok := nm.nextAvailable.Load(chainID); ok && next.(int) == i {
+				// if the endpoint will be the next available and it is the last
+				// one, set the next available to the previous one, if there is
+				// no previous one, remove it
+				if i > 0 {
+					nm.nextAvailable.Store(chainID, i-1)
+				} else {
+					nm.nextAvailable.Delete(chainID)
+				}
+				continue
+			}
 		}
 	}
 }
@@ -317,7 +361,6 @@ func (nm *Web3Pool) SupportedNetworks() []*Web3Endpoint {
 func connect(ctx context.Context, uri string) (client *ethclient.Client, err error) {
 	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
 		if client, err = ethclient.DialContext(ctx, uri); err != nil {
-			log.Warnf("error dialing web3 provider, retrying... %v", err)
 			continue
 		}
 		return

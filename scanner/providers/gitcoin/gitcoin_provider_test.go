@@ -14,12 +14,12 @@ import (
 
 var (
 	expectedOriginalHolders = map[string]string{
-		"0x85ff01cff157199527528788ec4ea6336615c989": "22",
-		"0x7587cfbd20e5a970209526b4d1f69dbaae8bed37": "24",
-		"0x7bec70fa7ef926878858333b0fa581418e2ef0b5": "22",
+		"0x85ff01cff157199527528788ec4ea6336615c989": "2244",
+		"0x7587cfbd20e5a970209526b4d1f69dbaae8bed37": "2458",
+		"0x7bec70fa7ef926878858333b0fa581418e2ef0b5": "2289",
 	}
 	expectedUpdatedHolders = map[string]string{
-		"0x85ff01cff157199527528788ec4ea6336615c989": "-2",
+		"0x85ff01cff157199527528788ec4ea6336615c989": "-200",
 	}
 )
 

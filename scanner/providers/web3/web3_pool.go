@@ -160,7 +160,6 @@ func (nm *Web3Pool) DelEndoint(uri string) {
 // flag to false. If no available endpoint is found, it resets the available
 // flag for all and returns the first one.
 func (nm *Web3Pool) GetEndpoint(chainID uint64) (*Web3Endpoint, bool) {
-	log.Debugw("endpoint requested", "chainID", chainID)
 	next, ok := nm.nextAvailable.Load(chainID)
 	if !ok {
 		return nil, false
@@ -169,7 +168,6 @@ func (nm *Web3Pool) GetEndpoint(chainID uint64) (*Web3Endpoint, bool) {
 	nm.endpointsMtx.RLock()
 	defer nm.endpointsMtx.RUnlock()
 	if !endpoint.available {
-		log.Debugw("no available endpoint found, resetting...", "chainID", chainID)
 		// if no available endpoint is found, reset the available flag for all,
 		// reset the next available to the first one and return it
 		for i := range nm.endpoints[chainID] {
@@ -194,7 +192,6 @@ func (nm *Web3Pool) GetEndpoint(chainID uint64) (*Web3Endpoint, bool) {
 // DisableEndpoint method sets the available flag to false for the URI provided
 // in the chainID provided.
 func (nm *Web3Pool) DisableEndpoint(chainID uint64, uri string) {
-	log.Debugw("endpoint disabled", "chainID")
 	nm.endpointsMtx.Lock()
 	defer nm.endpointsMtx.Unlock()
 	for _, endpoint := range nm.endpoints[chainID] {
@@ -207,7 +204,6 @@ func (nm *Web3Pool) DisableEndpoint(chainID uint64, uri string) {
 // GetClient method returns a new *Client instance for the chainID provided.
 // It returns an error if the endpoint is not found.
 func (nm *Web3Pool) GetClient(chainID uint64) (*Client, error) {
-	log.Debugw("client requested", "chainID", chainID)
 	if _, ok := nm.GetEndpoint(chainID); !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", chainID)
 	}

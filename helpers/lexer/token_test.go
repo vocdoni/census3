@@ -28,7 +28,7 @@ func TestToken(t *testing.T) {
 		tl := NewLiteralToken("test")
 		c.Assert(tl.Type, qt.Equals, TokenTypeLiteral)
 		c.Assert(tl.IsLiteral(), qt.IsTrue)
-		c.Assert(tl.String(), qt.Equals, "'test'")
+		c.Assert(tl.String(), qt.Equals, "test")
 	})
 
 	c.Run("new group token", func(c *qt.C) {
@@ -42,7 +42,7 @@ func TestToken(t *testing.T) {
 		tg.Childs.Operator = testOperatorAND
 		c.Assert(tg.Childs.AddToken(NewLiteralToken("ETH")), qt.IsNil)
 		c.Assert(tg.Childs.AddToken(NewLiteralToken("BTC")), qt.IsNil)
-		c.Assert(tg.String(), qt.Equals, "('ETH' AND 'BTC')")
+		c.Assert(tg.String(), qt.Equals, "(ETH AND BTC)")
 		c.Assert(tg.Childs.Complete(), qt.IsTrue)
 		// full group
 		c.Assert(tg.Childs.AddToken(NewLiteralToken("BTC")), qt.IsNotNil)

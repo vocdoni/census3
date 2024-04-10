@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/lexer"
 	"github.com/vocdoni/census3/helpers/strategyoperators"
 	"github.com/vocdoni/census3/scanner/providers/web3"
@@ -233,7 +234,7 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 // uses the database queries to get the token holders and their balances, and
 // combines them.
 func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
-	strategyID uint64, predicate string, progressCh chan float64,
+	predicate string, tokens map[string]*StrategyToken, progressCh chan float64,
 ) (map[common.Address]*big.Int, *big.Int, uint64, error) {
 	// TODO: write a benchmark and try to optimize this function
 
@@ -246,29 +247,39 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	// get strategy tokens from the database
-	strategyTokens, err := capi.db.QueriesRO.TokensByStrategyID(ctx, strategyID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil, 0, err
-		}
-		return nil, nil, 0, err
-	}
 	// any census strategy is identified by id created from the concatenation of
 	// the block number, the strategy id and the anonymous flag. The creation of
 	// censuses on specific block is not supported yet, so we need to get the
 	// last block of every token chain id to sum them and get the total block
 	// number, used to create the census id.
 	totalTokensBlockNumber := uint64(0)
-	for _, token := range strategyTokens {
+	// init token information to get the token holders if the predicate is not a
+	// literal, and to get the latest block number of every token chain id
+	tokensInfo := map[string]*strategyoperators.TokenInformation{}
+	for _, t := range tokens {
+		token, err := capi.db.QueriesRO.GetToken(ctx, queries.GetTokenParams{
+			ID:         common.HexToAddress(t.ID).Bytes(),
+			ChainID:    t.ChainID,
+			ExternalID: t.ExternalID,
+		})
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		tokensInfo[token.Symbol] = &strategyoperators.TokenInformation{
+			ID:         common.BytesToAddress(token.ID).String(),
+			ChainID:    token.ChainID,
+			MinBalance: t.MinBalance,
+			Decimals:   token.Decimals,
+			ExternalID: token.ExternalID,
+		}
 		provider, exists := capi.holderProviders[token.TypeID]
 		if !exists {
 			return nil, nil, 0, fmt.Errorf("provider not found for token type id %d", token.TypeID)
 		}
 		if !provider.IsExternal() {
 			if err := provider.SetRef(web3.Web3ProviderRef{
-				HexAddress: common.Bytes2Hex(token.ID),
-				ChainID:    token.ChainID,
+				HexAddress: t.ID,
+				ChainID:    t.ChainID,
 			}); err != nil {
 				return nil, nil, 0, err
 			}
@@ -282,8 +293,15 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 	// if the current predicate is a literal, just query about its holders. If
 	// it is a complex predicate, create a evaluator and evaluate the predicate
 	if validPredicate.IsLiteral() {
+		token := tokens[validPredicate.String()]
 		// get the strategy holders from the database
-		holders, err := capi.db.QueriesRO.TokenHoldersByStrategyID(ctx, strategyID)
+		holders, err := capi.db.QueriesRO.TokenHoldersByMinBalance(ctx,
+			queries.TokenHoldersByMinBalanceParams{
+				TokenID:    common.HexToAddress(token.ID).Bytes(),
+				ChainID:    token.ChainID,
+				Balance:    token.MinBalance,
+				ExternalID: token.ExternalID,
+			})
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil, totalTokensBlockNumber, nil
@@ -303,17 +321,6 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 			}
 		}
 	} else {
-		// parse token information
-		tokensInfo := map[string]*strategyoperators.TokenInformation{}
-		for _, token := range strategyTokens {
-			tokensInfo[token.Symbol] = &strategyoperators.TokenInformation{
-				ID:         common.BytesToAddress(token.ID).String(),
-				ChainID:    token.ChainID,
-				MinBalance: token.MinBalance,
-				Decimals:   token.Decimals,
-				ExternalID: token.ExternalID,
-			}
-		}
 		// init the operators and the predicate evaluator
 		operators := strategyoperators.InitOperators(capi.conf.MainCtx, capi.db.QueriesRO, tokensInfo)
 		eval := lexer.NewEval[*strategyoperators.StrategyIteration](operators.Map())

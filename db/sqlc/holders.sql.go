@@ -497,6 +497,55 @@ func (q *Queries) PrevStrategyTokenHoldersPage(ctx context.Context, arg PrevStra
 	return items, nil
 }
 
+const tokenHoldersByMinBalance = `-- name: TokenHoldersByMinBalance :many
+SELECT token_holders.holder_id, token_holders.balance
+FROM token_holders
+WHERE token_holders.token_id = ? 
+    AND token_holders.chain_id = ?
+    AND token_holders.external_id = ?
+    AND token_holders.balance >= ?
+`
+
+type TokenHoldersByMinBalanceParams struct {
+	TokenID    annotations.Address
+	ChainID    uint64
+	ExternalID string
+	Balance    string
+}
+
+type TokenHoldersByMinBalanceRow struct {
+	HolderID annotations.Address
+	Balance  string
+}
+
+func (q *Queries) TokenHoldersByMinBalance(ctx context.Context, arg TokenHoldersByMinBalanceParams) ([]TokenHoldersByMinBalanceRow, error) {
+	rows, err := q.db.QueryContext(ctx, tokenHoldersByMinBalance,
+		arg.TokenID,
+		arg.ChainID,
+		arg.ExternalID,
+		arg.Balance,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TokenHoldersByMinBalanceRow
+	for rows.Next() {
+		var i TokenHoldersByMinBalanceRow
+		if err := rows.Scan(&i.HolderID, &i.Balance); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const tokenHoldersByStrategyID = `-- name: TokenHoldersByStrategyID :many
 SELECT token_holders.holder_id, token_holders.balance, strategy_tokens.min_balance
 FROM token_holders
@@ -524,55 +573,6 @@ func (q *Queries) TokenHoldersByStrategyID(ctx context.Context, strategyID uint6
 	for rows.Next() {
 		var i TokenHoldersByStrategyIDRow
 		if err := rows.Scan(&i.HolderID, &i.Balance, &i.MinBalance); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const tokenHoldersByTokenIDAndChainIDAndMinBalance = `-- name: TokenHoldersByTokenIDAndChainIDAndMinBalance :many
-SELECT token_holders.holder_id, token_holders.balance
-FROM token_holders
-WHERE token_holders.token_id = ? 
-    AND token_holders.chain_id = ?
-    AND token_holders.external_id = ?
-    AND token_holders.balance >= ?
-`
-
-type TokenHoldersByTokenIDAndChainIDAndMinBalanceParams struct {
-	TokenID    annotations.Address
-	ChainID    uint64
-	ExternalID string
-	Balance    string
-}
-
-type TokenHoldersByTokenIDAndChainIDAndMinBalanceRow struct {
-	HolderID annotations.Address
-	Balance  string
-}
-
-func (q *Queries) TokenHoldersByTokenIDAndChainIDAndMinBalance(ctx context.Context, arg TokenHoldersByTokenIDAndChainIDAndMinBalanceParams) ([]TokenHoldersByTokenIDAndChainIDAndMinBalanceRow, error) {
-	rows, err := q.db.QueryContext(ctx, tokenHoldersByTokenIDAndChainIDAndMinBalance,
-		arg.TokenID,
-		arg.ChainID,
-		arg.ExternalID,
-		arg.Balance,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []TokenHoldersByTokenIDAndChainIDAndMinBalanceRow
-	for rows.Next() {
-		var i TokenHoldersByTokenIDAndChainIDAndMinBalanceRow
-		if err := rows.Scan(&i.HolderID, &i.Balance); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -1,7 +1,6 @@
 package gitcoin
 
 import (
-	"math"
 	"math/big"
 	"strconv"
 	"time"
@@ -82,9 +81,9 @@ func parseScore(input any) *big.Int {
 	default:
 		return nil
 	}
-	// truncate the score to the nearest integer and return it as a big.Int
-	if biScore := big.NewInt(int64(math.Trunc(fScore))); biScore.Cmp(big.NewInt(0)) == 1 {
-		return biScore
-	}
-	return nil
+	bScore := new(big.Float).SetFloat64(fScore)
+	bScore.Mul(bScore, big.NewFloat(decimalsFactor))
+	res := new(big.Int)
+	bScore.Int(res)
+	return res
 }

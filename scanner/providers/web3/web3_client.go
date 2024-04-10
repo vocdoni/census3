@@ -4,11 +4,17 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+)
+
+var (
+	defaultTimeout    = 2 * time.Second
+	filterLogsTimeout = 3 * time.Second
 )
 
 // Client struct implements bind.ContractBackend interface for a web3 pool with
@@ -39,9 +45,11 @@ func (c *Client) CodeAt(ctx context.Context, account common.Address, blockNumber
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.CodeAt(ctx, account, blockNumber)
-	c.checkErr(err)
+	res, err := endpoint.client.CodeAt(internalCtx, account, blockNumber)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -54,9 +62,11 @@ func (c *Client) CallContract(ctx context.Context, call ethereum.CallMsg, blockN
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.CallContract(ctx, call, blockNumber)
-	c.checkErr(err)
+	res, err := endpoint.client.CallContract(internalCtx, call, blockNumber)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -69,9 +79,11 @@ func (c *Client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 	if !ok {
 		return 0, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.EstimateGas(ctx, msg)
-	c.checkErr(err)
+	res, err := endpoint.client.EstimateGas(internalCtx, msg)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -84,9 +96,11 @@ func (c *Client) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, filterLogsTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.FilterLogs(ctx, query)
-	c.checkErr(err)
+	res, err := endpoint.client.FilterLogs(internalCtx, query)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -99,9 +113,11 @@ func (c *Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.He
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.HeaderByNumber(ctx, number)
-	c.checkErr(err)
+	res, err := endpoint.client.HeaderByNumber(internalCtx, number)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -114,9 +130,11 @@ func (c *Client) PendingNonceAt(ctx context.Context, account common.Address) (ui
 	if !ok {
 		return 0, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.PendingNonceAt(ctx, account)
-	c.checkErr(err)
+	res, err := endpoint.client.PendingNonceAt(internalCtx, account)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -129,9 +147,11 @@ func (c *Client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.SuggestGasPrice(ctx)
-	c.checkErr(err)
+	res, err := endpoint.client.SuggestGasPrice(internalCtx)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -144,9 +164,11 @@ func (c *Client) SendTransaction(ctx context.Context, tx *types.Transaction) err
 	if !ok {
 		return fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	err := endpoint.client.SendTransaction(ctx, tx)
-	c.checkErr(err)
+	err := endpoint.client.SendTransaction(internalCtx, tx)
+	c.checkErr(err, endpoint.URI)
 	return err
 }
 
@@ -159,9 +181,11 @@ func (c *Client) PendingCodeAt(ctx context.Context, account common.Address) ([]b
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.PendingCodeAt(ctx, account)
-	c.checkErr(err)
+	res, err := endpoint.client.PendingCodeAt(internalCtx, account)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -176,9 +200,11 @@ func (c *Client) SubscribeFilterLogs(ctx context.Context,
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.SubscribeFilterLogs(ctx, query, ch)
-	c.checkErr(err)
+	res, err := endpoint.client.SubscribeFilterLogs(internalCtx, query, ch)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -191,9 +217,11 @@ func (c *Client) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.SuggestGasTipCap(ctx)
-	c.checkErr(err)
+	res, err := endpoint.client.SuggestGasTipCap(internalCtx)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -206,9 +234,11 @@ func (c *Client) BalanceAt(ctx context.Context, account common.Address, blockNum
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.BalanceAt(ctx, account, blockNumber)
-	c.checkErr(err)
+	res, err := endpoint.client.BalanceAt(internalCtx, account, blockNumber)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
@@ -221,15 +251,17 @@ func (c *Client) BlockNumber(ctx context.Context) (uint64, error) {
 	if !ok {
 		return 0, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
+	internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
 	// check if the method fails, if it does, disable the endpoint
-	res, err := endpoint.client.BlockNumber(ctx)
-	c.checkErr(err)
+	res, err := endpoint.client.BlockNumber(internalCtx)
+	c.checkErr(err, endpoint.URI)
 	return res, err
 }
 
 // checkErr method disables the endpoint if the error is not nil.
-func (c *Client) checkErr(err error) {
+func (c *Client) checkErr(err error, uri string) {
 	if err != nil {
-		c.w3p.DisableEndpoint(c.chainID, "")
+		c.w3p.DisableEndpoint(c.chainID, uri)
 	}
 }

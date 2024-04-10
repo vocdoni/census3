@@ -530,7 +530,7 @@ Enqueue the estimation of size and time (in milliseconds) to create the census g
 | 400 | `the predicate provided is not valid` | 4015 | 
 | 500 | `error encoding strategy info` | 5015 | 
 
-### GET `/strategies/{strategyID}/estimation/queue/{queueID}`
+### GET `/strategies/estimation/queue/{queueID}`
 Returns the estimation of size and time (in milliseconds) to create the census generated for the strategy related to the queue ID.
 
 - 📥 response:

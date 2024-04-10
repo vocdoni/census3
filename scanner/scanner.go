@@ -140,6 +140,10 @@ func (s *Scanner) Start(ctx context.Context) {
 				holders, newTransfers, lastBlock, synced, totalSupply, err := s.ScanHolders(ctx, token)
 				if err != nil {
 					atSyncGlobal = false
+					if errors.Is(err, context.Canceled) {
+						log.Info("scanner context cancelled, shutting down")
+						return
+					}
 					log.Error(err)
 					continue
 				}

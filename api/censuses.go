@@ -138,10 +138,23 @@ func (capi *census3API) createAndPublishCensus(req *Census, qID string) (uint64,
 	if strategy.Predicate == "" {
 		return 0, ErrInvalidStrategyPredicate.With("empty predicate")
 	}
+	strategyTokens, err := qtx.StrategyTokens(internalCtx, req.StrategyID)
+	if err != nil {
+		return 0, ErrCantCreateCensus.WithErr(err)
+	}
+	strategyTokensBySymbol := map[string]*StrategyToken{}
+	for _, token := range strategyTokens {
+		strategyTokensBySymbol[token.Symbol] = &StrategyToken{
+			ID:         common.BytesToAddress(token.TokenID).String(),
+			ChainID:    token.ChainID,
+			ExternalID: token.ExternalID,
+			MinBalance: token.MinBalance,
+		}
+	}
 	// init some variables to get computed in the following steps
 	calculateStrategyProgress := capi.queue.StepProgressChannel(qID, 1, 3)
 	strategyHolders, censusWeight, totalTokensBlockNumber, err := capi.CalculateStrategyHolders(
-		internalCtx, req.StrategyID, strategy.Predicate, calculateStrategyProgress)
+		internalCtx, strategy.Predicate, strategyTokensBySymbol, calculateStrategyProgress)
 	if err != nil {
 		return 0, ErrEvalStrategyPredicate.WithErr(err)
 	}

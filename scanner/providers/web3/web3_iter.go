@@ -3,7 +3,6 @@ package web3
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 )
@@ -23,7 +22,7 @@ type Web3Endpoint struct {
 // available endpoint in a round-robin fashion. It also allows to disable an
 // endpoint if it fails. It allows to manage multiple endpoints safely.
 type Web3Iterator struct {
-	nextIndex atomic.Uint32
+	nextIndex int
 	available []*Web3Endpoint
 	disabled  []*Web3Endpoint
 	mtx       sync.Mutex
@@ -42,42 +41,34 @@ func NewWeb3Iterator(endpoints ...*Web3Endpoint) *Web3Iterator {
 
 // Add adds a new endpoint to the pool, making it available for the next
 // requests.
-func (w3pp *Web3Iterator) Add(endpoint *Web3Endpoint) {
+func (w3pp *Web3Iterator) Add(endpoint ...*Web3Endpoint) {
 	w3pp.mtx.Lock()
 	defer w3pp.mtx.Unlock()
-	w3pp.available = append(w3pp.available, endpoint)
+	w3pp.available = append(w3pp.available, endpoint...)
 }
 
 // Next returns the next available endpoint in a round-robin fashion. If
-// there are no endpoints, it will return an error. If there are no available
-// endpoints, it will reset the disabled endpoints and return the first
-// available endpoint.
+// there are no registered endpoints, it will return an error. If there are no
+// available endpoints, it will reset the disabled endpoints and return the
+// first available endpoint.
 func (w3pp *Web3Iterator) Next() (*Web3Endpoint, error) {
 	w3pp.mtx.Lock()
 	defer w3pp.mtx.Unlock()
-	l := uint32(len(w3pp.available))
+	l := len(w3pp.available)
 	if l == 0 {
-		return nil, fmt.Errorf("no available endpoints")
+		return nil, fmt.Errorf("no registered endpoints")
 	}
-	// get the current next index and endpoint
-	currentIndex := w3pp.nextIndex.Load()
-	if currentIndex >= l {
-		// if the current index is out of bounds, reset it to the first one
-		currentIndex = 0
-	}
-	currentEndpoint := w3pp.available[currentIndex]
-	if currentEndpoint == nil {
-		// if the current endpoint is nil, reset the index and get the first one
-		currentIndex = 0
-		currentEndpoint = w3pp.available[0]
-	}
+	// get the current endpoint. the next index can not be invalid at this
+	// point because the available list not empty, the next index is always a
+	// valid index since it is updated when an endpoint is disabled or when the
+	// resulting endpoint is resolved, so the endpoint can not be nil
+	currentEndpoint := w3pp.available[w3pp.nextIndex]
 	// calculate the following next endpoint index based on the current one
-	nextIndex := currentIndex + 1
-	if nextIndex >= l {
-		nextIndex = 0
+	if w3pp.nextIndex++; w3pp.nextIndex >= l {
+		// if the next index is out of bounds, reset it to the first one
+		w3pp.nextIndex = 0
 	}
 	// update the next index and return the current endpoint
-	w3pp.nextIndex.Store(nextIndex)
 	return currentEndpoint, nil
 }
 
@@ -86,19 +77,32 @@ func (w3pp *Web3Iterator) Next() (*Web3Endpoint, error) {
 func (w3pp *Web3Iterator) Disable(uri string) {
 	w3pp.mtx.Lock()
 	defer w3pp.mtx.Unlock()
-	// remove the endpoint from the available list
+	// get the index of the endpoint to disable
+	var index int
 	for i, e := range w3pp.available {
 		if e.URI == uri {
-			w3pp.available = append(w3pp.available[:i], w3pp.available[i+1:]...)
-			w3pp.disabled = append(w3pp.disabled, e)
+			index = i
+			break
 		}
+	}
+	// get the endpoint to disable and move it to the disabled list
+	disabledEndpoint := w3pp.available[index]
+	w3pp.available = append(w3pp.available[:index], w3pp.available[index+1:]...)
+	w3pp.disabled = append(w3pp.disabled, disabledEndpoint)
+	// if the next index is the one to disable, update it to the next one
+	if w3pp.nextIndex == index {
+		w3pp.nextIndex++
 	}
 	// if there are no available endpoints, reset all the disabled ones to
 	// available ones and reset the next index to the first one
 	if l := len(w3pp.available); l == 0 {
 		// reset the next index and move the disabled endpoints to the available
-		w3pp.nextIndex.Store(0)
+		w3pp.nextIndex = 0
 		w3pp.available = append(w3pp.available, w3pp.disabled...)
 		w3pp.disabled = make([]*Web3Endpoint, 0)
+	}
+	// if the next index is out of bounds, reset it to the first one
+	if w3pp.nextIndex >= len(w3pp.available) {
+		w3pp.nextIndex = 0
 	}
 }

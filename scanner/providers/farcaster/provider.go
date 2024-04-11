@@ -106,14 +106,9 @@ func (p *FarcasterProvider) Init(iconf any) error {
 	}
 	p.contracts.lastBlock.Store(uint64(lastBlock))
 	// init the web3 client and contracts
-	currentEndpoint, exists := p.endpoints.EndpointByChainID(ChainID)
-	if !exists {
-		return errors.New("endpoint not found for the given chainID")
-	}
-	// connect to the endpoint and set the client
-	p.client, err = currentEndpoint.GetClient(web3.DefaultMaxWeb3ClientRetries)
+	p.client, err = p.endpoints.Client(ChainID)
 	if err != nil {
-		return errors.Join(web3.ErrConnectingToWeb3Client, fmt.Errorf("[FARCASTER]: %w", err))
+		return errors.Join(web3.ErrConnectingToWeb3Client, fmt.Errorf("[FARCASTER]: error getting web3 client: %w", err))
 	}
 	// parse the addresses and initialize the contracts
 	idRegistryAddress := common.HexToAddress(IdRegistryAddress)

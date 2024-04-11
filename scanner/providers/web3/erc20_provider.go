@@ -9,15 +9,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
 
 type ERC20HolderProvider struct {
-	endpoints NetworkEndpoints
-	client    *ethclient.Client
+	endpoints *Web3Pool
+	client    *Client
 
 	contract         *erc20.ERC20Contract
 	address          common.Address
@@ -54,25 +53,20 @@ func (p *ERC20HolderProvider) Init(iconf any) error {
 // to use. It connects to the endpoint and initializes the contract.
 func (p *ERC20HolderProvider) SetRef(iref any) error {
 	if p.endpoints == nil {
-		return errors.New("endpoints not defined")
+		return fmt.Errorf("endpoints not defined")
 	}
 	ref, ok := iref.(Web3ProviderRef)
 	if !ok {
-		return errors.New("invalid ref type, it must be Web3ProviderRef")
+		return fmt.Errorf("invalid ref type, it must be Web3ProviderRef")
 	}
-	currentEndpoint, exists := p.endpoints.EndpointByChainID(ref.ChainID)
-	if !exists {
-		return errors.New("endpoint not found for the given chainID")
-	}
-	// connect to the endpoint
-	client, err := currentEndpoint.GetClient(DefaultMaxWeb3ClientRetries)
+	var err error
+	p.client, err = p.endpoints.Client(ref.ChainID)
 	if err != nil {
-		return errors.Join(ErrConnectingToWeb3Client, fmt.Errorf("[ERC20] %s: %w", ref.HexAddress, err))
+		return fmt.Errorf("error getting web3 client for the given chainID: %w", err)
 	}
 	// set the client, parse the address and initialize the contract
-	p.client = client
 	p.address = common.HexToAddress(ref.HexAddress)
-	if p.contract, err = erc20.NewERC20Contract(p.address, client); err != nil {
+	if p.contract, err = erc20.NewERC20Contract(p.address, p.client); err != nil {
 		return errors.Join(ErrInitializingContract, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 	}
 	// reset the current creation block, if a creation block is defined in the
@@ -127,7 +121,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	// an error
 	if fromBlock >= p.lastNetworkBlock && fromBlock == p.creationBlock {
 		return nil, 0, fromBlock, false, big.NewInt(0),
-			errors.New("outdated last network block, it will retry in the next iteration")
+			fmt.Errorf("outdated last network block, it will retry in the next iteration")
 	}
 	// calculate the range of blocks to scan, by default take the last block
 	// scanned and scan to the latest block, calculate the latest block if the

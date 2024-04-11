@@ -7,14 +7,13 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	fcir "github.com/vocdoni/census3/contracts/farcaster/idRegistry"
 	fckr "github.com/vocdoni/census3/contracts/farcaster/keyRegistry"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 )
 
 type FarcasterProviderConf struct {
-	Endpoints web3.NetworkEndpoints
+	Endpoints *web3.Web3Pool
 	DB        *DB
 }
 
@@ -28,8 +27,8 @@ type FarcasterContracts struct {
 
 type FarcasterProvider struct {
 	// web3
-	endpoints        web3.NetworkEndpoints
-	client           *ethclient.Client
+	endpoints        *web3.Web3Pool
+	client           *web3.Client
 	contracts        FarcasterContracts
 	lastNetworkBlock atomic.Uint64
 	// db

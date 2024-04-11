@@ -1,6 +1,7 @@
 package web3
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -18,22 +19,22 @@ type Web3Endpoint struct {
 	client    *ethclient.Client
 }
 
-// Web3EndpointPool struct is a pool of Web3Endpoint that allows to get the next
+// Web3Iterator struct is a pool of Web3Endpoint that allows to get the next
 // available endpoint in a round-robin fashion. It also allows to disable an
 // endpoint if it fails. It allows to manage multiple endpoints safely.
-type Web3EndpointPool struct {
+type Web3Iterator struct {
 	nextIndex atomic.Uint32
 	available []*Web3Endpoint
 	disabled  []*Web3Endpoint
 	mtx       sync.Mutex
 }
 
-// NewWeb3EndpointPool creates a new Web3EndpointPool with the given endpoints.
-func newWeb3EndpointPool(endpoints ...*Web3Endpoint) *Web3EndpointPool {
+// NewWeb3Iterator creates a new Web3Iterator with the given endpoints.
+func NewWeb3Iterator(endpoints ...*Web3Endpoint) *Web3Iterator {
 	if endpoints == nil {
 		endpoints = make([]*Web3Endpoint, 0)
 	}
-	return &Web3EndpointPool{
+	return &Web3Iterator{
 		available: endpoints,
 		disabled:  make([]*Web3Endpoint, 0),
 	}
@@ -41,34 +42,26 @@ func newWeb3EndpointPool(endpoints ...*Web3Endpoint) *Web3EndpointPool {
 
 // Add adds a new endpoint to the pool, making it available for the next
 // requests.
-func (w3pp *Web3EndpointPool) add(endpoint *Web3Endpoint) {
+func (w3pp *Web3Iterator) Add(endpoint *Web3Endpoint) {
 	w3pp.mtx.Lock()
 	defer w3pp.mtx.Unlock()
 	w3pp.available = append(w3pp.available, endpoint)
 }
 
-// Next returns the next available endpoint in a round-robin fashion. If there
-// are no endpoints, it will return nil. If there are no available endpoints, it
-// will reset the disabled endpoints and return the first available endpoint.
-func (w3pp *Web3EndpointPool) next() *Web3Endpoint {
+// Next returns the next available endpoint in a round-robin fashion. If
+// there are no endpoints, it will return an error. If there are no available
+// endpoints, it will reset the disabled endpoints and return the first
+// available endpoint.
+func (w3pp *Web3Iterator) Next() (*Web3Endpoint, error) {
 	w3pp.mtx.Lock()
 	defer w3pp.mtx.Unlock()
-	// check if there is any available endpoint
-	l := len(w3pp.available)
+	l := uint32(len(w3pp.available))
 	if l == 0 {
-		// reset the next index and move the disabled endpoints to the available
-		w3pp.nextIndex.Store(0)
-		w3pp.available = append(w3pp.available, w3pp.disabled...)
-		w3pp.disabled = make([]*Web3Endpoint, 0)
-		// if continue to have no available endpoints, return nil
-		if len(w3pp.available) == 0 {
-			return nil
-		}
-		return w3pp.available[0]
+		return nil, fmt.Errorf("no available endpoints")
 	}
 	// get the current next index and endpoint
 	currentIndex := w3pp.nextIndex.Load()
-	if int(currentIndex) >= l {
+	if currentIndex >= l {
 		// if the current index is out of bounds, reset it to the first one
 		currentIndex = 0
 	}
@@ -80,17 +73,17 @@ func (w3pp *Web3EndpointPool) next() *Web3Endpoint {
 	}
 	// calculate the following next endpoint index based on the current one
 	nextIndex := currentIndex + 1
-	if int(nextIndex) >= l {
+	if nextIndex >= l {
 		nextIndex = 0
 	}
 	// update the next index and return the current endpoint
 	w3pp.nextIndex.Store(nextIndex)
-	return currentEndpoint
+	return currentEndpoint, nil
 }
 
-// disable method disables an endpoint, moving it from the available list to the
+// Disable method disables an endpoint, moving it from the available list to the
 // the disabled list.
-func (w3pp *Web3EndpointPool) disable(uri string) {
+func (w3pp *Web3Iterator) Disable(uri string) {
 	w3pp.mtx.Lock()
 	defer w3pp.mtx.Unlock()
 	// remove the endpoint from the available list
@@ -99,5 +92,13 @@ func (w3pp *Web3EndpointPool) disable(uri string) {
 			w3pp.available = append(w3pp.available[:i], w3pp.available[i+1:]...)
 			w3pp.disabled = append(w3pp.disabled, e)
 		}
+	}
+	// if there are no available endpoints, reset all the disabled ones to
+	// available ones and reset the next index to the first one
+	if l := len(w3pp.available); l == 0 {
+		// reset the next index and move the disabled endpoints to the available
+		w3pp.nextIndex.Store(0)
+		w3pp.available = append(w3pp.available, w3pp.disabled...)
+		w3pp.disabled = make([]*Web3Endpoint, 0)
 	}
 }

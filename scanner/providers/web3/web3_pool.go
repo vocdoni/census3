@@ -29,7 +29,7 @@ import (
 // It allows to support multiple endpoints for the same chainID and switch
 // between them looking for the available one.
 type Web3Pool struct {
-	endpoints map[uint64]*Web3EndpointPool
+	endpoints map[uint64]*Web3Iterator
 	metadata  []*Web3Endpoint
 }
 
@@ -47,7 +47,7 @@ func NewWeb3Pool() (*Web3Pool, error) {
 		return nil, fmt.Errorf("error decoding chains information from external source: %v", err)
 	}
 	return &Web3Pool{
-		endpoints: make(map[uint64]*Web3EndpointPool),
+		endpoints: make(map[uint64]*Web3Iterator),
 		metadata:  chainsData,
 	}, nil
 }
@@ -91,9 +91,9 @@ func (nm *Web3Pool) AddEndpoint(uri string) error {
 		client:    client,
 	}
 	if _, ok := nm.endpoints[chainID]; !ok {
-		nm.endpoints[chainID] = newWeb3EndpointPool(endpoint)
+		nm.endpoints[chainID] = NewWeb3Iterator(endpoint)
 	} else {
-		nm.endpoints[chainID].add(endpoint)
+		nm.endpoints[chainID].Add(endpoint)
 	}
 	return nil
 }
@@ -103,32 +103,30 @@ func (nm *Web3Pool) AddEndpoint(uri string) error {
 // endpoints for the chainID where it was found.
 func (nm *Web3Pool) DelEndoint(uri string) {
 	for _, endpoints := range nm.endpoints {
-		endpoints.disable(uri)
+		endpoints.Disable(uri)
 	}
 }
 
-// EndpointByChainID method returns the Web3Endpoint configured for the chainID
+// Endpoint method returns the Web3Endpoint configured for the chainID
 // provided. It returns the first available endpoint. If no available endpoint
-// is found, it resets the available flag for all, resets the next available to
-// the first one and returns it.
-func (nm *Web3Pool) EndpointByChainID(chainID uint64) (*Web3Endpoint, bool) {
-	next := nm.endpoints[chainID].next()
-	return next, next != nil
+// is found, returns an error.
+func (nm *Web3Pool) Endpoint(chainID uint64) (*Web3Endpoint, error) {
+	return nm.endpoints[chainID].Next()
 }
 
 // DisableEndpoint method sets the available flag to false for the URI provided
 // in the chainID provided.
 func (nm *Web3Pool) DisableEndpoint(chainID uint64, uri string) {
 	if endpoints, ok := nm.endpoints[chainID]; ok {
-		endpoints.disable(uri)
+		endpoints.Disable(uri)
 	}
 }
 
-// GetClient method returns a new *Client instance for the chainID provided.
+// Client method returns a new *Client instance for the chainID provided.
 // It returns an error if the endpoint is not found.
 func (nm *Web3Pool) Client(chainID uint64) (*Client, error) {
-	if _, ok := nm.EndpointByChainID(chainID); !ok {
-		return nil, fmt.Errorf("error getting endpoint for chainID %d", chainID)
+	if _, err := nm.Endpoint(chainID); err != nil {
+		return nil, fmt.Errorf("error getting endpoint for chainID %d: %w", chainID, err)
 	}
 	return &Client{w3p: nm, chainID: chainID}, nil
 }
@@ -167,9 +165,9 @@ func (nm *Web3Pool) String() string {
 func (nm *Web3Pool) CurrentBlockNumbers(ctx context.Context) (map[uint64]uint64, error) {
 	blockNumbers := make(map[uint64]uint64)
 	for chainID := range nm.endpoints {
-		cli, ok := nm.EndpointByChainID(chainID)
-		if !ok {
-			return nil, fmt.Errorf("error getting endpoint for chainID %d", chainID)
+		cli, err := nm.Endpoint(chainID)
+		if err != nil {
+			return nil, fmt.Errorf("error getting endpoint for chainID %d: %w", chainID, err)
 		}
 		blockNumber, err := cli.client.BlockNumber(ctx)
 		if err != nil {

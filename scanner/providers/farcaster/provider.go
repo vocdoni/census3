@@ -106,7 +106,7 @@ func (p *FarcasterProvider) Init(iconf any) error {
 	}
 	p.contracts.lastBlock.Store(uint64(lastBlock))
 	// init the web3 client and contracts
-	p.client, err = p.endpoints.GetClient(ChainID)
+	p.client, err = p.endpoints.Client(ChainID)
 	if err != nil {
 		return errors.Join(web3.ErrConnectingToWeb3Client, fmt.Errorf("[FARCASTER]: error getting web3 client: %w", err))
 	}

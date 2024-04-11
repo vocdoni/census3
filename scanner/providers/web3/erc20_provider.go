@@ -60,7 +60,7 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 		return fmt.Errorf("invalid ref type, it must be Web3ProviderRef")
 	}
 	var err error
-	p.client, err = p.endpoints.GetClient(ref.ChainID)
+	p.client, err = p.endpoints.Client(ref.ChainID)
 	if err != nil {
 		return fmt.Errorf("error getting web3 client for the given chainID: %w", err)
 	}

@@ -32,7 +32,7 @@ type Client struct {
 // EthClient method returns the ethclient.Client for the chainID of the Client
 // instance. It returns an error if the chainID is not found in the pool.
 func (c *Client) EthClient() (*ethclient.Client, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -44,7 +44,7 @@ func (c *Client) EthClient() (*ethclient.Client, error) {
 // found in the pool or if the method fails. Required by the bind.ContractBackend
 // interface.
 func (c *Client) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -65,7 +65,7 @@ func (c *Client) CodeAt(ctx context.Context, account common.Address, blockNumber
 // not found in the pool or if the method fails. Required by the
 // bind.ContractBackend interface.
 func (c *Client) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -86,7 +86,7 @@ func (c *Client) CallContract(ctx context.Context, call ethereum.CallMsg, blockN
 // found in the pool or if the method fails. Required by the bind.ContractBackend
 // interface.
 func (c *Client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return 0, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -107,7 +107,7 @@ func (c *Client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 // found in the pool or if the method fails. Required by the bind.ContractBackend
 // interface.
 func (c *Client) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -128,7 +128,7 @@ func (c *Client) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]
 // not found in the pool or if the method fails. Required by the
 // bind.ContractBackend interface.
 func (c *Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -149,7 +149,7 @@ func (c *Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.He
 // if the chainID is not found in the pool or if the method fails. Required by
 // the bind.ContractBackend interface.
 func (c *Client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return 0, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -170,7 +170,7 @@ func (c *Client) PendingNonceAt(ctx context.Context, account common.Address) (ui
 // if the chainID is not found in the pool or if the method fails. Required by
 // the bind.ContractBackend interface.
 func (c *Client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -191,7 +191,7 @@ func (c *Client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 // not found in the pool or if the method fails. Required by the
 // bind.ContractBackend interface.
 func (c *Client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -209,7 +209,7 @@ func (c *Client) SendTransaction(ctx context.Context, tx *types.Transaction) err
 // not found in the pool or if the method fails. Required by the
 // bind.ContractBackend interface.
 func (c *Client) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -232,7 +232,7 @@ func (c *Client) PendingCodeAt(ctx context.Context, account common.Address) ([]b
 func (c *Client) SubscribeFilterLogs(ctx context.Context,
 	query ethereum.FilterQuery, ch chan<- types.Log,
 ) (ethereum.Subscription, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -253,7 +253,7 @@ func (c *Client) SubscribeFilterLogs(ctx context.Context,
 // if the chainID is not found in the pool or if the method fails. Required by
 // the bind.ContractBackend interface.
 func (c *Client) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -274,7 +274,7 @@ func (c *Client) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 // found in the pool or if the method fails. This method is required by internal
 // logic, it is not required by the bind.ContractBackend interface.
 func (c *Client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}
@@ -295,7 +295,7 @@ func (c *Client) BalanceAt(ctx context.Context, account common.Address, blockNum
 // found in the pool or if the method fails. This method is required by internal
 // logic, it is not required by the bind.ContractBackend interface.
 func (c *Client) BlockNumber(ctx context.Context) (uint64, error) {
-	endpoint, ok := c.w3p.GetEndpoint(c.chainID)
+	endpoint, ok := c.w3p.EndpointByChainID(c.chainID)
 	if !ok {
 		return 0, fmt.Errorf("error getting endpoint for chainID %d", c.chainID)
 	}

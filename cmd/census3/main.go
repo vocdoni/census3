@@ -17,10 +17,10 @@ import (
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/scanner"
-	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/farcaster"
 	"github.com/vocdoni/census3/scanner/providers/gitcoin"
 	gitcoinDB "github.com/vocdoni/census3/scanner/providers/gitcoin/db"
+	"github.com/vocdoni/census3/scanner/providers/manager"
 	"github.com/vocdoni/census3/scanner/providers/poap"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
@@ -33,6 +33,7 @@ type Census3Config struct {
 	poapAPIEndpoint, poapAuthToken string
 	gitcoinEndpoint                string
 	gitcoinCooldown                time.Duration
+	scannerConcurrentTokens        int
 	scannerCoolDown                time.Duration
 	adminToken                     string
 	initialTokens                  string
@@ -60,6 +61,7 @@ func main() {
 	var strWeb3Providers string
 	flag.StringVar(&strWeb3Providers, "web3Providers", "", "the list of URL's of available web3 providers")
 	flag.DurationVar(&config.scannerCoolDown, "scannerCoolDown", 120*time.Second, "the time to wait before next scanner iteration")
+	flag.IntVar(&config.scannerConcurrentTokens, "scannerConcurrentTokens", 5, "the number of tokens to scan concurrently")
 	flag.StringVar(&config.adminToken, "adminToken", "", "the admin UUID token for the API")
 	flag.StringVar(&config.initialTokens, "initialTokens", "", "path of the initial tokens json file")
 	flag.BoolVar(&config.farcaster, "farcaster", false, "enables farcaster support")
@@ -112,6 +114,10 @@ func main() {
 		panic(err)
 	}
 	config.listOfWeb3Providers = strings.Split(pviper.GetString("web3Providers"), ",")
+	if err := pviper.BindPFlag("scannerConcurrentTokens", flag.Lookup("scannerConcurrentTokens")); err != nil {
+		panic(err)
+	}
+	config.scannerConcurrentTokens = pviper.GetInt("scannerConcurrentTokens")
 	if err := pviper.BindPFlag("scannerCoolDown", flag.Lookup("scannerCoolDown")); err != nil {
 		panic(err)
 	}
@@ -149,75 +155,31 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// start the holder scanner with the database and the providers
-	hc := scanner.NewScanner(database, w3p, config.scannerCoolDown)
-
+	// init the provider manager
+	pm := manager.NewProviderManager()
 	// init the web3 token providers
-	erc20Provider := new(web3.ERC20HolderProvider)
-	if err := erc20Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
-		log.Fatal(err)
-		return
-	}
-	erc721Provider := new(web3.ERC721HolderProvider)
-	if err := erc721Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
-		log.Fatal(err)
-		return
-	}
-	erc777Provider := new(web3.ERC777HolderProvider)
-	if err := erc777Provider.Init(web3.Web3ProviderConfig{Endpoints: w3p}); err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	// set the providers in the scanner and the API
-	if err := hc.SetProviders(erc20Provider, erc721Provider, erc777Provider); err != nil {
-		log.Fatal(err)
-		return
-	}
-	apiProviders := map[uint64]providers.HolderProvider{
-		erc20Provider.Type():  erc20Provider,
-		erc721Provider.Type(): erc721Provider,
-		erc777Provider.Type(): erc777Provider,
-	}
+	web3ProviderConf := web3.Web3ProviderConfig{Endpoints: w3p}
+	pm.AddProvider(new(web3.ERC20HolderProvider).Type(), web3ProviderConf)
+	pm.AddProvider(new(web3.ERC721HolderProvider).Type(), web3ProviderConf)
+	pm.AddProvider(new(web3.ERC777HolderProvider).Type(), web3ProviderConf)
 	// init POAP external provider
 	if config.poapAPIEndpoint != "" {
-		poapProvider := new(poap.POAPHolderProvider)
-		if err := poapProvider.Init(poap.POAPConfig{
+		pm.AddProvider(new(poap.POAPHolderProvider).Type(), poap.POAPConfig{
 			APIEndpoint: config.poapAPIEndpoint,
 			AccessToken: config.poapAuthToken,
-		}); err != nil {
-			log.Fatal(err)
-			return
-		}
-		if err := hc.SetProviders(poapProvider); err != nil {
-			log.Fatal(err)
-			return
-		}
-		apiProviders[poapProvider.Type()] = poapProvider
+		})
 	}
 	if config.gitcoinEndpoint != "" {
 		gitcoinDatabase, err := gitcoinDB.Init(config.dataDir, "gitcoinpassport.sql")
 		if err != nil {
 			log.Fatal(err)
 		}
-		// init Gitcoin external provider
-		gitcoinProvider := new(gitcoin.GitcoinPassport)
-		if err := gitcoinProvider.Init(gitcoin.GitcoinPassportConf{
+		pm.AddProvider(new(gitcoin.GitcoinPassport).Type(), gitcoin.GitcoinPassportConf{
 			APIEndpoint: config.gitcoinEndpoint,
 			Cooldown:    config.gitcoinCooldown,
 			DB:          gitcoinDatabase,
-		}); err != nil {
-			log.Fatal(err)
-			return
-		}
-		if err := hc.SetProviders(gitcoinProvider); err != nil {
-			log.Fatal(err)
-			return
-		}
-		apiProviders[gitcoinProvider.Type()] = gitcoinProvider
+		})
 	}
-
 	// if farcaster is enabled, init the farcaster database and the provider
 	var farcasterDB *farcaster.DB
 	if config.farcaster {
@@ -226,21 +188,13 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		farcasterProvider := new(farcaster.FarcasterProvider)
-		if err := farcasterProvider.Init(farcaster.FarcasterProviderConf{
+		pm.AddProvider(new(farcaster.FarcasterProvider).Type(), farcaster.FarcasterProviderConf{
 			Endpoints: w3p,
 			DB:        farcasterDB,
-		}); err != nil {
-			log.Fatal(err)
-			return
-		}
-		if err := hc.SetProviders(farcasterProvider); err != nil {
-			log.Fatal(err)
-			return
-		}
-		apiProviders[farcasterProvider.Type()] = farcasterProvider
+		})
 	}
-
+	// start the holder scanner with the database and the provider manager
+	hc := scanner.NewScanner(database, w3p, pm, config.scannerCoolDown)
 	// if the admin token is not defined, generate a random one
 	if config.adminToken != "" {
 		if _, err := uuid.Parse(config.adminToken); err != nil {
@@ -259,7 +213,7 @@ func main() {
 		DataDir:         config.dataDir,
 		Web3Providers:   w3p,
 		GroupKey:        config.connectKey,
-		HolderProviders: apiProviders,
+		HolderProviders: pm.Providers(),
 		AdminToken:      config.adminToken,
 	})
 	if err != nil {
@@ -272,7 +226,8 @@ func main() {
 		}
 		log.Info("initial tokens created, or at least tried to")
 	}()
-	go hc.Start(ctx)
+	// start the holder scanner
+	go hc.Start(ctx, config.scannerConcurrentTokens)
 
 	metrics.NewCounter(fmt.Sprintf("census3_info{version=%q,chains=%q}",
 		internal.Version, w3p.String())).Set(1)

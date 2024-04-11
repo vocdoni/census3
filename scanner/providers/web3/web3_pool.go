@@ -153,55 +153,67 @@ func (nm *Web3Pool) DelEndoint(uri string) {
 // is found, it resets the available flag for all, resets the next available to
 // the first one and returns it.
 func (nm *Web3Pool) GetEndpoint(chainID uint64) (*Web3Endpoint, bool) {
+	// Cases:
+	//  - is there any available endpoint for the chainID?
+	//    - yes, continue
+	//    - no, reset the available flag for all the endpoints, return the first
+	//      one and set the second one as the next available (if there is one)
+	//  - do the next available endpoint exists?
+	//    - yes, continue
+	//    - no, return the first one and set the second one as the next
+	//		available (if there is one)
+	//  - update the next available endpoint to the next one
+	//  - is the current endpoint available?
+	//    - yes, return it
+	//    - no, start again
 	nm.endpointsMtx.RLock()
 	defer nm.endpointsMtx.RUnlock()
-	next, ok := nm.nextAvailable.Load(chainID)
-	if !ok {
-		if _, ok := nm.endpoints[chainID]; !ok {
-			return nil, false
-		}
-		endpoint := nm.endpoints[chainID][0]
-		if endpoint == nil {
-			return nil, false
-		}
-		// if no available endpoint is found, set all the endpoints as available
-		// and return the first one
+	// check if there is any available endpoint for the chainID
+	unavailable, ok := nm.unavailable.Load(chainID)
+	if ok && len(unavailable.([]int)) == len(nm.endpoints[chainID]) {
+		// if all the endpoints are unavailable, reset the available flag for
+		// all the endpoints, set the second one as the next available (if
+		// there) and return the first one
 		nm.unavailable.Delete(chainID)
-		nm.nextAvailable.Store(chainID, 0)
+		if len(nm.endpoints[chainID]) > 1 {
+			nm.nextAvailable.Store(chainID, 1)
+		} else {
+			nm.nextAvailable.Store(chainID, 0)
+		}
 		return nm.endpoints[chainID][0], true
 	}
-	endpointIdx, ok := next.(int)
+	// get the next available endpoint for the chainID
+	currentEndpointIdx, ok := nm.nextAvailable.Load(chainID)
 	if !ok {
-		return nil, false
+		// if there is no next available endpoint, set the second one as the next
+		// available (if there is one) and return the first one, if there is no
+		// endpoint, return false
+		if len(nm.endpoints[chainID]) == 0 {
+			return nil, false
+		}
+		if len(nm.endpoints[chainID]) > 1 {
+			nm.nextAvailable.Store(chainID, 1)
+		} else {
+			nm.nextAvailable.Store(chainID, 0)
+		}
+		return nm.endpoints[chainID][0], true
 	}
-	// use the next available endpoint with the following endpoint for chainID
-	// if there are no more endpoints, use the first one as the next available
-	if _, ok := nm.endpoints[chainID]; !ok {
-		nm.nextAvailable.Delete(chainID)
-		return nil, false
-	}
-	endpoint := nm.endpoints[chainID][endpointIdx]
-	if endpoint == nil {
-		nm.nextAvailable.Delete(chainID)
-		return nil, false
-	}
-	// if the endpoint is available, set the next available to the next one
-	nextAvailable := endpointIdx + 1
+	// update the next available endpoint to the next one
+	nextAvailable := currentEndpointIdx.(int) + 1
 	if nextAvailable >= len(nm.endpoints[chainID]) {
 		nextAvailable = 0
 	}
 	nm.nextAvailable.Store(chainID, nextAvailable)
-	// if the endpoint is not available, return call the method again to get the
-	// next available endpoint
-	if unavailable, ok := nm.unavailable.Load(chainID); ok {
+	// check if the current endpoint is available
+	if unavailable != nil {
 		for _, unavailableIdx := range unavailable.([]int) {
-			if unavailableIdx == endpointIdx {
+			if unavailableIdx == currentEndpointIdx.(int) {
 				return nm.GetEndpoint(chainID)
 			}
 		}
 	}
-	// if it is available, return it
-	return endpoint, true
+	// return the current endpoint
+	return nm.endpoints[chainID][currentEndpointIdx.(int)], true
 }
 
 // DisableEndpoint method sets the available flag to false for the URI provided

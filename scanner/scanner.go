@@ -9,13 +9,14 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db"
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
-	"github.com/vocdoni/census3/scanner/providers"
+	"github.com/vocdoni/census3/scanner/providers/manager"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
 )
@@ -39,12 +40,12 @@ type ScannerToken struct {
 // holders of the tokens. It has a cool down time between iterations to avoid
 // overloading the providers.
 type Scanner struct {
-	ctx       context.Context
-	cancel    context.CancelFunc
-	db        *db.DB
-	networks  *web3.Web3Pool
-	providers map[uint64]providers.HolderProvider
-	coolDown  time.Duration
+	ctx             context.Context
+	cancel          context.CancelFunc
+	db              *db.DB
+	networks        *web3.Web3Pool
+	providerManager *manager.ProviderManager
+	coolDown        time.Duration
 
 	tokens                  []*ScannerToken
 	tokensMtx               sync.Mutex
@@ -55,11 +56,11 @@ type Scanner struct {
 
 // NewScanner returns a new scanner instance with the required parameters
 // initialized.
-func NewScanner(db *db.DB, networks *web3.Web3Pool, coolDown time.Duration) *Scanner {
+func NewScanner(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager, coolDown time.Duration) *Scanner {
 	return &Scanner{
 		db:                      db,
 		networks:                networks,
-		providers:               make(map[uint64]providers.HolderProvider),
+		providerManager:         pm,
 		coolDown:                coolDown,
 		tokens:                  []*ScannerToken{},
 		tokensMtx:               sync.Mutex{},
@@ -69,41 +70,13 @@ func NewScanner(db *db.DB, networks *web3.Web3Pool, coolDown time.Duration) *Sca
 	}
 }
 
-// SetProviders sets the providers that the scanner will use to get the holders
-// of the tokens. It also creates the token types in the database if they do not
-// exist. It returns an error something goes wrong creating the token types in
-// the database.
-func (s *Scanner) SetProviders(newProviders ...providers.HolderProvider) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	// create a tx to use it in the following queries
-	for _, provider := range newProviders {
-		// try to create the token type in the database, if it already exists,
-		// update its name to ensure that it is correct according to the type id
-		if _, err := s.db.QueriesRW.CreateTokenType(ctx, queries.CreateTokenTypeParams{
-			ID:       provider.Type(),
-			TypeName: provider.TypeName(),
-		}); err != nil {
-			if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				return err
-			}
-			if _, err := s.db.QueriesRW.UpdateTokenType(ctx, queries.UpdateTokenTypeParams{
-				ID:       provider.Type(),
-				TypeName: provider.TypeName(),
-			}); err != nil {
-				return err
-			}
-		}
-		// include the provider in the scanner
-		s.providers[provider.Type()] = provider
-	}
-	return nil
-}
-
 // Start starts the scanner. It starts a loop that scans the tokens in the
 // database and saves the holders in the database. It stops when the context is
 // cancelled.
-func (s *Scanner) Start(ctx context.Context) {
+func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
+	if concurrentTokens < 1 {
+		concurrentTokens = 1
+	}
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	itCounter := 0
 	// keep the latest block numbers updated
@@ -127,50 +100,64 @@ func (s *Scanner) Start(ctx context.Context) {
 				log.Error(err)
 				continue
 			}
+			// calculate number of batches
+			sem := make(chan struct{}, concurrentTokens)
+			defer close(sem)
 			// iterate over the tokens to scan
-			atSyncGlobal := true
+			var atSyncGlobal atomic.Bool
+			atSyncGlobal.Store(true)
 			for _, token := range tokens {
-				log.Infow("scanning token",
-					"address", token.Address.Hex(),
-					"chainID", token.ChainID,
-					"externalID", token.ExternalID,
-					"lastBlock", token.LastBlock,
-					"ready", token.Ready)
-				// scan the token
-				holders, newTransfers, lastBlock, synced, totalSupply, err := s.ScanHolders(ctx, token)
-				if err != nil {
-					atSyncGlobal = false
-					if errors.Is(err, context.Canceled) {
-						log.Info("scanner context cancelled, shutting down")
+				// get the semaphore
+				sem <- struct{}{}
+				go func(token ScannerToken) {
+					// release the semaphore when the goroutine finishes
+					defer func() {
+						<-sem
+					}()
+					log.Infow("scanning token",
+						"address", token.Address.Hex(),
+						"chainID", token.ChainID,
+						"externalID", token.ExternalID,
+						"lastBlock", token.LastBlock,
+						"ready", token.Ready)
+					// scan the token
+					holders, newTransfers, lastBlock, synced, totalSupply, err := s.ScanHolders(ctx, token)
+					if err != nil {
+						atSyncGlobal.Store(false)
+						if errors.Is(err, context.Canceled) {
+							log.Info("scanner context cancelled, shutting down")
+							return
+						}
+						log.Error(err)
 						return
 					}
-					log.Error(err)
-					continue
-				}
-				if !synced {
-					atSyncGlobal = false
-				}
-				// save the token holders in the database in a goroutine and
-				// continue with the next token
-				s.waiter.Add(1)
-				go func(t *ScannerToken, h map[common.Address]*big.Int, n, lb uint64, sy bool, ts *big.Int) {
-					defer s.waiter.Done()
-					if err = s.SaveHolders(ctx, t, h, n, lb, sy, ts); err != nil {
+					if !synced {
+						atSyncGlobal.Store(false)
+					}
+					// save the new token holders
+					if err = s.SaveHolders(ctx, token, holders, newTransfers, lastBlock, synced, totalSupply); err != nil {
+						if strings.Contains(err.Error(), "database is closed") {
+							return
+						}
 						log.Warnw("error saving tokenholders",
-							"address", t.Address.Hex(),
-							"chainID", t.ChainID,
-							"externalID", t.ExternalID,
+							"address", token.Address.Hex(),
+							"chainID", token.ChainID,
+							"externalID", token.ExternalID,
 							"error", err)
 					}
-				}(token, holders, newTransfers, lastBlock, synced, totalSupply)
+				}(*token)
+			}
+			// wait for all the tokens to be scanned
+			for i := 0; i < concurrentTokens; i++ {
+				sem <- struct{}{}
 			}
 			log.Infow("scan iteration finished",
 				"iteration", itCounter,
 				"duration", time.Since(startTime).Seconds(),
-				"atSync", atSyncGlobal)
+				"atSync", atSyncGlobal.Load())
 			// if all the tokens are synced, sleep the cool down time, else,
 			// sleep the scan sleep time
-			if atSyncGlobal {
+			if atSyncGlobal.Load() {
 				time.Sleep(s.coolDown)
 			} else {
 				time.Sleep(scanSleepTime)
@@ -183,11 +170,6 @@ func (s *Scanner) Start(ctx context.Context) {
 // finish. It also closes the providers.
 func (s *Scanner) Stop() {
 	s.cancel()
-	for _, provider := range s.providers {
-		if err := provider.Close(); err != nil {
-			log.Error(err)
-		}
-	}
 	s.waiter.Wait()
 }
 
@@ -309,15 +291,16 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 // from the database, set them into the provider and get the new ones. It
 // returns the new holders, the last block scanned and if the token is synced
 // after the scan.
-func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
+func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
 ) {
 	internalCtx, cancel := context.WithTimeout(ctx, SCAN_TIMEOUT)
 	defer cancel()
-	// get the correct token holder for the current token
-	provider, exists := s.providers[token.Type]
-	if !exists {
-		return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("token type %d not supported", token.Type)
+	// get the correct token holder provider for the current token
+	provider, err := s.providerManager.GetProvider(token.Type)
+	if err != nil {
+		return nil, 0, token.LastBlock, token.Synced, nil,
+			fmt.Errorf("token type %d not supported: %w", token.Type, err)
 	}
 	// create a tx to use it in the following queries
 	tx, err := s.db.RW.BeginTx(internalCtx, nil)
@@ -422,7 +405,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token *ScannerToken) (
 //     holders with negative balances.
 //  2. To get the correct balances you must use the contract methods to get
 //     the balances of the holders.
-func (s *Scanner) SaveHolders(ctx context.Context, token *ScannerToken,
+func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 	holders map[common.Address]*big.Int, newTransfers, lastBlock uint64,
 	synced bool, totalSupply *big.Int,
 ) error {

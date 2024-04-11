@@ -11,11 +11,11 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-// GetTokens method returns a list of tokens from the API, it accepts a
+// Tokens method returns a list of tokens from the API, it accepts a
 // pageSize, nextCursor and prevCursor. If the pageSize is -1 and cursors are
 // empty, it will return all the tokens. If something goes wrong, it will return
 // an error.
-func (c *HTTPclient) GetTokens(pageSize int, nextCursor, prevCursor string) ([]*api.TokenListItem, error) {
+func (c *HTTPclient) Tokens(pageSize int, nextCursor, prevCursor string) ([]*api.TokenListItem, error) {
 	// construct the URL to the API with the pageSize, nextCursor and prevCursor
 	endpoint := fmt.Sprintf(GetTokensURI, pageSize, nextCursor, prevCursor)
 	u, err := c.constructURL(endpoint)
@@ -48,9 +48,9 @@ func (c *HTTPclient) GetTokens(pageSize int, nextCursor, prevCursor string) ([]*
 	return tokensResponse.Tokens, nil
 }
 
-// GetToken method returns a token from the API, it accepts the tokenID, chainID
+// Token method returns a token from the API, it accepts the tokenID, chainID
 // and externalID. If something goes wrong, it will return an error.
-func (c *HTTPclient) GetToken(tokenID string, chainID uint64, externalID string) (*api.Token, error) {
+func (c *HTTPclient) Token(tokenID string, chainID uint64, externalID string) (*api.Token, error) {
 	if tokenID == "" || chainID == 0 {
 		return nil, fmt.Errorf("%w: tokenID and chainID are required", ErrBadInputs)
 	}
@@ -211,10 +211,10 @@ func (c *HTTPclient) DeleteTokenQueue(tokenID string, chainID uint64, externalID
 	return queueResponse, nil
 }
 
-// GetTokenHolder method returns the balance of a token holder from the API, it
+// TokenHolder method returns the balance of a token holder from the API, it
 // accepts the tokenID, chainID, externalID and holderID. If something goes
 // wrong, it will return an error.
-func (c *HTTPclient) GetTokenHolder(tokenID string, chainID uint64, externalID, holderID string) (*big.Int, error) {
+func (c *HTTPclient) TokenHolder(tokenID string, chainID uint64, externalID, holderID string) (*big.Int, error) {
 	if tokenID == "" || chainID == 0 || holderID == "" {
 		return nil, fmt.Errorf("%w: tokenID, chainID and holderID are required", ErrBadInputs)
 	}
@@ -255,10 +255,10 @@ func (c *HTTPclient) GetTokenHolder(tokenID string, chainID uint64, externalID, 
 	return bBalance, nil
 }
 
-// GetTokenTypes method returns the supported token types from the API. If
+// TokenTypes method returns the supported token types from the API. If
 // something goes wrong, it will return an error. It returns the supported token
 // types as a slice of strings.
-func (c *HTTPclient) GetTokenTypes() ([]string, error) {
+func (c *HTTPclient) TokenTypes() ([]string, error) {
 	// construct the URL to the API
 	u, err := c.constructURL(GetTokenTypes)
 	if err != nil {

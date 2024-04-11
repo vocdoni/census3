@@ -10,10 +10,10 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-// GetCensus method returns a census by its ID from the API, it receives the
+// Census method returns a census by its ID from the API, it receives the
 // censusID and returns a pointer to a GetCensusResponse and an error if something
 // went wrong.
-func (c *HTTPclient) GetCensus(censusID uint64) (*api.Census, error) {
+func (c *HTTPclient) Census(censusID uint64) (*api.Census, error) {
 	if censusID == 0 {
 		return nil, fmt.Errorf("%w: censusID is required", ErrBadInputs)
 	}
@@ -133,10 +133,10 @@ func (c *HTTPclient) CreateCensusQueue(queueID string) (*api.CensusQueue, error)
 	return response, nil
 }
 
-// GetCensusesByStrategy method returns the censuses of a strategy from the API,
+// CensusesByStrategy method returns the censuses of a strategy from the API,
 // it receives the strategyID and returns a slice of GetCensusResponse pointers
 // and an error if something went wrong.
-func (c *HTTPclient) GetCensusesByStrategy(strategyID uint64) ([]*api.Census, error) {
+func (c *HTTPclient) CensusesByStrategy(strategyID uint64) ([]*api.Census, error) {
 	if strategyID == 0 {
 		return nil, fmt.Errorf("%w: strategyID is required", ErrBadInputs)
 	}

@@ -10,7 +10,7 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-func (c *HTTPclient) GetStrategies(pageSize int, nextCursor, prevCursor string) (
+func (c *HTTPclient) Strategies(pageSize int, nextCursor, prevCursor string) (
 	[]*api.Strategy, error,
 ) {
 	// construct the URL to the API with the given parameters
@@ -45,7 +45,7 @@ func (c *HTTPclient) GetStrategies(pageSize int, nextCursor, prevCursor string) 
 	return strategiesResponse.Strategies, nil
 }
 
-func (c *HTTPclient) GetStrategy(strategyID uint64) (*api.Strategy, error) {
+func (c *HTTPclient) Strategy(strategyID uint64) (*api.Strategy, error) {
 	// construct the URL to the API with the given parameters
 	endpoint := fmt.Sprintf(GetStrategyURI, strategyID)
 	u, err := c.constructURL(endpoint)

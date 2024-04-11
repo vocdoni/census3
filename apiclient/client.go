@@ -133,3 +133,19 @@ func (c *HTTPclient) Request(method string, jsonBody any, urlPath ...string) ([]
 	}
 	return data, resp.StatusCode, nil
 }
+
+// Info returns the API server info.
+func (c *HTTPclient) Info() (*api.APIInfo, error) {
+	data, status, err := c.Request(HTTPGET, nil, "info")
+	if err != nil {
+		return nil, err
+	}
+	if status != apirest.HTTPstatusOK {
+		return nil, fmt.Errorf("API error: %d (%s)", status, data)
+	}
+	info := &api.APIInfo{}
+	if err := json.Unmarshal(data, info); err != nil {
+		return nil, err
+	}
+	return info, nil
+}

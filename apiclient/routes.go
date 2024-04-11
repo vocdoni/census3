@@ -32,6 +32,8 @@ const (
 	// CreateStrategyURI is the URI for creating a strategy, it accepts no
 	// parameters
 	CreateStrategyURI = "/strategies"
+	// GetTokenHoldersByStrategyURI is the URI for getting token holders of a given strategy
+	GetTokenHoldersByStrategyURI = "/strategies/%d/holders"
 
 	// Censuses endpoints:
 

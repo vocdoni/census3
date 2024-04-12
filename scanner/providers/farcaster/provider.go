@@ -25,8 +25,14 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-var downloading atomic.Bool
-var globallySynced atomic.Bool
+var (
+	// since the scanne can scan multiple tokens concurrently, and every time
+	// token scan iteration use a new provider, we need to avoid multiple
+	// background downloads at the same time. this variables are used to avoid
+	// multiple downloads at the same time using two atomic bools
+	downloading    atomic.Bool
+	globallySynced atomic.Bool
+)
 
 const (
 	idRegistryCreationBlock  = 111816351

@@ -15,7 +15,7 @@ type HolderProvider interface {
 	// Init initializes the provider and its internal structures. Initial
 	// attributes values must be defined in the struct that implements this
 	// interface before calling this method.
-	Init(conf any) error
+	Init(ctx context.Context, conf any) error
 	// SetRef sets the reference to the provider. It is used to define the
 	// required token information to interact with the provider.
 	SetRef(ref any) error

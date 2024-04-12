@@ -38,7 +38,7 @@ func TestPOAP(t *testing.T) {
 	})
 
 	provider := new(POAPHolderProvider)
-	c.Assert(provider.Init(POAPConfig{endpoints["/original"], "no-token"}), qt.IsNil)
+	c.Assert(provider.Init(ctx, POAPConfig{endpoints["/original"], "no-token"}), qt.IsNil)
 	holders, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(holders), qt.Equals, len(expectedOriginalHolders))

@@ -61,6 +61,7 @@ type POAPSnapshot struct {
 // POAP API to get the list of POAPs for an event ID and calculate the balances
 // of the token holders from the last snapshot.
 type POAPHolderProvider struct {
+	ctx          context.Context
 	apiEndpoint  string
 	accessToken  string
 	snapshots    map[string]*POAPSnapshot
@@ -75,19 +76,19 @@ type POAPConfig struct {
 // Init initializes the POAP external provider with the database provided.
 // It returns an error if the POAP access token or api endpoint uri is not
 // defined.
-func (p *POAPHolderProvider) Init(iconf any) error {
+func (p *POAPHolderProvider) Init(globalCtx context.Context, iconf any) error {
 	// parse config
 	conf, ok := iconf.(POAPConfig)
 	if !ok {
 		return fmt.Errorf("bad config type, it must be a POAPConfig struct")
 	}
-
 	if conf.APIEndpoint == "" {
 		return fmt.Errorf("no POAP URI defined")
 	}
 	if conf.AccessToken == "" {
 		return fmt.Errorf("no POAP access token defined")
 	}
+	p.ctx = globalCtx
 	p.apiEndpoint = conf.APIEndpoint
 	p.accessToken = conf.AccessToken
 	p.snapshots = make(map[string]*POAPSnapshot)
@@ -349,7 +350,7 @@ func (p *POAPHolderProvider) holdersPage(eventID string, offset int) (*POAPAPIRe
 	q.Add("offset", fmt.Sprint(offset))
 	endpoint.RawQuery = q.Encode()
 	// create request and add headers
-	req, err := http.NewRequest("GET", endpoint.String(), nil)
+	req, err := http.NewRequestWithContext(p.ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +393,7 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 		return nil, err
 	}
 	// create request and add headers
-	req, err := http.NewRequest("GET", endpoint.String(), nil)
+	req, err := http.NewRequestWithContext(p.ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return nil, err
 	}

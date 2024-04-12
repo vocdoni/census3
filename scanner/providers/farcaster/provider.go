@@ -46,7 +46,7 @@ var (
 	IterationSyncedCooldown = 60 * time.Second
 )
 
-func (p *FarcasterProvider) Init(iconf any) error {
+func (p *FarcasterProvider) Init(globalCtx context.Context, iconf any) error {
 	// parse the config and set the endpoints
 	conf, ok := iconf.(FarcasterProviderConf)
 	if !ok {
@@ -69,7 +69,7 @@ func (p *FarcasterProvider) Init(iconf any) error {
 	// and the database. By default, the last block is the creation block of the
 	// key registry, because in the gap between the creation of the ID and Key
 	// registries, there are no logs to scan.
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(globalCtx, 15*time.Second)
 	defer cancel()
 	idRegistryLastBlock, err := p.db.QueriesRO.LastBlock(ctx, IdRegistryAddress)
 	if err != nil {
@@ -122,7 +122,7 @@ func (p *FarcasterProvider) Init(iconf any) error {
 	p.contracts.idRegistrySynced.Store(false)
 	p.contracts.keyRegistrySynced.Store(false)
 	// start the internal scanner
-	p.scannerCtx, p.cancelScanner = context.WithCancel(context.Background())
+	p.scannerCtx, p.cancelScanner = context.WithCancel(globalCtx)
 	go p.initInternalScanner()
 	return nil
 }

@@ -213,7 +213,7 @@ func main() {
 		DataDir:         config.dataDir,
 		Web3Providers:   w3p,
 		GroupKey:        config.connectKey,
-		HolderProviders: pm.Providers(),
+		HolderProviders: pm.Providers(ctx),
 		AdminToken:      config.adminToken,
 	})
 	if err != nil {

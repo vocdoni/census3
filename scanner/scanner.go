@@ -297,7 +297,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 	internalCtx, cancel := context.WithTimeout(ctx, SCAN_TIMEOUT)
 	defer cancel()
 	// get the correct token holder provider for the current token
-	provider, err := s.providerManager.GetProvider(token.Type)
+	provider, err := s.providerManager.GetProvider(s.ctx, token.Type)
 	if err != nil {
 		return nil, 0, token.LastBlock, token.Synced, nil,
 			fmt.Errorf("token type %d not supported: %w", token.Type, err)

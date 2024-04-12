@@ -30,7 +30,7 @@ type ERC777HolderProvider struct {
 	synced           atomic.Bool
 }
 
-func (p *ERC777HolderProvider) Init(iconf any) error {
+func (p *ERC777HolderProvider) Init(_ context.Context, iconf any) error {
 	// parse the config and set the endpoints
 	conf, ok := iconf.(Web3ProviderConfig)
 	if !ok {

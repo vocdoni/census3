@@ -7,6 +7,7 @@ package manager
 // the provider types and all the providers initialized at once.
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -36,7 +37,7 @@ func (m *ProviderManager) AddProvider(providerType uint64, conf any) {
 // provider based on the configuration stored in the manager. It initializes a
 // new provider every time to avoid data races. It returns an error if the
 // provider type is not found or if the provider cannot be initialized.
-func (m *ProviderManager) GetProvider(providerType uint64) (providers.HolderProvider, error) {
+func (m *ProviderManager) GetProvider(ctx context.Context, providerType uint64) (providers.HolderProvider, error) {
 	// load the configuration for the provider type
 	conf, ok := m.confs.Load(providerType)
 	if !ok {
@@ -61,7 +62,7 @@ func (m *ProviderManager) GetProvider(providerType uint64) (providers.HolderProv
 		return nil, fmt.Errorf("provider type %d not found", providerType)
 	}
 	// initialize the provider with the specific configuration
-	if err := provider.Init(conf); err != nil {
+	if err := provider.Init(ctx, conf); err != nil {
 		return nil, err
 	}
 	return provider, nil
@@ -80,10 +81,10 @@ func (m *ProviderManager) GetProviderTypes() []uint64 {
 
 // Providers returns all the providers stored in the manager associated to their
 // types as a map of uint64 to HolderProvider.
-func (m *ProviderManager) Providers() map[uint64]providers.HolderProvider {
+func (m *ProviderManager) Providers(ctx context.Context) map[uint64]providers.HolderProvider {
 	providers := make(map[uint64]providers.HolderProvider)
 	for _, t := range m.GetProviderTypes() {
-		provider, err := m.GetProvider(t)
+		provider, err := m.GetProvider(ctx, t)
 		if err != nil {
 			panic(err)
 		}

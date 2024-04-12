@@ -39,6 +39,12 @@ const (
 	metadataTimeout  = time.Second * 5
 )
 
+// since the scanne can scan multiple tokens concurrently, and every stamp
+// is a token, we need to avoid multiple downloads at the same time. this
+// variable is used to avoid multiple downloads at the same time using an
+// atomic bool
+var downloading atomic.Bool
+
 type GitcoinPassport struct {
 	// public endpoint to download the json
 	apiEndpoint string
@@ -67,7 +73,7 @@ type GitcoinPassportConf struct {
 // Init initializes the Gitcoin Passport provider with the given config. If the
 // config is not of type GitcoinPassportConf, or the API endpoint is missing, it
 // returns an error. If the cooldown is not set, it defaults to 6 hours.
-func (g *GitcoinPassport) Init(iconf any) error {
+func (g *GitcoinPassport) Init(globalCtx context.Context, iconf any) error {
 	conf, ok := iconf.(GitcoinPassportConf)
 	if !ok {
 		return fmt.Errorf("invalid config type")
@@ -85,7 +91,7 @@ func (g *GitcoinPassport) Init(iconf any) error {
 	g.cooldown = conf.Cooldown
 	g.db = conf.DB
 	// init download variables
-	g.ctx, g.cancel = context.WithCancel(context.Background())
+	g.ctx, g.cancel = context.WithCancel(globalCtx)
 	g.scoresChan = make(chan *GitcoinScore)
 	g.waiter = new(sync.WaitGroup)
 	g.synced = atomic.Bool{}
@@ -99,8 +105,11 @@ func (g *GitcoinPassport) Init(iconf any) error {
 	if err == nil {
 		g.lastSyncedTime.Store(lastSync)
 	}
-
-	g.startScoreUpdates()
+	// if there are other instances downloading, this one does not need to
+	// start the download process
+	if !downloading.Load() {
+		g.startScoreUpdates()
+	}
 	return nil
 }
 
@@ -134,7 +143,7 @@ func (g *GitcoinPassport) HoldersBalances(_ context.Context, stamp []byte, _ uin
 ) {
 	// get the current scores from the db, handle the case when the stamp is
 	// empty and when it is not to get the scores from the db
-	synced := g.synced.Load()
+	synced := g.isSynced(true)
 	totalSupply := big.NewInt(0)
 	currentScores := make(map[common.Address]*big.Int)
 	if len(stamp) > 0 {
@@ -190,9 +199,7 @@ func (g *GitcoinPassport) IsExternal() bool {
 
 // IsSynced returns true if the balances are not empty.
 func (g *GitcoinPassport) IsSynced(_ []byte) bool {
-	g.currentBalancesMtx.RLock()
-	defer g.currentBalancesMtx.RUnlock()
-	return len(g.currentBalances) > 0
+	return g.isSynced(false)
 }
 
 // Address returns the address of the Gitcoin Passport contract.
@@ -395,6 +402,22 @@ func (g *GitcoinPassport) updateLastSync(ctx context.Context) error {
 	return nil
 }
 
+func (g *GitcoinPassport) isSynced(update bool) bool {
+	if !update {
+		return g.synced.Load()
+	}
+	lastSync, err := g.loadLastSync(g.ctx)
+	if err != nil {
+		log.Warnw("error loading last sync time", "err", err)
+		return g.synced.Load()
+	}
+	g.lastSyncedTime.Store(lastSync)
+	tLastSync := time.Unix(lastSync, 0)
+	isSynced := time.Since(tLastSync) < g.cooldown
+	g.synced.Store(isSynced)
+	return isSynced
+}
+
 func (g *GitcoinPassport) startScoreUpdates() {
 	log.Debug("starting Gitcoin Passport score updates")
 	g.waiter.Add(1)
@@ -431,8 +454,12 @@ func (g *GitcoinPassport) startScoreUpdates() {
 }
 
 func (g *GitcoinPassport) updateScores() error {
+	downloading.Store(true)
+	defer downloading.Store(false)
 	// download de json from API endpoint
-	req, err := http.NewRequestWithContext(g.ctx, http.MethodGet, g.apiEndpoint, nil)
+	internalCtx, cancel := context.WithCancel(g.ctx)
+	defer cancel()
+	req, err := http.NewRequestWithContext(internalCtx, http.MethodGet, g.apiEndpoint, nil)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}

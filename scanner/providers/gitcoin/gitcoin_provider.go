@@ -430,9 +430,6 @@ func (g *GitcoinPassport) startScoreUpdates() {
 			default:
 				lastSync := time.Unix(g.lastSyncedTime.Load(), 0)
 				if time.Since(lastSync).Abs() < g.cooldown {
-					log.Debugw("last sync time is too recent, waiting...",
-						"cooldown(s)", g.cooldown.Seconds(),
-						"time_to_next_sync(s)", g.cooldown.Seconds()-time.Since(lastSync).Seconds())
 					time.Sleep(30 * time.Second)
 					continue
 				}

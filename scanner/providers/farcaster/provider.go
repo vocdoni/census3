@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,6 +24,9 @@ import (
 
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
+
+var downloading atomic.Bool
+var globallySynced atomic.Bool
 
 const (
 	idRegistryCreationBlock  = 111816351
@@ -123,7 +127,9 @@ func (p *FarcasterProvider) Init(globalCtx context.Context, iconf any) error {
 	p.contracts.keyRegistrySynced.Store(false)
 	// start the internal scanner
 	p.scannerCtx, p.cancelScanner = context.WithCancel(globalCtx)
-	go p.initInternalScanner()
+	if !downloading.Load() {
+		go p.initInternalScanner()
+	}
 	return nil
 }
 
@@ -166,7 +172,7 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
 ) {
 	// check if both contracts are synced
-	isSynced := p.contracts.idRegistrySynced.Load() && p.contracts.keyRegistrySynced.Load()
+	isSynced := globallySynced.Load()
 	// get current holders from internal db
 	appKeys, err := p.db.QueriesRO.ListAppKeys(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -344,6 +350,8 @@ func (p *FarcasterProvider) initInternalScanner() {
 		case <-p.scannerCtx.Done():
 			return
 		default:
+			downloading.Store(true)
+			defer downloading.Store(false)
 			lastBlock, idrSynced, krSynced, err := p.scanIteration(p.scannerCtx)
 			if err != nil {
 				log.Errorf("error scanning iteration: %s", err.Error())
@@ -455,6 +463,7 @@ func (p *FarcasterProvider) scanIteration(ctx context.Context) (uint64, bool, bo
 	// update sync vars and the last block scanned in the provider database
 	p.contracts.idRegistrySynced.Store(idrSynced)
 	p.contracts.keyRegistrySynced.Store(krSynced)
+	globallySynced.Store(idrSynced && krSynced)
 	if _, err := p.db.QueriesRW.SetLastBlock(ctx, queries.SetLastBlockParams{
 		Contract:    IdRegistryAddress,
 		BlockNumber: int64(idrLastBlock),

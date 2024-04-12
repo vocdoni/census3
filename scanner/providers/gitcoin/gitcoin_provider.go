@@ -457,7 +457,9 @@ func (g *GitcoinPassport) updateScores() error {
 	downloading.Store(true)
 	defer downloading.Store(false)
 	// download de json from API endpoint
-	req, err := http.NewRequestWithContext(g.ctx, http.MethodGet, g.apiEndpoint, nil)
+	internalCtx, cancel := context.WithCancel(g.ctx)
+	defer cancel()
+	req, err := http.NewRequestWithContext(internalCtx, http.MethodGet, g.apiEndpoint, nil)
 	if err != nil {
 		return fmt.Errorf("error creating request: %w", err)
 	}

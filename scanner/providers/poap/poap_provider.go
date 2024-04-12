@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/scanner/providers"
@@ -16,6 +17,7 @@ import (
 )
 
 const (
+	defaultRequestTimeout = 30 * time.Second
 	// POAP_SYMBOL_PREFIX is the prefix of the POAP token symbol to be used in
 	// with the eventID to compose the token symbol.
 	POAP_SYMBOL_PREFIX = "POAP"
@@ -62,6 +64,7 @@ type POAPSnapshot struct {
 // of the token holders from the last snapshot.
 type POAPHolderProvider struct {
 	ctx          context.Context
+	cancel       context.CancelFunc
 	apiEndpoint  string
 	accessToken  string
 	snapshots    map[string]*POAPSnapshot
@@ -88,7 +91,7 @@ func (p *POAPHolderProvider) Init(globalCtx context.Context, iconf any) error {
 	if conf.AccessToken == "" {
 		return fmt.Errorf("no POAP access token defined")
 	}
-	p.ctx = globalCtx
+	p.ctx, p.cancel = context.WithCancel(globalCtx)
 	p.apiEndpoint = conf.APIEndpoint
 	p.accessToken = conf.AccessToken
 	p.snapshots = make(map[string]*POAPSnapshot)
@@ -162,6 +165,7 @@ func (p *POAPHolderProvider) HoldersBalances(_ context.Context, id []byte, delta
 // Close method is not implemented in the POAP external provider. By default it
 // returns nil error.
 func (p *POAPHolderProvider) Close() error {
+	p.cancel()
 	return nil
 }
 
@@ -350,7 +354,9 @@ func (p *POAPHolderProvider) holdersPage(eventID string, offset int) (*POAPAPIRe
 	q.Add("offset", fmt.Sprint(offset))
 	endpoint.RawQuery = q.Encode()
 	// create request and add headers
-	req, err := http.NewRequestWithContext(p.ctx, http.MethodGet, endpoint.String(), nil)
+	internalCtx, cancel := context.WithTimeout(p.ctx, defaultRequestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(internalCtx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +399,9 @@ func (p *POAPHolderProvider) getEventInfo(eventID string) (*EventAPIResponse, er
 		return nil, err
 	}
 	// create request and add headers
-	req, err := http.NewRequestWithContext(p.ctx, http.MethodGet, endpoint.String(), nil)
+	internalCtx, cancel := context.WithTimeout(p.ctx, defaultRequestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(internalCtx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return nil, err
 	}

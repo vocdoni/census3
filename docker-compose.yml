@@ -5,6 +5,7 @@ services:
     image: ghcr.io/vocdoni/census3:main
     build: .
     env_file: ".env"
+    restart: always
     sysctls:
       net.core.somaxconn: 8128
     volumes:

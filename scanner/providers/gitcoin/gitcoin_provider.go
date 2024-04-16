@@ -35,7 +35,7 @@ const (
 	// timeouts
 	symbolTimeout    = time.Second * 5
 	balanceOfTimeout = time.Second * 20
-	saveScoreTimeout = time.Second * 20
+	saveScoreTimeout = time.Second * 60
 	metadataTimeout  = time.Second * 5
 )
 

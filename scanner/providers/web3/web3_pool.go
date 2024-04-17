@@ -111,7 +111,10 @@ func (nm *Web3Pool) DelEndoint(uri string) {
 // provided. It returns the first available endpoint. If no available endpoint
 // is found, returns an error.
 func (nm *Web3Pool) Endpoint(chainID uint64) (*Web3Endpoint, error) {
-	return nm.endpoints[chainID].Next()
+	if endpoints, ok := nm.endpoints[chainID]; ok {
+		return endpoints.Next()
+	}
+	return nil, fmt.Errorf("no endpoint found for chainID %d", chainID)
 }
 
 // DisableEndpoint method sets the available flag to false for the URI provided

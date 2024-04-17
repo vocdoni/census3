@@ -52,6 +52,9 @@ func (w3pp *Web3Iterator) Add(endpoint ...*Web3Endpoint) {
 // available endpoints, it will reset the disabled endpoints and return the
 // first available endpoint.
 func (w3pp *Web3Iterator) Next() (*Web3Endpoint, error) {
+	if w3pp == nil {
+		return nil, fmt.Errorf("nil Web3Iterator")
+	}
 	w3pp.mtx.Lock()
 	defer w3pp.mtx.Unlock()
 	l := len(w3pp.available)

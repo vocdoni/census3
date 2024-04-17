@@ -147,7 +147,7 @@ func main() {
 	}
 	for _, uri := range config.listOfWeb3Providers {
 		if err := w3p.AddEndpoint(uri); err != nil {
-			log.Warnf("error adding web3 provider (%s): %w", uri, err)
+			log.Warnf("error adding web3 provider (%s): %v", uri, err)
 		}
 	}
 	// init the database

@@ -35,12 +35,12 @@ func creationBlock(client *Client, ctx context.Context, addr common.Address) (ui
 	// check if the current client supports `eth_getCode` method, if not, return
 	// 1 and nil. It is assumed that the contract is created at block 1 to start
 	// scanning from the first block.
-	ethClient, err := client.EthClient()
-	if err != nil {
-		return 0, err
-	}
 	getCodeSupport := false
 	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
+		ethClient, err := client.EthClient()
+		if err != nil {
+			return 0, err
+		}
 		if getCodeSupport = providers.ClientSupportsGetCode(ctx, ethClient, addr); getCodeSupport {
 			break
 		}
@@ -50,6 +50,7 @@ func creationBlock(client *Client, ctx context.Context, addr common.Address) (ui
 		return 1, nil
 	}
 	// get the latest block number
+	var err error
 	var lastBlock uint64
 	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
 		lastBlock, err = client.BlockNumber(ctx)

@@ -147,7 +147,7 @@ func (g *GitcoinPassport) HoldersBalances(ctx context.Context, stamp []byte, _ u
 	defer cancel()
 	// get the current scores from the db, handle the case when the stamp is
 	// empty and when it is not to get the scores from the db
-	synced := g.isSynced(true)
+	synced := g.isSynced(ctx, true)
 	totalSupply := big.NewInt(0)
 	currentScores := make(map[common.Address]*big.Int)
 	if len(stamp) > 0 {
@@ -193,7 +193,7 @@ func (g *GitcoinPassport) Close() error {
 	g.cancel()
 	g.waiter.Wait()
 	close(g.scoresChan)
-	return g.db.Close()
+	return nil
 }
 
 // IsExternal returns true because Gitcoin Passport is an external provider.
@@ -203,7 +203,10 @@ func (g *GitcoinPassport) IsExternal() bool {
 
 // IsSynced returns true if the balances are not empty.
 func (g *GitcoinPassport) IsSynced(_ []byte) bool {
-	return g.isSynced(false)
+	ctx, cancel := context.WithTimeout(context.Background(), metadataTimeout)
+	defer cancel()
+	synced := g.isSynced(ctx, false)
+	return synced
 }
 
 // Address returns the address of the Gitcoin Passport contract.
@@ -406,11 +409,11 @@ func (g *GitcoinPassport) updateLastSync(ctx context.Context) error {
 	return nil
 }
 
-func (g *GitcoinPassport) isSynced(update bool) bool {
+func (g *GitcoinPassport) isSynced(ctx context.Context, update bool) bool {
 	if !update {
 		return g.synced.Load()
 	}
-	lastSync, err := g.loadLastSync(g.ctx)
+	lastSync, err := g.loadLastSync(ctx)
 	if err != nil {
 		log.Warnw("error loading last sync time", "err", err)
 		return g.synced.Load()
@@ -423,10 +426,14 @@ func (g *GitcoinPassport) isSynced(update bool) bool {
 }
 
 func (g *GitcoinPassport) startScoreUpdates() {
-	log.Debug("starting Gitcoin Passport score updates")
 	g.waiter.Add(1)
 	go func() {
 		defer g.waiter.Done()
+		defer func() {
+			if err := g.Close(); err != nil {
+				log.Warnw("error closing Gitcoin Passport", "err", err)
+			}
+		}()
 		for {
 			select {
 			case <-g.ctx.Done():
@@ -434,9 +441,9 @@ func (g *GitcoinPassport) startScoreUpdates() {
 			default:
 				lastSync := time.Unix(g.lastSyncedTime.Load(), 0)
 				if time.Since(lastSync).Abs() < g.cooldown {
-					time.Sleep(30 * time.Second)
-					continue
+					return
 				}
+				log.Debug("starting Gitcoin Passport score updates")
 				if err := g.updateScores(); err != nil {
 					log.Warnw("error updating Gitcoin Passport scores", "err", err)
 				}

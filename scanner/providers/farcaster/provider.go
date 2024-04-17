@@ -131,9 +131,12 @@ func (p *FarcasterProvider) Init(globalCtx context.Context, iconf any) error {
 	}
 	p.contracts.idRegistrySynced.Store(false)
 	p.contracts.keyRegistrySynced.Store(false)
-	// start the internal scanner
-	p.scannerCtx, p.cancelScanner = context.WithCancel(globalCtx)
+	// to prevent that the scanner stops when the context is canceled, we create
+	// a new context and a cancel function to stop the scanner when the context
+	// is canceled
+	p.scannerCtx, p.cancelScanner = context.WithCancel(context.Background())
 	if !downloading.Load() {
+		// if no scanner is running, start this one
 		go p.initInternalScanner()
 	}
 	return nil

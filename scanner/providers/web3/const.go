@@ -3,7 +3,7 @@ package web3
 import "time"
 
 const (
-	DefaultMaxWeb3ClientRetries = 3
+	DefaultMaxWeb3ClientRetries = 5
 	RetryWeb3Cooldown           = 500 * time.Millisecond
 )
 

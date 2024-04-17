@@ -354,6 +354,11 @@ func (p *FarcasterProvider) keyRegistryCreationBlock() uint64 {
 // before the next iteration. It also updates the last block scanned and the
 // sync vars of the provider.
 func (p *FarcasterProvider) initInternalScanner() {
+	defer func() {
+		if err := p.Close(); err != nil {
+			log.Warnf("error closing provider: %s", err.Error())
+		}
+	}()
 	for {
 		select {
 		case <-p.scannerCtx.Done():
@@ -363,8 +368,8 @@ func (p *FarcasterProvider) initInternalScanner() {
 			defer downloading.Store(false)
 			lastBlock, idrSynced, krSynced, err := p.scanIteration(p.scannerCtx)
 			if err != nil {
-				log.Errorf("error scanning iteration: %s", err.Error())
-				continue
+				log.Warnf("error scanning iteration: %s", err.Error())
+				return
 			}
 			p.contracts.lastBlock.Store(lastBlock)
 			log.Debugw("scanning iteration finished, sleeping...",

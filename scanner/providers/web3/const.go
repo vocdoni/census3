@@ -1,19 +1,17 @@
 package web3
 
-import "time"
+import (
+	"time"
 
-const (
-	DefaultMaxWeb3ClientRetries = 5
-	RetryWeb3Cooldown           = 500 * time.Millisecond
+	"github.com/vocdoni/census3/helpers/web3"
 )
 
 const (
-	shortNameSourceUri        = "https://chainid.network/chains_mini.json"
-	checkWeb3EndpointsTimeout = time.Second * 10
-	TimeLayout                = "2006-01-02T15:04:05Z07:00"
+	RetryWeb3Cooldown = 500 * time.Millisecond
+	TimeLayout        = "2006-01-02T15:04:05Z07:00"
 )
 
-var DefaultWeb3Endpoint = &Web3Endpoint{
+var DefaultWeb3Endpoint = &web3.Web3Endpoint{
 	ChainID:   11155111,
 	Name:      "Sepolia",
 	ShortName: "sep",

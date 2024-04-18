@@ -22,7 +22,8 @@ import (
 	gitcoinDB "github.com/vocdoni/census3/scanner/providers/gitcoin/db"
 	"github.com/vocdoni/census3/scanner/providers/manager"
 	"github.com/vocdoni/census3/scanner/providers/poap"
-	"github.com/vocdoni/census3/scanner/providers/web3"
+	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
+	"github.com/vocdoni/census3/helpers/web3"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -158,10 +159,10 @@ func main() {
 	// init the provider manager
 	pm := manager.NewProviderManager()
 	// init the web3 token providers
-	web3ProviderConf := web3.Web3ProviderConfig{Endpoints: w3p}
-	pm.AddProvider(new(web3.ERC20HolderProvider).Type(), web3ProviderConf)
-	pm.AddProvider(new(web3.ERC721HolderProvider).Type(), web3ProviderConf)
-	pm.AddProvider(new(web3.ERC777HolderProvider).Type(), web3ProviderConf)
+	web3ProviderConf := web3provider.Web3ProviderConfig{Endpoints: w3p}
+	pm.AddProvider(new(web3provider.ERC20HolderProvider).Type(), web3ProviderConf)
+	pm.AddProvider(new(web3provider.ERC721HolderProvider).Type(), web3ProviderConf)
+	pm.AddProvider(new(web3provider.ERC777HolderProvider).Type(), web3ProviderConf)
 	// init POAP external provider
 	if config.poapAPIEndpoint != "" {
 		pm.AddProvider(new(poap.POAPHolderProvider).Type(), poap.POAPConfig{

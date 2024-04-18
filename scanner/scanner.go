@@ -17,7 +17,8 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/scanner/providers/manager"
-	"github.com/vocdoni/census3/scanner/providers/web3"
+	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
+	"github.com/vocdoni/census3/helpers/web3"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -315,7 +316,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 	qtx := s.db.QueriesRW.WithTx(tx)
 	// if the provider is not an external one, instance the current token
 	if !provider.IsExternal() {
-		if err := provider.SetRef(web3.Web3ProviderRef{
+		if err := provider.SetRef(web3provider.Web3ProviderRef{
 			HexAddress:    token.Address.Hex(),
 			ChainID:       token.ChainID,
 			CreationBlock: token.CreationBlock,

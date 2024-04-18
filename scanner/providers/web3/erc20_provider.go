@@ -11,12 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
 	"github.com/vocdoni/census3/scanner/providers"
+	"github.com/vocdoni/census3/helpers/web3"
 	"go.vocdoni.io/dvote/log"
 )
 
 type ERC20HolderProvider struct {
-	endpoints *Web3Pool
-	client    *Client
+	endpoints *web3.Web3Pool
+	client    *web3.Client
 
 	contract         *erc20.ERC20Contract
 	address          common.Address

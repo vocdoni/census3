@@ -18,8 +18,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+)
+
+const (
+	DefaultMaxWeb3ClientRetries = 5
+
+	shortNameSourceUri        = "https://chainid.network/chains_mini.json"
+	checkWeb3EndpointsTimeout = time.Second * 10
 )
 
 // Web3Pool struct contains a map of chainID-[]*Web3Endpoint, where

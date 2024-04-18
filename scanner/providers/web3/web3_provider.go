@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/helpers/web3"
+	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/log"
 )

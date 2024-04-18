@@ -10,8 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	erc721 "github.com/vocdoni/census3/contracts/erc/erc721"
-	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/helpers/web3"
+	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
 

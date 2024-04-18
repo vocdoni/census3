@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vocdoni/census3/api"
 	"github.com/vocdoni/census3/db"
+	"github.com/vocdoni/census3/helpers/web3"
 	"github.com/vocdoni/census3/internal"
 	"github.com/vocdoni/census3/scanner"
 	"github.com/vocdoni/census3/scanner/providers/farcaster"
@@ -23,7 +24,6 @@ import (
 	"github.com/vocdoni/census3/scanner/providers/manager"
 	"github.com/vocdoni/census3/scanner/providers/poap"
 	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
-	"github.com/vocdoni/census3/helpers/web3"
 	"go.vocdoni.io/dvote/log"
 )
 

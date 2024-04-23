@@ -1,73 +1,79 @@
+<p align="center" width="100%">
+    <img src="https://developer.vocdoni.io/img/vocdoni_logotype_full_white.svg" />
+</p>
 
-# Vocdoni Census3
-
-![census3-header](https://i.postimg.cc/HkgKdRYB/census3-header.png)
-
-[![GoDoc](https://godoc.org/github.com/vocdoni/census3?status.svg)](https://godoc.org/github.com/vocdoni/census3)
-[![Go Report Card](https://goreportcard.com/badge/github.com/vocdoni/census3)](https://goreportcard.com/report/github.com/vocdoni/census3)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-
-[![Join Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://discord.gg/xFTh8Np2ga)
-[![Twitter Follow](https://img.shields.io/twitter/follow/vocdoni.svg?style=social&label=Follow)](https://twitter.com/vocdoni)
-
-<center>
-<b>⚠ This project is currently an MVP and is subject to change ⚠</b>
-</center>
-
----
-
-## Description
-
-Census3 is an API service to create censuses for elections with holders of a single token or a combination of them.
-The service creates a list of holder addresses and balances and keeps it updated in real time, for every registered token.
-Then, it allows creating a merkle tree census (compatible with [Vocdoni](https://vocdoni.io/)) with those holders, using their balances as vote weights.
-
-#### Suported contract types
-
-The service suports the following token types:
-* ERC20
-* ERC721
-* ERC777
-* POAP
-* Gitcoin Passport Score
-* Gitcoin Passport Shields (*coming soon*)
-* ERC1155 (*coming soon*)
+<p align="center" width="100%">
+    <a href="https://github.com/vocdoni/census3/commits/main/"><img src="https://img.shields.io/github/commit-activity/m/vocdoni/census3" /></a>
+    <a href="https://github.com/vocdoni/census3/issues"><img src="https://img.shields.io/github/issues/vocdoni/census3" /></a>
+    <a href="https://github.com/vocdoni/census3/actions/workflows/main.yml/"><img src="https://github.com/vocdoni/census3/actions/workflows/main.yml/badge.svg" /></a>
+    <a href="https://pkg.go.dev/github.com/vocdoni/census3"><img src="https://godoc.org/go.vocdoni.io/census3?status.svg"></a>
+    <a href="https://discord.gg/xFTh8Np2ga"><img src="https://img.shields.io/badge/discord-join%20chat-blue.svg" /></a>
+    <a href="https://twitter.com/vocdoni"><img src="https://img.shields.io/twitter/follow/vocdoni.svg?style=social&label=Follow" /></a>
+</p>
 
 
-#### About censuses
- * The censuses are published on [IPFS](https://ipfs.tech/) after their creation. 
- * Census3 uses [go.vocdoni.io/dvote/tree/arbo](go.vocdoni.io/dvote/tree/arbo) to build the census merkle trees.
- * The censuses can be created with the holders of just one token or a combination of tokens, using **complex strategies**.
- * The censuses are *zk-friendly* and can also be used for anonymous voting.
+  <div align="center">
+    Vocdoni is the first universally verifiable, censorship-resistant, anonymous, and self-sovereign governance protocol. <br />
+    Our main aim is a trustless voting system where anyone can speak their voice and where everything is auditable. <br />
+    We are engineering building blocks for a permissionless, private and censorship resistant democracy.
+    <br />
+    <a href="https://developer.vocdoni.io/"><strong>Explore the developer portal »</strong></a>
+    <br />
+    <h3>More About Us</h3>
+    <a href="https://vocdoni.io">Vocdoni Website</a>
+    |
+    <a href="https://vocdoni.app">Web Application</a>
+    |
+    <a href="https://explorer.vote/">Blockchain Explorer</a>
+    |
+    <a href="https://law.mit.edu/pub/remotevotingintheageofcryptography/release/1">MIT Law Publication</a>
+    |
+    <a href="https://chat.vocdoni.io">Contact Us</a>
+    <br />
+    <h3>Key Repositories</h3>
+    <a href="https://github.com/vocdoni/vocdoni-node">Vocdoni Node</a>
+    |
+    <a href="https://github.com/vocdoni/vocdoni-sdk/">Vocdoni SDK</a>
+    |
+    <a href="https://github.com/vocdoni/ui-components">UI Components</a>
+    |
+    <a href="https://github.com/vocdoni/ui-scaffold">Application UI</a>
+    |
+    <a href="https://github.com/vocdoni/census3">Census3</a>
+  </div>
 
-#### About complex strategies
-A strategy is a definition of a group of previously created tokens and how their scanned holders must be combined to create a census.
-* Must support combinations of tokens which contains:
-  * A operator, which is a function associated with a tag (e.g. `AND`) that are used to combine token holders and define how to combine them.
-  * Two token symbols (e.g. `BTC`), that identifies the token holders to combine.
-  * Must have the following format: `<token_symbol> <operator> <token_symbol>`, e.g. `BTC OR ETH`.
-* Must support groups of combinations, e.g. `USDC AND (ETH OR (BTC AND DAI))`
+# census3
 
----
+Census3 is an API service which facilitates the creation of Vocdoni censuses whose eligible voters are defined by token-holders of some cryptocurrency token(s). The service has a list of registered tokens whose holder addresses and balances it keeps updated in real time. 
 
-## Documentation
+The Census3 service then uses this token-holder information to create a merkle tree census (compatible with [Vocdoni](https://vocdoni.io/)) according to some given eligibility criteria. 
 
-1. [How to run the Census3 servive](#how-to-run-the-census3-api-service)
-2. [Basic example](#basic-example)
-3. [API definition](#api-defintion)
+This code is written in golang and is meant to be used in conjunction with other Vocdoni tools, such as the [API](https://developer.vocdoni.io/vocdoni-api/vocdoni-api). 
+
+The best place to learn about interacting with the Census3 Service is the [developer portal](https://developer.vocdoni.io/).
+
+### Table of Contents
+- [Getting Started](#getting-started)
+- [Reference](#reference)
+- [Examples](#examples)
+- [Preview](#preview)
+- [Disclaimer](#disclaimer)
+- [Contributing](#contributing)
+- [License](#license)
 
 
-### How to run the Census3 API service
+## Getting Started
+
+You can run the Census3 service locally for testing or deploy it yourself.
 
 #### Using the CLI
-1. Build the project:
 
+You can locally host your own Census3 service by first building this code:
 ```sh
 go build -o census3 ./cmd/census3
 ```
 
-2. Run the CLI:
-
+Then you can run the binary with the following possible options:
 ```sh
 ./census3 --help
 Usage of ./census3:
@@ -128,9 +134,15 @@ CENSUS3_INITIALTOKENS="/app/initial_tokens.json"
 docker compose up -d
 ```
 
-### Basic example
+## Reference
 
-0. Starts the API service on `localhost:7788` with a web3 provider for `mainnet`
+The Census3 usage and API is documented at the [developer portal](https://developer.vocdoni.io/protocol/census/on-chain/census3#api-defintion). We recommend reading this documentation before trying to run your own examples.
+
+## Examples
+
+The following shows a basic example for creating a Census3 census using a locally-running instance:
+
+0. Start the API service on `localhost:7788` with a web3 provider for `mainnet`
 1. Register a new `erc20` token from `mainnet (chainId: 1)` by its contract address:
 
 ```sh
@@ -139,25 +151,25 @@ curl -X POST \
       http://localhost:7788/api/tokens
 ```
 
-2. Wait to that the API service completes the token sync. It could take up to 10-20 minutes, even more, based on the number of holders and transactions. You can check the token sync status getting the token info:
+1. Wait for the API service to complete the token synchronization. It could take up to 10-20 minutes, even more, based on the number of holders and transactions (for this reason, high-traffic tokens like ETH are infeasible). You can check the token sync status by fetching the token info:
 ```sh
 curl -X GET \
       http://localhost:7788/api/tokens/0xFE67A4450907459c3e1FFf623aA927dD4e28c67a
 ```
 
-3. When the API ends, and the token reaches `synced` status (`token.status.synced = true`), its time to create a new census based on the default token strategy. This strategy is created during the token registration and just contains the holders of this token. To create the census with token holders, you need to know the `token.defaultStrategy` (from token info endpoint):
+1. When the token reaches `synced` status (`token.status.synced = true`), you can create a new census based on the default token strategy. This strategy is created during the token registration and just contains the holders of the token. To create the census with token holders, you need to know the `token.defaultStrategy` (from the token info endpoint):
 ```sh
 curl -X POST \
         --json '{"strategyID": <strategyId>, "anonymous": true}" \
         http://localhost:7788/api/censuses
 ```
-4. The last request will return a `queueId` which identifies the census creation and publication processes on the API queue. It will be completed in background. We can check if the task is done, it raised an error or was succesfully completed:
+1. The previous request will return a `queueId` which identifies the census creation and publication processes on the API queue. Census publication will be completed in the background. We can check if the task is done and whether it raised an error or was successfully completed:
 ```sh
 curl -X GET \
         http://localhost:7788/censuses/queue/<queueId>
 ```
 
-You can check and run the example using the [`example.sh` file](./example.sh):
+You can also automatically run this example using the [`example.sh` file](./example.sh):
 ```sh
 sh ./example.sh
 
@@ -176,5 +188,39 @@ cd234ba75988e04e1e7a3234e48ff4033633142f
 {"done":true,"error":null,"census":{"censusId":1,"strategyId":1,"merkleRoot":"73368af290f4d0dfcb25b12060184bb3e5ad4147c5e5949de6729800c3629509","uri":"ipfs://bafybeiehspu3xrpshzjcvexl52u756cwfjobcwjz7ol4as44zfpvnlchsu","size":644,"weight":"5180125781955736442164650279357953853238828163172892166520872906800","anonymous":true}}
 ```
 
-### API Defintion
-Check out the API endpoints definitions, accepted requests and expected responses in the [`./api` folder](./api).
+## Preview
+
+You can see the Census3 API in use with the Vocdoni SDK at the SDK's [census3 example](https://github.com/vocdoni/vocdoni-sdk/tree/examples/token-based/examples/token-based)
+
+## Disclaimer
+
+The Census3 service is WIP. Please beware that it can be broken at any time if the release is `alpha` or `beta`. We encourage you to review this repository and the developer portal for any changes.
+
+## Contributing 
+
+While we welcome contributions from the community, we do not track all of our issues on Github and we may not have the resources to onboard developers and review complex pull requests. That being said, there are multiple ways you can get involved with the project. 
+
+Please review our [development guidelines](https://developer.vocdoni.io/development-guidelines).
+
+## License
+
+This repository is licensed under the [GNU Affero General Public License v3.0.](./LICENSE)
+
+
+    Vocdoni Census3 Service
+    Copyright (C) 2024 Vocdoni Association
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)

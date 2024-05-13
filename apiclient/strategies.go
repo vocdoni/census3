@@ -152,3 +152,37 @@ func (c *HTTPclient) CreateStrategy(request *api.Strategy) (uint64, error) {
 	}
 	return strategyID, nil
 }
+
+// TokenStrategies returns the strategies of a given token
+func (c *HTTPclient) TokenStrategies(tokenID string, chainID uint64, externalID string) (*api.Strategies, error) {
+	// construct the URL to the API with the given parameters
+	endpoint := fmt.Sprintf(GetTokenStrategies, tokenID, chainID, externalID)
+	u, err := c.constructURL(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrConstructingURL, err)
+	}
+	// create the request and send it, if there is an error or the status code
+	// is not 200, return an error
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrCreatingRequest, err)
+	}
+	res, err := c.c.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrMakingRequest, err)
+	}
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			log.Errorf("error closing response body: %v", err)
+		}
+	}()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: %s", ErrNoStatusOk,
+			fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
+	}
+	strategiesResponse := api.Strategies{Strategies: []*api.Strategy{}}
+	if err := json.NewDecoder(res.Body).Decode(&strategiesResponse); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
+	}
+	return &strategiesResponse, nil
+}

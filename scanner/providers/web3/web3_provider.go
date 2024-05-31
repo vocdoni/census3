@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	boom "github.com/tylertreat/BoomFilters"
 	"github.com/vocdoni/census3/helpers/web3"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/db"
@@ -27,6 +28,7 @@ type Web3ProviderConfig struct {
 	Web3ProviderRef
 	Endpoints *web3.Web3Pool
 	DB        *db.Database
+	filter    boom.Filter
 }
 
 // creationBlock function returns the block number of the creation of a contract

@@ -316,6 +316,9 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 	qtx := s.db.QueriesRW.WithTx(tx)
 	// if the provider is not an external one, instance the current token
 	if !provider.IsExternal() {
+		// load filter of the token from the database
+
+		// set the token reference in the provider
 		if err := provider.SetRef(web3provider.Web3ProviderRef{
 			HexAddress:    token.Address.Hex(),
 			ChainID:       token.ChainID,

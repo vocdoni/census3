@@ -113,16 +113,3 @@ HAVING num_of_tokens = 1;
 
 -- name: DeleteToken :execresult
 DELETE FROM tokens WHERE id = ? AND chain_id = ? AND external_id = ?;
-
--- name: SetTokenUpdate :execresult
-INSERT INTO token_updates (id, chain_id, filter_gob, last_block)
-
--- name: UpdateTokenUpdate :execresult
-UPDATE token_updates
-SET last_block = sqlc.arg(last_block)
-    AND filter_gob = sqlc.arg(filter_gob)
-WHERE id = sqlc.arg(id) 
-    AND chain_id = sqlc.arg(chain_id);
-
--- name: GetTokenUpdate :one
-SELECT * FROM token_updates WHERE id = ? AND chain_id = ?

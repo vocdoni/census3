@@ -14,7 +14,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db"
-	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/web3"
 	"github.com/vocdoni/census3/scanner/providers/manager"
@@ -136,6 +135,7 @@ func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
 						atSyncGlobal.Store(false)
 					}
 					// save the new token holders
+					s.updateInternalTokenStatus(token, lastBlock, synced, totalSupply)
 					if err = s.SaveHolders(ctx, token, holders, newTransfers, lastBlock, synced, totalSupply); err != nil {
 						if strings.Contains(err.Error(), "database is closed") {
 							return
@@ -396,29 +396,8 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 	return provider.HoldersBalances(ctx, []byte(token.ExternalID), token.LastBlock)
 }
 
-// SaveHolders saves the given holders in the database. It updates the token
-// synced status if it is different from the received one. Then, it creates,
-// updates or deletes the token holders in the database depending on the
-// calculated balance.
-// WARNING: the following code could produce holders with negative balances
-// in the database. This is because the scanner does not know if the token
-// holder is a contract or not, so it does not know if the balance is
-// correct or not. The scanner assumes that the balance is correct and
-// updates it in the database:
-//  1. To get the correct holders from the database you must filter the
-//     holders with negative balances.
-//  2. To get the correct balances you must use the contract methods to get
-//     the balances of the holders.
-func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
-	holders map[common.Address]*big.Int, newTransfers, lastBlock uint64,
-	synced bool, totalSupply *big.Int,
-) error {
-	log.Infow("saving token status and holders",
-		"token", token.Address.Hex(),
-		"chainID", token.ChainID,
-		"externalID", token.ExternalID,
-		"block", lastBlock,
-		"holders", len(holders))
+func (s *Scanner) updateInternalTokenStatus(token ScannerToken, lastBlock uint64,
+	synced bool, totalSupply *big.Int) {
 	s.tokensMtx.Lock()
 	for i, t := range s.tokens {
 		if t.Address == token.Address && t.ChainID == token.ChainID && t.ExternalID == token.ExternalID {
@@ -432,79 +411,25 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 		}
 	}
 	s.tokensMtx.Unlock()
+}
+
+// SaveHolders saves the given holders in the database. It calls the SaveHolders
+// helper function to save the holders and the token status in the database. It
+// prints the number of created and updated token holders if there are any, else
+// it prints that there are no holders to save. If some error occurs, it returns
+// the error.
+func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
+	holders map[common.Address]*big.Int, newTransfers, lastBlock uint64,
+	synced bool, totalSupply *big.Int,
+) error {
+	log.Infow("saving token status and holders",
+		"token", token.Address.Hex(),
+		"chainID", token.ChainID,
+		"externalID", token.ExternalID,
+		"block", lastBlock,
+		"holders", len(holders))
 	internalCtx, cancel := context.WithTimeout(ctx, SAVE_TIMEOUT)
 	defer cancel()
-	// create a tx to use it in the following queries
-	tx, err := s.db.RW.BeginTx(internalCtx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
-			log.Errorf("error rolling back tx: %v, token=%s chainID=%d externalID=%s",
-				err, token.Address.Hex(), token.ChainID, token.ExternalID)
-		}
-	}()
-	qtx := s.db.QueriesRW.WithTx(tx)
-	// create, update or delete token holders
-	created, updated := 0, 0
-	for addr, balance := range holders {
-		// get the current token holder from the database
-		currentTokenHolder, err := qtx.GetTokenHolderEvenZero(ctx, queries.GetTokenHolderEvenZeroParams{
-			TokenID:    token.Address.Bytes(),
-			ChainID:    token.ChainID,
-			ExternalID: token.ExternalID,
-			HolderID:   addr.Bytes(),
-		})
-		if err != nil {
-			if !errors.Is(sql.ErrNoRows, err) {
-				return err
-			}
-			// if the token holder not exists, create it
-			_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
-				TokenID:    token.Address.Bytes(),
-				ChainID:    token.ChainID,
-				ExternalID: token.ExternalID,
-				HolderID:   addr.Bytes(),
-				BlockID:    lastBlock,
-				Balance:    balance.String(),
-			})
-			if err != nil {
-				return err
-			}
-			created++
-			continue
-		}
-		// parse the current balance of the holder
-		currentBalance, ok := new(big.Int).SetString(currentTokenHolder.Balance, 10)
-		if !ok {
-			return fmt.Errorf("error parsing current token holder balance")
-		}
-		// if both balances are zero, continue with the next holder to prevent
-		// UNIQUES constraint errors
-		if balance.Cmp(big.NewInt(0)) == 0 && currentBalance.Cmp(big.NewInt(0)) == 0 {
-			continue
-		}
-		// calculate the new balance of the holder by adding the current balance
-		// and the new balance
-		newBalance := new(big.Int).Add(currentBalance, balance)
-		// update the token holder in the database with the new balance.
-		// WANING: the balance could be negative so you must filter the holders
-		// with negative balances to get the correct holders from the database.
-		_, err = qtx.UpdateTokenHolderBalance(ctx, queries.UpdateTokenHolderBalanceParams{
-			TokenID:    token.Address.Bytes(),
-			ChainID:    token.ChainID,
-			ExternalID: token.ExternalID,
-			HolderID:   addr.Bytes(),
-			BlockID:    currentTokenHolder.BlockID,
-			NewBlockID: lastBlock,
-			Balance:    newBalance.String(),
-		})
-		if err != nil {
-			return fmt.Errorf("error updating token holder: %w", err)
-		}
-		updated++
-	}
 	// print the number of created and updated token holders if there are any,
 	// else, print that there are no holders to save
 	if len(holders) == 0 {
@@ -513,6 +438,10 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 			"chainID", token.ChainID,
 			"externalID", token.ExternalID)
 	} else {
+		created, updated, err := SaveHolders(s.db, internalCtx, token, holders, newTransfers, lastBlock, synced, totalSupply)
+		if err != nil {
+			return err
+		}
 		log.Debugw("committing token holders",
 			"token", token.Address.Hex(),
 			"chainID", token.ChainID,
@@ -522,30 +451,6 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 			"created", created,
 			"updated", updated)
 	}
-	// get the token info from the database to update ir
-	tokenInfo, err := qtx.GetToken(internalCtx,
-		queries.GetTokenParams{
-			ID:         token.Address.Bytes(),
-			ChainID:    token.ChainID,
-			ExternalID: token.ExternalID,
-		})
-	if err != nil {
-		return err
-	}
-	// update the synced status, last block, the number of analysed transfers
-	// (for debug) and the total supply in the database
-	_, err = qtx.UpdateTokenStatus(internalCtx, queries.UpdateTokenStatusParams{
-		ID:                token.Address.Bytes(),
-		ChainID:           token.ChainID,
-		ExternalID:        token.ExternalID,
-		Synced:            synced,
-		LastBlock:         int64(lastBlock),
-		AnalysedTransfers: tokenInfo.AnalysedTransfers + int64(newTransfers),
-		TotalSupply:       annotations.BigInt(token.totalSupply.String()),
-	})
-	if err != nil {
-		return err
-	}
 	log.Debugw("token status saved",
 		"synced", synced,
 		"token", token.Address.Hex(),
@@ -553,10 +458,6 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 		"externalID", token.ExternalID,
 		"totalSupply", token.totalSupply.String(),
 		"block", lastBlock)
-	// close the database tx and commit it
-	if err := tx.Commit(); err != nil {
-		return err
-	}
 	return nil
 }
 

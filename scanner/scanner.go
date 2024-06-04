@@ -411,7 +411,8 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 }
 
 func (s *Scanner) updateInternalTokenStatus(token ScannerToken, lastBlock uint64,
-	synced bool, totalSupply *big.Int) {
+	synced bool, totalSupply *big.Int,
+) {
 	s.tokensMtx.Lock()
 	for i, t := range s.tokens {
 		if t.Address == token.Address && t.ChainID == token.ChainID && t.ExternalID == token.ExternalID {

@@ -2,6 +2,7 @@ package web3
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"math/big"
@@ -9,6 +10,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	boom "github.com/tylertreat/BoomFilters"
 	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
 	"github.com/vocdoni/census3/helpers/web3"
 	"github.com/vocdoni/census3/scanner/providers"
@@ -29,6 +32,7 @@ type ERC777HolderProvider struct {
 	creationBlock    uint64
 	lastNetworkBlock uint64
 	synced           atomic.Bool
+	filter           boom.Filter
 }
 
 func (p *ERC777HolderProvider) Init(_ context.Context, iconf any) error {
@@ -65,6 +69,8 @@ func (p *ERC777HolderProvider) SetRef(iref any) error {
 	if err != nil {
 		return fmt.Errorf("error getting web3 client for the given chainID: %w", err)
 	}
+	// set the filter provided in the reference
+	p.filter = ref.Filter
 	// set the client, parse the address and initialize the contract
 	address := common.HexToAddress(ref.HexAddress)
 	if p.contract, err = erc777.NewERC777Contract(address, p.client); err != nil {
@@ -149,10 +155,20 @@ func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 		log.Warnf("too many requests, the provider will continue in the next iteration from block %d", lastBlock)
 	}
 	// encode the number of new transfers
-	newTransfers := uint64(len(logs))
+	newTransfers := uint64(0)
 	balances := make(map[common.Address]*big.Int)
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
+		// check if the log has been already processed
+		processed, err := p.isLogAlreadyProcessed(currentLog)
+		if err != nil {
+			return nil, newTransfers, lastBlock, false, big.NewInt(0),
+				errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+		}
+		if processed {
+			continue
+		}
+		newTransfers++
 		logData, err := p.contract.ERC777ContractFilterer.ParseTransfer(currentLog)
 		if err != nil {
 			return nil, newTransfers, lastBlock, false, nil,
@@ -328,4 +344,26 @@ func (p *ERC777HolderProvider) IconURI(_ []byte) (string, error) {
 // returns the data as is.
 func (p *ERC777HolderProvider) CensusKeys(data map[common.Address]*big.Int) (map[common.Address]*big.Int, error) {
 	return data, nil
+}
+
+// isLogAlreadyProcessed returns true if the log with the given block number and
+// log index has been already processed. It uses a filter to check if the log
+// has been processed. To identify the log, it creates a hash with the block
+// number and log index. It returns true if the log has been already processed
+// or false if it has not been processed yet. If some error occurs, it returns
+// false and the error.
+func (p *ERC777HolderProvider) isLogAlreadyProcessed(log types.Log) (bool, error) {
+	// if the filter is not defined, return false
+	if p.filter == nil {
+		return false, nil
+	}
+	// get a identifier of each transfer:
+	// blockNumber-logIndex
+	transferID := fmt.Sprintf("%x-%d-%d", log.Data, log.BlockNumber, log.Index)
+	hashFn := sha256.New()
+	if _, err := hashFn.Write([]byte(transferID)); err != nil {
+		return false, err
+	}
+	hID := hashFn.Sum(nil)
+	return p.filter.TestAndAdd(hID), nil
 }

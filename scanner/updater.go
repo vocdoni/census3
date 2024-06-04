@@ -17,11 +17,8 @@ import (
 	"go.vocdoni.io/dvote/util"
 )
 
-const (
-	coolDown       = 15 * time.Second
-	UPDATE_TIMEOUT = 5 * time.Minute
-)
-
+// UpdateRequest is a struct to request a token update but also to query about
+// the status of a request that is being processed.
 type UpdateRequest struct {
 	Address       common.Address
 	ChainID       uint64
@@ -31,10 +28,20 @@ type UpdateRequest struct {
 	LastBlock     uint64
 }
 
+// Done returns true if the request is done, that is, the last block is greater
+// or equal to the end block.
 func (ur UpdateRequest) Done() bool {
 	return ur.LastBlock >= ur.EndBlock
 }
 
+// Updater is a struct to manage the update requests of the tokens. It will
+// iterate over the requests, repeating the process of getting the token holders
+// balances and saving them in the database until the last block is greater or
+// equal to the end block. The end block is the block number where the token
+// holders balances are up to date. The holders providers must include an
+// instance of a TokenFilter to store the processed transactions to avoid
+// re-processing them, but also rescanning a synced token to find missing
+// transactions.
 type Updater struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -47,6 +54,7 @@ type Updater struct {
 	waiter    sync.WaitGroup
 }
 
+// NewUpdater creates a new instance of Updater.
 func NewUpdater(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager) *Updater {
 	return &Updater{
 		db:        db,
@@ -56,6 +64,7 @@ func NewUpdater(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager)
 	}
 }
 
+// Start starts the updater process in a goroutine.
 func (u *Updater) Start(ctx context.Context) {
 	u.ctx, u.cancel = context.WithCancel(ctx)
 	u.waiter.Add(1)
@@ -78,11 +87,15 @@ func (u *Updater) Start(ctx context.Context) {
 	}()
 }
 
+// Stop stops the updater process.
 func (u *Updater) Stop() {
 	u.cancel()
 	u.waiter.Wait()
 }
 
+// RequestStatus returns the status of a request by its ID. If the request is
+// done, it will be removed from the queue. If the request is not found, it will
+// return an error.
 func (u *Updater) RequestStatus(id string) (UpdateRequest, error) {
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()
@@ -96,6 +109,10 @@ func (u *Updater) RequestStatus(id string) (UpdateRequest, error) {
 	return u.queue[id], nil
 }
 
+// AddRequest adds a new request to the queue. It will return an error if the
+// request is missing required fields or the block range is invalid. The request
+// will be added to the queue with a random ID, that will be returned to allow
+// the client to query the status of the request.
 func (u *Updater) AddRequest(req UpdateRequest) (string, error) {
 	if req.ChainID == 0 || req.Type == 0 || req.CreationBlock == 0 || req.EndBlock == 0 {
 		return "", fmt.Errorf("missing required fields")
@@ -110,12 +127,18 @@ func (u *Updater) AddRequest(req UpdateRequest) (string, error) {
 	return id, nil
 }
 
+// IsEmpty returns true if the queue is empty.
 func (u *Updater) IsEmpty() bool {
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()
 	return len(u.queue) == 0
 }
 
+// process iterates over the current queue items, getting the token holders
+// balances and saving them in the database until the last block is greater or
+// equal to the end block. It updates th status of the request in the queue. It
+// will return an error if the provider is not found, the token is external or
+// there is an error getting the token holders balances.
 func (u *Updater) process() error {
 	// make a copy of current queue
 	u.queueMtx.Lock()
@@ -126,6 +149,10 @@ func (u *Updater) process() error {
 	u.queueMtx.Unlock()
 	// iterate over the current queue items
 	for id, req := range queue {
+		// check if the request is done
+		if req.Done() {
+			continue
+		}
 		internalCtx, cancel := context.WithTimeout(u.ctx, UPDATE_TIMEOUT)
 		defer cancel()
 		// get the provider by token type

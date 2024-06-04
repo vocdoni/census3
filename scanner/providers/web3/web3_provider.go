@@ -22,13 +22,13 @@ type Web3ProviderRef struct {
 	HexAddress    string
 	ChainID       uint64
 	CreationBlock uint64
+	Filter        boom.Filter
 }
 
 type Web3ProviderConfig struct {
 	Web3ProviderRef
 	Endpoints *web3.Web3Pool
 	DB        *db.Database
-	filter    boom.Filter
 }
 
 // creationBlock function returns the block number of the creation of a contract

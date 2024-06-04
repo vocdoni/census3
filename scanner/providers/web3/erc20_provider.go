@@ -42,7 +42,6 @@ func (p *ERC20HolderProvider) Init(_ context.Context, iconf any) error {
 		return errors.New("invalid config type, it must be Web3ProviderConfig")
 	}
 	p.endpoints = conf.Endpoints
-	p.filter = conf.filter
 	p.synced.Store(false)
 	// set the reference if the address and chainID are defined in the config
 	if conf.HexAddress != "" && conf.ChainID > 0 {
@@ -70,6 +69,8 @@ func (p *ERC20HolderProvider) SetRef(iref any) error {
 	if err != nil {
 		return fmt.Errorf("error getting web3 client for the given chainID: %w", err)
 	}
+	// set the filter provided in the reference
+	p.filter = ref.Filter
 	// set the client, parse the address and initialize the contract
 	p.address = common.HexToAddress(ref.HexAddress)
 	if p.contract, err = erc20.NewERC20Contract(p.address, p.client); err != nil {
@@ -362,6 +363,10 @@ func (p *ERC20HolderProvider) CensusKeys(data map[common.Address]*big.Int) (map[
 // or false if it has not been processed yet. If some error occurs, it returns
 // false and the error.
 func (p *ERC20HolderProvider) isLogAlreadyProcessed(log types.Log) (bool, error) {
+	// if the filter is not defined, return false
+	if p.filter == nil {
+		return false, nil
+	}
 	// get a identifier of each transfer:
 	// blockNumber-logIndex
 	transferID := fmt.Sprintf("%x-%d-%d", log.Data, log.BlockNumber, log.Index)

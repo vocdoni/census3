@@ -158,7 +158,9 @@ func (u *Updater) process() error {
 		if err := provider.SetLastBalances(internalCtx, nil, currentHolders, req.LastBlock); err != nil {
 			return err
 		}
-		// get range balances from the provider
+		// get range balances from the provider, it will check itereate again
+		// over transfers logs, checking if there are new transfers using the
+		// bloom filter associated to the token
 		rangeBalances, newTransfers, lastBlock, synced, totalSupply, err := provider.HoldersBalances(internalCtx, nil, req.EndBlock)
 		if err != nil {
 			return err

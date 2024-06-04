@@ -46,6 +46,7 @@ type Scanner struct {
 	networks        *web3.Web3Pool
 	providerManager *manager.ProviderManager
 	coolDown        time.Duration
+	filtersPath     string
 
 	tokens                  []*ScannerToken
 	tokensMtx               sync.Mutex
@@ -56,12 +57,15 @@ type Scanner struct {
 
 // NewScanner returns a new scanner instance with the required parameters
 // initialized.
-func NewScanner(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager, coolDown time.Duration) *Scanner {
+func NewScanner(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager,
+	coolDown time.Duration, filtersPath string,
+) *Scanner {
 	return &Scanner{
 		db:                      db,
 		networks:                networks,
 		providerManager:         pm,
 		coolDown:                coolDown,
+		filtersPath:             filtersPath,
 		tokens:                  []*ScannerToken{},
 		tokensMtx:               sync.Mutex{},
 		waiter:                  sync.WaitGroup{},
@@ -317,12 +321,22 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 	// if the provider is not an external one, instance the current token
 	if !provider.IsExternal() {
 		// load filter of the token from the database
-
+		filter, err := LoadFilter(s.filtersPath, token.Address, token.ChainID)
+		if err != nil {
+			return nil, 0, token.LastBlock, token.Synced, nil, err
+		}
+		// commit the filter when the function finishes
+		defer func() {
+			if err := filter.Commit(); err != nil {
+				log.Error(err)
+			}
+		}()
 		// set the token reference in the provider
 		if err := provider.SetRef(web3provider.Web3ProviderRef{
 			HexAddress:    token.Address.Hex(),
 			ChainID:       token.ChainID,
 			CreationBlock: token.CreationBlock,
+			Filter:        filter.filter,
 		}); err != nil {
 			return nil, 0, token.LastBlock, token.Synced, nil, err
 		}

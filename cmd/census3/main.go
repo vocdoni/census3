@@ -39,6 +39,7 @@ type Census3Config struct {
 	adminToken                     string
 	initialTokens                  string
 	farcaster                      bool
+	filtersPath                    string
 }
 
 func main() {
@@ -135,6 +136,8 @@ func main() {
 		panic(err)
 	}
 	config.farcaster = pviper.GetBool("farcaster")
+	// set the filters path into the config
+	config.filtersPath = config.dataDir + "/filters"
 	// init logger
 	log.Init(config.logLevel, "stdout", nil)
 	// check if the web3 providers are defined
@@ -195,7 +198,7 @@ func main() {
 		})
 	}
 	// start the holder scanner with the database and the provider manager
-	hc := scanner.NewScanner(database, w3p, pm, config.scannerCoolDown)
+	hc := scanner.NewScanner(database, w3p, pm, config.scannerCoolDown, config.filtersPath)
 	// if the admin token is not defined, generate a random one
 	if config.adminToken != "" {
 		if _, err := uuid.Parse(config.adminToken); err != nil {

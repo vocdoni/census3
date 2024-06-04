@@ -199,6 +199,8 @@ func main() {
 	}
 	// start the holder scanner with the database and the provider manager
 	hc := scanner.NewScanner(database, w3p, pm, config.scannerCoolDown, config.filtersPath)
+	// start the token updater with the database and the provider manager
+	updater := scanner.NewUpdater(database, w3p, pm)
 	// if the admin token is not defined, generate a random one
 	if config.adminToken != "" {
 		if _, err := uuid.Parse(config.adminToken); err != nil {
@@ -219,6 +221,7 @@ func main() {
 		GroupKey:        config.connectKey,
 		HolderProviders: pm.Providers(ctx),
 		AdminToken:      config.adminToken,
+		TokenUpdater:    updater,
 	})
 	if err != nil {
 		log.Fatal(err)

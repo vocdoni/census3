@@ -162,3 +162,13 @@ type DeleteTokenQueueResponse struct {
 	Done  bool  `json:"done"`
 	Error error `json:"error"`
 }
+
+type RescanTokenResponse struct {
+	ID string `json:"ID"`
+}
+
+type RescanTokenStatus struct {
+	Address string `json:"address"`
+	ChainID uint64 `json:"chainID"`
+	Done    bool   `json:"done"`
+}

@@ -31,6 +31,10 @@ type UpdateRequest struct {
 	LastBlock     uint64
 }
 
+func (ur UpdateRequest) Done() bool {
+	return ur.LastBlock >= ur.EndBlock
+}
+
 type Updater struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -54,7 +58,6 @@ func NewUpdater(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager)
 
 func (u *Updater) Start(ctx context.Context) {
 	u.ctx, u.cancel = context.WithCancel(ctx)
-
 	u.waiter.Add(1)
 	go func() {
 		defer u.waiter.Done()
@@ -80,27 +83,31 @@ func (u *Updater) Stop() {
 	u.waiter.Wait()
 }
 
-func (u *Updater) RequestStatus(id string) UpdateRequest {
+func (u *Updater) RequestStatus(id string) (UpdateRequest, error) {
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()
-	req := u.queue[id]
-	if req.LastBlock >= req.EndBlock {
+	req, ok := u.queue[id]
+	if !ok {
+		return UpdateRequest{}, fmt.Errorf("request not found")
+	}
+	if req.Done() {
 		delete(u.queue, id)
 	}
-	return u.queue[id]
+	return u.queue[id], nil
 }
 
-func (u *Updater) AddRequest(req UpdateRequest) {
+func (u *Updater) AddRequest(req UpdateRequest) (string, error) {
 	if req.ChainID == 0 || req.Type == 0 || req.CreationBlock == 0 || req.EndBlock == 0 {
-		return
+		return "", fmt.Errorf("missing required fields")
 	}
 	if req.CreationBlock >= req.EndBlock || req.LastBlock >= req.EndBlock {
-		return
+		return "", fmt.Errorf("invalid block range")
 	}
 	id := util.RandomHex(16)
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()
 	u.queue[id] = req
+	return id, nil
 }
 
 func (u *Updater) IsEmpty() bool {

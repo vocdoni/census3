@@ -159,6 +159,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	// encode the number of new transfers
 	newTransfers := uint64(0)
 	balances := make(map[common.Address]*big.Int)
+	alreadyProcessedLogs := 0
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
 		// check if the log has been already processed
@@ -168,10 +169,9 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 				errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 		}
 		if processed {
-			log.Info("log already processed")
+			alreadyProcessedLogs++
 			continue
 		}
-		log.Info("log not processed yet, processing...")
 		newTransfers++
 		logData, err := p.contract.ERC20ContractFilterer.ParseTransfer(currentLog)
 		if err != nil {
@@ -192,7 +192,8 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	}
 	log.Infow("saving blocks",
 		"count", len(balances),
-		"logs", len(logs),
+		"new_logs", newTransfers,
+		"already_processed_logs", alreadyProcessedLogs,
 		"blocks/s", 1000*float32(lastBlock-fromBlock)/float32(time.Since(startTime).Milliseconds()),
 		"took", time.Since(startTime).Seconds(),
 		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))

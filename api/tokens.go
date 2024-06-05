@@ -653,7 +653,6 @@ func (capi *census3API) rescanToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		ChainID:       uint64(chainID),
 		Type:          tokenData.TypeID,
 		CreationBlock: uint64(tokenData.CreationBlock),
-		LastBlock:     uint64(tokenData.CreationBlock),
 		EndBlock:      uint64(tokenData.LastBlock),
 	})
 	if err != nil {

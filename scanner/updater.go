@@ -152,8 +152,12 @@ func (u *Updater) process() error {
 		if req.Done {
 			continue
 		}
-		log.Infow("rescanning token", "address", req.Address.Hex(), "from", req.CreationBlock, "to", req.EndBlock, "current", req.LastBlock)
-		internalCtx, cancel := context.WithTimeout(u.ctx, UPDATE_TIMEOUT)
+		log.Infow("rescanning token",
+			"address", req.Address.Hex(),
+			"from", req.CreationBlock,
+			"to", req.EndBlock,
+			"current", req.LastBlock)
+		ctx, cancel := context.WithTimeout(u.ctx, UPDATE_TIMEOUT)
 		defer cancel()
 		// get the provider by token type
 		provider, err := u.providers.GetProvider(u.ctx, req.Type)
@@ -189,7 +193,7 @@ func (u *Updater) process() error {
 		// the request
 		provider.SetLastBlockNumber(req.EndBlock)
 		// get current token holders from database
-		results, err := u.db.QueriesRO.ListTokenHolders(internalCtx, queries.ListTokenHoldersParams{
+		results, err := u.db.QueriesRO.ListTokenHolders(ctx, queries.ListTokenHoldersParams{
 			TokenID: req.Address.Bytes(),
 			ChainID: req.ChainID,
 		})
@@ -205,25 +209,25 @@ func (u *Updater) process() error {
 			currentHolders[common.Address(holder.HolderID)] = bBalance
 		}
 		// set the current holders in the provider
-		if err := provider.SetLastBalances(internalCtx, nil, currentHolders, req.LastBlock); err != nil {
+		if err := provider.SetLastBalances(ctx, nil, currentHolders, req.LastBlock); err != nil {
 			return err
 		}
 		// get range balances from the provider, it will check itereate again
 		// over transfers logs, checking if there are new transfers using the
 		// bloom filter associated to the token
-		rangeBalances, newTransfers, lastBlock, synced, totalSupply, err := provider.HoldersBalances(internalCtx, nil, req.CreationBlock)
+		balances, nTx, lastBlock, synced, totalSupply, err := provider.HoldersBalances(ctx, nil, req.CreationBlock)
 		if err != nil {
 			return err
 		}
-		log.Infow("new logs received", "address", req.Address.Hex(), "from", req.LastBlock, "lastBlock", lastBlock, "newLogs", newTransfers)
+		log.Infow("new logs received", "address", req.Address.Hex(), "from", req.LastBlock, "lastBlock", lastBlock, "newLogs", nTx)
 		// update the token last
 		req.LastBlock = lastBlock
 		req.Done = synced
 		// save the new balances in the database
-		created, updated, err := SaveHolders(u.db, internalCtx, ScannerToken{
+		created, updated, err := SaveHolders(u.db, ctx, ScannerToken{
 			Address: req.Address,
 			ChainID: req.ChainID,
-		}, rangeBalances, newTransfers, lastBlock, synced, totalSupply)
+		}, balances, nTx, lastBlock, synced, totalSupply)
 		if err != nil {
 			return err
 		}

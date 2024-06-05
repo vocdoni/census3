@@ -42,7 +42,7 @@ func (capi *census3API) initTokenHandlers() error {
 		api.MethodAccessTypeAdmin, capi.rescanToken); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/tokens/rescan/queue/{queueId}", "GET",
+	if err := capi.endpoint.RegisterMethod("/tokens/rescan/queue/{queueID}", "GET",
 		api.MethodAccessTypeAdmin, capi.checkRescanToken); err != nil {
 		return err
 	}
@@ -648,7 +648,7 @@ func (capi *census3API) rescanToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrNoSyncedToken
 	}
 	// enqueue the rescan token process
-	id, err := capi.tokenUpdater.AddRequest(scanner.UpdateRequest{
+	id, err := capi.tokenUpdater.AddRequest(&scanner.UpdateRequest{
 		Address:       address,
 		ChainID:       uint64(chainID),
 		Type:          tokenData.TypeID,
@@ -674,14 +674,14 @@ func (capi *census3API) checkRescanToken(msg *api.APIdata, ctx *httprouter.HTTPC
 	}
 	// get the rescan status from the updater
 	status, err := capi.tokenUpdater.RequestStatus(queueID)
-	if err != nil {
+	if err != nil || status == nil {
 		return ErrNotFoundToken.Withf("the ID %s does not exist in the queue", queueID)
 	}
 	// encoding the result and response it
 	response, err := json.Marshal(RescanTokenStatus{
 		Address: status.Address.String(),
 		ChainID: status.ChainID,
-		Done:    status.Done(),
+		Done:    status.Done,
 	})
 	if err != nil {
 		return ErrEncodeQueueItem.WithErr(err)

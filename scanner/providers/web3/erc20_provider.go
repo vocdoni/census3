@@ -168,8 +168,10 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 				errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 		}
 		if processed {
+			log.Info("log already processed")
 			continue
 		}
+		log.Info("log not processed yet, processing...")
 		newTransfers++
 		logData, err := p.contract.ERC20ContractFilterer.ParseTransfer(currentLog)
 		if err != nil {
@@ -197,7 +199,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	p.synced.Store(synced)
 	totalSupply, err := p.TotalSupply(nil)
 	if err != nil {
-		log.Warn("error getting total supply, it will retry in the next iteration", "error", err)
+		log.Warnw("error getting total supply, it will retry in the next iteration", "error", err)
 		return balances, newTransfers, lastBlock, synced, nil, nil
 	}
 	return balances, newTransfers, lastBlock, synced, totalSupply, nil

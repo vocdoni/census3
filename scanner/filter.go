@@ -52,8 +52,8 @@ func LoadFilter(basePath string, address common.Address, chainID uint64) (*Token
 }
 
 // Add adds a key to the filter.
-func (tf *TokenFilter) Add(key []byte) {
-	tf.filter.Add(key)
+func (tf *TokenFilter) Add(key []byte) boom.Filter {
+	return tf.filter.Add(key)
 }
 
 // Test checks if a key is in the filter.
@@ -75,7 +75,7 @@ func (tf *TokenFilter) Commit() error {
 		return err
 	}
 	// write the filter to the file
-	if err := os.WriteFile(tf.path, bFilter, 0o644); err != nil {
+	if err := os.WriteFile(tf.path, bFilter, os.ModePerm); err != nil {
 		return err
 	}
 	return nil

@@ -329,6 +329,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 		defer func() {
 			if err := filter.Commit(); err != nil {
 				log.Error(err)
+				return
 			}
 		}()
 		// set the token reference in the provider
@@ -336,7 +337,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 			HexAddress:    token.Address.Hex(),
 			ChainID:       token.ChainID,
 			CreationBlock: token.CreationBlock,
-			Filter:        filter.filter,
+			Filter:        filter,
 		}); err != nil {
 			return nil, 0, token.LastBlock, token.Synced, nil, err
 		}

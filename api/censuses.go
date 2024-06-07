@@ -144,7 +144,7 @@ func (capi *census3API) createAndPublishCensus(req *Census, qID string) (uint64,
 	}
 	strategyTokensBySymbol := map[string]*StrategyToken{}
 	for _, token := range strategyTokens {
-		strategyTokensBySymbol[token.Symbol] = &StrategyToken{
+		strategyTokensBySymbol[token.TokenAlias] = &StrategyToken{
 			ID:         common.BytesToAddress(token.TokenID).String(),
 			ChainID:    token.ChainID,
 			ExternalID: token.ExternalID,

@@ -148,10 +148,10 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 			return ErrCantGetStrategies.WithErr(err)
 		}
 		for _, strategyToken := range strategyTokens {
-			if strategyToken.Symbol == "" {
+			if strategyToken.TokenAlias == "" {
 				return ErrCantGetStrategies.With("invalid token symbol")
 			}
-			strategyResponse.Tokens[strategyToken.Symbol] = &StrategyToken{
+			strategyResponse.Tokens[strategyToken.TokenAlias] = &StrategyToken{
 				ID:           common.BytesToAddress(strategyToken.TokenID).String(),
 				ChainID:      strategyToken.ChainID,
 				MinBalance:   strategyToken.MinBalance,
@@ -209,30 +209,32 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 	if err != nil {
 		return ErrCantCreateStrategy.WithErr(err)
 	}
-	// iterate over the token symbols included in the predicate
-	for _, symbol := range validatedPredicate.AllLiterals() {
+	// iterate over the token aliases included in the predicate
+	for _, tokenAlias := range validatedPredicate.AllLiterals() {
 		// check if the request includes the token information
-		tokenData, ok := req.Tokens[symbol]
+		tokenData, ok := req.Tokens[tokenAlias]
 		if !ok {
-			return ErrNoEnoughtStrategyTokens.Withf("undefined ID and chainID for symbol %s", symbol)
+			return ErrNoEnoughtStrategyTokens.Withf("no information provided for %s", tokenAlias)
 		}
 		// check if the token exists in the database
-		exists, err := qtx.ExistsTokenByChainID(internalCtx, queries.ExistsTokenByChainIDParams{
-			ID:      common.HexToAddress(tokenData.ID).Bytes(),
-			ChainID: tokenData.ChainID,
-		})
+		exists, err := qtx.ExistsTokenByChainIDAndExternalID(internalCtx,
+			queries.ExistsTokenByChainIDAndExternalIDParams{
+				ID:         common.HexToAddress(tokenData.ID).Bytes(),
+				ChainID:    tokenData.ChainID,
+				ExternalID: tokenData.ExternalID,
+			})
 		if err != nil {
 			return ErrCantCreateStrategy.WithErr(err)
 		}
 		if !exists {
-			return ErrNotFoundToken.Withf("the token with symbol %s not found", symbol)
+			return ErrNotFoundToken.Withf("the token with tokenAlias %s not found", tokenAlias)
 		}
 		// decode the min balance for the current token if it is provided,
 		// if not use one
 		minBalance := big.NewInt(1)
 		if tokenData.MinBalance != "" {
 			if _, ok := minBalance.SetString(tokenData.MinBalance, 10); !ok {
-				return ErrEncodeStrategy.Withf("error with %s minBalance", symbol)
+				return ErrEncodeStrategy.Withf("error with %s minBalance", tokenAlias)
 			}
 		}
 		// create the strategy_token in the database
@@ -242,12 +244,13 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 			MinBalance: minBalance.String(),
 			ChainID:    tokenData.ChainID,
 			ExternalID: tokenData.ExternalID,
+			TokenAlias: tokenAlias,
 		}); err != nil {
 			return ErrCantCreateStrategy.WithErr(err)
 		}
 		// get the chain address of the token
 		chainAddress, _ := capi.w3p.ChainAddress(tokenData.ChainID, tokenData.ID)
-		req.Tokens[symbol].ChainAddress = chainAddress
+		req.Tokens[tokenAlias].ChainAddress = chainAddress
 	}
 	// encode and compose final strategy data using the response of GET
 	// strategy endpoint
@@ -402,13 +405,13 @@ func (capi *census3API) importStrategyDump(ipfsURI string, dump []byte) (uint64,
 	}
 	// iterate over the token included in the strategy and create them in the
 	// database
-	for symbol, token := range importedStrategy.Tokens {
+	for tokenAlias, token := range importedStrategy.Tokens {
 		// decode the min balance for the current token if it is provided,
 		// if not use zero
 		minBalance := new(big.Int)
 		if token.MinBalance != "" {
 			if _, ok := minBalance.SetString(token.MinBalance, 10); !ok {
-				return 0, ErrEncodeStrategy.Withf("error with %s minBalance", symbol)
+				return 0, ErrEncodeStrategy.Withf("error with %s minBalance", tokenAlias)
 			}
 		}
 		// create the strategy token in the database
@@ -418,6 +421,7 @@ func (capi *census3API) importStrategyDump(ipfsURI string, dump []byte) (uint64,
 			MinBalance: minBalance.String(),
 			ChainID:    token.ChainID,
 			ExternalID: token.ExternalID,
+			TokenAlias: tokenAlias,
 		}); err != nil {
 			return 0, ErrCantCreateStrategy.WithErr(err)
 		}
@@ -530,7 +534,7 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	}
 	// parse and encode tokens information
 	for _, tokenData := range tokensData {
-		strategy.Tokens[tokenData.Symbol] = &StrategyToken{
+		strategy.Tokens[tokenData.TokenAlias] = &StrategyToken{
 			ID:           common.BytesToAddress(tokenData.TokenID).String(),
 			ChainAddress: tokenData.ChainAddress,
 			MinBalance:   tokenData.MinBalance,

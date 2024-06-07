@@ -40,10 +40,11 @@ INSERT INTO strategy_tokens (
     token_id,
     chain_id,
     min_balance,
-    external_id
+    external_id,
+    token_alias
 )
 VALUES (
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 );
 
 -- name: ExistsStrategyByURI :one
@@ -57,7 +58,7 @@ WHERE st.strategy_id = ?
 ORDER BY strategy_id, token_id;
 
 -- name: StrategyTokens :many
-SELECT st.token_id, st.min_balance, st.chain_id, st.external_id, t.chain_address, t.symbol, t.icon_uri
+SELECT st.token_id, st.min_balance, st.chain_id, st.external_id, t.chain_address, st.token_alias, t.icon_uri
 FROM strategy_tokens st
 JOIN tokens t ON st.token_id = t.id AND st.chain_id = t.chain_id AND st.external_id = t.external_id
 WHERE st.strategy_id = ?;

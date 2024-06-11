@@ -256,7 +256,7 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 	// init token information to get the token holders if the predicate is not a
 	// literal, and to get the latest block number of every token chain id
 	tokensInfo := map[string]*strategyoperators.TokenInformation{}
-	for _, t := range tokens {
+	for tokenAlias, t := range tokens {
 		token, err := capi.db.QueriesRO.GetToken(ctx, queries.GetTokenParams{
 			ID:         common.HexToAddress(t.ID).Bytes(),
 			ChainID:    t.ChainID,
@@ -265,12 +265,12 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 		if err != nil {
 			return nil, nil, 0, err
 		}
-		tokensInfo[token.Symbol] = &strategyoperators.TokenInformation{
+		tokensInfo[tokenAlias] = &strategyoperators.TokenInformation{
 			ID:         common.BytesToAddress(token.ID).String(),
 			ChainID:    token.ChainID,
 			MinBalance: t.MinBalance,
 			Decimals:   token.Decimals,
-			ExternalID: token.ExternalID,
+			ExternalID: t.ExternalID,
 		}
 		provider, exists := capi.holderProviders[token.TypeID]
 		if !exists {

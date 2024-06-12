@@ -15,8 +15,9 @@ import (
 
 // TokenFilter is a wrapper of boom.ScalableBloomFilter to store the filter to
 // a file and load it from it. The file that stores the filter is named as
-// <address>-<chainID>.filter, where address is the token contract address and
-// chainID is the chain ID of the network where the token is deployed.
+// <address>-<chainID>-<externalID>.filter, where address is the token contract 
+// address and chainID is the chain ID of the network where the token is 
+// deployed.
 type TokenFilter struct {
 	filter  *boom.ScalableBloomFilter
 	address common.Address
@@ -26,9 +27,9 @@ type TokenFilter struct {
 
 // LoadFilter loads the filter from the file, if the file does not exist, create
 // a new filter and return it. The filter is stored in the file named as
-// <address>-<chainID>.filter in the basePath directory.
-func LoadFilter(basePath string, address common.Address, chainID uint64) (*TokenFilter, error) {
-	// compose the filter path: path/<address>-<chainID>.filter
+// <address>-<chainID>-<externalID>.filter in the basePath directory.
+func LoadFilter(basePath string, address common.Address, chainID uint64, externalID string) (*TokenFilter, error) {
+	// compose the filter path: path/<address>-<chainID>-<externalID>.filter
 	// by default, create a empty filter
 	tf := &TokenFilter{
 		filter:  boom.NewDefaultScalableBloomFilter(0.01),

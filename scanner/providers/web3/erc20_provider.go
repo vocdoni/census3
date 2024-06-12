@@ -120,15 +120,14 @@ func (p *ERC20HolderProvider) SetLastBlockNumber(blockNumber uint64) {
 // of new transfers, the last block scanned, if the provider is synced and an
 // error if it exists.
 func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
-	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
+	map[common.Address]*big.Int, *providers.BlocksDelta, error,
 ) {
 	// if the last network block is lower than the last scanned block, and the
 	// last scanned block is equal to the creation block, it means that the
 	// last network block is outdated, so it returns that it is not synced and
 	// an error
 	if fromBlock >= p.lastNetworkBlock && fromBlock == p.creationBlock {
-		return nil, 0, fromBlock, false, big.NewInt(0),
-			fmt.Errorf("outdated last network block, it will retry in the next iteration")
+		return nil, nil, fmt.Errorf("outdated last network block, it will retry in the next iteration")
 	}
 	// calculate the range of blocks to scan, by default take the last block
 	// scanned and scan to the latest block, calculate the latest block if the
@@ -138,7 +137,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 		var err error
 		toBlock, err = p.LatestBlockNumber(ctx, nil)
 		if err != nil {
-			return nil, 0, fromBlock, false, big.NewInt(0), err
+			return nil, nil, err
 		}
 	}
 	log.Infow("scan iteration",
@@ -151,22 +150,28 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	startTime := time.Now()
 	logs, lastBlock, synced, err := RangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC20_TRANSFER)
 	if err != nil && !errors.Is(err, ErrTooManyRequests) {
-		return nil, 0, fromBlock, false, big.NewInt(0), err
+		return nil, nil, err
 	}
 	if errors.Is(err, ErrTooManyRequests) {
 		log.Warnf("too many requests, the provider will continue in the next iteration from block %d", lastBlock)
 	}
 	// encode the number of new transfers
 	newTransfers := uint64(0)
+	alreadyProcessedLogs := uint64(0)
 	balances := make(map[common.Address]*big.Int)
-	alreadyProcessedLogs := 0
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
 		// check if the log has been already processed
 		processed, err := p.isLogAlreadyProcessed(currentLog)
 		if err != nil {
-			return nil, newTransfers, lastBlock, false, big.NewInt(0),
-				errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+			return nil, &providers.BlocksDelta{
+				Block:                     lastBlock,
+				LogsCount:                 uint64(len(logs)),
+				NewLogsCount:              newTransfers,
+				AlreadyProcessedLogsCount: alreadyProcessedLogs,
+				Synced:                    false,
+				TotalSupply:               big.NewInt(0),
+			}, errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 		}
 		if processed {
 			alreadyProcessedLogs++
@@ -175,8 +180,14 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 		newTransfers++
 		logData, err := p.contract.ERC20ContractFilterer.ParseTransfer(currentLog)
 		if err != nil {
-			return nil, newTransfers, lastBlock, false, big.NewInt(0),
-				errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+			return nil, &providers.BlocksDelta{
+				Block:                     lastBlock,
+				LogsCount:                 uint64(len(logs)),
+				NewLogsCount:              newTransfers,
+				AlreadyProcessedLogsCount: alreadyProcessedLogs,
+				Synced:                    false,
+				TotalSupply:               big.NewInt(0),
+			}, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 		}
 		// update balances
 		if toBalance, ok := balances[logData.To]; ok {
@@ -189,6 +200,14 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 		} else {
 			balances[logData.From] = new(big.Int).Neg(logData.Value)
 		}
+		target := common.HexToAddress("0x05887A1CB6230E40a39c020E9f7fB09d3fC9D8da")
+		if logData.To.Hex() == target.Hex() || logData.From.Hex() == target.Hex() {
+			log.Infow("target addrsss transfer",
+				"from", logData.From.Hex(),
+				"to", logData.To.Hex(),
+				"value", logData.Value.String())
+		}
+
 	}
 	log.Infow("saving blocks",
 		"count", len(balances),
@@ -198,12 +217,19 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 		"took", time.Since(startTime).Seconds(),
 		"progress", fmt.Sprintf("%d%%", (fromBlock*100)/toBlock))
 	p.synced.Store(synced)
-	totalSupply, err := p.TotalSupply(nil)
-	if err != nil {
-		log.Warnw("error getting total supply, it will retry in the next iteration", "error", err)
-		return balances, newTransfers, lastBlock, synced, nil, nil
+
+	delta := &providers.BlocksDelta{
+		Block:                     lastBlock,
+		LogsCount:                 uint64(len(logs)),
+		NewLogsCount:              newTransfers,
+		AlreadyProcessedLogsCount: alreadyProcessedLogs,
+		Synced:                    synced,
+		TotalSupply:               big.NewInt(0),
 	}
-	return balances, newTransfers, lastBlock, synced, totalSupply, nil
+	if delta.TotalSupply, err = p.TotalSupply(nil); err != nil {
+		log.Warnw("error getting total supply, it will retry in the next iteration", "error", err)
+	}
+	return balances, delta, nil
 }
 
 // Close method is not implemented for ERC20 tokens.

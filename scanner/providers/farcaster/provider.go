@@ -178,14 +178,20 @@ func (p *FarcasterProvider) SetLastBlockNumber(blockNumber uint64) {
 // internal database and the current holders from the scanner and calculates the
 // partial holders.
 func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromBlock uint64) (
-	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
+	map[common.Address]*big.Int, *providers.BlocksDelta, error,
 ) {
 	// check if both contracts are synced
 	isSynced := globallySynced.Load()
 	// get current holders from internal db
 	appKeys, err := p.db.QueriesRO.ListAppKeys(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, 0, fromBlock, isSynced, nil, fmt.Errorf("cannot get app keys from farcaster DB %s", err.Error())
+		return nil, &providers.BlocksDelta{
+			LogsCount:                 0,
+			NewLogsCount:              0,
+			AlreadyProcessedLogsCount: 0,
+			Block:                     fromBlock,
+			Synced:                    isSynced,
+		}, fmt.Errorf("cannot get app keys from farcaster DB %s", err.Error())
 	}
 	currentHolders := make(map[common.Address]*big.Int)
 	for _, appKey := range appKeys {
@@ -200,7 +206,14 @@ func (p *FarcasterProvider) HoldersBalances(ctx context.Context, _ []byte, fromB
 	}
 	p.currentScannerHoldersMtx.Unlock()
 	resultingHolders := providers.CalcPartialHolders(currentScannerHolders, currentHolders)
-	return resultingHolders, uint64(len(resultingHolders)), p.contracts.lastBlock.Load(), isSynced, totalSupply, nil
+	return resultingHolders, &providers.BlocksDelta{
+		LogsCount:                 uint64(len(resultingHolders)),
+		NewLogsCount:              uint64(len(resultingHolders)),
+		AlreadyProcessedLogsCount: uint64(len(resultingHolders)),
+		Block:                     p.contracts.lastBlock.Load(),
+		Synced:                    isSynced,
+		TotalSupply:               totalSupply,
+	}, nil
 }
 
 // Close method is not implemented for Farcaster Key Registry.

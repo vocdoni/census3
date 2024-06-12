@@ -171,4 +171,8 @@ type RescanTokenStatus struct {
 	Address string `json:"address"`
 	ChainID uint64 `json:"chainID"`
 	Done    bool   `json:"done"`
+
+	LogsScanned    uint64 `json:"logsScanned"`
+	NewLogs        uint64 `json:"newLogs"`
+	DuplicatedLogs uint64 `json:"duplicatedLogs"`
 }

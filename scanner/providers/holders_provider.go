@@ -7,6 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+type BlocksDelta struct {
+	LogsCount                 uint64
+	NewLogsCount              uint64
+	AlreadyProcessedLogsCount uint64
+	Block                     uint64
+	Synced                    bool
+	TotalSupply               *big.Int
+}
+
 // HolderProvider is the interface that wraps the basic methods to interact with
 // a holders provider. It is used by the HoldersScanner to get the balances of
 // the token holders. It allows to implement different providers, such as
@@ -32,7 +41,7 @@ type HolderProvider interface {
 	// HoldersBalances returns the balances of the token holders for the given
 	// id and delta point in time, from the stored last snapshot. It also
 	// returns the total supply of tokens as a *big.Int.
-	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error)
+	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, *BlocksDelta, error)
 	// Close closes the provider and its internal structures.
 	Close() error
 	// IsExternal returns true if the provider is an external API.

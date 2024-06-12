@@ -2,6 +2,8 @@ package scanner
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync"
@@ -14,7 +16,6 @@ import (
 	"github.com/vocdoni/census3/scanner/providers/manager"
 	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
-	"go.vocdoni.io/dvote/util"
 )
 
 // UpdateRequest is a struct to request a token update but also to query about
@@ -22,11 +23,17 @@ import (
 type UpdateRequest struct {
 	Address       common.Address
 	ChainID       uint64
+	ExternalID    string
 	Type          uint64
 	CreationBlock uint64
 	EndBlock      uint64
-	lastBlock     uint64
+	LastBlock     uint64
 	Done          bool
+
+	TotalLogs                 uint64
+	TotalNewLogs              uint64
+	TotalAlreadyProcessedLogs uint64
+	LastTotalSupply           *big.Int
 }
 
 // Updater is a struct to manage the update requests of the tokens. It will
@@ -95,24 +102,25 @@ func (u *Updater) Stop() {
 // RequestStatus returns the status of a request by its ID. If the request is
 // done, it will be removed from the queue. If the request is not found, it will
 // return an error.
-func (u *Updater) RequestStatus(id string) (*UpdateRequest, error) {
+func (u *Updater) RequestStatus(id string, deleteOnDone bool) *UpdateRequest {
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()
 	req, ok := u.queue[id]
 	if !ok {
-		return nil, fmt.Errorf("request not found")
+		return nil
 	}
-	if req.Done {
+	res := *req
+	if deleteOnDone && req.Done {
 		delete(u.queue, id)
 	}
-	return req, nil
+	return &res
 }
 
-// AddRequest adds a new request to the queue. It will return an error if the
+// SetRequest adds a new request to the queue. It will return an error if the
 // request is missing required fields or the block range is invalid. The request
 // will be added to the queue with a random ID, that will be returned to allow
 // the client to query the status of the request.
-func (u *Updater) AddRequest(req *UpdateRequest) (string, error) {
+func (u *Updater) SetRequest(req *UpdateRequest) (string, error) {
 	// check required fields
 	if req.ChainID == 0 || req.Type == 0 || req.CreationBlock == 0 || req.EndBlock == 0 {
 		return "", fmt.Errorf("missing required fields")
@@ -122,9 +130,15 @@ func (u *Updater) AddRequest(req *UpdateRequest) (string, error) {
 		return "", fmt.Errorf("invalid block range")
 	}
 	// set the last block to the creation block to start the process from there
-	req.lastBlock = req.CreationBlock
+	// if it is not set by the client
+	if req.LastBlock == 0 {
+		req.LastBlock = req.CreationBlock
+	}
 	// generate a random ID for the request and insert it in the queue
-	id := util.RandomHex(16)
+	id, err := RequestID(req.Address, req.ChainID, req.ExternalID)
+	if err != nil {
+		return "", fmt.Errorf("error generating request ID")
+	}
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()
 	u.queue[id] = req
@@ -136,6 +150,20 @@ func (u *Updater) IsEmpty() bool {
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()
 	return len(u.queue) == 0
+}
+
+// RequestID returns the ID of a request given the address, chainID and external
+// ID. The raw ID is a string with the format "chainID:address:externalID". The
+// resulting ID is the first 4 bytes of the hash of the raw ID using the sha256
+// algorithm, encoded in hexadecimal.
+func RequestID(address common.Address, chainID uint64, externalID string) (string, error) {
+	rawID := fmt.Sprintf("%d:%s:%s", chainID, address.Hex(), externalID)
+	hashFn := sha256.New()
+	if _, err := hashFn.Write([]byte(rawID)); err != nil {
+		return "", err
+	}
+	bHash := hashFn.Sum(nil)
+	return hex.EncodeToString(bHash[:4]), nil
 }
 
 // process iterates over the current queue items, getting the token holders
@@ -161,38 +189,37 @@ func (u *Updater) process() error {
 			"address", req.Address.Hex(),
 			"from", req.CreationBlock,
 			"to", req.EndBlock,
-			"current", req.lastBlock)
+			"current", req.LastBlock)
 		ctx, cancel := context.WithTimeout(u.ctx, UPDATE_TIMEOUT)
 		defer cancel()
 		// get the provider by token type
-		provider, err := u.providers.GetProvider(u.ctx, req.Type)
+		provider, err := u.providers.GetProvider(ctx, req.Type)
 		if err != nil {
 			return err
 		}
 		// if the token is a external token, return an error
-		if provider.IsExternal() {
-			return fmt.Errorf("external providers are not supported yet")
-		}
-		// load filter of the token from the database
-		filter, err := LoadFilter(u.filtersPath, req.Address, req.ChainID)
-		if err != nil {
-			return err
-		}
-		// commit the filter when the function finishes
-		defer func() {
-			if err := filter.Commit(); err != nil {
-				log.Error(err)
-				return
+		if !provider.IsExternal() {
+			// load filter of the token from the database
+			filter, err := LoadFilter(u.filtersPath, req.Address, req.ChainID, req.ExternalID)
+			if err != nil {
+				return err
 			}
-		}()
-		// set the reference of the token to update in the provider
-		if err := provider.SetRef(web3provider.Web3ProviderRef{
-			HexAddress:    req.Address.Hex(),
-			ChainID:       req.ChainID,
-			CreationBlock: req.CreationBlock,
-			Filter:        filter,
-		}); err != nil {
-			return err
+			// commit the filter when the function finishes
+			defer func() {
+				if err := filter.Commit(); err != nil {
+					log.Error(err)
+					return
+				}
+			}()
+			// set the reference of the token to update in the provider
+			if err := provider.SetRef(web3provider.Web3ProviderRef{
+				HexAddress:    req.Address.Hex(),
+				ChainID:       req.ChainID,
+				CreationBlock: req.CreationBlock,
+				Filter:        filter,
+			}); err != nil {
+				return err
+			}
 		}
 		// update the last block number of the provider to the last block of
 		// the request
@@ -214,37 +241,57 @@ func (u *Updater) process() error {
 			currentHolders[common.Address(holder.HolderID)] = bBalance
 		}
 		// set the current holders in the provider
-		if err := provider.SetLastBalances(ctx, nil, currentHolders, req.lastBlock); err != nil {
+		if err := provider.SetLastBalances(ctx, nil, currentHolders, req.LastBlock); err != nil {
 			return err
 		}
+		// update with expected results in the queue once the function finishes
+		defer func() {
+			log.Infow("updating request in the queue", "lastBlock", req.LastBlock, "done", req.Done)
+			u.queueMtx.Lock()
+			u.queue[id] = req
+			u.queueMtx.Unlock()
+		}()
 		// get range balances from the provider, it will check itereate again
 		// over transfers logs, checking if there are new transfers using the
 		// bloom filter associated to the token
-		balances, nTx, lastBlock, synced, totalSupply, err := provider.HoldersBalances(ctx, nil, req.lastBlock)
+		balances, delta, err := provider.HoldersBalances(ctx, nil, req.LastBlock)
+		// update the token last block in the request before checking the error
+		if delta != nil {
+			req.TotalLogs += delta.LogsCount
+			req.TotalNewLogs += delta.NewLogsCount
+			req.TotalAlreadyProcessedLogs += delta.AlreadyProcessedLogsCount
+			req.LastTotalSupply = delta.TotalSupply
+
+			req.Done = delta.Synced
+			if delta.Synced {
+				req.LastBlock = req.EndBlock
+			} else if delta.Block >= req.LastBlock {
+				req.LastBlock = delta.Block
+			}
+		}
 		if err != nil {
 			return err
 		}
-		log.Infow("new logs received", "address", req.Address.Hex(), "from", req.lastBlock, "lastBlock", lastBlock, "newLogs", nTx)
-		// update the token last
-		req.lastBlock = lastBlock
-		req.Done = synced
+		log.Infow("new logs received",
+			"address", req.Address.Hex(),
+			"from", req.LastBlock,
+			"lastBlock", delta.Block,
+			"newLogs", delta.NewLogsCount,
+			"alreadyProcessedLogs", delta.AlreadyProcessedLogsCount,
+			"totalLogs", delta.LogsCount)
 		// save the new balances in the database
 		created, updated, err := SaveHolders(u.db, ctx, ScannerToken{
 			Address: req.Address,
 			ChainID: req.ChainID,
-		}, balances, nTx, lastBlock, synced, totalSupply)
+		}, balances, delta.NewLogsCount, delta.Block, delta.Synced, delta.TotalSupply)
 		if err != nil {
 			return err
 		}
-		log.Debugw("missing token holders balances updated",
+		log.Debugw("token holders balances updated",
 			"token", req.Address.Hex(),
 			"chainID", req.ChainID,
 			"created", created,
 			"updated", updated)
-		// update the request in the queue
-		u.queueMtx.Lock()
-		u.queue[id] = req
-		u.queueMtx.Unlock()
 	}
 	return nil
 }

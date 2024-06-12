@@ -6,7 +6,7 @@ const (
 	READ_TIMEOUT   = time.Minute
 	SCAN_TIMEOUT   = 5 * time.Minute
 	SAVE_TIMEOUT   = 5 * time.Minute
-	UPDATE_TIMEOUT = 5 * time.Minute
+	UPDATE_TIMEOUT = 15 * time.Minute
 )
 
 const (

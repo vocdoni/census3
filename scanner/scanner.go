@@ -4,10 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -43,6 +41,7 @@ type Scanner struct {
 	ctx             context.Context
 	cancel          context.CancelFunc
 	db              *db.DB
+	updater         *Updater
 	networks        *web3.Web3Pool
 	providerManager *manager.ProviderManager
 	coolDown        time.Duration
@@ -57,11 +56,12 @@ type Scanner struct {
 
 // NewScanner returns a new scanner instance with the required parameters
 // initialized.
-func NewScanner(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager,
+func NewScanner(db *db.DB, updater *Updater, networks *web3.Web3Pool, pm *manager.ProviderManager,
 	coolDown time.Duration, filtersPath string,
 ) *Scanner {
 	return &Scanner{
 		db:                      db,
+		updater:                 updater,
 		networks:                networks,
 		providerManager:         pm,
 		coolDown:                coolDown,
@@ -111,50 +111,64 @@ func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
 			var atSyncGlobal atomic.Bool
 			atSyncGlobal.Store(true)
 			for _, token := range tokens {
-				// get the semaphore
-				sem <- struct{}{}
-				go func(token ScannerToken) {
-					// release the semaphore when the goroutine finishes
-					defer func() {
-						<-sem
-					}()
-					log.Infow("scanning token",
+				log.Infow("checking token in the updater queue",
+					"address", token.Address.Hex(),
+					"chainID", token.ChainID,
+					"externalID", token.ExternalID)
+				// get the request ID of the token in the updater queue
+				reqID, err := RequestID(token.Address, token.ChainID, token.ExternalID)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+				// get the status of the token in the updater queue
+				status := s.updater.RequestStatus(reqID, true)
+				if status != nil {
+					log.Infow("token status in the updater queue",
 						"address", token.Address.Hex(),
 						"chainID", token.ChainID,
 						"externalID", token.ExternalID,
-						"lastBlock", token.LastBlock,
-						"ready", token.Ready)
-					// scan the token
-					holders, newTransfers, lastBlock, synced, totalSupply, err := s.ScanHolders(ctx, token)
-					if err != nil {
-						atSyncGlobal.Store(false)
-						if errors.Is(err, context.Canceled) {
-							log.Info("scanner context cancelled, shutting down")
-							return
-						}
-						log.Error(err)
-						return
+						"lastBlock", status.LastBlock,
+						"lastTotalSupply", status.LastTotalSupply,
+						"totalNewLogs", status.TotalNewLogs,
+						"totalAlreadyProcessedLogs", status.TotalAlreadyProcessedLogs,
+						"totalLogs", status.TotalLogs,
+						"done", status.Done)
+					// if the token is in the updater queue, update the
+					// internal token status and continue to the next token
+					// only if the token is done
+					defer s.updateInternalTokenStatus(*token, status.LastBlock, status.Done, status.LastTotalSupply)
+					if status.Done {
+						continue
 					}
-					if !synced {
-						atSyncGlobal.Store(false)
-					}
-					// save the new token holders
-					s.updateInternalTokenStatus(token, lastBlock, synced, totalSupply)
-					if err = s.SaveHolders(ctx, token, holders, newTransfers, lastBlock, synced, totalSupply); err != nil {
-						if strings.Contains(err.Error(), "database is closed") {
-							return
+					atSyncGlobal.Store(false)
+				}
+				// if it has been processed or it is not in the queue, load
+				// the last available block number of the network and
+				// enqueue it to the updater queue from the last scanned
+				// block
+				if iLastNetworkBlock, ok := s.latestBlockNumbers.Load(token.ChainID); ok {
+					if lastNetworkBlock, ok := iLastNetworkBlock.(uint64); ok {
+						if _, err := s.updater.SetRequest(&UpdateRequest{
+							Address:       token.Address,
+							ChainID:       token.ChainID,
+							Type:          token.Type,
+							ExternalID:    token.ExternalID,
+							CreationBlock: token.CreationBlock,
+							EndBlock:      lastNetworkBlock,
+							LastBlock:     token.LastBlock,
+						}); err != nil {
+							log.Warnw("error enqueuing token", "error", err)
+							continue
 						}
-						log.Warnw("error saving tokenholders",
+						log.Infow("token enqueued from the scanner",
 							"address", token.Address.Hex(),
 							"chainID", token.ChainID,
 							"externalID", token.ExternalID,
-							"error", err)
+							"from", token.LastBlock,
+							"to", lastNetworkBlock)
 					}
-				}(*token)
-			}
-			// wait for all the tokens to be scanned
-			for i := 0; i < concurrentTokens; i++ {
-				sem <- struct{}{}
+				}
 			}
 			log.Infow("scan iteration finished",
 				"iteration", itCounter,
@@ -199,7 +213,7 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 		if !ok {
 			totalSupply = nil
 		}
-		tokens = append(tokens, &ScannerToken{
+		st := &ScannerToken{
 			Address:       common.BytesToAddress(token.ID),
 			ChainID:       token.ChainID,
 			Type:          token.TypeID,
@@ -209,7 +223,12 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 			Ready:         token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
 			Synced:        token.Synced,
 			totalSupply:   totalSupply,
-		})
+		}
+		if err := s.prepareToken(st); err != nil {
+			log.Warnw("error preparing token", "error", err)
+			continue
+		}
+		tokens = append(tokens, st)
 	}
 	// get old not synced tokens from the database (2)
 	oldNotSyncedTokens, err := s.db.QueriesRO.ListOldNoSyncedTokens(internalCtx)
@@ -250,7 +269,7 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 			if !ok {
 				totalSupply = nil
 			}
-			tokens = append(tokens, &ScannerToken{
+			st := &ScannerToken{
 				Address:       common.BytesToAddress(token.ID),
 				ChainID:       token.ChainID,
 				Type:          token.TypeID,
@@ -260,7 +279,12 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 				Ready:         token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
 				Synced:        token.Synced,
 				totalSupply:   totalSupply,
-			})
+			}
+			if err := s.prepareToken(st); err != nil {
+				log.Warnw("error preparing token", "error", err)
+				continue
+			}
+			tokens = append(tokens, st)
 		}
 	}
 	// get synced tokens from the database to scan them last (3)
@@ -273,7 +297,7 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 		if !ok {
 			totalSupply = nil
 		}
-		tokens = append(tokens, &ScannerToken{
+		st := &ScannerToken{
 			Address:       common.BytesToAddress(token.ID),
 			ChainID:       token.ChainID,
 			Type:          token.TypeID,
@@ -283,132 +307,18 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 			Ready:         token.CreationBlock > 0 && token.LastBlock >= token.CreationBlock,
 			Synced:        token.Synced,
 			totalSupply:   totalSupply,
-		})
+		}
+		if err := s.prepareToken(st); err != nil {
+			log.Warnw("error preparing token", "error", err)
+			continue
+		}
+		tokens = append(tokens, st)
 	}
 	// update the tokens to scan in the scanner and return them
 	s.tokensMtx.Lock()
 	s.tokens = tokens
 	s.tokensMtx.Unlock()
 	return tokens, nil
-}
-
-// ScanHolders scans the holders of the given token. It get the current holders
-// from the database, set them into the provider and get the new ones. It
-// returns the new holders, the last block scanned and if the token is synced
-// after the scan.
-func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
-	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
-) {
-	internalCtx, cancel := context.WithTimeout(ctx, SCAN_TIMEOUT)
-	defer cancel()
-	// get the correct token holder provider for the current token
-	provider, err := s.providerManager.GetProvider(s.ctx, token.Type)
-	if err != nil {
-		return nil, 0, token.LastBlock, token.Synced, nil,
-			fmt.Errorf("token type %d not supported: %w", token.Type, err)
-	}
-	// create a tx to use it in the following queries
-	tx, err := s.db.RW.BeginTx(internalCtx, nil)
-	if err != nil {
-		return nil, 0, token.LastBlock, token.Synced, nil, err
-	}
-	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
-			log.Error(err)
-		}
-	}()
-	qtx := s.db.QueriesRW.WithTx(tx)
-	// if the provider is not an external one, instance the current token
-	if !provider.IsExternal() {
-		// load filter of the token from the database
-		filter, err := LoadFilter(s.filtersPath, token.Address, token.ChainID)
-		if err != nil {
-			return nil, 0, token.LastBlock, token.Synced, nil, err
-		}
-		// commit the filter when the function finishes
-		defer func() {
-			if err := filter.Commit(); err != nil {
-				log.Error(err)
-				return
-			}
-		}()
-		// set the token reference in the provider
-		if err := provider.SetRef(web3provider.Web3ProviderRef{
-			HexAddress:    token.Address.Hex(),
-			ChainID:       token.ChainID,
-			CreationBlock: token.CreationBlock,
-			Filter:        filter,
-		}); err != nil {
-			return nil, 0, token.LastBlock, token.Synced, nil, err
-		}
-		// set the last block number of the network in the provider getting it
-		// from the latest block numbers cache
-		if iLastNetworkBlock, ok := s.latestBlockNumbers.Load(token.ChainID); ok {
-			if lastNetworkBlock, ok := iLastNetworkBlock.(uint64); ok {
-				provider.SetLastBlockNumber(lastNetworkBlock)
-			}
-		}
-		// if the token is not ready yet (its creation block has not been
-		// calculated yet), calculate it, update the token information and
-		// return
-		if !token.Ready {
-			log.Debugw("token not ready yet, calculating creation block and continue",
-				"address", token.Address.Hex(),
-				"chainID", token.ChainID,
-				"externalID", token.ExternalID)
-			creationBlock, err := provider.CreationBlock(internalCtx, []byte(token.ExternalID))
-			if err != nil {
-				return nil, 0, token.LastBlock, token.Synced, nil, err
-			}
-			_, err = qtx.UpdateTokenBlocks(internalCtx, queries.UpdateTokenBlocksParams{
-				ID:            token.Address.Bytes(),
-				ChainID:       token.ChainID,
-				ExternalID:    token.ExternalID,
-				CreationBlock: int64(creationBlock),
-				LastBlock:     int64(creationBlock),
-			})
-			if err != nil {
-				return nil, 0, token.LastBlock, token.Synced, nil, err
-			}
-			token.LastBlock = creationBlock
-		}
-	}
-	log.Infow("scanning holders",
-		"address", token.Address.Hex(),
-		"chainID", token.ChainID,
-		"externalID", token.ExternalID,
-		"lastBlock", token.LastBlock)
-	// get the current token holders from the database
-	results, err := qtx.ListTokenHolders(internalCtx,
-		queries.ListTokenHoldersParams{
-			TokenID:    token.Address.Bytes(),
-			ChainID:    token.ChainID,
-			ExternalID: token.ExternalID,
-		})
-	if err != nil {
-		return nil, 0, token.LastBlock, token.Synced, nil, err
-	}
-	// set the current holders into the provider and get the new ones
-	currentHolders := map[common.Address]*big.Int{}
-	for _, result := range results {
-		bBalance, ok := new(big.Int).SetString(result.Balance, 10)
-		if !ok {
-			return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("error parsing token holder balance")
-		}
-		currentHolders[common.BytesToAddress(result.HolderID)] = bBalance
-	}
-	// close the database tx and commit it
-	if err := tx.Commit(); err != nil {
-		return nil, 0, token.LastBlock, token.Synced, nil, err
-	}
-	// set the current holders into the provider and get the new ones
-	if err := provider.SetLastBalances(ctx, []byte(token.ExternalID),
-		currentHolders, token.LastBlock,
-	); err != nil {
-		return nil, 0, token.LastBlock, token.Synced, nil, err
-	}
-	// get the new holders from the provider
-	return provider.HoldersBalances(ctx, []byte(token.ExternalID), token.LastBlock)
 }
 
 func (s *Scanner) updateInternalTokenStatus(token ScannerToken, lastBlock uint64,
@@ -427,6 +337,48 @@ func (s *Scanner) updateInternalTokenStatus(token ScannerToken, lastBlock uint64
 		}
 	}
 	s.tokensMtx.Unlock()
+}
+
+func (s *Scanner) prepareToken(token *ScannerToken) error {
+	ctx, cancel := context.WithTimeout(s.ctx, UPDATE_TIMEOUT)
+	defer cancel()
+	// get the provider by token type
+	provider, err := s.providerManager.GetProvider(ctx, token.Type)
+	if err != nil {
+		return err
+	}
+	// if the token is not ready yet (its creation block has not been
+	// calculated yet), calculate it, update the token information and
+	// return
+	if !provider.IsExternal() && !token.Ready {
+		if err := provider.SetRef(web3provider.Web3ProviderRef{
+			HexAddress:    token.Address.Hex(),
+			ChainID:       token.ChainID,
+			CreationBlock: token.CreationBlock,
+		}); err != nil {
+			return err
+		}
+		log.Debugw("token not ready yet, calculating creation block and continue",
+			"address", token.Address.Hex(),
+			"chainID", token.ChainID,
+			"externalID", token.ExternalID)
+		creationBlock, err := provider.CreationBlock(ctx, []byte(token.ExternalID))
+		if err != nil {
+			return err
+		}
+		_, err = s.db.QueriesRW.UpdateTokenBlocks(ctx, queries.UpdateTokenBlocksParams{
+			ID:            token.Address.Bytes(),
+			ChainID:       token.ChainID,
+			ExternalID:    token.ExternalID,
+			CreationBlock: int64(creationBlock),
+			LastBlock:     int64(creationBlock),
+		})
+		if err != nil {
+			return err
+		}
+		token.LastBlock = creationBlock
+	}
+	return nil
 }
 
 // SaveHolders saves the given holders in the database. It calls the SaveHolders

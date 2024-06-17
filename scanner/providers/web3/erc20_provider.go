@@ -11,12 +11,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	boom "github.com/tylertreat/BoomFilters"
 	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
 	"github.com/vocdoni/census3/helpers/web3"
+	"github.com/vocdoni/census3/scanner/filter"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
+
+var processedLogs = make(map[string]bool)
 
 type ERC20HolderProvider struct {
 	endpoints *web3.Web3Pool
@@ -32,7 +34,7 @@ type ERC20HolderProvider struct {
 	creationBlock    uint64
 	lastNetworkBlock uint64
 	synced           atomic.Bool
-	filter           boom.Filter
+	filter           *filter.TokenFilter
 }
 
 func (p *ERC20HolderProvider) Init(_ context.Context, iconf any) error {
@@ -159,9 +161,32 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	newTransfers := uint64(0)
 	alreadyProcessedLogs := uint64(0)
 	balances := make(map[common.Address]*big.Int)
+	// debug
+	targetTx := common.HexToHash("0x68fbbe59012bf2a60e94c1cbd11bbafdb50ce149aeb881e63dcb2da1f102186b")
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
-		// check if the log has been already processed
+		// debug
+		if currentLog.TxHash.Hex() == targetTx.Hex() {
+			log.Warnw("target", "log", currentLog)
+		}
+		// skip the log if it has been removed
+		if currentLog.Removed {
+			continue
+		}
+		// parse log data
+		logData, err := p.contract.ERC20ContractFilterer.ParseTransfer(currentLog)
+		if err != nil {
+			return nil, &providers.BlocksDelta{
+				Block:                     lastBlock,
+				LogsCount:                 uint64(len(logs)),
+				NewLogsCount:              newTransfers,
+				AlreadyProcessedLogsCount: alreadyProcessedLogs,
+				Synced:                    false,
+				TotalSupply:               big.NewInt(0),
+			}, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+		}
+		// check if the log has been already processed and add it to the filter
+		// if it is not already included
 		processed, err := p.isLogAlreadyProcessed(currentLog)
 		if err != nil {
 			return nil, &providers.BlocksDelta{
@@ -173,21 +198,17 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 				TotalSupply:               big.NewInt(0),
 			}, errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 		}
+		// debug
+		if currentLog.TxHash.Hex() == targetTx.Hex() {
+			log.Warnw("target", "log", currentLog, "data", logData, "processed", processed)
+		}
+		// if it is the first scan, it will not check if the log has been
+		// already processed
 		if processed {
 			alreadyProcessedLogs++
-			continue
-		}
-		newTransfers++
-		logData, err := p.contract.ERC20ContractFilterer.ParseTransfer(currentLog)
-		if err != nil {
-			return nil, &providers.BlocksDelta{
-				Block:                     lastBlock,
-				LogsCount:                 uint64(len(logs)),
-				NewLogsCount:              newTransfers,
-				AlreadyProcessedLogsCount: alreadyProcessedLogs,
-				Synced:                    false,
-				TotalSupply:               big.NewInt(0),
-			}, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+			// continue
+		} else {
+			newTransfers++
 		}
 		// update balances
 		if toBalance, ok := balances[logData.To]; ok {
@@ -200,14 +221,6 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 		} else {
 			balances[logData.From] = new(big.Int).Neg(logData.Value)
 		}
-		target := common.HexToAddress("0x05887A1CB6230E40a39c020E9f7fB09d3fC9D8da")
-		if logData.To.Hex() == target.Hex() || logData.From.Hex() == target.Hex() {
-			log.Infow("target addrsss transfer",
-				"from", logData.From.Hex(),
-				"to", logData.To.Hex(),
-				"value", logData.Value.String())
-		}
-
 	}
 	log.Infow("saving blocks",
 		"count", len(balances),
@@ -391,18 +404,26 @@ func (p *ERC20HolderProvider) CensusKeys(data map[common.Address]*big.Int) (map[
 // number and log index. It returns true if the log has been already processed
 // or false if it has not been processed yet. If some error occurs, it returns
 // false and the error.
-func (p *ERC20HolderProvider) isLogAlreadyProcessed(log types.Log) (bool, error) {
+func (p *ERC20HolderProvider) isLogAlreadyProcessed(l types.Log) (bool, error) {
+
 	// if the filter is not defined, return false
 	if p.filter == nil {
 		return false, nil
 	}
 	// get a identifier of each transfer:
-	// blockNumber-logIndex
-	transferID := fmt.Sprintf("%x-%d-%d", log.Data, log.BlockNumber, log.Index)
+	// sha256(blockNumber-txHash-log.Index)
+	transferID := fmt.Sprintf("%d-%x-%d", l.BlockNumber, l.TxHash, l.Index)
 	hashFn := sha256.New()
 	if _, err := hashFn.Write([]byte(transferID)); err != nil {
 		return false, err
 	}
 	hID := hashFn.Sum(nil)
-	return p.filter.TestAndAdd(hID), nil
+	processed := p.filter.TestAndAdd(hID)
+
+	// local filter for debug
+	if processed && !processedLogs[transferID] {
+		log.Infow("false positive", "log", l)
+	}
+	processedLogs[transferID] = processed
+	return processed, nil
 }

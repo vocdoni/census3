@@ -11,9 +11,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	boom "github.com/tylertreat/BoomFilters"
 	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
 	"github.com/vocdoni/census3/helpers/web3"
+	"github.com/vocdoni/census3/scanner/filter"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
@@ -32,7 +32,7 @@ type ERC777HolderProvider struct {
 	creationBlock    uint64
 	lastNetworkBlock uint64
 	synced           atomic.Bool
-	filter           boom.Filter
+	filter           *filter.TokenFilter
 }
 
 func (p *ERC777HolderProvider) Init(_ context.Context, iconf any) error {

@@ -23,6 +23,7 @@ import (
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
+	"go.vocdoni.io/dvote/util"
 )
 
 func (capi *census3API) initTokenHandlers() error {
@@ -310,7 +311,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Symbol:        symbol,
 		Decimals:      decimals,
 		TotalSupply:   annotations.BigInt(sTotalSupply),
-		CreationBlock: 0,
+		CreationBlock: int64(req.StartBlock),
 		TypeID:        tokenType,
 		Synced:        false,
 		Tags:          req.Tags,
@@ -648,14 +649,14 @@ func (capi *census3API) rescanToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrNoSyncedToken
 	}
 	// enqueue the rescan token process
-	id, err := capi.tokenUpdater.SetRequest(&scanner.UpdateRequest{
+	id := util.RandomHex(4)
+	if err := capi.tokenUpdater.SetRequest(id, &scanner.UpdateRequest{
 		Address:       address,
 		ChainID:       uint64(chainID),
 		Type:          tokenData.TypeID,
 		CreationBlock: uint64(tokenData.CreationBlock),
 		EndBlock:      uint64(tokenData.LastBlock),
-	})
-	if err != nil {
+	}); err != nil {
 		return ErrMalformedToken.WithErr(err)
 	}
 	// encoding the result and response it

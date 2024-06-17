@@ -13,6 +13,7 @@ import (
 	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/web3"
+	"github.com/vocdoni/census3/scanner/filter"
 	"github.com/vocdoni/census3/scanner/providers/manager"
 	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
@@ -29,6 +30,7 @@ type UpdateRequest struct {
 	EndBlock      uint64
 	LastBlock     uint64
 	Done          bool
+	Initial       bool
 
 	TotalLogs                 uint64
 	TotalNewLogs              uint64
@@ -118,30 +120,43 @@ func (u *Updater) RequestStatus(id string, deleteOnDone bool) *UpdateRequest {
 
 // SetRequest adds a new request to the queue. It will return an error if the
 // request is missing required fields or the block range is invalid. The request
-// will be added to the queue with a random ID, that will be returned to allow
-// the client to query the status of the request.
-func (u *Updater) SetRequest(req *UpdateRequest) (string, error) {
+// will be added to the queue with a given ID.
+func (u *Updater) SetRequest(id string, req *UpdateRequest) error {
 	// check required fields
+	if id == "" {
+		return fmt.Errorf("missing request ID")
+	}
 	if req.ChainID == 0 || req.Type == 0 || req.CreationBlock == 0 || req.EndBlock == 0 {
-		return "", fmt.Errorf("missing required fields")
+		return fmt.Errorf("missing required fields")
 	}
 	// ensure the block range is valid
 	if req.CreationBlock >= req.EndBlock {
-		return "", fmt.Errorf("invalid block range")
+		return fmt.Errorf("invalid block range")
 	}
 	// set the last block to the creation block to start the process from there
 	// if it is not set by the client
 	if req.LastBlock == 0 {
 		req.LastBlock = req.CreationBlock
 	}
-	// generate a random ID for the request and insert it in the queue
-	id, err := RequestID(req.Address, req.ChainID, req.ExternalID)
-	if err != nil {
-		return "", fmt.Errorf("error generating request ID")
-	}
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()
 	u.queue[id] = req
+	return nil
+}
+
+// AddRequest adds a new request to the queue. It will return an error if the
+// request is missing required fields or the block range is invalid. The request
+// will be added to the queue with a ID generated from the address, chainID and
+// externalID, that will be returned to allow the client to query the status of
+// the request.
+func (u *Updater) AddRequest(req *UpdateRequest) (string, error) {
+	id, err := RequestID(req.Address, req.ChainID, req.ExternalID)
+	if err != nil {
+		return "", err
+	}
+	if err := u.SetRequest(id, req); err != nil {
+		return "", err
+	}
 	return id, nil
 }
 
@@ -200,7 +215,7 @@ func (u *Updater) process() error {
 		// if the token is a external token, return an error
 		if !provider.IsExternal() {
 			// load filter of the token from the database
-			filter, err := LoadFilter(u.filtersPath, req.Address, req.ChainID, req.ExternalID)
+			filter, err := filter.LoadFilter(u.filtersPath, req.Address, req.ChainID, req.ExternalID)
 			if err != nil {
 				return err
 			}

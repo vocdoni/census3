@@ -13,7 +13,6 @@ import (
 	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/web3"
-	"github.com/vocdoni/census3/scanner/filter"
 	"github.com/vocdoni/census3/scanner/providers/manager"
 	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
@@ -30,7 +29,6 @@ type UpdateRequest struct {
 	EndBlock      uint64
 	LastBlock     uint64
 	Done          bool
-	Initial       bool
 
 	TotalLogs                 uint64
 	TotalNewLogs              uint64
@@ -55,6 +53,7 @@ type Updater struct {
 	providers   *manager.ProviderManager
 	queue       map[string]*UpdateRequest
 	queueMtx    sync.Mutex
+	processing  sync.Map
 	waiter      sync.WaitGroup
 	filtersPath string
 }
@@ -73,26 +72,40 @@ func NewUpdater(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager,
 }
 
 // Start starts the updater process in a goroutine.
-func (u *Updater) Start(ctx context.Context) {
+func (u *Updater) Start(ctx context.Context, concurrentTokens int) {
 	u.ctx, u.cancel = context.WithCancel(ctx)
-	u.waiter.Add(1)
-	go func() {
-		defer u.waiter.Done()
-		for {
-			select {
-			case <-u.ctx.Done():
-				return
-			default:
-				if u.IsEmpty() {
-					time.Sleep(coolDown)
-					continue
-				}
-				if err := u.process(); err != nil {
-					log.Errorf("Error processing update request: %v", err)
-				}
+	for {
+		select {
+		case <-u.ctx.Done():
+			return
+		default:
+			pending := u.pendingRequests()
+			if len(pending) == 0 {
+				time.Sleep(coolDown)
+				continue
+			}
+			sem := make(chan struct{}, concurrentTokens)
+			defer close(sem)
+			for id, req := range u.pendingRequests() {
+				u.processing.Store(id, true)
+				sem <- struct{}{}
+				go func(id string, req *UpdateRequest) {
+					defer func() {
+						<-sem
+						u.processing.Store(id, false)
+					}()
+					if err := u.process(req); err != nil && err != context.Canceled {
+						log.Errorf("Error processing update request: %v", err)
+						return
+					}
+					// update the request in the queue
+					u.queueMtx.Lock()
+					u.queue[id] = req
+					u.queueMtx.Unlock()
+				}(id, req)
 			}
 		}
-	}()
+	}
 }
 
 // Stop stops the updater process.
@@ -113,6 +126,7 @@ func (u *Updater) RequestStatus(id string, deleteOnDone bool) *UpdateRequest {
 	}
 	res := *req
 	if deleteOnDone && req.Done {
+		u.processing.Delete(id)
 		delete(u.queue, id)
 	}
 	return &res
@@ -141,6 +155,7 @@ func (u *Updater) SetRequest(id string, req *UpdateRequest) error {
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()
 	u.queue[id] = req
+	u.processing.Store(id, false)
 	return nil
 }
 
@@ -154,17 +169,13 @@ func (u *Updater) AddRequest(req *UpdateRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if _, ok := u.processing.Load(id); ok {
+		return "", nil
+	}
 	if err := u.SetRequest(id, req); err != nil {
 		return "", err
 	}
 	return id, nil
-}
-
-// IsEmpty returns true if the queue is empty.
-func (u *Updater) IsEmpty() bool {
-	u.queueMtx.Lock()
-	defer u.queueMtx.Unlock()
-	return len(u.queue) == 0
 }
 
 // RequestID returns the ID of a request given the address, chainID and external
@@ -181,132 +192,132 @@ func RequestID(address common.Address, chainID uint64, externalID string) (strin
 	return hex.EncodeToString(bHash[:4]), nil
 }
 
+func (u *Updater) pendingRequests() map[string]*UpdateRequest {
+	u.queueMtx.Lock()
+	defer u.queueMtx.Unlock()
+	queue := map[string]*UpdateRequest{}
+	for k, v := range u.queue {
+		if processing, ok := u.processing.Load(k); v.Done || !ok || processing.(bool) {
+			continue
+		}
+		queue[k] = v
+	}
+	return queue
+}
+
 // process iterates over the current queue items, getting the token holders
 // balances and saving them in the database until the last block is greater or
 // equal to the end block. It updates th status of the request in the queue. It
 // will return an error if the provider is not found, the token is external or
 // there is an error getting the token holders balances.
-func (u *Updater) process() error {
-	// make a copy of current queue
-	u.queueMtx.Lock()
-	queue := map[string]*UpdateRequest{}
-	for k, v := range u.queue {
-		queue[k] = v
+func (u *Updater) process(req *UpdateRequest) error {
+	// log the start of the process
+	log.Infow("rescanning token",
+		"address", req.Address.Hex(),
+		"from", req.CreationBlock,
+		"to", req.EndBlock,
+		"current", req.LastBlock)
+	ctx, cancel := context.WithTimeout(u.ctx, UPDATE_TIMEOUT)
+	defer cancel()
+	// get the provider by token type
+	provider, err := u.providers.GetProvider(ctx, req.Type)
+	if err != nil {
+		return fmt.Errorf("error getting provider for token: %v", err)
 	}
-	u.queueMtx.Unlock()
-	// iterate over the current queue items
-	for id, req := range queue {
-		// check if the request is done
-		if req.Done {
+	// if the token is a external token, return an error
+	if !provider.IsExternal() {
+		// // load filter of the token from the database
+		// filter, err := filter.LoadFilter(u.filtersPath, req.Address, req.ChainID, req.ExternalID)
+		// if err != nil {
+		// 	return err
+		// }
+		// // commit the filter when the function finishes
+		// defer func() {
+		// 	if err := filter.Commit(); err != nil {
+		// 		log.Error(err)
+		// 		return
+		// 	}
+		// }()
+		// set the reference of the token to update in the provider
+		if err := provider.SetRef(web3provider.Web3ProviderRef{
+			HexAddress:    req.Address.Hex(),
+			ChainID:       req.ChainID,
+			CreationBlock: req.CreationBlock,
+			// Filter:        filter,
+		}); err != nil {
+			return fmt.Errorf("error setting provider reference: %v", err)
+		}
+	}
+	// update the last block number of the provider to the last block of
+	// the request
+	provider.SetLastBlockNumber(req.EndBlock)
+	// get current token holders from database
+	results, err := u.db.QueriesRO.ListTokenHolders(ctx, queries.ListTokenHoldersParams{
+		TokenID: req.Address.Bytes(),
+		ChainID: req.ChainID,
+	})
+	if err != nil {
+		return fmt.Errorf("error getting token holders from database: %v", err)
+	}
+	currentHolders := map[common.Address]*big.Int{}
+	for _, holder := range results {
+		bBalance, ok := new(big.Int).SetString(holder.Balance, 10)
+		if !ok {
+			log.Warnw("error parsing balance from database",
+				"balance", holder.Balance,
+				"holder", holder.HolderID,
+				"address", req.Address.Hex(),
+				"chainID", req.ChainID,
+				"externalID", req.ExternalID)
 			continue
 		}
-		log.Infow("rescanning token",
-			"address", req.Address.Hex(),
-			"from", req.CreationBlock,
-			"to", req.EndBlock,
-			"current", req.LastBlock)
-		ctx, cancel := context.WithTimeout(u.ctx, UPDATE_TIMEOUT)
-		defer cancel()
-		// get the provider by token type
-		provider, err := u.providers.GetProvider(ctx, req.Type)
-		if err != nil {
-			return err
-		}
-		// if the token is a external token, return an error
-		if !provider.IsExternal() {
-			// load filter of the token from the database
-			filter, err := filter.LoadFilter(u.filtersPath, req.Address, req.ChainID, req.ExternalID)
-			if err != nil {
-				return err
-			}
-			// commit the filter when the function finishes
-			defer func() {
-				if err := filter.Commit(); err != nil {
-					log.Error(err)
-					return
-				}
-			}()
-			// set the reference of the token to update in the provider
-			if err := provider.SetRef(web3provider.Web3ProviderRef{
-				HexAddress:    req.Address.Hex(),
-				ChainID:       req.ChainID,
-				CreationBlock: req.CreationBlock,
-				Filter:        filter,
-			}); err != nil {
-				return err
-			}
-		}
-		// update the last block number of the provider to the last block of
-		// the request
-		provider.SetLastBlockNumber(req.EndBlock)
-		// get current token holders from database
-		results, err := u.db.QueriesRO.ListTokenHolders(ctx, queries.ListTokenHoldersParams{
-			TokenID: req.Address.Bytes(),
-			ChainID: req.ChainID,
-		})
-		if err != nil {
-			return nil
-		}
-		currentHolders := map[common.Address]*big.Int{}
-		for _, holder := range results {
-			bBalance, ok := new(big.Int).SetString(holder.Balance, 10)
-			if !ok {
-				return fmt.Errorf("error parsing holder balance from database")
-			}
-			currentHolders[common.Address(holder.HolderID)] = bBalance
-		}
-		// set the current holders in the provider
-		if err := provider.SetLastBalances(ctx, nil, currentHolders, req.LastBlock); err != nil {
-			return err
-		}
-		// update with expected results in the queue once the function finishes
-		defer func() {
-			log.Infow("updating request in the queue", "lastBlock", req.LastBlock, "done", req.Done)
-			u.queueMtx.Lock()
-			u.queue[id] = req
-			u.queueMtx.Unlock()
-		}()
-		// get range balances from the provider, it will check itereate again
-		// over transfers logs, checking if there are new transfers using the
-		// bloom filter associated to the token
-		balances, delta, err := provider.HoldersBalances(ctx, nil, req.LastBlock)
-		// update the token last block in the request before checking the error
-		if delta != nil {
-			req.TotalLogs += delta.LogsCount
-			req.TotalNewLogs += delta.NewLogsCount
-			req.TotalAlreadyProcessedLogs += delta.AlreadyProcessedLogsCount
-			req.LastTotalSupply = delta.TotalSupply
-
-			req.Done = delta.Synced
-			if delta.Synced {
-				req.LastBlock = req.EndBlock
-			} else if delta.Block >= req.LastBlock {
-				req.LastBlock = delta.Block
-			}
-		}
-		if err != nil {
-			return err
-		}
-		log.Infow("new logs received",
-			"address", req.Address.Hex(),
-			"from", req.LastBlock,
-			"lastBlock", delta.Block,
-			"newLogs", delta.NewLogsCount,
-			"alreadyProcessedLogs", delta.AlreadyProcessedLogsCount,
-			"totalLogs", delta.LogsCount)
-		// save the new balances in the database
-		created, updated, err := SaveHolders(u.db, ctx, ScannerToken{
-			Address: req.Address,
-			ChainID: req.ChainID,
-		}, balances, delta.NewLogsCount, delta.Block, delta.Synced, delta.TotalSupply)
-		if err != nil {
-			return err
-		}
-		log.Debugw("token holders balances updated",
-			"token", req.Address.Hex(),
-			"chainID", req.ChainID,
-			"created", created,
-			"updated", updated)
+		currentHolders[common.Address(holder.HolderID)] = bBalance
 	}
+	// set the current holders in the provider
+	if err := provider.SetLastBalances(ctx, nil, currentHolders, req.LastBlock); err != nil {
+		return fmt.Errorf("error setting last balances in provider: %v", err)
+	}
+	// get range balances from the provider, it will check itereate again
+	// over transfers logs, checking if there are new transfers using the
+	// bloom filter associated to the token
+	balances, delta, err := provider.HoldersBalances(ctx, nil, req.LastBlock)
+	// update the token last block in the request before checking the error
+	if delta != nil {
+		req.TotalLogs += delta.LogsCount
+		req.TotalNewLogs += delta.NewLogsCount
+		req.TotalAlreadyProcessedLogs += delta.AlreadyProcessedLogsCount
+		req.LastTotalSupply = delta.TotalSupply
+
+		req.Done = delta.Synced
+		if delta.Synced {
+			req.LastBlock = req.EndBlock
+		} else if delta.Block >= req.LastBlock {
+			req.LastBlock = delta.Block
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("error getting token holders balances: %v", err)
+	}
+	log.Debugw("new logs received",
+		"address", req.Address.Hex(),
+		"from", req.LastBlock,
+		"lastBlock", delta.Block,
+		"newLogs", delta.NewLogsCount,
+		"alreadyProcessedLogs", delta.AlreadyProcessedLogsCount,
+		"totalLogs", delta.LogsCount)
+	// save the new balances in the database
+	created, updated, err := SaveHolders(u.db, ctx, ScannerToken{
+		Address: req.Address,
+		ChainID: req.ChainID,
+	}, balances, delta.NewLogsCount, delta.Block, delta.Synced, delta.TotalSupply)
+	if err != nil {
+		return fmt.Errorf("error saving token holders balances: %v", err)
+	}
+	log.Debugw("token holders balances updated",
+		"token", req.Address.Hex(),
+		"chainID", req.ChainID,
+		"created", created,
+		"updated", updated)
+	log.Infow("updating request in the queue", "lastBlock", req.LastBlock, "done", req.Done)
 	return nil
 }

@@ -18,8 +18,6 @@ import (
 	"go.vocdoni.io/dvote/log"
 )
 
-var processedLogs = make(map[string]bool)
-
 type ERC20HolderProvider struct {
 	endpoints *web3.Web3Pool
 	client    *web3.Client
@@ -161,14 +159,8 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	newTransfers := uint64(0)
 	alreadyProcessedLogs := uint64(0)
 	balances := make(map[common.Address]*big.Int)
-	// debug
-	targetTx := common.HexToHash("0x68fbbe59012bf2a60e94c1cbd11bbafdb50ce149aeb881e63dcb2da1f102186b")
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
-		// debug
-		if currentLog.TxHash.Hex() == targetTx.Hex() {
-			log.Warnw("target", "log", currentLog)
-		}
 		// skip the log if it has been removed
 		if currentLog.Removed {
 			continue
@@ -198,18 +190,13 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 				TotalSupply:               big.NewInt(0),
 			}, errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 		}
-		// debug
-		if currentLog.TxHash.Hex() == targetTx.Hex() {
-			log.Warnw("target", "log", currentLog, "data", logData, "processed", processed)
-		}
 		// if it is the first scan, it will not check if the log has been
 		// already processed
 		if processed {
 			alreadyProcessedLogs++
-			// continue
-		} else {
-			newTransfers++
+			continue
 		}
+		newTransfers++
 		// update balances
 		if toBalance, ok := balances[logData.To]; ok {
 			balances[logData.To] = new(big.Int).Add(toBalance, logData.Value)
@@ -405,7 +392,6 @@ func (p *ERC20HolderProvider) CensusKeys(data map[common.Address]*big.Int) (map[
 // or false if it has not been processed yet. If some error occurs, it returns
 // false and the error.
 func (p *ERC20HolderProvider) isLogAlreadyProcessed(l types.Log) (bool, error) {
-
 	// if the filter is not defined, return false
 	if p.filter == nil {
 		return false, nil
@@ -418,12 +404,5 @@ func (p *ERC20HolderProvider) isLogAlreadyProcessed(l types.Log) (bool, error) {
 		return false, err
 	}
 	hID := hashFn.Sum(nil)
-	processed := p.filter.TestAndAdd(hID)
-
-	// local filter for debug
-	if processed && !processedLogs[transferID] {
-		log.Infow("false positive", "log", l)
-	}
-	processedLogs[transferID] = processed
-	return processed, nil
+	return p.filter.TestAndAdd(hID), nil
 }

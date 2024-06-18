@@ -77,10 +77,7 @@ func NewScanner(db *db.DB, updater *Updater, networks *web3.Web3Pool, pm *manage
 // Start starts the scanner. It starts a loop that scans the tokens in the
 // database and saves the holders in the database. It stops when the context is
 // cancelled.
-func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
-	if concurrentTokens < 1 {
-		concurrentTokens = 1
-	}
+func (s *Scanner) Start(ctx context.Context) {
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	itCounter := 0
 	// keep the latest block numbers updated
@@ -104,9 +101,6 @@ func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
 				log.Error(err)
 				continue
 			}
-			// calculate number of batches
-			sem := make(chan struct{}, concurrentTokens)
-			defer close(sem)
 			// iterate over the tokens to scan
 			var atSyncGlobal atomic.Bool
 			atSyncGlobal.Store(true)
@@ -164,7 +158,6 @@ func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
 							CreationBlock: token.CreationBlock,
 							EndBlock:      lastNetworkBlock,
 							LastBlock:     token.LastBlock,
-							Initial:       token.LastBlock == 0 || token.LastBlock == token.CreationBlock,
 						}); err != nil {
 							log.Warnw("error enqueuing token", "error", err)
 							continue

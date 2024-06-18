@@ -160,23 +160,11 @@ func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	balances := make(map[common.Address]*big.Int)
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
-		// check if the log has been already processed
-		processed, err := p.isLogAlreadyProcessed(currentLog)
-		if err != nil {
-			return nil, &providers.BlocksDelta{
-				Block:                     lastBlock,
-				LogsCount:                 uint64(len(logs)),
-				NewLogsCount:              newTransfers,
-				AlreadyProcessedLogsCount: alreadyProcessedLogs,
-				Synced:                    false,
-				TotalSupply:               big.NewInt(0),
-			}, errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
-		}
-		if processed {
-			alreadyProcessedLogs++
+		// skip the log if it has been removed
+		if currentLog.Removed {
 			continue
 		}
-		newTransfers++
+		// parse log data
 		logData, err := p.contract.ERC721ContractFilterer.ParseTransfer(currentLog)
 		if err != nil {
 			return nil, &providers.BlocksDelta{
@@ -186,8 +174,28 @@ func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 				AlreadyProcessedLogsCount: alreadyProcessedLogs,
 				Synced:                    false,
 				TotalSupply:               big.NewInt(0),
-			}, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+			}, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC721] %s: %w", p.address, err))
 		}
+		// check if the log has been already processed and add it to the filter
+		// if it is not already included
+		processed, err := p.isLogAlreadyProcessed(currentLog)
+		if err != nil {
+			return nil, &providers.BlocksDelta{
+				Block:                     lastBlock,
+				LogsCount:                 uint64(len(logs)),
+				NewLogsCount:              newTransfers,
+				AlreadyProcessedLogsCount: alreadyProcessedLogs,
+				Synced:                    false,
+				TotalSupply:               big.NewInt(0),
+			}, errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC721] %s: %w", p.address, err))
+		}
+		// if it is the first scan, it will not check if the log has been
+		// already processed
+		if processed {
+			alreadyProcessedLogs++
+			continue
+		}
+		newTransfers++
 		// update balances
 		if toBalance, ok := balances[logData.To]; ok {
 			balances[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
@@ -380,14 +388,14 @@ func (p *ERC721HolderProvider) CensusKeys(data map[common.Address]*big.Int) (map
 // number and log index. It returns true if the log has been already processed
 // or false if it has not been processed yet. If some error occurs, it returns
 // false and the error.
-func (p *ERC721HolderProvider) isLogAlreadyProcessed(log types.Log) (bool, error) {
+func (p *ERC721HolderProvider) isLogAlreadyProcessed(l types.Log) (bool, error) {
 	// if the filter is not defined, return false
 	if p.filter == nil {
 		return false, nil
 	}
 	// get a identifier of each transfer:
-	// blockNumber-logIndex
-	transferID := fmt.Sprintf("%x-%d-%d", log.Data, log.BlockNumber, log.Index)
+	// sha256(blockNumber-txHash-log.Index)
+	transferID := fmt.Sprintf("%d-%x-%d", l.BlockNumber, l.TxHash, l.Index)
 	hashFn := sha256.New()
 	if _, err := hashFn.Write([]byte(transferID)); err != nil {
 		return false, err

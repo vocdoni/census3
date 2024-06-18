@@ -238,8 +238,8 @@ func main() {
 		log.Info("initial tokens created, or at least tried to")
 	}()
 	// start the holder scanner
-	go hc.Start(ctx, config.scannerConcurrentTokens)
-	go updater.Start(ctx)
+	go hc.Start(ctx)
+	go updater.Start(ctx, config.scannerConcurrentTokens)
 
 	metrics.NewCounter(fmt.Sprintf("census3_info{version=%q,chains=%q}",
 		internal.Version, w3p.String())).Set(1)

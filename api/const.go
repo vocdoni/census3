@@ -9,7 +9,7 @@ import (
 const (
 	// censuses
 	getCensusTimeout              = time.Second * 10
-	createAndPublishCensusTimeout = time.Minute * 10
+	createAndPublishCensusTimeout = time.Minute * 20
 	publishCensusTimeout          = time.Minute * 5
 	enqueueCensusCreationTimeout  = time.Second * 10
 	getStrategyCensusesTimeout    = time.Second * 10

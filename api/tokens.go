@@ -162,7 +162,7 @@ func (capi *census3API) createDefaultTokenStrategy(ctx context.Context, qtx *que
 	// create a default strategy to support censuses over the holders of this
 	// single token
 	alias := fmt.Sprintf("Default strategy for token %s", symbol)
-	predicate := lexer.ScapeTokenSymbol(symbol)
+	predicate := lexer.ScapeTokenSymbol(chainAddress)
 	res, err := qtx.CreateStategy(ctx, queries.CreateStategyParams{
 		Alias:     alias,
 		Predicate: predicate,
@@ -181,6 +181,7 @@ func (capi *census3API) createDefaultTokenStrategy(ctx context.Context, qtx *que
 		ChainID:    chainID,
 		MinBalance: big.NewInt(1).String(),
 		ExternalID: externalID,
+		TokenAlias: chainAddress,
 	}); err != nil {
 		return 0, err
 	}
@@ -191,7 +192,7 @@ func (capi *census3API) createDefaultTokenStrategy(ctx context.Context, qtx *que
 		Alias:     alias,
 		Predicate: predicate,
 		Tokens: map[string]*StrategyToken{
-			symbol: {
+			chainAddress: {
 				ID:           address.String(),
 				ChainID:      chainID,
 				MinBalance:   "0",
@@ -301,7 +302,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		Symbol:        symbol,
 		Decimals:      decimals,
 		TotalSupply:   annotations.BigInt(sTotalSupply),
-		CreationBlock: 0,
+		CreationBlock: int64(req.StartBlock),
 		TypeID:        tokenType,
 		Synced:        false,
 		Tags:          req.Tags,

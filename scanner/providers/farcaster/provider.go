@@ -18,6 +18,7 @@ import (
 	queries "github.com/vocdoni/census3/scanner/providers/farcaster/sqlc"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
+	"go.vocdoni.io/dvote/vochain/state"
 )
 
 //go:generate go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.23.0 generate
@@ -577,14 +578,16 @@ func (p *FarcasterProvider) scanLogsKeyRegistry(ctx context.Context, fromBlock, 
 			}
 			// note that logData.Key is the Keccak256 of logData.KeyBytes because logData.Key is an indexed EVM event value
 			fid := logData.Fid.Uint64()
-			addedKeys[fid] = append(addedKeys[fid], logData.Key[:])
+			farcasterVoterID := state.NewFarcasterVoterID(logData.KeyBytes, fid)
+			addedKeys[fid] = append(addedKeys[fid], farcasterVoterID.Address())
 		case web3.LOG_TOPIC_FARCASTER_REMOVEKEY:
 			logData, err := p.contracts.keyRegistry.ParseRemove(currentLog)
 			if err != nil {
 				return nil, nil, 0, false, errors.Join(web3.ErrParsingTokenLogs, fmt.Errorf("[Farcaster Key Registry]: %w", err))
 			}
 			fid := logData.Fid.Uint64()
-			removedKeys[fid] = append(removedKeys[fid], logData.Key[:])
+			farcasterVoterID := state.NewFarcasterVoterID(logData.KeyBytes, fid)
+			removedKeys[fid] = append(removedKeys[fid], farcasterVoterID.Address())
 		default:
 			return nil, nil, 0, false, fmt.Errorf("unknown log topic")
 		}

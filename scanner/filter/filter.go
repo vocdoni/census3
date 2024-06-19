@@ -8,13 +8,17 @@ package filter
 type TokenFilter struct{}
 
 // LoadFilter loads a filter from a file.
-func LoadFilter(basePath, fileName string) (*TokenFilter, error) { return &TokenFilter{}, nil }
+func LoadFilter(basePath, fileName string) (*TokenFilter, error) {
+	tf := &TokenFilter{}
+	_ = tf.loadLocalFilters()
+	return tf, nil
+}
 
 // Add adds a key to the filter.
-func (tf *TokenFilter) Add(key []byte) {}
+func (tf *TokenFilter) Add(key []byte) { tf.add(key) }
 
 // Test checks if a key is in the filter.
-func (tf *TokenFilter) Test(key []byte) bool { return false }
+func (tf *TokenFilter) Test(key []byte) bool { return tf.test(key) }
 
 // TestAndAdd checks if a key is in the filter, if not, add it to the filter. It
 // is the combination of Test and conditional Add.
@@ -24,5 +28,5 @@ func (tf *TokenFilter) TestAndAdd(key []byte) bool { return false }
 func (tf *TokenFilter) Commit() error { return nil }
 
 func (tf *TokenFilter) loadLocalFilters() error { return nil }
-func (tf *TokenFilter) add(key ...string)       {}
-func (tf *TokenFilter) test(key string) bool    { return false }
+func (tf *TokenFilter) add(key ...[]byte)       {}
+func (tf *TokenFilter) test(key []byte) bool    { return false }

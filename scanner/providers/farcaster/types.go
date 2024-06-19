@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	fcir "github.com/vocdoni/census3/contracts/farcaster/idRegistry"
 	fckr "github.com/vocdoni/census3/contracts/farcaster/keyRegistry"
-	"github.com/vocdoni/census3/scanner/providers/web3"
+	"github.com/vocdoni/census3/helpers/web3"
 )
 
 type FarcasterProviderConf struct {

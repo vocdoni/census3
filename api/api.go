@@ -17,8 +17,9 @@ import (
 	"github.com/vocdoni/census3/db/annotations"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/queue"
+	"github.com/vocdoni/census3/helpers/web3"
 	"github.com/vocdoni/census3/scanner/providers"
-	"github.com/vocdoni/census3/scanner/providers/web3"
+	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"
 	storagelayer "go.vocdoni.io/dvote/data"
 	"go.vocdoni.io/dvote/data/downloader"
@@ -247,7 +248,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 			continue
 		}
 		if !provider.IsExternal() {
-			if err := provider.SetRef(web3.Web3ProviderRef{
+			if err := provider.SetRef(web3provider.Web3ProviderRef{
 				HexAddress: token.ID,
 				ChainID:    token.ChainID,
 			}); err != nil {

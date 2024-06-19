@@ -10,13 +10,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	erc777 "github.com/vocdoni/census3/contracts/erc/erc777"
+	"github.com/vocdoni/census3/helpers/web3"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
 
 type ERC777HolderProvider struct {
-	endpoints *Web3Pool
-	client    *Client
+	endpoints *web3.Web3Pool
+	client    *web3.Client
 
 	contract         *erc777.ERC777Contract
 	address          common.Address

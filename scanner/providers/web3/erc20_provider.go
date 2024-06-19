@@ -403,6 +403,6 @@ func (p *ERC20HolderProvider) isLogAlreadyProcessed(l types.Log) (bool, error) {
 	if _, err := hashFn.Write([]byte(transferID)); err != nil {
 		return false, err
 	}
-	hID := hashFn.Sum(nil)
+	hID := hashFn.Sum(nil)[:8]
 	return p.filter.TestAndAdd(hID), nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/web3"
+	"github.com/vocdoni/census3/scanner/filter"
 	"github.com/vocdoni/census3/scanner/providers/manager"
 	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/log"
@@ -24,6 +25,7 @@ type UpdateRequest struct {
 	Address       common.Address
 	ChainID       uint64
 	ExternalID    string
+	ChainAddress  string
 	Type          uint64
 	CreationBlock uint64
 	EndBlock      uint64
@@ -94,7 +96,7 @@ func (u *Updater) Start(ctx context.Context, concurrentTokens int) {
 						<-sem
 						u.processing.Store(id, false)
 					}()
-					if err := u.process(req); err != nil && err != context.Canceled {
+					if err := u.process(req); err != nil {
 						log.Errorf("Error processing update request: %v", err)
 						return
 					}
@@ -226,24 +228,28 @@ func (u *Updater) process(req *UpdateRequest) error {
 	}
 	// if the token is a external token, return an error
 	if !provider.IsExternal() {
-		// // load filter of the token from the database
-		// filter, err := filter.LoadFilter(u.filtersPath, req.Address, req.ChainID, req.ExternalID)
-		// if err != nil {
-		// 	return err
-		// }
-		// // commit the filter when the function finishes
-		// defer func() {
-		// 	if err := filter.Commit(); err != nil {
-		// 		log.Error(err)
-		// 		return
-		// 	}
-		// }()
+		chainAddress, ok := u.networks.ChainAddress(req.ChainID, req.ChainAddress)
+		if !ok {
+			return fmt.Errorf("error getting chain address for token: %v", err)
+		}
+		// load filter of the token from the database
+		filter, err := filter.LoadFilter(u.filtersPath, chainAddress)
+		if err != nil {
+			return err
+		}
+		// commit the filter when the function finishes
+		defer func() {
+			if err := filter.Commit(); err != nil {
+				log.Error(err)
+				return
+			}
+		}()
 		// set the reference of the token to update in the provider
 		if err := provider.SetRef(web3provider.Web3ProviderRef{
 			HexAddress:    req.Address.Hex(),
 			ChainID:       req.ChainID,
 			CreationBlock: req.CreationBlock,
-			// Filter:        filter,
+			Filter:        filter,
 		}); err != nil {
 			return fmt.Errorf("error setting provider reference: %v", err)
 		}

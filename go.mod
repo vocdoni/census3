@@ -11,9 +11,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/ipfs/go-cid v0.4.1
-	github.com/mattn/go-sqlite3 v1.14.20
-	github.com/panmari/cuckoofilter v1.0.6
-	github.com/pressly/goose/v3 v3.10.0
+	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/pressly/goose/v3 v3.20.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	go.vocdoni.io/dvote v1.10.2-0.20240617105531-77480ae05205
@@ -62,7 +61,6 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/dgraph-io/badger v1.6.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
-	github.com/dgryski/go-metro v0.0.0-20200812162917-85c65e2d0165 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/elastic/gosigar v0.14.2 // indirect

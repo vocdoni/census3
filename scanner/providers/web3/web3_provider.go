@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/vocdoni/census3/helpers/web3"
+	"github.com/vocdoni/census3/scanner/filter"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/log"
@@ -21,6 +22,7 @@ type Web3ProviderRef struct {
 	HexAddress    string
 	ChainID       uint64
 	CreationBlock uint64
+	Filter        *filter.TokenFilter
 }
 
 type Web3ProviderConfig struct {

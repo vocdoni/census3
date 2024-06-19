@@ -39,6 +39,7 @@ type Census3Config struct {
 	adminToken                     string
 	initialTokens                  string
 	farcaster                      bool
+	filtersPath                    string
 }
 
 func main() {
@@ -135,6 +136,12 @@ func main() {
 		panic(err)
 	}
 	config.farcaster = pviper.GetBool("farcaster")
+	// set the filters path into the config, create the folder if it does not
+	// exitst yet
+	config.filtersPath = config.dataDir + "/filters"
+	if err := os.MkdirAll(config.filtersPath, os.ModePerm); err != nil {
+		log.Fatal(err)
+	}
 	// init logger
 	log.Init(config.logLevel, "stdout", nil)
 	// check if the web3 providers are defined
@@ -194,8 +201,10 @@ func main() {
 			DB:        farcasterDB,
 		})
 	}
+	// start the token updater with the database and the provider manager
+	updater := scanner.NewUpdater(database, w3p, pm, config.filtersPath)
 	// start the holder scanner with the database and the provider manager
-	hc := scanner.NewScanner(database, w3p, pm, config.scannerCoolDown)
+	hc := scanner.NewScanner(database, updater, w3p, pm, config.scannerCoolDown, config.filtersPath)
 	// if the admin token is not defined, generate a random one
 	if config.adminToken != "" {
 		if _, err := uuid.Parse(config.adminToken); err != nil {
@@ -216,6 +225,7 @@ func main() {
 		GroupKey:        config.connectKey,
 		HolderProviders: pm.Providers(ctx),
 		AdminToken:      config.adminToken,
+		TokenUpdater:    updater,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -228,7 +238,8 @@ func main() {
 		log.Info("initial tokens created, or at least tried to")
 	}()
 	// start the holder scanner
-	go hc.Start(ctx, config.scannerConcurrentTokens)
+	go hc.Start(ctx)
+	go updater.Start(ctx, config.scannerConcurrentTokens)
 
 	metrics.NewCounter(fmt.Sprintf("census3_info{version=%q,chains=%q}",
 		internal.Version, w3p.String())).Set(1)
@@ -243,6 +254,7 @@ func main() {
 	// closing database
 	go func() {
 		hc.Stop()
+		updater.Stop()
 		if err := apiService.Stop(); err != nil {
 			log.Fatal(err)
 		}

@@ -18,6 +18,7 @@ import (
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/queue"
 	"github.com/vocdoni/census3/helpers/web3"
+	"github.com/vocdoni/census3/scanner"
 	"github.com/vocdoni/census3/scanner/providers"
 	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"
@@ -38,8 +39,10 @@ type Census3APIConf struct {
 	Hostname        string
 	Port            int
 	DataDir         string
+	FiltersPath     string
 	GroupKey        string
 	Web3Providers   *web3.Web3Pool
+	TokenUpdater    *scanner.Updater
 	HolderProviders map[uint64]providers.HolderProvider
 	AdminToken      string
 }
@@ -56,6 +59,8 @@ type census3API struct {
 	holderProviders map[uint64]providers.HolderProvider
 	cache           *lru.Cache[CacheKey, any]
 	router          *httprouter.HTTProuter
+	tokenUpdater    *scanner.Updater
+	filtersPath     string
 }
 
 func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
@@ -69,8 +74,10 @@ func Init(db *db.DB, conf Census3APIConf) (*census3API, error) {
 		w3p:             conf.Web3Providers,
 		queue:           queue.NewBackgroundQueue(),
 		holderProviders: conf.HolderProviders,
+		tokenUpdater:    conf.TokenUpdater,
 		cache:           cache,
 		router:          &httprouter.HTTProuter{},
+		filtersPath:     conf.FiltersPath,
 	}
 	// get the current chainID
 	log.Infow("starting API", "web3Providers", conf.Web3Providers.String())

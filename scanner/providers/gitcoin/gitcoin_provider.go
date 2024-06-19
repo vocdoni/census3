@@ -141,7 +141,7 @@ func (g *GitcoinPassport) SetLastBalances(_ context.Context, _ []byte,
 }
 
 func (g *GitcoinPassport) HoldersBalances(ctx context.Context, stamp []byte, _ uint64) (
-	map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error,
+	map[common.Address]*big.Int, *providers.BlocksDelta, error,
 ) {
 	internalCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -153,13 +153,13 @@ func (g *GitcoinPassport) HoldersBalances(ctx context.Context, stamp []byte, _ u
 	if len(stamp) > 0 {
 		dbStampScores, err := g.db.QueriesRW.GetStampScores(internalCtx, string(stamp))
 		if err != nil {
-			return nil, 0, 0, false, big.NewInt(0), fmt.Errorf("error getting stamp scores: %w", err)
+			return nil, nil, fmt.Errorf("error getting stamp scores: %w", err)
 		}
 		for _, dbStampScore := range dbStampScores {
 			address := common.HexToAddress(string(dbStampScore.Address))
 			score, ok := new(big.Int).SetString(string(dbStampScore.Score), 10)
 			if !ok {
-				return nil, 0, 0, false, big.NewInt(0), fmt.Errorf("error parsing score: %w", err)
+				return nil, nil, fmt.Errorf("error parsing score: %w", err)
 			}
 			currentScores[address] = score
 			totalSupply.Add(totalSupply, score)
@@ -167,13 +167,13 @@ func (g *GitcoinPassport) HoldersBalances(ctx context.Context, stamp []byte, _ u
 	} else {
 		dbScores, err := g.db.QueriesRW.GetScores(internalCtx)
 		if err != nil {
-			return nil, 0, 0, false, big.NewInt(0), fmt.Errorf("error getting scores: %w", err)
+			return nil, nil, fmt.Errorf("error getting scores: %w", err)
 		}
 		for _, dbScore := range dbScores {
 			address := common.HexToAddress(string(dbScore.Address))
 			score, ok := new(big.Int).SetString(string(dbScore.Score), 10)
 			if !ok {
-				return nil, 0, 0, false, big.NewInt(0), fmt.Errorf("error parsing score: %w", err)
+				return nil, nil, fmt.Errorf("error parsing score: %w", err)
 			}
 			currentScores[address] = score
 			totalSupply.Add(totalSupply, score)
@@ -185,7 +185,14 @@ func (g *GitcoinPassport) HoldersBalances(ctx context.Context, stamp []byte, _ u
 	holders := providers.CalcPartialHolders(g.currentBalances, currentScores)
 	// return the balances, 1 new transfer, the current time as lastBlock, true
 	// as a synced and the computed totalSupply
-	return holders, 1, uint64(time.Now().Unix()), synced, totalSupply, nil
+	return holders, &providers.BlocksDelta{
+		LogsCount:                 1,
+		NewLogsCount:              1,
+		AlreadyProcessedLogsCount: 0,
+		Block:                     uint64(time.Now().Unix()),
+		Synced:                    synced,
+		TotalSupply:               totalSupply,
+	}, nil
 }
 
 // Close cancels the download context.

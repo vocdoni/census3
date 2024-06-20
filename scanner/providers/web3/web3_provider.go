@@ -70,6 +70,9 @@ func creationBlock(client *web3.Client, ctx context.Context, addr common.Address
 			time.Sleep(RetryWeb3Cooldown)
 			continue
 		}
+		if creationBlock == 0 {
+			continue
+		}
 		if minCreationBlock == 0 || creationBlock < minCreationBlock {
 			minCreationBlock = creationBlock
 		}

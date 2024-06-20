@@ -15,6 +15,7 @@ type Web3Endpoint struct {
 	Name      string `json:"name"`
 	ShortName string `json:"shortName"`
 	URI       string
+	IsArchive bool
 	client    *ethclient.Client
 }
 
@@ -37,6 +38,20 @@ func NewWeb3Iterator(endpoints ...*Web3Endpoint) *Web3Iterator {
 		available: endpoints,
 		disabled:  make([]*Web3Endpoint, 0),
 	}
+}
+
+// Available returns the number of available endpoints.
+func (w3pp *Web3Iterator) Available() int {
+	w3pp.mtx.Lock()
+	defer w3pp.mtx.Unlock()
+	return len(w3pp.available)
+}
+
+// Disabled returns the number of disabled endpoints.
+func (w3pp *Web3Iterator) Disabled() int {
+	w3pp.mtx.Lock()
+	defer w3pp.mtx.Unlock()
+	return len(w3pp.disabled)
 }
 
 // Add adds a new endpoint to the pool, making it available for the next

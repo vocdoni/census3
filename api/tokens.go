@@ -732,7 +732,7 @@ func (capi *census3API) tokenStartBlock(msg *api.APIdata, ctx *httprouter.HTTPCo
 		}
 		log.Infow("start block calculated", "startBlock", startBlock, "tokenID", req.ID, "chainID", req.ChainID)
 	}()
-	return ctx.Send([]byte("ok"), api.HTTPstatusOK)
+	return ctx.Send([]byte("check the logs"), api.HTTPstatusOK)
 }
 
 func (capi *census3API) getTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPContext) error {

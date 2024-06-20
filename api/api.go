@@ -20,6 +20,7 @@ import (
 	"github.com/vocdoni/census3/helpers/web3"
 	"github.com/vocdoni/census3/scanner"
 	"github.com/vocdoni/census3/scanner/providers"
+	"github.com/vocdoni/census3/scanner/providers/manager"
 	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/api/censusdb"
 	storagelayer "go.vocdoni.io/dvote/data"
@@ -43,7 +44,7 @@ type Census3APIConf struct {
 	GroupKey        string
 	Web3Providers   *web3.Web3Pool
 	TokenUpdater    *scanner.Updater
-	HolderProviders map[uint64]providers.HolderProvider
+	HolderProviders *manager.ProviderManager
 	AdminToken      string
 }
 
@@ -56,7 +57,7 @@ type census3API struct {
 	w3p             *web3.Web3Pool
 	storage         storagelayer.Storage
 	downloader      *downloader.Downloader
-	holderProviders map[uint64]providers.HolderProvider
+	holderProviders *manager.ProviderManager
 	cache           *lru.Cache[CacheKey, any]
 	router          *httprouter.HTTProuter
 	tokenUpdater    *scanner.Updater
@@ -245,13 +246,14 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 
 		// get the correct holder provider for the token type
 		tokenType := providers.TokenTypeID(token.Type)
-		provider, exists := capi.holderProviders[tokenType]
-		if !exists {
+		provider, err := capi.holderProviders.GetProvider(ctx, tokenType)
+		if err != nil {
 			log.Warnw("token type provided in initial list not supported, check provider is set. SKIPPING...",
 				"tokenID", token.ID,
 				"chainID", token.ChainID,
 				"externalID", token.ExternalID,
-				"type", token.Type)
+				"type", token.Type,
+				"error", err)
 			continue
 		}
 		if !provider.IsExternal() {

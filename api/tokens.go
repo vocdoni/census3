@@ -9,8 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db/annotations"
@@ -37,6 +39,10 @@ func (capi *census3API) initTokenHandlers() error {
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}", "GET",
 		api.MethodAccessTypePublic, capi.getToken); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/tokens/startblock", "POST",
+		api.MethodAccessTypePublic, capi.tokenStartBlock); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/rescan/{tokenID}", "POST",
@@ -252,9 +258,9 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	defer cancel()
 	// get the correct holder provider for the token type
 	tokenType := providers.TokenTypeID(req.Type)
-	provider, exists := capi.holderProviders[tokenType]
-	if !exists {
-		return ErrCantCreateCensus.With("token type not supported")
+	provider, err := capi.holderProviders.GetProvider(internalCtx, tokenType)
+	if err != nil {
+		return ErrCantCreateCensus.WithErr(fmt.Errorf("token type not supported: %w", err))
 	}
 	if !provider.IsExternal() {
 		if err := provider.SetRef(web3.Web3ProviderRef{
@@ -551,9 +557,9 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	atBlock := uint64(tokenData.LastBlock)
 	tokenProgress := 100
 	if !tokenData.Synced {
-		provider, exists := capi.holderProviders[tokenData.TypeID]
-		if !exists {
-			return ErrCantCreateCensus.With("token type not supported")
+		provider, err := capi.holderProviders.GetProvider(internalCtx, tokenData.TypeID)
+		if err != nil {
+			return ErrCantCreateCensus.WithErr(fmt.Errorf("token type not supported: %w", err))
 		}
 		if !provider.IsExternal() {
 			if err := provider.SetRef(web3.Web3ProviderRef{
@@ -691,6 +697,42 @@ func (capi *census3API) checkRescanToken(msg *api.APIdata, ctx *httprouter.HTTPC
 		return ErrEncodeQueueItem.WithErr(err)
 	}
 	return ctx.Send(response, api.HTTPstatusOK)
+}
+
+func (capi *census3API) tokenStartBlock(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	req := Token{}
+	if err := json.Unmarshal(msg.Data, &req); err != nil {
+		log.Errorf("error unmarshalling token information: %s", err)
+		return ErrMalformedToken.WithErr(err)
+	}
+	tokenType := providers.TokenTypeID(req.Type)
+	// get token information from the database
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
+	defer cancel()
+	provider, err := capi.holderProviders.GetProvider(internalCtx, tokenType)
+	if err != nil {
+		return ErrCantCreateCensus.WithErr(fmt.Errorf("token type not supported: %w", err))
+	}
+	if provider.IsExternal() {
+		return ctx.Send([]byte("type not supported"), http.StatusBadRequest)
+	}
+	if err := provider.SetRef(web3.Web3ProviderRef{
+		HexAddress: common.HexToAddress(req.ID).Hex(),
+		ChainID:    req.ChainID,
+	}); err != nil {
+		return ErrInitializingWeb3.WithErr(err)
+	}
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+		defer cancel()
+		startBlock, err := provider.CreationBlock(bgCtx, nil)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		log.Infow("start block calculated", "startBlock", startBlock, "tokenID", req.ID, "chainID", req.ChainID)
+	}()
+	return ctx.Send([]byte("ok"), api.HTTPstatusOK)
 }
 
 func (capi *census3API) getTokenHolder(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
@@ -863,7 +905,7 @@ func (capi *census3API) enqueueTokenHoldersCSV(msg *api.APIdata, ctx *httprouter
 // supported types of token contracts.
 func (capi *census3API) getTokenTypes(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	supportedTypes := []string{}
-	for _, provider := range capi.holderProviders {
+	for _, provider := range capi.holderProviders.Providers(ctx.Request.Context()) {
 		supportedTypes = append(supportedTypes, provider.TypeName())
 	}
 	res, err := json.Marshal(TokenTypes{supportedTypes})

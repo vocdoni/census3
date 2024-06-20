@@ -272,9 +272,9 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 			Decimals:   token.Decimals,
 			ExternalID: t.ExternalID,
 		}
-		provider, exists := capi.holderProviders[token.TypeID]
-		if !exists {
-			return nil, nil, 0, fmt.Errorf("provider not found for token type id %d", token.TypeID)
+		provider, err := capi.holderProviders.GetProvider(ctx, token.TypeID)
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("provider not found for token type id %d: %w", token.TypeID, err)
 		}
 		if !provider.IsExternal() {
 			if err := provider.SetRef(web3.Web3ProviderRef{

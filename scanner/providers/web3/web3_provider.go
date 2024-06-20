@@ -65,15 +65,18 @@ func creationBlock(client *web3.Client, ctx context.Context, addr common.Address
 	if err != nil {
 		return 0, err
 	}
-	var creationBlock uint64
+	var minCreationBlock uint64
 	for i := 0; i < web3.DefaultMaxWeb3ClientRetries; i++ {
-		creationBlock, err = creationBlockInRange(client, ctx, addr, 0, lastBlock)
-		if err == nil {
-			break
+		creationBlock, err := creationBlockInRange(client, ctx, addr, 0, lastBlock)
+		if err != nil {
+			time.Sleep(RetryWeb3Cooldown)
+			continue
 		}
-		time.Sleep(RetryWeb3Cooldown)
+		if minCreationBlock == 0 || creationBlock < minCreationBlock {
+			minCreationBlock = creationBlock
+		}
 	}
-	return creationBlock, err
+	return minCreationBlock, err
 }
 
 // creationBlockInRange function finds the block number of a contract between

@@ -45,7 +45,6 @@ type Scanner struct {
 	networks        *web3.Web3Pool
 	providerManager *manager.ProviderManager
 	coolDown        time.Duration
-	filtersPath     string
 
 	tokens                  []*ScannerToken
 	tokensMtx               sync.Mutex
@@ -56,8 +55,8 @@ type Scanner struct {
 
 // NewScanner returns a new scanner instance with the required parameters
 // initialized.
-func NewScanner(db *db.DB, updater *Updater, networks *web3.Web3Pool, pm *manager.ProviderManager,
-	coolDown time.Duration, filtersPath string,
+func NewScanner(db *db.DB, updater *Updater, networks *web3.Web3Pool,
+	pm *manager.ProviderManager, coolDown time.Duration,
 ) *Scanner {
 	return &Scanner{
 		db:                      db,
@@ -65,7 +64,6 @@ func NewScanner(db *db.DB, updater *Updater, networks *web3.Web3Pool, pm *manage
 		networks:                networks,
 		providerManager:         pm,
 		coolDown:                coolDown,
-		filtersPath:             filtersPath,
 		tokens:                  []*ScannerToken{},
 		tokensMtx:               sync.Mutex{},
 		waiter:                  sync.WaitGroup{},

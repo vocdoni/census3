@@ -12,10 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/db"
 	queries "github.com/vocdoni/census3/db/sqlc"
+	"github.com/vocdoni/census3/db/treedb"
 	"github.com/vocdoni/census3/helpers/web3"
-	"github.com/vocdoni/census3/scanner/filter"
 	"github.com/vocdoni/census3/scanner/providers/manager"
 	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
+	dvotedb "go.vocdoni.io/dvote/db"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -50,26 +51,26 @@ type Updater struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	db          *db.DB
-	networks    *web3.Web3Pool
-	providers   *manager.ProviderManager
-	queue       map[string]*UpdateRequest
-	queueMtx    sync.Mutex
-	processing  sync.Map
-	waiter      sync.WaitGroup
-	filtersPath string
+	db         *db.DB
+	networks   *web3.Web3Pool
+	providers  *manager.ProviderManager
+	queue      map[string]*UpdateRequest
+	queueMtx   sync.Mutex
+	processing sync.Map
+	waiter     sync.WaitGroup
+	kvdb       dvotedb.Database
 }
 
 // NewUpdater creates a new instance of Updater.
 func NewUpdater(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager,
-	filtersPath string,
+	kvdb dvotedb.Database,
 ) *Updater {
 	return &Updater{
-		db:          db,
-		networks:    networks,
-		providers:   pm,
-		queue:       make(map[string]*UpdateRequest),
-		filtersPath: filtersPath,
+		db:        db,
+		networks:  networks,
+		providers: pm,
+		queue:     make(map[string]*UpdateRequest),
+		kvdb:      kvdb,
 	}
 }
 
@@ -228,22 +229,15 @@ func (u *Updater) process(req *UpdateRequest) error {
 	}
 	// if the token is a external token, return an error
 	if !provider.IsExternal() {
-		chainAddress, ok := u.networks.ChainAddress(req.ChainID, req.ChainAddress)
+		chainAddress, ok := u.networks.ChainAddress(req.ChainID, req.Address.Hex())
 		if !ok {
 			return fmt.Errorf("error getting chain address for token: %v", err)
 		}
 		// load filter of the token from the database
-		filter, err := filter.LoadFilter(u.filtersPath, chainAddress)
+		filter, err := treedb.LoadTree(u.kvdb, chainAddress)
 		if err != nil {
 			return err
 		}
-		// commit the filter when the function finishes
-		defer func() {
-			if err := filter.Commit(); err != nil {
-				log.Error(err)
-				return
-			}
-		}()
 		// set the reference of the token to update in the provider
 		if err := provider.SetRef(web3provider.Web3ProviderRef{
 			HexAddress:    req.Address.Hex(),

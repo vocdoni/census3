@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	erc20 "github.com/vocdoni/census3/contracts/erc/erc20"
 	"github.com/vocdoni/census3/helpers/web3"
-	"github.com/vocdoni/census3/scanner/filter"
 	"github.com/vocdoni/census3/scanner/providers"
 	"go.vocdoni.io/dvote/log"
 )
@@ -32,7 +31,7 @@ type ERC20HolderProvider struct {
 	creationBlock    uint64
 	lastNetworkBlock uint64
 	synced           atomic.Bool
-	filter           *filter.TokenFilter
+	filter           providers.Filter
 }
 
 func (p *ERC20HolderProvider) Init(_ context.Context, iconf any) error {
@@ -404,5 +403,5 @@ func (p *ERC20HolderProvider) isLogAlreadyProcessed(l types.Log) (bool, error) {
 		return false, err
 	}
 	hID := hashFn.Sum(nil)[:8]
-	return p.filter.TestAndAdd(hID), nil
+	return p.filter.TestAndAdd(hID, nil)
 }

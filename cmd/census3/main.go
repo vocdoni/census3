@@ -24,6 +24,8 @@ import (
 	"github.com/vocdoni/census3/scanner/providers/manager"
 	"github.com/vocdoni/census3/scanner/providers/poap"
 	web3provider "github.com/vocdoni/census3/scanner/providers/web3"
+	dvotedb "go.vocdoni.io/dvote/db"
+	"go.vocdoni.io/dvote/db/metadb"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -201,10 +203,15 @@ func main() {
 			DB:        farcasterDB,
 		})
 	}
+	// init the filters database
+	filtersDB, err := metadb.New(dvotedb.TypePebble, config.filtersPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 	// start the token updater with the database and the provider manager
-	updater := scanner.NewUpdater(database, w3p, pm, config.filtersPath)
+	updater := scanner.NewUpdater(database, w3p, pm, filtersDB)
 	// start the holder scanner with the database and the provider manager
-	hc := scanner.NewScanner(database, updater, w3p, pm, config.scannerCoolDown, config.filtersPath)
+	hc := scanner.NewScanner(database, updater, w3p, pm, config.scannerCoolDown)
 	// if the admin token is not defined, generate a random one
 	if config.adminToken != "" {
 		if _, err := uuid.Parse(config.adminToken); err != nil {

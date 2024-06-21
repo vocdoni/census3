@@ -7,6 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// BlocksDelta struct defines the delta of blocks processed by any
+// HolderProvider. It includes the total number of logs processed, the new logs
+// processed, the logs already processed, the last block processed, and if the
+// provider is synced. It also includes the current total supply of the token
+// set in the provider.
 type BlocksDelta struct {
 	LogsCount                 uint64
 	NewLogsCount              uint64
@@ -14,6 +19,16 @@ type BlocksDelta struct {
 	Block                     uint64
 	Synced                    bool
 	TotalSupply               *big.Int
+}
+
+// Filter interface defines the basic methods to interact with a filter to
+// store the processed transfers identifiers and avoid to process them again,
+// for example, if a token is rescanned. It allows to implement different
+// filters, such as in-memory, disk, merkle tree, etc.
+type Filter interface {
+	Add(key, value []byte) error
+	Test(key []byte) (bool, error)
+	TestAndAdd(key, value []byte) (bool, error)
 }
 
 // HolderProvider is the interface that wraps the basic methods to interact with

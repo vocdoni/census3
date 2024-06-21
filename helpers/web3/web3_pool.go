@@ -17,10 +17,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"go.vocdoni.io/dvote/log"
 )
 
 const (
@@ -28,7 +32,10 @@ const (
 
 	shortNameSourceUri        = "https://chainid.network/chains_mini.json"
 	checkWeb3EndpointsTimeout = time.Second * 10
+	foundTxErrMessage         = "transaction type not supported"
 )
+
+var notFoundTxRgx = regexp.MustCompile(`not\s[be\s|]*found`)
 
 // Web3Pool struct contains a map of chainID-[]*Web3Endpoint, where
 // the key is the chainID and the value is a list of Web3Endpoint. It also
@@ -90,6 +97,11 @@ func (nm *Web3Pool) AddEndpoint(uri string) error {
 	if name == "" || shortName == "" {
 		return fmt.Errorf("no chain metadata found for chainID %d", chainID)
 	}
+	// check if the endpoint is an archive node or not
+	isArchive, err := isArchiveNode(ctx, client)
+	if err != nil {
+		log.Warnw("error checking if the web3 provider is an archive node", "chainID", chainID, "error", err)
+	}
 	// add the endpoint to the pool
 	endpoint := &Web3Endpoint{
 		ChainID:   chainID,
@@ -97,6 +109,7 @@ func (nm *Web3Pool) AddEndpoint(uri string) error {
 		ShortName: shortName,
 		URI:       uri,
 		client:    client,
+		IsArchive: isArchive,
 	}
 	if _, ok := nm.endpoints[chainID]; !ok {
 		nm.endpoints[chainID] = NewWeb3Iterator(endpoint)
@@ -131,6 +144,19 @@ func (nm *Web3Pool) DisableEndpoint(chainID uint64, uri string) {
 	if endpoints, ok := nm.endpoints[chainID]; ok {
 		endpoints.Disable(uri)
 	}
+}
+
+// NumberOfEndpoints method returns the total number (or just the available ones)
+// of endpoints for the chainID provided.
+func (nm *Web3Pool) NumberOfEndpoints(chainID uint64, onlyAvailable bool) int {
+	if endpoints, ok := nm.endpoints[chainID]; ok {
+		n := endpoints.Available()
+		if !onlyAvailable {
+			n += endpoints.Disabled()
+		}
+		return n
+	}
+	return 0
 }
 
 // Client method returns a new *Client instance for the chainID provided.
@@ -220,4 +246,30 @@ func connect(ctx context.Context, uri string) (client *ethclient.Client, err err
 		return
 	}
 	return nil, fmt.Errorf("error dialing web3 provider uri '%s': %w", uri, err)
+}
+
+// isArchiveNode method returns true if the web3 client is an archive node. To
+// determine if the client is an archive node, checks the transactions of the
+// block 1 of the chain. If client finds transactions, it is an archive node. If
+// it does not find transactions, it is not an archive node. If an error occurs,
+// it returns false and the error.
+func isArchiveNode(ctx context.Context, client *ethclient.Client) (bool, error) {
+	block, err := client.BlockByNumber(ctx, big.NewInt(1))
+	if err != nil {
+		if strings.Contains(err.Error(), foundTxErrMessage) {
+			return true, nil
+		}
+		return false, fmt.Errorf("error getting block 1: %w", err)
+	}
+
+	if _, err := client.TransactionCount(ctx, block.Hash()); err != nil {
+		if notFoundTxRgx.MatchString(err.Error()) {
+			return false, nil
+		}
+		if strings.Contains(err.Error(), foundTxErrMessage) {
+			return true, nil
+		}
+		return false, fmt.Errorf("error getting transaction in block 1: %w", err)
+	}
+	return true, nil
 }

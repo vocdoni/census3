@@ -261,7 +261,8 @@ func isArchiveNode(ctx context.Context, client *ethclient.Client) (bool, error) 
 		}
 		return false, fmt.Errorf("error getting block 1: %w", err)
 	}
-	if _, err := client.TransactionInBlock(ctx, block.Hash(), 0); err != nil {
+
+	if _, err := client.TransactionCount(ctx, block.Hash()); err != nil {
 		if notFoundTxRgx.MatchString(err.Error()) {
 			return false, nil
 		}

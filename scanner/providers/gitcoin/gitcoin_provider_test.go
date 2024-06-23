@@ -48,7 +48,7 @@ func TestGitcoinPassport(t *testing.T) {
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(emptyBalances), qt.Equals, 0)
 	// wait for the download to finish
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	// check the balances
 	holders, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)

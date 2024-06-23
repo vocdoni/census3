@@ -109,7 +109,6 @@ func (s *Scanner) Start(ctx context.Context) {
 						continue
 					}
 				}
-
 				log.Infow("checking token in the updater queue",
 					"address", token.Address.Hex(),
 					"chainID", token.ChainID,
@@ -435,6 +434,7 @@ func (s *Scanner) prepareToken(token *ScannerToken) error {
 			return err
 		}
 		token.CreationBlock = creationBlock
+		token.LastBlock = creationBlock
 		token.Ready = true
 	}
 	return nil

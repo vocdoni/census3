@@ -159,6 +159,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	alreadyProcessedLogs := uint64(0)
 	balances := make(map[common.Address]*big.Int)
 	// iterate the logs and update the balances
+	log.Infow("parsing logs", "address", p.address, "type", p.TypeName(), "count", len(logs))
 	for _, currentLog := range logs {
 		// skip the log if it has been removed
 		if currentLog.Removed {
@@ -208,7 +209,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 			balances[logData.From] = new(big.Int).Neg(logData.Value)
 		}
 	}
-	log.Infow("saving blocks",
+	log.Infow("logs parsed",
 		"count", len(balances),
 		"new_logs", newTransfers,
 		"already_processed_logs", alreadyProcessedLogs,

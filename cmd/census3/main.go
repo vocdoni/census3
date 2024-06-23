@@ -209,7 +209,7 @@ func main() {
 		log.Fatal(err)
 	}
 	// start the token updater with the database and the provider manager
-	updater := scanner.NewUpdater(database, w3p, pm, filtersDB)
+	updater := scanner.NewUpdater(database, w3p, pm, filtersDB, config.scannerCoolDown)
 	// start the holder scanner with the database and the provider manager
 	hc := scanner.NewScanner(database, updater, w3p, pm, config.scannerCoolDown)
 	// if the admin token is not defined, generate a random one

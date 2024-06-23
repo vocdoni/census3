@@ -152,7 +152,6 @@ func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	if errors.Is(err, ErrTooManyRequests) {
 		log.Warnf("too many requests, the provider will continue in the next iteration from block %d", lastBlock)
 	}
-	log.Warnw("logs received", "number_of_logs", len(logs), "last_block", lastBlock)
 	// encode the number of new transfers
 	newTransfers := uint64(0)
 	alreadyProcessedLogs := uint64(0)
@@ -399,6 +398,6 @@ func (p *ERC721HolderProvider) isLogAlreadyProcessed(l types.Log) (bool, error) 
 	if _, err := hashFn.Write([]byte(transferID)); err != nil {
 		return false, err
 	}
-	hID := hashFn.Sum(nil)
+	hID := hashFn.Sum(nil)[:8]
 	return p.filter.TestAndAdd(hID, nil)
 }

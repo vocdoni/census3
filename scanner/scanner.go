@@ -122,16 +122,6 @@ func (s *Scanner) Start(ctx context.Context) {
 				// get the status of the token in the updater queue
 				status := s.updater.RequestStatus(reqID, true)
 				if status != nil {
-					log.Infow("token status in the updater queue",
-						"address", token.Address.Hex(),
-						"chainID", token.ChainID,
-						"externalID", token.ExternalID,
-						"lastBlock", status.LastBlock,
-						"lastTotalSupply", status.LastTotalSupply,
-						"totalNewLogs", status.TotalNewLogs,
-						"totalAlreadyProcessedLogs", status.TotalAlreadyProcessedLogs,
-						"totalLogs", status.TotalLogs,
-						"done", status.Done)
 					// if the token is in the updater queue, update the
 					// internal token status and continue to the next token
 					// only if the token is done
@@ -159,12 +149,6 @@ func (s *Scanner) Start(ctx context.Context) {
 							log.Warnw("error enqueuing token", "error", err)
 							continue
 						}
-						log.Infow("token enqueued from the scanner",
-							"address", token.Address.Hex(),
-							"chainID", token.ChainID,
-							"externalID", token.ExternalID,
-							"from", token.LastBlock,
-							"to", lastNetworkBlock)
 					}
 				}
 			}

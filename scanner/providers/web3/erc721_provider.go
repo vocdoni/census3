@@ -1,6 +1,7 @@
 package web3
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -157,6 +158,8 @@ func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	alreadyProcessedLogs := uint64(0)
 	balances := make(map[common.Address]*big.Int)
 	// iterate the logs and update the balances
+	log.Infow("parsing logs", "address", p.address, "type", p.TypeName(), "count", len(logs))
+	processedLogs := &partialProcessedLogs{}
 	for _, currentLog := range logs {
 		// skip the log if it has been removed
 		if currentLog.Removed {
@@ -176,7 +179,7 @@ func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 		}
 		// check if the log has been already processed and add it to the filter
 		// if it is not already included
-		processed, err := p.isLogAlreadyProcessed(currentLog)
+		processed, err := p.isLogAlreadyProcessed(currentLog, processedLogs)
 		if err != nil {
 			return nil, &providers.BlocksDelta{
 				Block:                     lastBlock,
@@ -206,7 +209,10 @@ func (p *ERC721HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 			balances[logData.From] = big.NewInt(-1)
 		}
 	}
-	log.Infow("saving blocks",
+	if err := p.filter.AddKey(processedLogs.ids...); err != nil {
+		return nil, nil, errors.Join(ErrAddingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
+	}
+	log.Infow("logs parsed",
 		"count", len(balances),
 		"new_logs", newTransfers,
 		"already_processed_logs", alreadyProcessedLogs,
@@ -386,7 +392,7 @@ func (p *ERC721HolderProvider) CensusKeys(data map[common.Address]*big.Int) (map
 // number and log index. It returns true if the log has been already processed
 // or false if it has not been processed yet. If some error occurs, it returns
 // false and the error.
-func (p *ERC721HolderProvider) isLogAlreadyProcessed(l types.Log) (bool, error) {
+func (p *ERC721HolderProvider) isLogAlreadyProcessed(l types.Log, pl *partialProcessedLogs) (bool, error) {
 	// if the filter is not defined, return false
 	if p.filter == nil {
 		return false, nil
@@ -398,6 +404,22 @@ func (p *ERC721HolderProvider) isLogAlreadyProcessed(l types.Log) (bool, error) 
 	if _, err := hashFn.Write([]byte(transferID)); err != nil {
 		return false, err
 	}
+	// check if the hash is in the filter
 	hID := hashFn.Sum(nil)[:8]
-	return p.filter.TestAndAdd(hID, nil)
+	exists, err := p.filter.TestKey(hID)
+	if err != nil {
+		return false, err
+	}
+	if exists {
+		return true, nil
+	}
+	// if the hash is not in the filter, check if it is in the partial filter
+	for _, id := range pl.ids {
+		if bytes.Equal(id, hID) {
+			return true, nil
+		}
+	}
+	// add the hash to the partial filter if it has not been processed and return
+	pl.ids = append(pl.ids, hID)
+	return false, nil
 }

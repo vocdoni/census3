@@ -92,7 +92,6 @@ func (u *Updater) Start(ctx context.Context, concurrentTokens int) {
 		default:
 			req, id := u.next()
 			if req == nil {
-				log.Info("no more requests to process, sleeping...")
 				time.Sleep(u.coolDown)
 				continue
 			}

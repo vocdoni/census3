@@ -26,9 +26,9 @@ type BlocksDelta struct {
 // for example, if a token is rescanned. It allows to implement different
 // filters, such as in-memory, disk, merkle tree, etc.
 type Filter interface {
-	Add(key, value []byte) error
-	Test(key []byte) (bool, error)
-	TestAndAdd(key, value []byte) (bool, error)
+	AddKey(key ...[]byte) error
+	TestKey(key []byte) (bool, error)
+	TestAndAddKey(key []byte) (bool, error)
 }
 
 // HolderProvider is the interface that wraps the basic methods to interact with

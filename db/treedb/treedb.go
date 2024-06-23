@@ -99,8 +99,23 @@ func (tdb *TreeDB) Add(key, value []byte) error {
 	return wTx.Commit()
 }
 
-// Test checks if a key is in the tree.
-func (tdb *TreeDB) Test(key []byte) (bool, error) {
+// AddKey adds a key to the tree with nil value. It accepts variadic keys.
+func (tdb *TreeDB) AddKey(key ...[]byte) error {
+	if tdb.tree == nil {
+		return ErrNotInitialized
+	}
+	wTx := tdb.tree.DB().WriteTx()
+	defer wTx.Discard()
+	for _, k := range key {
+		if err := tdb.tree.Add(wTx, k, nil); err != nil {
+			return err
+		}
+	}
+	return wTx.Commit()
+}
+
+// TestKey checks if a key is in the tree.
+func (tdb *TreeDB) TestKey(key []byte) (bool, error) {
 	if tdb.tree == nil {
 		return false, ErrNotInitialized
 	}
@@ -114,15 +129,15 @@ func (tdb *TreeDB) Test(key []byte) (bool, error) {
 	return true, nil
 }
 
-// TestAndAdd checks if a key is in the tree, if not, add it to the tree. It
+// TestAndAddKey checks if a key is in the tree, if not, add it to the tree. It
 // is the combination of Test and conditional Add.
-func (tdb *TreeDB) TestAndAdd(key, value []byte) (bool, error) {
-	exists, err := tdb.Test(key)
+func (tdb *TreeDB) TestAndAddKey(key []byte) (bool, error) {
+	exists, err := tdb.TestKey(key)
 	if err != nil {
 		return false, err
 	}
 	if exists {
 		return true, nil
 	}
-	return false, tdb.Add(key, value)
+	return false, tdb.AddKey(key)
 }

@@ -362,6 +362,12 @@ func (s *Scanner) getLatestBlockNumbersUpdates() {
 	}
 }
 
+// updateInternalTokenStatus updates the internal token status of the scanner
+// with the given information. It is used to update the last block number and
+// the synced status of the token in the scanner. It is used to avoid
+// overloading the database with requests to get tokens information in every
+// iteration of the scanner. It is used in the SaveHolders function to update
+// the token status after saving the holders in the database.
 func (s *Scanner) updateInternalTokenStatus(token ScannerToken, lastBlock uint64,
 	synced bool, totalSupply *big.Int,
 ) {
@@ -380,6 +386,11 @@ func (s *Scanner) updateInternalTokenStatus(token ScannerToken, lastBlock uint64
 	s.tokensMtx.Unlock()
 }
 
+// prepareToken prepares the token to be scanned. It calculates the creation
+// block of the token if it is not ready yet. It updates the token in the
+// scanner but also the token information in the database. It returns an error
+// if something fails in the process. It sets the last block of the token to
+// the creation block of the token to start scanning from the creation block.
 func (s *Scanner) prepareToken(token *ScannerToken) error {
 	ctx, cancel := context.WithTimeout(s.ctx, UPDATE_TIMEOUT)
 	defer cancel()

@@ -44,10 +44,7 @@ type UpdateRequest struct {
 // iterate over the requests, repeating the process of getting the token holders
 // balances and saving them in the database until the last block is greater or
 // equal to the end block. The end block is the block number where the token
-// holders balances are up to date. The holders providers must include an
-// instance of a TokenFilter to store the processed transactions to avoid
-// re-processing them, but also rescanning a synced token to find missing
-// transactions.
+// holders balances are up to date.
 type Updater struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -113,10 +110,13 @@ func (u *Updater) Start(ctx context.Context, concurrentTokens int) {
 					return
 				}
 				// update the request in the queue
-				log.Infow("updating request in the queue", "lastBlock", req.LastBlock, "done", req.Done)
 				if err := u.SetRequest(id, &res); err != nil {
 					log.Errorf("error updating request in the queue: %v", err)
 				}
+				log.Infow("token processed",
+					"address", res.Address.Hex(),
+					"lastBlock", res.LastBlock,
+					"done", res.Done)
 			}(id, *req)
 		}
 	}
@@ -216,6 +216,11 @@ func RequestID(address common.Address, chainID uint64, externalID string) (strin
 	return hex.EncodeToString(bHash[:4]), nil
 }
 
+// next returns the next request in the queue that is not being processed or
+// already done. It will return the request and its ID. If the queue is empty or
+// the next request is out of the range of the sorted queue, it will return nil
+// and an it will return nil and an empty string. If the next request is found
+// it updates the next request index to the next request in the sorted queue.
 func (u *Updater) next() (*UpdateRequest, string) {
 	u.queueMtx.Lock()
 	defer u.queueMtx.Unlock()

@@ -45,11 +45,11 @@ func (capi *census3API) initTokenHandlers() error {
 		api.MethodAccessTypePublic, capi.tokenStartBlock); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/tokens/rescan/{tokenID}", "POST",
+	if err := capi.endpoint.RegisterMethod("/tokens/update/{tokenID}", "POST",
 		api.MethodAccessTypeAdmin, capi.rescanToken); err != nil {
 		return err
 	}
-	if err := capi.endpoint.RegisterMethod("/tokens/rescan/queue/{queueID}", "GET",
+	if err := capi.endpoint.RegisterMethod("/tokens/update/queue/{queueID}", "GET",
 		api.MethodAccessTypeAdmin, capi.checkRescanToken); err != nil {
 		return err
 	}
@@ -617,6 +617,12 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// rescanToken function handler enqueues the rescan process for the token with
+// the given ID. The token is scanned from the creation block to the last block
+// stored in the database. It returns a 400 error if the provided ID is wrong or
+// empty, a 404 error if the token is not found, a 500 error if something fails
+// or a 200 response if the process is enqueued. It returns a queue ID to track
+// the status of the process.
 func (capi *census3API) rescanToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get contract address from the tokenID query param and decode check if
 	// it is provided, if not return an error
@@ -664,7 +670,7 @@ func (capi *census3API) rescanToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		CreationBlock: uint64(tokenData.CreationBlock),
 		EndBlock:      uint64(tokenData.LastBlock),
 	}); err != nil {
-		return ErrMalformedToken.WithErr(err)
+		return ErrEncodeQueueItem.WithErr(err)
 	}
 	// encoding the result and response it
 	res, err := json.Marshal(QueueResponse{id})
@@ -674,6 +680,12 @@ func (capi *census3API) rescanToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
+// checkRescanToken function handler returns the status of the rescan process
+// with the given queue ID. It returns a 400 error if the provided ID is wrong
+// or empty, a 404 error if the token is not found in the queue or a 500 error
+// if something fails. The response contains the address of the token, the chain
+// ID, the status of the process, the number of logs scanned, the number of new
+// logs found, and the number of duplicated logs.
 func (capi *census3API) checkRescanToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	queueID := ctx.URLParam("queueID")
 	if queueID == "" {

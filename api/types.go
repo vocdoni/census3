@@ -154,8 +154,7 @@ type GetHoldersAtLastBlockResponse struct {
 }
 
 type GetStrategyHoldersResponse struct {
-	Holders    map[string]string `json:"holders"`
-	Pagination *Pagination       `json:"pagination"`
+	Holders map[string]string `json:"holders"`
 }
 
 type DeleteTokenQueueResponse struct {

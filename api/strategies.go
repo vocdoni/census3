@@ -559,16 +559,6 @@ func (capi *census3API) listStrategyHolders(msg *api.APIdata, ctx *httprouter.HT
 		return ErrMalformedStrategyID.WithErr(err)
 	}
 	strategyID := uint64(iStrategyID)
-	// get pagination information from the request
-	pageSize, dbPageSize, cursor, goForward, err := paginationFromCtx(ctx)
-	if err != nil {
-		return ErrMalformedPagination.WithErr(err)
-	}
-	// if there is a cursor, decode it to bytes
-	bCursor := []byte{}
-	if cursor != "" {
-		bCursor = common.HexToAddress(cursor).Bytes()
-	}
 	// get token information from the database
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategyHoldersTimeout)
 	defer cancel()
@@ -589,57 +579,38 @@ func (capi *census3API) listStrategyHolders(msg *api.APIdata, ctx *httprouter.HT
 		}
 		return ErrCantGetStrategyHolders.WithErr(err)
 	}
-	// check predicate
-	lx := lexer.NewLexer(strategyoperators.ValidOperatorsTags)
-	validatedPredicate, err := lx.Parse(strategy.Predicate)
+	if strategy.Predicate == "" {
+		return ErrInvalidStrategyPredicate.With("empty predicate")
+	}
+	strategyTokens, err := qtx.StrategyTokens(internalCtx, strategyID)
 	if err != nil {
-		return ErrInvalidStrategyPredicate.WithErr(err)
-	}
-	if !validatedPredicate.IsLiteral() {
-		return ErrInvalidStrategyPredicate.With("this endpoint only supports single token predicates")
-	}
-	// get the tokens from the database using the provided cursor, get the
-	// following or previous page depending on the direction of the cursor
-	var rows []queries.TokenHolder
-	if goForward {
-		rows, err = qtx.NextStrategyTokenHoldersPage(internalCtx, queries.NextStrategyTokenHoldersPageParams{
-			PageCursor: bCursor,
-			Limit:      dbPageSize,
-			StrategyID: strategyID,
-		})
-	} else {
-		rows, err = qtx.PrevStrategyTokenHoldersPage(internalCtx, queries.PrevStrategyTokenHoldersPageParams{
-			PageCursor: bCursor,
-			Limit:      dbPageSize,
-			StrategyID: strategyID,
-		})
-	}
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrCantGetStrategyHolders.WithErr(err)
-		}
 		return ErrCantGetStrategyHolders.WithErr(err)
 	}
-	if len(rows) == 0 {
-		return ErrNotFoundTokenHolders
+	strategyTokensBySymbol := map[string]*StrategyToken{}
+	for _, token := range strategyTokens {
+		strategyTokensBySymbol[token.TokenAlias] = &StrategyToken{
+			ID:         common.BytesToAddress(token.TokenID).String(),
+			ChainID:    token.ChainID,
+			ExternalID: token.ExternalID,
+			MinBalance: token.MinBalance,
+		}
 	}
-	// init response struct with the initial pagination information and empty
-	// list of holders
+	strategyHolders, _, _, err := capi.CalculateStrategyHolders(
+		internalCtx, strategy.Predicate, strategyTokensBySymbol, nil)
+	if err != nil {
+		return ErrEvalStrategyPredicate.WithErr(err)
+	}
+	if len(strategyHolders) == 0 {
+		return ErrNoStrategyHolders
+	}
+	// init response struct with the no pagination information and empty list
+	// of holders
 	holdersResponse := GetStrategyHoldersResponse{
-		Holders:    make(map[string]string),
-		Pagination: &Pagination{PageSize: pageSize},
-	}
-	// get the next and previous cursors and add them to the response
-	rows, nextCursorRow, prevCursorRow := paginationToRequest(rows, dbPageSize, goForward)
-	if nextCursorRow != nil {
-		holdersResponse.Pagination.NextCursor = common.BytesToAddress(nextCursorRow.HolderID).String()
-	}
-	if prevCursorRow != nil {
-		holdersResponse.Pagination.PrevCursor = common.BytesToAddress(prevCursorRow.HolderID).String()
+		Holders: make(map[string]string),
 	}
 	// parse and encode holders
-	for _, holder := range rows {
-		holdersResponse.Holders[common.BytesToAddress(holder.HolderID).String()] = holder.Balance
+	for addr, balance := range strategyHolders {
+		holdersResponse.Holders[addr.String()] = balance.String()
 	}
 	// encode and send the response
 	res, err := json.Marshal(holdersResponse)

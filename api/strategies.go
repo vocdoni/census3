@@ -554,7 +554,6 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
-
 func (capi *census3API) launchStrategyHolders(_ *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get provided strategyID
 	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))

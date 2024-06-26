@@ -622,7 +622,7 @@ func (capi *census3API) launchStrategyHolders(_ *api.APIdata, ctx *httprouter.HT
 	// encode and send the queueID
 	res, err := json.Marshal(QueueResponse{QueueID: queueID})
 	if err != nil {
-		return ErrEncodeStrategy.WithErr(err)
+		return ErrEncodeQueueItem.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

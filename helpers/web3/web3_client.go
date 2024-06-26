@@ -329,3 +329,39 @@ func (c *Client) retryAndCheckErr(uri string, fn func() (any, error)) (any, erro
 	c.w3p.DisableEndpoint(c.chainID, uri)
 	return nil, fmt.Errorf("error after %d retries: %w", defaultRetries, err)
 }
+
+// BlockByNumber returns a block by number by calling eth.BlockByNumber method
+func (c *Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	endpoint, err := c.w3p.Endpoint(c.chainID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting endpoint for chainID %d: %w", c.chainID, err)
+	}
+	// retry the method in case of failure and get final result and error
+	res, err := c.retryAndCheckErr(endpoint.URI, func() (any, error) {
+		internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+		defer cancel()
+		return endpoint.client.BlockByNumber(internalCtx, number)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.(*types.Block), err
+}
+
+// TransactionReceipt returns a transaction receipt by calling eth.TransactionReceipt method
+func (c *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	endpoint, err := c.w3p.Endpoint(c.chainID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting endpoint for chainID %d: %w", c.chainID, err)
+	}
+	// retry the method in case of failure and get final result and error
+	res, err := c.retryAndCheckErr(endpoint.URI, func() (any, error) {
+		internalCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+		defer cancel()
+		return endpoint.client.TransactionReceipt(internalCtx, txHash)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.(*types.Receipt), err
+}

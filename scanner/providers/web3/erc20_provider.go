@@ -161,7 +161,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	balances := make(map[common.Address]*big.Int)
 	// iterate the logs and update the balances
 	log.Infow("parsing logs", "address", p.address, "type", p.TypeName(), "count", len(logs))
-	processedLogs := &partialProcessedLogs{}
+	processedLogs := &PartialProcessedLogs{}
 	for _, currentLog := range logs {
 		// skip the log if it has been removed
 		if currentLog.Removed {
@@ -177,6 +177,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 				AlreadyProcessedLogsCount: alreadyProcessedLogs,
 				Synced:                    false,
 				TotalSupply:               big.NewInt(0),
+				NewLogs:                   *processedLogs,
 			}, errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 		}
 		// check if the log has been already processed and add it to the filter
@@ -190,6 +191,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 				AlreadyProcessedLogsCount: alreadyProcessedLogs,
 				Synced:                    false,
 				TotalSupply:               big.NewInt(0),
+				NewLogs:                   *processedLogs,
 			}, errors.Join(ErrCheckingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
 		}
 		// if it is the first scan, it will not check if the log has been
@@ -211,9 +213,6 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 			balances[logData.From] = new(big.Int).Neg(logData.Value)
 		}
 	}
-	if err := p.filter.AddKey(processedLogs.ids...); err != nil {
-		return nil, nil, errors.Join(ErrAddingProcessedLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
-	}
 	log.Infow("logs parsed",
 		"count", len(balances),
 		"new_logs", newTransfers,
@@ -230,6 +229,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 		AlreadyProcessedLogsCount: alreadyProcessedLogs,
 		Synced:                    synced,
 		TotalSupply:               big.NewInt(0),
+		NewLogs:                   *processedLogs,
 	}
 	if delta.TotalSupply, err = p.TotalSupply(nil); err != nil {
 		log.Warnw("error getting total supply, it will retry in the next iteration", "error", err)
@@ -396,7 +396,7 @@ func (p *ERC20HolderProvider) CensusKeys(data map[common.Address]*big.Int) (map[
 // number and log index. It returns true if the log has been already processed
 // or false if it has not been processed yet. If some error occurs, it returns
 // false and the error.
-func (p *ERC20HolderProvider) isLogAlreadyProcessed(l types.Log, pl *partialProcessedLogs) (bool, error) {
+func (p *ERC20HolderProvider) isLogAlreadyProcessed(l types.Log, pl *PartialProcessedLogs) (bool, error) {
 	// if the filter is not defined, return false
 	if p.filter == nil {
 		return false, nil
@@ -410,7 +410,7 @@ func (p *ERC20HolderProvider) isLogAlreadyProcessed(l types.Log, pl *partialProc
 	}
 	// check if the hash is in the filter
 	hID := hashFn.Sum(nil)[:8]
-	exists, err := p.filter.TestKey(hID)
+	exists, err := p.filter.CheckKey(hID)
 	if err != nil {
 		return false, err
 	}
@@ -418,12 +418,14 @@ func (p *ERC20HolderProvider) isLogAlreadyProcessed(l types.Log, pl *partialProc
 		return true, nil
 	}
 	// if the hash is not in the filter, check if it is in the partial filter
-	for _, id := range pl.ids {
+	logs := *pl
+	for _, id := range logs {
 		if bytes.Equal(id, hID) {
 			return true, nil
 		}
 	}
 	// add the hash to the partial filter if it has not been processed and return
-	pl.ids = append(pl.ids, hID)
+	logs = append(logs, hID)
+	*pl = logs
 	return false, nil
 }

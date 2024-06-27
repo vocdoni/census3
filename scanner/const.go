@@ -3,9 +3,15 @@ package scanner
 import "time"
 
 const (
-	READ_TIMEOUT   = time.Minute
-	SCAN_TIMEOUT   = 5 * time.Minute
-	SAVE_TIMEOUT   = 5 * time.Minute
+	// READ_TIMEOUT is the timeout to get sorted tokens to scan from the database
+	READ_TIMEOUT = time.Minute
+	// SAVE_TIMEOUT is the timeout to save the scanned tokens to the database
+	SAVE_TIMEOUT = 5 * time.Minute
+	// PREPARE_TIMEOUT is the timeout to prepare the tokens to scan (calculate
+	// the birth block number, etc.)
+	PREPARE_TIMEOUT = 5 * time.Minute
+	// UPDATE_TIMEOUT is the timeout to update the tokens from their holders
+	// providers
 	UPDATE_TIMEOUT = 15 * time.Minute
 )
 

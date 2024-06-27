@@ -277,13 +277,14 @@ func (u *Updater) process(id string, req UpdateRequest) (UpdateRequest, error) {
 		return req, fmt.Errorf("error getting provider for token: %v", err)
 	}
 	// if the token is a external token, return an error
+	var filter *treedb.TreeDB
 	if !provider.IsExternal() {
 		chainAddress, ok := u.networks.ChainAddress(req.ChainID, req.Address.Hex())
 		if !ok {
 			return req, fmt.Errorf("error getting chain address for token: %v", err)
 		}
 		// load filter of the token from the database
-		filter, err := treedb.LoadTree(u.kvdb, chainAddress)
+		filter, err = treedb.LoadTree(u.kvdb, chainAddress)
 		if err != nil {
 			return req, err
 		}
@@ -361,6 +362,12 @@ func (u *Updater) process(id string, req UpdateRequest) (UpdateRequest, error) {
 	}, balances, delta.NewLogsCount, delta.Block, delta.Synced, delta.TotalSupply)
 	if err != nil {
 		return req, fmt.Errorf("error saving token holders balances: %v", err)
+	}
+	// add the new keys to the filter if it is defined (not external token)
+	if filter != nil && delta.NewLogs != nil {
+		if err := filter.AddKey(delta.NewLogs...); err != nil {
+			return req, fmt.Errorf("error adding keys to filter: %v", err)
+		}
 	}
 	log.Debugw("token holders balances updated",
 		"token", req.Address.Hex(),

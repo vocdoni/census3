@@ -392,7 +392,7 @@ func (s *Scanner) updateInternalTokenStatus(token ScannerToken, lastBlock uint64
 // if something fails in the process. It sets the last block of the token to
 // the creation block of the token to start scanning from the creation block.
 func (s *Scanner) prepareToken(token *ScannerToken) error {
-	ctx, cancel := context.WithTimeout(s.ctx, UPDATE_TIMEOUT)
+	ctx, cancel := context.WithTimeout(s.ctx, PREPARE_TIMEOUT)
 	defer cancel()
 	// get the provider by token type
 	provider, err := s.providerManager.GetProvider(ctx, token.Type)

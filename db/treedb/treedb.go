@@ -23,7 +23,7 @@ const filterTreeLevels = 64
 // ErrNotInitialized is returned when no tree is initialized in a TreeDB
 // instance, which means that LoadTree has not been called and the tree is
 // not ready to be used.
-var ErrNotInitialized = fmt.Errorf("tree not initialized, call Load first")
+var ErrNotInitialized = fmt.Errorf("tree not initialized, call LoadTree first")
 
 // TokenFilter is a filter associated with a token.
 type TreeDB struct {
@@ -56,6 +56,9 @@ func LoadTree(db db.Database, prefix string) (*TreeDB, error) {
 	}, wTx.Commit()
 }
 
+// Close closes the tree database. If the tree is not nil, it closes the
+// underlying database. If the parent database is not nil, it closes it too.
+// It returns an error if any of the databases cannot be closed.
 func (tdb *TreeDB) Close() error {
 	if tdb.tree != nil {
 		if err := tdb.tree.DB().Close(); err != nil {
@@ -68,11 +71,11 @@ func (tdb *TreeDB) Close() error {
 	return nil
 }
 
-// DeleteTree deletes a tree from the database identified by current prefix.
-// It iterates over all the keys in the tree and deletes them. If some key
-// cannot be deleted, it logs a warning and continues with the next key. It
-// commits the transaction at the end.
-func (tdb *TreeDB) Delete() error {
+// Purge deletes a tree from the database identified by current prefix. It
+// iterates over all the keys in the tree and deletes them. If some key cannot
+// be deleted, it logs a warning and continues with the next key. It commits the
+// transaction at the end.
+func (tdb *TreeDB) Purge() error {
 	treeDB := prefixeddb.NewPrefixedDatabase(tdb.parentDB, []byte(tdb.prefix))
 	wTx := treeDB.WriteTx()
 	if err := treeDB.Iterate(nil, func(k, _ []byte) bool {
@@ -86,36 +89,94 @@ func (tdb *TreeDB) Delete() error {
 	return wTx.Commit()
 }
 
-// Add adds a key to the tree.
-func (tdb *TreeDB) Add(key, value []byte) error {
+// Add adds a key to the tree. It no write transaction is provided, it creates
+// a new one and commits it at the end. It returns an error if the tree is not
+// initialized, if there is an error adding the key-value pair or committing
+// the transaction if it was created. If a transaction is provided, it does
+// not commit or discard it.
+func (tdb *TreeDB) Add(wtx db.WriteTx, key, value []byte) error {
 	if tdb.tree == nil {
 		return ErrNotInitialized
 	}
-	wTx := tdb.tree.DB().WriteTx()
-	defer wTx.Discard()
-	if err := tdb.tree.Add(wTx, key, value); err != nil {
+	commitTx := wtx == nil
+	if commitTx {
+		wtx = tdb.tree.DB().WriteTx()
+		defer wtx.Discard()
+	}
+	if err := tdb.tree.Add(wtx, key, value); err != nil {
 		return err
 	}
-	return wTx.Commit()
+	if commitTx {
+		return wtx.Commit()
+	}
+	return nil
 }
 
-// AddKey adds a key to the tree with nil value. It accepts variadic keys.
-func (tdb *TreeDB) AddKey(key ...[]byte) error {
+// Del deletes a key from the tree. If no write transaction is provided, it
+// creates a new one and commits it at the end. It returns an error if the tree
+// is not initialized, if there is an error deleting the key-value pair or
+// committing the transaction if it was provided. If a transaction is provided,
+// it does not commit or discard it.
+func (tdb *TreeDB) Del(wtx db.WriteTx, key []byte) error {
 	if tdb.tree == nil {
 		return ErrNotInitialized
 	}
+	commitTx := wtx == nil
+	if commitTx {
+		wtx = tdb.tree.DB().WriteTx()
+		defer wtx.Discard()
+	}
+	if err := tdb.tree.Del(wtx, key); err != nil {
+		return err
+	}
+	if commitTx {
+		return wtx.Commit()
+	}
+	return nil
+}
+
+// AddBatch adds a batch of keys and values to the tree. It is more efficient
+// than calling Add for each key-value pair. It returns an error if the length
+// of keys and values is different, if the tree is not initialized, if there
+// is an error adding a key-value pair or committing the transaction. It uses
+// a new write transaction to add all the keys and commits it at the end. If
+// something goes wrong, it returns an error and discards the transaction.
+func (tdb *TreeDB) AddBatch(keys, values [][]byte) error {
+	if tdb.tree == nil {
+		return ErrNotInitialized
+	}
+	if len(keys) != len(values) {
+		return fmt.Errorf("keys and values must have the same length")
+	}
 	wTx := tdb.tree.DB().WriteTx()
 	defer wTx.Discard()
-	for _, k := range key {
-		if err := tdb.tree.Add(wTx, k, nil); err != nil {
+	for i := range keys {
+		if err := tdb.tree.Add(wTx, keys[i], values[i]); err != nil {
 			return err
 		}
 	}
 	return wTx.Commit()
 }
 
-// TestKey checks if a key is in the tree.
-func (tdb *TreeDB) TestKey(key []byte) (bool, error) {
+// AddKey adds a key to the tree with nil value. It accepts variadic keys. It
+// uses a new write transaction to add all the keys and commits it at the end.
+// If something goes wrong, it returns an error and discards the transaction.
+func (tdb *TreeDB) AddKey(key ...[]byte) error {
+	if tdb.tree == nil {
+		return ErrNotInitialized
+	}
+	wtx := tdb.tree.DB().WriteTx()
+	defer wtx.Discard()
+	for _, k := range key {
+		if err := tdb.tree.Add(wtx, k, nil); err != nil {
+			return err
+		}
+	}
+	return wtx.Commit()
+}
+
+// CheckKeyKey checks if a key is in the tree.
+func (tdb *TreeDB) CheckKey(key []byte) (bool, error) {
 	if tdb.tree == nil {
 		return false, ErrNotInitialized
 	}
@@ -129,10 +190,10 @@ func (tdb *TreeDB) TestKey(key []byte) (bool, error) {
 	return true, nil
 }
 
-// TestAndAddKey checks if a key is in the tree, if not, add it to the tree. It
-// is the combination of Test and conditional Add.
-func (tdb *TreeDB) TestAndAddKey(key []byte) (bool, error) {
-	exists, err := tdb.TestKey(key)
+// CheckAndAddKey checks if a key is in the tree, if not, add it to the tree. It
+// is the combination of CheckKey and conditional AddKey.
+func (tdb *TreeDB) CheckAndAddKey(key []byte) (bool, error) {
+	exists, err := tdb.CheckKey(key)
 	if err != nil {
 		return false, err
 	}

@@ -3,16 +3,26 @@ package apiclient
 import (
 	"fmt"
 	"net/url"
-	"path"
+	"strings"
 )
 
+const queryParamsSeparator = "?"
+
 // constructURL constructs a URL from the base URL, endpoint and additional path elements
-func (c *HTTPclient) constructURL(endpoint string, args ...string) (string, error) {
-	u, err := url.Parse(c.addr.String())
-	if err != nil {
-		return "", fmt.Errorf("error parsing base URL: %v", err)
+func (c *HTTPclient) constructURL(endpoint string) (string, error) {
+	if endpoint == "" {
+		return c.addr.String(), nil
 	}
-	allPaths := append([]string{endpoint}, args...)
-	u.Path = path.Join(append([]string{u.Path}, allPaths...)...)
-	return u.String(), nil
+	// decode endpoint in paths and query parameters
+	parts := strings.SplitN(endpoint, queryParamsSeparator, 2)
+	finalEndpoint := c.addr.JoinPath(parts[0])
+	if len(parts) < 2 {
+		return finalEndpoint.String(), nil
+	}
+	queryParams, err := url.ParseQuery(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("error parsing query parameters: %w", err)
+	}
+	finalEndpoint.RawQuery = queryParams.Encode()
+	return finalEndpoint.String(), nil
 }

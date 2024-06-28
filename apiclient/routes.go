@@ -34,6 +34,8 @@ const (
 	CreateStrategyURI = "/strategies"
 	// GetTokenHoldersByStrategyURI is the URI for getting token holders of a given strategy
 	GetTokenHoldersByStrategyURI = "/strategies/%d/holders"
+	// GetTokenHoldersByStrategyURI is the URI for getting token holders of a given strategy
+	GetTokenHoldersByStrategyQueueURI = "/strategies/%d/holders/queue/%s"
 
 	// Censuses endpoints:
 

@@ -43,11 +43,7 @@ func (capi *census3API) initStrategiesHandlers() error {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/holders", "GET",
-		api.MethodAccessTypePublic, capi.launchStrategyHolders); err != nil {
-		return err
-	}
-	if err := capi.endpoint.RegisterMethod("/strategies/{strategyID}/holders/queue/{queueID}", "GET",
-		api.MethodAccessTypePublic, capi.enqueueStrategyHolders); err != nil {
+		api.MethodAccessTypePublic, capi.listStrategyHolders); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/strategies/estimation", "POST",
@@ -140,6 +136,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 	}
 	// parse and encode strategies
 	for _, strategy := range rows {
+		skipMalformed := false
 		strategyResponse := &Strategy{
 			ID:        strategy.ID,
 			Alias:     strategy.Alias,
@@ -149,9 +146,15 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		}
 		strategyTokens, err := qtx.StrategyTokens(internalCtx, strategy.ID)
 		if err != nil {
-			return ErrCantGetStrategies.WithErr(err)
+			log.Warnw("error getting strategy tokens", "strategyID", strategy.ID)
+			skipMalformed = true
+			continue
 		}
 		for _, strategyToken := range strategyTokens {
+			if strategyToken.TokenAlias == "" {
+				skipMalformed = true
+				break
+			}
 			strategyResponse.Tokens[strategyToken.TokenAlias] = &StrategyToken{
 				ID:           common.BytesToAddress(strategyToken.TokenID).String(),
 				ChainID:      strategyToken.ChainID,
@@ -159,6 +162,10 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 				ChainAddress: strategyToken.ChainAddress,
 				ExternalID:   strategyToken.ExternalID,
 			}
+		}
+		if skipMalformed {
+			log.Warnw("skipping malformed strategy", "strategyID", strategy.ID)
+			continue
 		}
 		strategiesResponse.Strategies = append(strategiesResponse.Strategies, strategyResponse)
 	}
@@ -551,7 +558,9 @@ func (capi *census3API) getStrategy(msg *api.APIdata, ctx *httprouter.HTTPContex
 	return ctx.Send(res, api.HTTPstatusOK)
 }
 
-func (capi *census3API) launchStrategyHolders(_ *api.APIdata, ctx *httprouter.HTTPContext) error {
+// listStrategyHolders function handler returns the list of the holders of the
+// strategy ID provided. It returns a 400 error if the provided
+func (capi *census3API) listStrategyHolders(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
 	// get provided strategyID
 	iStrategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
 	if err != nil {
@@ -559,10 +568,19 @@ func (capi *census3API) launchStrategyHolders(_ *api.APIdata, ctx *httprouter.HT
 	}
 	strategyID := uint64(iStrategyID)
 	// get token information from the database
-	checkCtx, cancel := context.WithTimeout(ctx.Request.Context(), checkStrategyHoldersTimeout)
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategyHoldersTimeout)
 	defer cancel()
-
-	strategy, err := capi.db.QueriesRO.StrategyByID(checkCtx, strategyID)
+	tx, err := capi.db.RO.BeginTx(internalCtx, nil)
+	if err != nil {
+		return ErrCantGetStrategyHolders.WithErr(err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			log.Errorw(err, "error rolling back tokens transaction")
+		}
+	}()
+	qtx := capi.db.QueriesRO.WithTx(tx)
+	strategy, err := qtx.StrategyByID(internalCtx, strategyID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFoundStrategy.WithErr(err)
@@ -572,78 +590,40 @@ func (capi *census3API) launchStrategyHolders(_ *api.APIdata, ctx *httprouter.HT
 	if strategy.Predicate == "" {
 		return ErrInvalidStrategyPredicate.With("empty predicate")
 	}
-	// import the strategy from IPFS in background generating a queueID
-	queueID := capi.queue.Enqueue()
-	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), getStrategyHoldersTimeout)
-		defer cancel()
-		strategyTokens, err := capi.db.QueriesRO.StrategyTokens(bgCtx, strategyID)
-		if err != nil {
-			if ok := capi.queue.Fail(queueID, ErrCantGetStrategyHolders.WithErr(err)); !ok {
-				log.Errorf("error updating list strategy holders queue %s", queueID)
-			}
-			return
-		}
-		strategyTokensBySymbol := map[string]*StrategyToken{}
-		for _, token := range strategyTokens {
-			strategyTokensBySymbol[token.TokenAlias] = &StrategyToken{
-				ID:         common.BytesToAddress(token.TokenID).String(),
-				ChainID:    token.ChainID,
-				ExternalID: token.ExternalID,
-				MinBalance: token.MinBalance,
-			}
-		}
-		strategyHolders, _, _, err := capi.CalculateStrategyHolders(
-			bgCtx, strategy.Predicate, strategyTokensBySymbol, nil)
-		if err != nil {
-			if ok := capi.queue.Fail(queueID, ErrEvalStrategyPredicate.WithErr(err)); !ok {
-				log.Errorf("error updating list strategy holders queue %s", queueID)
-			}
-			return
-		}
-		if len(strategyHolders) == 0 {
-			if ok := capi.queue.Fail(queueID, ErrNoStrategyHolders); !ok {
-				log.Errorf("error updating list strategy holders queue %s", queueID)
-			}
-			return
-		}
-		holders := make(map[string]string)
-		// parse and encode holders
-		for addr, balance := range strategyHolders {
-			holders[addr.String()] = balance.String()
-		}
-		if ok := capi.queue.Done(queueID, holders); !ok {
-			log.Errorf("error updating list strategy holders queue %s", queueID)
-		}
-	}()
-	// encode and send the queueID
-	res, err := json.Marshal(QueueResponse{QueueID: queueID})
+	strategyTokens, err := qtx.StrategyTokens(internalCtx, strategyID)
 	if err != nil {
-		return ErrEncodeQueueItem.WithErr(err)
+		return ErrCantGetStrategyHolders.WithErr(err)
 	}
-	return ctx.Send(res, api.HTTPstatusOK)
-}
-
-func (capi *census3API) enqueueStrategyHolders(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
-	// parse queueID from url
-	queueID := ctx.URLParam("queueID")
-	if queueID == "" {
-		return ErrMalformedStrategyQueueID
+	strategyTokensBySymbol := map[string]*StrategyToken{}
+	for _, token := range strategyTokens {
+		strategyTokensBySymbol[token.TokenAlias] = &StrategyToken{
+			ID:         common.BytesToAddress(token.TokenID).String(),
+			ChainID:    token.ChainID,
+			ExternalID: token.ExternalID,
+			MinBalance: token.MinBalance,
+		}
 	}
-	// try to get and check if the strategy is in the queue
-	queueItem, exists := capi.queue.IsDone(queueID)
-	if !exists {
-		return ErrNotFoundStrategy.Withf("the ID %s does not exist in the queue", queueID)
-	}
-	// check if it is not finished or some error occurred
-	if queueItem.Done && queueItem.Error == nil {
-		// remove the item from the queue and the censusID from the data
-		capi.queue.Dequeue(queueID)
-	}
-	// encode item response and send it
-	res, err := json.Marshal(queueItem)
+	strategyHolders, _, _, err := capi.CalculateStrategyHolders(
+		internalCtx, strategy.Predicate, strategyTokensBySymbol, nil)
 	if err != nil {
-		return ErrEncodeQueueItem.WithErr(err)
+		return ErrEvalStrategyPredicate.WithErr(err)
+	}
+	if len(strategyHolders) == 0 {
+		return ErrNoStrategyHolders
+	}
+	// init response struct with the no pagination information and empty list
+	// of holders
+	holdersResponse := GetStrategyHoldersResponse{
+		Holders: make(map[string]string),
+	}
+	// parse and encode holders
+	for addr, balance := range strategyHolders {
+		holdersResponse.Holders[addr.String()] = balance.String()
+	}
+	// encode and send the response
+	res, err := json.Marshal(holdersResponse)
+	if err != nil {
+		return ErrEncodeTokenHolders.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

@@ -152,9 +152,6 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 			return ErrCantGetStrategies.WithErr(err)
 		}
 		for _, strategyToken := range strategyTokens {
-			if strategyToken.TokenAlias == "" {
-				return ErrCantGetStrategies.With("invalid token symbol")
-			}
 			strategyResponse.Tokens[strategyToken.TokenAlias] = &StrategyToken{
 				ID:           common.BytesToAddress(strategyToken.TokenID).String(),
 				ChainID:      strategyToken.ChainID,

@@ -241,6 +241,9 @@ func (c *HTTPclient) TokenHolder(tokenID string, chainID uint64, externalID, hol
 		}
 	}()
 	if res.StatusCode != http.StatusOK {
+		if res.StatusCode == http.StatusNotFound {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the response and return the token holder response

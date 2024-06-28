@@ -28,14 +28,27 @@ import (
 )
 
 const (
+	// DefaultMaxWeb3ClientRetries is the default number of retries to connect to
+	// a web3 provider.
 	DefaultMaxWeb3ClientRetries = 5
-
-	shortNameSourceUri        = "https://chainid.network/chains_mini.json"
+	// shortNameSourceUri is the URI to get the chain metadata from an external
+	shortNameSourceUri = "https://chainid.network/chains_mini.json"
+	// checkWeb3EndpointsTimeout is the timeout to check the web3 endpoints.
 	checkWeb3EndpointsTimeout = time.Second * 10
-	foundTxErrMessage         = "transaction type not supported"
+	// foundTxErrMessage is the error message when a transaction is found but it
+	// is not supported.
+	foundTxErrMessage = "transaction type not supported"
+	// chainAddressFormat is the format to represent a chain address string.
+	chainAddressFormat = "%s:%s"
 )
 
-var notFoundTxRgx = regexp.MustCompile(`not\s[be\s|]*found`)
+var (
+	// notFoundTxRgx is a regular expression to match the error message when a
+	// transaction is not found.
+	notFoundTxRgx = regexp.MustCompile(`not\s[be\s|]*found`)
+	// chainAddressRgx is a regular expression to match the chain address format.
+	chainAddressRgx = regexp.MustCompile(`^(.+):(.+)$`)
+)
 
 // Web3Pool struct contains a map of chainID-[]*Web3Endpoint, where
 // the key is the chainID and the value is a list of Web3Endpoint. It also
@@ -174,10 +187,28 @@ func (nm *Web3Pool) Client(chainID uint64) (*Client, error) {
 func (nps *Web3Pool) ChainAddress(chainID uint64, hexAddress string) (string, bool) {
 	for _, data := range nps.metadata {
 		if data.ChainID == chainID {
-			return fmt.Sprintf("%s:%s", data.ShortName, hexAddress), true
+			return fmt.Sprintf(chainAddressFormat, data.ShortName, hexAddress), true
 		}
 	}
 	return "", false
+}
+
+// AddressFrom method extracts the short name and hex address from a chain
+// address string, and returns the hex address and the corresponding
+// Web3Endpoint.
+func (nps *Web3Pool) AddressFrom(chainAddress string) (string, *Web3Endpoint) {
+	if !chainAddressRgx.MatchString(chainAddress) {
+		return "", nil
+	}
+	parts := chainAddressRgx.FindStringSubmatch(chainAddress)
+	shortName := parts[1]
+	hexAddress := parts[2]
+	for _, data := range nps.metadata {
+		if data.ShortName == shortName {
+			return hexAddress, data
+		}
+	}
+	return "", nil
 }
 
 // String method returns a string representation of the *Web3Pool list.

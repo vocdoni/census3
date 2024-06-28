@@ -152,6 +152,11 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		}
 		for _, strategyToken := range strategyTokens {
 			if strategyToken.TokenAlias == "" {
+				log.Warnw("no token alias",
+					"strategyID", strategy.ID,
+					"tokenID", strategyToken.TokenID,
+					"chainID", strategyToken.ChainID,
+					"externalID", strategyToken.ExternalID)
 				skipMalformed = true
 				break
 			}

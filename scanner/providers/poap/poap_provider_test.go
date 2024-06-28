@@ -39,7 +39,7 @@ func TestPOAP(t *testing.T) {
 
 	provider := new(POAPHolderProvider)
 	c.Assert(provider.Init(ctx, POAPConfig{endpoints["/original"], "no-token"}), qt.IsNil)
-	holders, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
+	holders, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(holders), qt.Equals, len(expectedOriginalHolders))
 	for addr, balance := range holders {
@@ -47,13 +47,13 @@ func TestPOAP(t *testing.T) {
 		c.Assert(exists, qt.Equals, true)
 		c.Assert(balance.String(), qt.Equals, expectedBalance)
 	}
-	sameBalances, _, _, _, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
+	sameBalances, _, err := provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	// empty results because the data the same
 	c.Assert(len(sameBalances), qt.Equals, 0)
 
 	provider.apiEndpoint = endpoints["/updated"]
-	holders, _, _, _, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
+	holders, _, err = provider.HoldersBalances(context.TODO(), nil, 0)
 	c.Assert(err, qt.IsNil)
 	c.Assert(len(holders), qt.Equals, len(expectedUpdatedHolders))
 	for addr, balance := range holders {

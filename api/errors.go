@@ -128,6 +128,16 @@ var (
 		HTTPstatus: apirest.HTTPstatusNotFound,
 		Err:        fmt.Errorf("token holder not found for the token provided"),
 	}
+	ErrNoSyncedToken = apirest.APIerror{
+		Code:       4024,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("token is not synced yet"),
+	}
+	ErrMalformedRescanQueueID = apirest.APIerror{
+		Code:       4025,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed queue ID"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,

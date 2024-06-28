@@ -16,7 +16,7 @@ const defaultRetries = 3
 
 var (
 	defaultTimeout    = 2 * time.Second
-	filterLogsTimeout = 3 * time.Second
+	filterLogsTimeout = 15 * time.Second
 	retrySleep        = 200 * time.Millisecond
 )
 
@@ -32,6 +32,12 @@ type Client struct {
 // EthClient method returns the ethclient.Client for the chainID of the Client
 // instance. It returns an error if the chainID is not found in the pool.
 func (c *Client) EthClient() (*ethclient.Client, error) {
+	if c == nil {
+		return nil, fmt.Errorf("web3 client is nil")
+	}
+	if c.w3p == nil {
+		return nil, fmt.Errorf("web3 pool is nil")
+	}
 	endpoint, err := c.w3p.Endpoint(c.chainID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting endpoint for chainID %d: %w", c.chainID, err)

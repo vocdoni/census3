@@ -21,6 +21,7 @@ type Web3ProviderRef struct {
 	HexAddress    string
 	ChainID       uint64
 	CreationBlock uint64
+	Filter        providers.Filter
 }
 
 type Web3ProviderConfig struct {
@@ -28,6 +29,12 @@ type Web3ProviderConfig struct {
 	Endpoints *web3.Web3Pool
 	DB        *db.Database
 }
+
+// PartialProcessedLogs struct is used to store the logs that are partially
+// processed by the provider. It is used to avoid to process the same logs
+// multiple times if the provider is rescanned and to store the logs that are
+// already processed in a single call to the token filter.
+type PartialProcessedLogs [][]byte
 
 // creationBlock function returns the block number of the creation of a contract
 // address. It uses the `eth_getCode` method to get the contract code at the

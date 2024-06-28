@@ -19,11 +19,13 @@ import (
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/lexer"
 	"github.com/vocdoni/census3/metrics"
+	"github.com/vocdoni/census3/scanner"
 	"github.com/vocdoni/census3/scanner/providers"
 	"github.com/vocdoni/census3/scanner/providers/web3"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
+	"go.vocdoni.io/dvote/util"
 )
 
 func (capi *census3API) initTokenHandlers() error {
@@ -41,6 +43,14 @@ func (capi *census3API) initTokenHandlers() error {
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/startblock", "POST",
 		api.MethodAccessTypePublic, capi.tokenStartBlock); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/tokens/update/{tokenID}", "POST",
+		api.MethodAccessTypeAdmin, capi.rescanToken); err != nil {
+		return err
+	}
+	if err := capi.endpoint.RegisterMethod("/tokens/update/queue/{queueID}", "GET",
+		api.MethodAccessTypeAdmin, capi.checkRescanToken); err != nil {
 		return err
 	}
 	if err := capi.endpoint.RegisterMethod("/tokens/{tokenID}", "DELETE",
@@ -605,6 +615,100 @@ func (capi *census3API) getToken(msg *api.APIdata, ctx *httprouter.HTTPContext) 
 		return ErrEncodeToken.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// rescanToken function handler enqueues the rescan process for the token with
+// the given ID. The token is scanned from the creation block to the last block
+// stored in the database. It returns a 400 error if the provided ID is wrong or
+// empty, a 404 error if the token is not found, a 500 error if something fails
+// or a 200 response if the process is enqueued. It returns a queue ID to track
+// the status of the process.
+func (capi *census3API) rescanToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get contract address from the tokenID query param and decode check if
+	// it is provided, if not return an error
+	strAddress := ctx.URLParam("tokenID")
+	if strAddress == "" {
+		return ErrMalformedToken.With("tokenID is required")
+	}
+	address := common.HexToAddress(strAddress)
+	// get chainID from query params and decode it as integer, if it's not
+	// provided or it's not a valid integer return an error
+	strChainID := ctx.Request.URL.Query().Get("chainID")
+	if strChainID == "" {
+		return ErrMalformedChainID.With("chainID is required")
+	}
+	chainID, err := strconv.Atoi(strChainID)
+	if err != nil {
+		return ErrMalformedChainID.WithErr(err)
+	} else if chainID < 0 {
+		return ErrMalformedChainID.With("chainID must be a positive number")
+	}
+	// get token information from the database
+	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getTokenTimeout)
+	defer cancel()
+	tokenData, err := capi.db.QueriesRO.GetToken(internalCtx,
+		queries.GetTokenParams{
+			ID:      address.Bytes(),
+			ChainID: uint64(chainID),
+		})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFoundToken.WithErr(err)
+		}
+		return ErrCantGetToken.WithErr(err)
+	}
+	// only the tokens that are already synced can be rescanned
+	if !tokenData.Synced {
+		return ErrNoSyncedToken
+	}
+	// enqueue the rescan token process
+	id := util.RandomHex(4)
+	if err := capi.tokenUpdater.SetRequest(id, &scanner.UpdateRequest{
+		Address:       address,
+		ChainID:       uint64(chainID),
+		Type:          tokenData.TypeID,
+		CreationBlock: uint64(tokenData.CreationBlock),
+		EndBlock:      uint64(tokenData.LastBlock),
+	}); err != nil {
+		return ErrEncodeQueueItem.WithErr(err)
+	}
+	// encoding the result and response it
+	res, err := json.Marshal(QueueResponse{id})
+	if err != nil {
+		return ErrEncodeQueueItem.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// checkRescanToken function handler returns the status of the rescan process
+// with the given queue ID. It returns a 400 error if the provided ID is wrong
+// or empty, a 404 error if the token is not found in the queue or a 500 error
+// if something fails. The response contains the address of the token, the chain
+// ID, the status of the process, the number of logs scanned, the number of new
+// logs found, and the number of duplicated logs.
+func (capi *census3API) checkRescanToken(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	queueID := ctx.URLParam("queueID")
+	if queueID == "" {
+		return ErrMalformedRescanQueueID
+	}
+	// get the rescan status from the updater
+	status := capi.tokenUpdater.RequestStatus(queueID, true)
+	if status == nil {
+		return ErrNotFoundToken.Withf("the ID %s does not exist in the queue", queueID)
+	}
+	// encoding the result and response it
+	response, err := json.Marshal(RescanTokenStatus{
+		Address:        status.Address.String(),
+		ChainID:        status.ChainID,
+		Done:           status.Done,
+		LogsScanned:    status.TotalLogs,
+		NewLogs:        status.TotalNewLogs,
+		DuplicatedLogs: status.TotalAlreadyProcessedLogs,
+	})
+	if err != nil {
+		return ErrEncodeQueueItem.WithErr(err)
+	}
+	return ctx.Send(response, api.HTTPstatusOK)
 }
 
 func (capi *census3API) tokenStartBlock(msg *api.APIdata, ctx *httprouter.HTTPContext) error {

@@ -1,10 +1,11 @@
 run:
         go: '1.20'
-        skip-files:
-         - scanner/providers/gitcoin/gitcoin_stamps.go
 issues:
         max-same-issues: 0
         exclude-use-default: false
+        exclude-files:
+                - scanner/providers/gitcoin/gitcoin_stamps.go
+                - scripts/*
 linters:
         enable:
         - misspell

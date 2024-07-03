@@ -266,6 +266,28 @@ func (nm *Web3Pool) SupportedNetworks() []*Web3Endpoint {
 	return supported
 }
 
+// NetworkInfoByShortName method returns the Web3Endpoint metadata for the
+// shortName provided. It returns nil if the shortName is not found.
+func (nm *Web3Pool) NetworkInfoByShortName(shortName string) *Web3Endpoint {
+	for _, data := range nm.metadata {
+		if data.ShortName == shortName {
+			return data
+		}
+	}
+	return nil
+}
+
+// NetworkInfoByChainID method returns the Web3Endpoint metadata for the
+// chainID provided. It returns nil if the chainID is not found.
+func (nm *Web3Pool) NetworkInfoByChainID(chainID uint64) *Web3Endpoint {
+	for _, data := range nm.metadata {
+		if data.ChainID == chainID {
+			return data
+		}
+	}
+	return nil
+}
+
 // connect method returns a new *ethclient.Client instance for the URI provided.
 // It retries to connect to the web3 provider if it fails, up to the
 // DefaultMaxWeb3ClientRetries times.

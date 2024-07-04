@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   census3:
-    image: ghcr.io/vocdoni/census3:stage
+    image: ghcr.io/vocdoni/census3:main
     build: .
     env_file: ".env"
     restart: always

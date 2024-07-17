@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/api"
-	"github.com/vocdoni/census3/helpers/queue"
 	"go.vocdoni.io/dvote/log"
 )
 
@@ -157,24 +156,31 @@ func (c *HTTPclient) HoldersByStrategyQueue(strategyID uint64, queueID string) (
 			fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the queue response
-	item := &queue.QueueItem{}
-	if err := json.NewDecoder(res.Body).Decode(item); err != nil {
+	item := map[string]interface{}{}
+	if err := json.NewDecoder(res.Body).Decode(&item); err != nil {
 		return nil, false, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
 	// check if the item is done and if there is an error
-	if !item.Done {
+	if done, ok := item["done"].(bool); !ok || !done {
 		return nil, false, nil
 	}
-	if item.Error != nil {
-		return nil, true, item.Error
+	if strErr, ok := item["error"].(string); ok && strErr != "" {
+		return nil, true, fmt.Errorf("error in queue item: %s", strErr)
 	}
 	// convert the data to a map of addresses and amounts
-	rawHolders := item.Data.(map[string]string)
+	rawHolders, ok := item["data"].(map[string]interface{})
+	if !ok {
+		return nil, true, fmt.Errorf("error getting data from queue item")
+	}
 	holders := make(map[common.Address]*big.Int, len(rawHolders))
 	for k, v := range rawHolders {
+		strBalance, ok := v.(string)
+		if !ok {
+			continue
+		}
 		addr := common.HexToAddress(k)
 		amount := new(big.Int)
-		if _, ok := amount.SetString(v, 10); !ok {
+		if _, ok := amount.SetString(strBalance, 10); !ok {
 			return nil, true, fmt.Errorf("error converting amount to big.Int")
 		}
 		holders[addr] = amount

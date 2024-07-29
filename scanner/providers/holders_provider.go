@@ -7,6 +7,30 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// BlocksDelta struct defines the delta of blocks processed by any
+// HolderProvider. It includes the total number of logs processed, the new logs
+// processed, the logs already processed, the last block processed, and if the
+// provider is synced. It also includes the current total supply of the token
+// set in the provider.
+type BlocksDelta struct {
+	LogsCount                 uint64
+	NewLogsCount              uint64
+	AlreadyProcessedLogsCount uint64
+	Block                     uint64
+	Synced                    bool
+	TotalSupply               *big.Int
+	NewLogs                   [][]byte
+}
+
+// Filter interface defines the basic methods to interact with a filter to
+// store the processed transfers identifiers and avoid to process them again,
+// for example, if a token is rescanned. It allows to implement different
+// filters, such as in-memory, disk, merkle tree, etc.
+type Filter interface {
+	CheckKey(key []byte) (bool, error)
+	CheckAndAddKey(key []byte) (bool, error)
+}
+
 // HolderProvider is the interface that wraps the basic methods to interact with
 // a holders provider. It is used by the HoldersScanner to get the balances of
 // the token holders. It allows to implement different providers, such as
@@ -32,7 +56,7 @@ type HolderProvider interface {
 	// HoldersBalances returns the balances of the token holders for the given
 	// id and delta point in time, from the stored last snapshot. It also
 	// returns the total supply of tokens as a *big.Int.
-	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, uint64, uint64, bool, *big.Int, error)
+	HoldersBalances(ctx context.Context, id []byte, to uint64) (map[common.Address]*big.Int, *BlocksDelta, error)
 	// Close closes the provider and its internal structures.
 	Close() error
 	// IsExternal returns true if the provider is an external API.

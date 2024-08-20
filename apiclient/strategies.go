@@ -188,6 +188,29 @@ func (c *HTTPclient) HoldersByStrategyQueue(strategyID uint64, queueID string) (
 	return holders, true, nil
 }
 
+// AllHoldersByStrategy method queries the API for all the holders of a
+// strategy, it receives the strategyID and returns a map of addresses and
+// amounts and an error if something went wrong. This method is a wrapper
+// around the HoldersByStrategy and HoldersByStrategyQueue methods.
+func (c *HTTPclient) AllHoldersByStrategy(strategyID uint64) (map[common.Address]*big.Int, error) {
+	queueID, err := c.HoldersByStrategy(strategyID)
+	if err != nil {
+		return nil, err
+	}
+	for {
+		holders, done, err := c.HoldersByStrategyQueue(strategyID, queueID)
+		if err != nil {
+			return nil, err
+		}
+		if done {
+			return holders, nil
+		}
+	}
+}
+
+// CreateStrategy method sends a request to the API to create a new strategy, it
+// receives the strategy data and returns the strategyID and an error if
+// something went wrong.
 func (c *HTTPclient) CreateStrategy(request *api.Strategy) (uint64, error) {
 	// construct the URL to the API
 	u, err := c.constructURL(CreateStrategyURI)

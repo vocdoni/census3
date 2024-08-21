@@ -5,24 +5,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.22.x
           cache: true
       - name: Run golangci-lint
-        # run: |
-        #   curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.30.0
-        #   $(go env GOPATH)/bin/golangci-lint run --timeout=5m -c .golangci.yml
-        uses: golangci/golangci-lint-action@v3
-        ### golangci-lint will take much time if loading multiple linters in .golangci.yml
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           args: --timeout 5m --verbose
           skip-cache: false
-          skip-pkg-cache: false
-          skip-build-cache: false
+          skip-save-cache: false
           only-new-issues: true
 
   test:
@@ -31,9 +26,9 @@ jobs:
       WEB3_URI: ${{ secrets.WEB3_URI }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up Go environment
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: '1.22.x'
       - name: Tidy go module
@@ -61,7 +56,7 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/stage' ||  startsWith(github.ref, 'refs/heads/release') ||  startsWith(github.ref, 'refs/heads/aragon')
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v2
       - name: Login to DockerHub
         uses: docker/login-action@v2

@@ -121,7 +121,7 @@ func (c *HTTPclient) CreateToken(token *api.Token) error {
 			log.Errorf("error closing response body: %v", err)
 		}
 	}()
-	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK && res.StatusCode == http.StatusConflict {
 		return fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	return nil

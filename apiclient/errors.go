@@ -27,4 +27,6 @@ var (
 	// ErrDecodingResponse is returned when there is an error decoding the response
 	// from the API. The response is decoded from JSON and this process can fail.
 	ErrDecodingResponse = fmt.Errorf("error decoding response")
+	// ErrAlreadyExists is returned when the resource already exists
+	ErrAlreadyExists = fmt.Errorf("resource already exists")
 )

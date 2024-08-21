@@ -239,7 +239,12 @@ func (c *HTTPclient) CreateStrategy(request *api.Strategy) (uint64, error) {
 			log.Errorf("error closing response body: %v", err)
 		}
 	}()
-	if res.StatusCode != http.StatusAccepted {
+	switch res.StatusCode {
+	case http.StatusAccepted, http.StatusOK:
+		break
+	case http.StatusConflict:
+		return 0, ErrAlreadyExists
+	default:
 		return 0, fmt.Errorf("%w: %s", ErrNoStatusOk,
 			fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}

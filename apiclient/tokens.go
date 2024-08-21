@@ -121,10 +121,14 @@ func (c *HTTPclient) CreateToken(token *api.Token) error {
 			log.Errorf("error closing response body: %v", err)
 		}
 	}()
-	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK && res.StatusCode != http.StatusConflict {
+	switch res.StatusCode {
+	case http.StatusCreated, http.StatusOK:
+		return nil
+	case http.StatusConflict:
+		return ErrAlreadyExists
+	default:
 		return fmt.Errorf("%w: %w", ErrNoStatusOk, fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
-	return nil
 }
 
 // DeleteToken method deletes a token in the API, it accepts the tokenID,

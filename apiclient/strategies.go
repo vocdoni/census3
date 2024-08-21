@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/vocdoni/census3/api"
@@ -205,6 +206,7 @@ func (c *HTTPclient) AllHoldersByStrategy(strategyID uint64) (map[common.Address
 		if done {
 			return holders, nil
 		}
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 

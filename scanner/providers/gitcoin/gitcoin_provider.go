@@ -544,7 +544,7 @@ func (g *GitcoinPassport) saveScore(score *GitcoinScore) error {
 		return fmt.Errorf("error creating tx: %w", err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Warnw("error rolling back tx", "err", err)
 		}
 	}()

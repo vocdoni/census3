@@ -55,6 +55,12 @@ type Scanner struct {
 	lastUpdatedBlockNumbers time.Time
 }
 
+// tokensWithErrors is a map to store the tokens that have errors while scanning. Its used as 'addrString -> numberOfErrors'
+var tokensWithErrors sync.Map
+
+// maxErrorsPerToken is the maximum number of errors that a token can have before being removed from the scanner.
+const maxErrorsPerToken = 5
+
 // NewScanner returns a new scanner instance with the required parameters
 // initialized.
 func NewScanner(db *db.DB, networks *web3.Web3Pool, pm *manager.ProviderManager, coolDown time.Duration) *Scanner {
@@ -115,6 +121,17 @@ func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
 					defer func() {
 						<-sem
 					}()
+					// check if the token has too many errors
+					scannerTokenErrors := 0
+					if errors, ok := tokensWithErrors.Load(token.Address.Hex()); ok {
+						if errors.(int) >= maxErrorsPerToken {
+							return
+						}
+						scannerTokenErrors = errors.(int)
+					} else {
+						tokensWithErrors.Store(token.Address.Hex(), 0)
+					}
+					// scan the token
 					log.Infow("scanning token",
 						"address", token.Address.Hex(),
 						"chainID", token.ChainID,
@@ -130,6 +147,13 @@ func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
 							return
 						}
 						log.Errorw(err, "error scanning token")
+						tokensWithErrors.Store(token.Address.Hex(), scannerTokenErrors+1)
+						if scannerTokenErrors+1 >= maxErrorsPerToken {
+							log.Warnw("too many errors, token removed from scanner",
+								"address", token.Address.Hex(),
+								"chainID", token.ChainID,
+							)
+						}
 						return
 					}
 					if !synced {

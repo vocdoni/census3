@@ -100,7 +100,7 @@ func (p *FarcasterProvider) updateFarcasterDB(ctx context.Context, usersData []F
 		return fmt.Errorf("cannot update farcaster db: %w", err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Errorw(err, "farcaster transaction rollback failed")
 		}
 	}()

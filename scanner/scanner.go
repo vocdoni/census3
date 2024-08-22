@@ -98,7 +98,7 @@ func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
 			// get the tokens to scan
 			tokens, err := s.TokensToScan(ctx)
 			if err != nil {
-				log.Error(err)
+				log.Errorw(err, "error getting tokens to scan")
 				continue
 			}
 			// calculate number of batches
@@ -129,7 +129,7 @@ func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
 							log.Info("scanner context cancelled, shutting down")
 							return
 						}
-						log.Error(err)
+						log.Errorw(err, "error scanning token")
 						return
 					}
 					if !synced {
@@ -186,7 +186,7 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 	tokens := []*ScannerToken{}
 	// get last created tokens from the database to scan them first (1)
 	lastNotSyncedTokens, err := s.db.QueriesRO.ListLastNoSyncedTokens(internalCtx)
-	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	// parse last not synced token addresses
@@ -209,7 +209,7 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 	}
 	// get old not synced tokens from the database (2)
 	oldNotSyncedTokens, err := s.db.QueriesRO.ListOldNoSyncedTokens(internalCtx)
-	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	// if there are old not synced tokens, sort them by nearest to be synced
@@ -261,7 +261,7 @@ func (s *Scanner) TokensToScan(ctx context.Context) ([]*ScannerToken, error) {
 	}
 	// get synced tokens from the database to scan them last (3)
 	syncedTokens, err := s.db.QueriesRO.ListSyncedTokens(internalCtx)
-	if err != nil && !errors.Is(sql.ErrNoRows, err) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	for _, token := range syncedTokens {
@@ -306,10 +306,10 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 	// create a tx to use it in the following queries
 	tx, err := s.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
-		return nil, 0, token.LastBlock, token.Synced, nil, err
+		return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("error starting tx: %w", err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Error(err)
 		}
 	}()
@@ -321,7 +321,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 			ChainID:       token.ChainID,
 			CreationBlock: token.CreationBlock,
 		}); err != nil {
-			return nil, 0, token.LastBlock, token.Synced, nil, err
+			return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("error setting provider ref: %w", err)
 		}
 		// set the last block number of the network in the provider getting it
 		// from the latest block numbers cache
@@ -340,7 +340,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 				"externalID", token.ExternalID)
 			creationBlock, err := provider.CreationBlock(internalCtx, []byte(token.ExternalID))
 			if err != nil {
-				return nil, 0, token.LastBlock, token.Synced, nil, err
+				return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("error getting token creation block: %w", err)
 			}
 			_, err = qtx.UpdateTokenBlocks(internalCtx, queries.UpdateTokenBlocksParams{
 				ID:            token.Address.Bytes(),
@@ -350,7 +350,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 				LastBlock:     int64(creationBlock),
 			})
 			if err != nil {
-				return nil, 0, token.LastBlock, token.Synced, nil, err
+				return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("error updating token blocks: %w", err)
 			}
 			token.LastBlock = creationBlock
 		}
@@ -368,7 +368,7 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 			ExternalID: token.ExternalID,
 		})
 	if err != nil {
-		return nil, 0, token.LastBlock, token.Synced, nil, err
+		return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("error getting token holders: %w", err)
 	}
 	// set the current holders into the provider and get the new ones
 	currentHolders := map[common.Address]*big.Int{}
@@ -381,13 +381,13 @@ func (s *Scanner) ScanHolders(ctx context.Context, token ScannerToken) (
 	}
 	// close the database tx and commit it
 	if err := tx.Commit(); err != nil {
-		return nil, 0, token.LastBlock, token.Synced, nil, err
+		return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("error committing tx: %w", err)
 	}
 	// set the current holders into the provider and get the new ones
 	if err := provider.SetLastBalances(ctx, []byte(token.ExternalID),
 		currentHolders, token.LastBlock,
 	); err != nil {
-		return nil, 0, token.LastBlock, token.Synced, nil, err
+		return nil, 0, token.LastBlock, token.Synced, nil, fmt.Errorf("error setting last balances: %w", err)
 	}
 	// get the new holders from the provider
 	return provider.HoldersBalances(ctx, []byte(token.ExternalID), token.LastBlock)
@@ -434,10 +434,10 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 	// create a tx to use it in the following queries
 	tx, err := s.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("error starting tx: %w", err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Errorf("error rolling back tx: %v, token=%s chainID=%d externalID=%s",
 				err, token.Address.Hex(), token.ChainID, token.ExternalID)
 		}
@@ -454,8 +454,8 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 			HolderID:   addr.Bytes(),
 		})
 		if err != nil {
-			if !errors.Is(sql.ErrNoRows, err) {
-				return err
+			if !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("error getting token holder: %w", err)
 			}
 			// if the token holder not exists, create it
 			_, err = qtx.CreateTokenHolder(ctx, queries.CreateTokenHolderParams{
@@ -467,7 +467,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 				Balance:    balance.String(),
 			})
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating token holder: %w", err)
 			}
 			created++
 			continue
@@ -527,7 +527,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 			ExternalID: token.ExternalID,
 		})
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting token: %w", err)
 	}
 	// update the synced status, last block, the number of analysed transfers
 	// (for debug) and the total supply in the database
@@ -541,7 +541,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 		TotalSupply:       annotations.BigInt(token.totalSupply.String()),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("error updating token status: %w", err)
 	}
 	log.Debugw("token status saved",
 		"synced", synced,
@@ -552,7 +552,7 @@ func (s *Scanner) SaveHolders(ctx context.Context, token ScannerToken,
 		"block", lastBlock)
 	// close the database tx and commit it
 	if err := tx.Commit(); err != nil {
-		return err
+		return fmt.Errorf("error committing tx: %w", err)
 	}
 	return nil
 }

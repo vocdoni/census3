@@ -431,7 +431,7 @@ func (p *FarcasterProvider) scanIteration(ctx context.Context) (uint64, bool, bo
 
 	// save new users registered on the database
 	// from the logs of the IDRegistry we can obtain the user FID and the custody and recovery addresses
-	if err := p.storeNewRegisteredUsers(ctx, newRegisters, fromBlock); err != nil {
+	if err := p.storeNewRegisteredUsers(ctx, newRegisters); err != nil {
 		return fromBlock, isIDRegistrySynced, isKeyRegistrySynced,
 			fmt.Errorf("cannot store new registered users into farcaster DB %s", err.Error())
 	}
@@ -592,16 +592,14 @@ func (p *FarcasterProvider) scanLogsKeyRegistry(ctx context.Context, fromBlock, 
 	return addedKeys, removedKeys, lastBlock, synced, nil
 }
 
-func (p *FarcasterProvider) storeNewRegisteredUsers(
-	ctx context.Context, newRegisters map[uint64]common.Address, fromBlock uint64,
-) error {
+func (p *FarcasterProvider) storeNewRegisteredUsers(ctx context.Context, newRegisters map[uint64]common.Address) error {
 	usersDBData := make([]FarcasterUserData, 0)
 	for fid := range newRegisters {
 		_, err := p.db.QueriesRO.GetUserByFID(ctx, fid)
 		if err == nil { // if the user already exists in the database skip it
 			continue
 		}
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("cannot get user by fid %w", err)
 		}
 		userData := FarcasterUserData{

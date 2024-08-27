@@ -40,13 +40,13 @@ type HTTPclient struct {
 // NewHTTPclient creates a new HTTP(s) API Census3 client.
 func NewHTTPclient(addr *url.URL, bearerToken *uuid.UUID) (*HTTPclient, error) {
 	tr := &http.Transport{
-		IdleConnTimeout:    10 * time.Second,
+		IdleConnTimeout:    60 * time.Second,
 		DisableCompression: false,
-		WriteBufferSize:    1 * 1024 * 1024, // 1 MiB
-		ReadBufferSize:     1 * 1024 * 1024, // 1 MiB
+		WriteBufferSize:    5 * 1024 * 1024, // 1 MiB
+		ReadBufferSize:     5 * 1024 * 1024, // 1 MiB
 	}
 	c := &HTTPclient{
-		c:     &http.Client{Transport: tr, Timeout: time.Second * 8},
+		c:     &http.Client{Transport: tr, Timeout: time.Second * 120},
 		token: bearerToken,
 		addr:  addr,
 	}

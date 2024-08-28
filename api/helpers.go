@@ -294,6 +294,9 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 	// it is a complex predicate, create a evaluator and evaluate the predicate
 	if validPredicate.IsLiteral() {
 		token := tokens[validPredicate.String()]
+		if token == nil {
+			return nil, nil, totalTokensBlockNumber, fmt.Errorf("token not found for predicate: %s", validPredicate.String())
+		}
 		// get the strategy holders from the database
 		holders, err := capi.db.QueriesRO.TokenHoldersByMinBalance(ctx,
 			queries.TokenHoldersByMinBalanceParams{

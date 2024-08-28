@@ -228,7 +228,7 @@ func (capi *census3API) CreateInitialTokens(tokensPath string) error {
 		return err
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Errorw(err, "create token transaction rollback failed")
 		}
 	}()

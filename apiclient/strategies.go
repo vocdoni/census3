@@ -85,9 +85,11 @@ func (c *HTTPclient) Strategy(strategyID uint64) (*api.Strategy, error) {
 // receives the strategyID and returns the queueID of the task and an error if
 // something went wrong. The status of the task can be checked with the
 // HoldersByStrategyQueue method.
-func (c *HTTPclient) HoldersByStrategy(strategyID uint64) (string, error) {
+// If truncateByDecimals is true, the amounts will be truncated by the decimals
+// of the token (if > 0). Truncate only works for simple strategies (single token).
+func (c *HTTPclient) HoldersByStrategy(strategyID uint64, truncateByDecimals bool) (string, error) {
 	// construct the URL to the API with the given parameters
-	endpoint := fmt.Sprintf(GetTokenHoldersByStrategyURI, strategyID)
+	endpoint := fmt.Sprintf(GetTokenHoldersByStrategyURI, strategyID, fmt.Sprintf("%t", truncateByDecimals))
 	u, err := c.constructURL(endpoint)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrConstructingURL, err)
@@ -193,8 +195,10 @@ func (c *HTTPclient) HoldersByStrategyQueue(strategyID uint64, queueID string) (
 // strategy, it receives the strategyID and returns a map of addresses and
 // amounts and an error if something went wrong. This method is a wrapper
 // around the HoldersByStrategy and HoldersByStrategyQueue methods.
-func (c *HTTPclient) AllHoldersByStrategy(strategyID uint64) (map[common.Address]*big.Int, error) {
-	queueID, err := c.HoldersByStrategy(strategyID)
+// If truncateByDecimals is true, the amounts will be truncated by the decimals
+// of the token (if > 0). Truncate only works for simple strategies (single token).
+func (c *HTTPclient) AllHoldersByStrategy(strategyID uint64, truncateByDecimals bool) (map[common.Address]*big.Int, error) {
+	queueID, err := c.HoldersByStrategy(strategyID, truncateByDecimals)
 	if err != nil {
 		return nil, err
 	}

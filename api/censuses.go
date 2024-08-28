@@ -122,7 +122,7 @@ func (capi *census3API) createAndPublishCensus(req *Census, qID string) (uint64,
 		return 0, ErrCantCreateCensus.WithErr(err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Errorw(err, "holders transaction rollback failed")
 		}
 	}()
@@ -154,7 +154,7 @@ func (capi *census3API) createAndPublishCensus(req *Census, qID string) (uint64,
 	// init some variables to get computed in the following steps
 	calculateStrategyProgress := capi.queue.StepProgressChannel(qID, 1, 3)
 	strategyHolders, censusWeight, totalTokensBlockNumber, err := capi.CalculateStrategyHolders(
-		internalCtx, strategy.Predicate, strategyTokensBySymbol, calculateStrategyProgress)
+		internalCtx, strategy.Predicate, strategyTokensBySymbol, calculateStrategyProgress, false)
 	if err != nil {
 		return 0, ErrEvalStrategyPredicate.WithErr(err)
 	}

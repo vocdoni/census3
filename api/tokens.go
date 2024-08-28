@@ -288,7 +288,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 		return ErrCantCreateStrategy.WithErr(err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Errorw(err, "create strategy transaction rollback failed")
 		}
 	}()
@@ -360,7 +360,7 @@ func (capi *census3API) deleteToken(address common.Address, chainID uint64, exte
 		return ErrCantGetTokens.WithErr(err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Errorw(err, "error rolling back tokens transaction")
 		}
 	}()

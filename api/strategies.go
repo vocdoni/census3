@@ -97,7 +97,7 @@ func (capi *census3API) getStrategies(msg *api.APIdata, ctx *httprouter.HTTPCont
 		return ErrCantGetStrategies.WithErr(err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Errorw(err, "create strategy transaction rollback failed")
 		}
 	}()
@@ -195,7 +195,7 @@ func (capi *census3API) createStrategy(msg *api.APIdata, ctx *httprouter.HTTPCon
 		return ErrCantCreateStrategy.WithErr(err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Errorw(err, "create strategy transaction rollback failed")
 		}
 	}()
@@ -368,7 +368,7 @@ func (capi *census3API) importStrategyDump(ipfsURI string, dump []byte) (uint64,
 		return 0, ErrCantCreateStrategy.WithErr(err)
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(sql.ErrTxDone, err) {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			log.Errorw(err, "create strategy transaction rollback failed")
 		}
 	}()
@@ -561,6 +561,10 @@ func (capi *census3API) launchStrategyHolders(_ *api.APIdata, ctx *httprouter.HT
 		return ErrMalformedStrategyID.WithErr(err)
 	}
 	strategyID := uint64(iStrategyID)
+
+	// get truncateByDecimals from query params and decode it as boolean
+	truncateByDecimals := ctx.Request.URL.Query().Get("truncateByDecimals") == "true"
+
 	// get token information from the database
 	checkCtx, cancel := context.WithTimeout(ctx.Request.Context(), checkStrategyHoldersTimeout)
 	defer cancel()
@@ -597,7 +601,7 @@ func (capi *census3API) launchStrategyHolders(_ *api.APIdata, ctx *httprouter.HT
 			}
 		}
 		strategyHolders, _, _, err := capi.CalculateStrategyHolders(
-			bgCtx, strategy.Predicate, strategyTokensBySymbol, nil)
+			bgCtx, strategy.Predicate, strategyTokensBySymbol, nil, truncateByDecimals)
 		if err != nil {
 			if ok := capi.queue.Fail(queueID, ErrEvalStrategyPredicate.WithErr(err)); !ok {
 				log.Errorf("error updating list strategy holders queue %s", queueID)
@@ -713,7 +717,7 @@ func (capi *census3API) estimateStrategySizeAndAccuracy(queueID string,
 	}
 	// calculate the strategy holders
 	strategyHolders, _, _, err := capi.CalculateStrategyHolders(internalCtx,
-		strategy.Predicate, strategy.Tokens, calculateStrategyProgress)
+		strategy.Predicate, strategy.Tokens, calculateStrategyProgress, false)
 	if err != nil {
 		return 0, 0, ErrEvalStrategyPredicate.WithErr(err)
 	}

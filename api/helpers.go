@@ -235,6 +235,7 @@ func InnerCensusID(blockNumber, strategyID uint64, anonymous bool) uint64 {
 // combines them.
 func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 	predicate string, tokens map[string]*StrategyToken, progressCh chan float64,
+	truncateByDecimals bool,
 ) (map[common.Address]*big.Int, *big.Int, uint64, error) {
 	// TODO: write a benchmark and try to optimize this function
 
@@ -297,6 +298,7 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 		if token == nil {
 			return nil, nil, totalTokensBlockNumber, fmt.Errorf("token not found for predicate: %s", validPredicate.String())
 		}
+
 		// get the strategy holders from the database
 		holders, err := capi.db.QueriesRO.TokenHoldersByMinBalance(ctx,
 			queries.TokenHoldersByMinBalanceParams{
@@ -311,6 +313,13 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 			}
 			return nil, nil, totalTokensBlockNumber, err
 		}
+
+		// Convert decimals to *big.Int by calculating 10^decimals
+		decimalsBigInt := new(big.Int).SetUint64(0)
+		if ti, ok := tokensInfo[validPredicate.String()]; ok && truncateByDecimals {
+			decimalsBigInt = new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(ti.Decimals)), nil)
+		}
+
 		// parse holders addresses and balances
 		for _, holder := range holders {
 			holderAddr := common.BytesToAddress(holder.HolderID)
@@ -318,6 +327,11 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 			if !ok {
 				return nil, nil, totalTokensBlockNumber, fmt.Errorf("error decoding balance of holder %s", holderAddr.String())
 			}
+			// truncate the balance by the decimals if required
+			if truncateByDecimals && decimalsBigInt.Uint64() > 0 {
+				holderBalance = new(big.Int).Div(holderBalance, decimalsBigInt)
+			}
+
 			if _, exists := strategyHolders[holderAddr]; !exists {
 				strategyHolders[holderAddr] = holderBalance
 				censusWeight = new(big.Int).Add(censusWeight, holderBalance)
@@ -332,6 +346,9 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 		if err != nil {
 			return nil, nil, totalTokensBlockNumber, err
 		}
+
+		// TODO: the truncateByDEcimals is not implemented for complex predicates
+
 		// parse the evaluation results
 		for address, value := range res.Data {
 			strategyHolders[common.HexToAddress(address)] = value

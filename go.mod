@@ -7,12 +7,14 @@ toolchain go1.22.4
 require (
 	github.com/VictoriaMetrics/metrics v1.24.0
 	github.com/ethereum/go-ethereum v1.14.0
+	github.com/fatih/color v1.16.0
 	github.com/frankban/quicktest v1.14.6
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/ipfs/go-cid v0.4.1
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/pressly/goose/v3 v3.20.0
+	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	go.vocdoni.io/dvote v1.10.2-0.20240617105531-77480ae05205
@@ -102,6 +104,7 @@ require (
 	github.com/holiman/uint256 v1.2.4 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/iden3/go-iden3-crypto v0.0.13 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs-shipyard/nopfs v0.0.12 // indirect
 	github.com/ipfs-shipyard/nopfs/ipfs v0.13.2-0.20231027223058-cde3b5ba964c // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect

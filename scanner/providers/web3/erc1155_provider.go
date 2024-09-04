@@ -142,7 +142,8 @@ func (p *ERC1155HolderProvider) HoldersBalances(ctx context.Context, _ []byte, f
 	// is reached
 	startTime := time.Now()
 	// get single transfer logs
-	singleLogs, lastBlock, synced, err := RangeOfLogs(ctx, p.client, p.address, fromBlock, toBlock, LOG_TOPIC_ERC1155_TRANSFER_SINGLE)
+	singleLogs, lastBlock, synced, err := RangeOfLogs(ctx, p.client, p.address,
+		fromBlock, toBlock, LOG_TOPIC_ERC1155_TRANSFER_SINGLE)
 	if err != nil && !errors.Is(err, ErrTooManyRequests) {
 		return nil, 0, fromBlock, false, big.NewInt(0), err
 	}
@@ -150,7 +151,8 @@ func (p *ERC1155HolderProvider) HoldersBalances(ctx context.Context, _ []byte, f
 		log.Warnf("too many requests, the provider will continue in the next iteration from block %d", lastBlock)
 	}
 	// get batch transfer logs
-	batchLogs, _, _, err := RangeOfLogs(ctx, p.client, p.address, fromBlock, lastBlock, LOG_TOPIC_ERC1155_TRANSFER_BATCH)
+	batchLogs, _, _, err := RangeOfLogs(ctx, p.client, p.address, fromBlock,
+		lastBlock, LOG_TOPIC_ERC1155_TRANSFER_BATCH)
 	if err != nil && !errors.Is(err, ErrTooManyRequests) {
 		return nil, 0, fromBlock, false, big.NewInt(0), err
 	}

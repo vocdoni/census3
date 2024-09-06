@@ -141,18 +141,9 @@ func (p *ERC1155HolderProvider) HoldersBalances(ctx context.Context, _ []byte, f
 	// iterate scanning the logs in the range of blocks until the last block
 	// is reached
 	startTime := time.Now()
-	// get single transfer logs
-	singleLogs, lastBlock, synced, err := RangeOfLogs(ctx, p.client, p.address,
-		fromBlock, toBlock, LOG_TOPIC_ERC1155_TRANSFER_SINGLE)
-	if err != nil && !errors.Is(err, ErrTooManyRequests) {
-		return nil, 0, fromBlock, false, big.NewInt(0), err
-	}
-	if errors.Is(err, ErrTooManyRequests) {
-		log.Warnf("too many requests, the provider will continue in the next iteration from block %d", lastBlock)
-	}
-	// get batch transfer logs
-	batchLogs, _, _, err := RangeOfLogs(ctx, p.client, p.address, fromBlock,
-		lastBlock, LOG_TOPIC_ERC1155_TRANSFER_BATCH)
+	// get single and batch transfer logs
+	logs, lastBlock, synced, err := RangeOfLogs(ctx, p.client, p.address,
+		fromBlock, toBlock, LOG_TOPIC_ERC1155_TRANSFER_SINGLE, LOG_TOPIC_ERC1155_TRANSFER_BATCH)
 	if err != nil && !errors.Is(err, ErrTooManyRequests) {
 		return nil, 0, fromBlock, false, big.NewInt(0), err
 	}
@@ -160,51 +151,42 @@ func (p *ERC1155HolderProvider) HoldersBalances(ctx context.Context, _ []byte, f
 		log.Warnf("too many requests, the provider will continue in the next iteration from block %d", lastBlock)
 	}
 	// encode the number of new transfers
-	newTransfers := uint64(len(singleLogs) + len(batchLogs))
+	newTransfers := uint64(len(logs))
 	// decode logs
 	balances := make(map[common.Address]*big.Int)
 	// iterate the single transfer logs and update the balances
-	for _, currentLog := range singleLogs {
-		logData, err := p.contract.ERC1155ContractFilterer.ParseTransferSingle(currentLog)
-		if err != nil {
-			return nil, newTransfers, lastBlock, false, nil, fmt.Errorf("[ERC1155] %w: %s: %w", ErrParsingTokenLogs, p.address.Hex(), err)
+	for _, currentLog := range logs {
+		var from, to common.Address
+		var value *big.Int
+		// try to parse the log as a single transfer
+		if singleLogData, err := p.contract.ERC1155ContractFilterer.ParseTransferSingle(currentLog); err == nil {
+			to = singleLogData.To
+			from = singleLogData.From
+			value = singleLogData.Value
 		}
-		log.Infow("erc1155 transfer", "from", logData.From.Hex(),
-			"to", logData.To.Hex(), "value", logData.Value.String())
-		// update balances
-		if toBalance, ok := balances[logData.To]; ok {
-			balances[logData.To] = new(big.Int).Add(toBalance, logData.Value)
+		// try to parse the log as a batch transfer
+		if batchLogData, err := p.contract.ERC1155ContractFilterer.ParseTransferBatch(currentLog); err == nil {
+			to = batchLogData.To
+			from = batchLogData.From
+			value = new(big.Int)
+			for _, v := range batchLogData.Values {
+				value.Add(value, v)
+			}
+		}
+		if value == nil {
+			return nil, newTransfers, lastBlock, false, nil, fmt.Errorf("[ERC1155] %w: %s", ErrParsingTokenLogs, p.address.Hex())
+		}
+		log.Infow("erc1155 transfer", "from", from.Hex(), "to", to.Hex(), "value", value.String())
+		// update the balances
+		if toBalance, ok := balances[to]; ok {
+			balances[to] = new(big.Int).Add(toBalance, value)
 		} else {
-			balances[logData.To] = logData.Value
+			balances[to] = value
 		}
-		if fromBalance, ok := balances[logData.From]; ok {
-			balances[logData.From] = new(big.Int).Sub(fromBalance, logData.Value)
+		if fromBalance, ok := balances[from]; ok {
+			balances[from] = new(big.Int).Sub(fromBalance, value)
 		} else {
-			balances[logData.From] = new(big.Int).Neg(logData.Value)
-		}
-	}
-	// iterate the batch transfer logs and update the balances
-	for _, currentLog := range batchLogs {
-		logData, err := p.contract.ERC1155ContractFilterer.ParseTransferBatch(currentLog)
-		if err != nil {
-			return nil, newTransfers, lastBlock, false, nil, fmt.Errorf("[ERC1155] %w: %s: %w", ErrParsingTokenLogs, p.address.Hex(), err)
-		}
-		finalValue := new(big.Int)
-		for _, v := range logData.Values {
-			finalValue.Add(finalValue, v)
-		}
-		log.Infow("erc1155 transfer", "from", logData.From.Hex(),
-			"to", logData.To.Hex(), "value", finalValue.String())
-		// update balances
-		if toBalance, ok := balances[logData.To]; ok {
-			balances[logData.To] = new(big.Int).Add(toBalance, big.NewInt(1))
-		} else {
-			balances[logData.To] = big.NewInt(1)
-		}
-		if fromBalance, ok := balances[logData.From]; ok {
-			balances[logData.From] = new(big.Int).Sub(fromBalance, big.NewInt(1))
-		} else {
-			balances[logData.From] = big.NewInt(-1)
+			balances[from] = new(big.Int).Neg(value)
 		}
 	}
 	log.Infow("saving blocks",

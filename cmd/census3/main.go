@@ -163,6 +163,7 @@ func main() {
 	pm.AddProvider(new(web3provider.ERC20HolderProvider).Type(), web3ProviderConf)
 	pm.AddProvider(new(web3provider.ERC721HolderProvider).Type(), web3ProviderConf)
 	pm.AddProvider(new(web3provider.ERC777HolderProvider).Type(), web3ProviderConf)
+	pm.AddProvider(new(web3provider.ERC1155HolderProvider).Type(), web3ProviderConf)
 	// init POAP external provider
 	if config.poapAPIEndpoint != "" {
 		pm.AddProvider(new(poap.POAPHolderProvider).Type(), poap.POAPConfig{

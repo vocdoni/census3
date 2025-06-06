@@ -292,7 +292,7 @@ func (nm *Web3Pool) NetworkInfoByChainID(chainID uint64) *Web3Endpoint {
 // It retries to connect to the web3 provider if it fails, up to the
 // DefaultMaxWeb3ClientRetries times.
 func connect(ctx context.Context, uri string) (client *ethclient.Client, err error) {
-	for i := 0; i < DefaultMaxWeb3ClientRetries; i++ {
+	for range DefaultMaxWeb3ClientRetries {
 		if client, err = ethclient.DialContext(ctx, uri); err != nil {
 			continue
 		}

@@ -161,10 +161,7 @@ func CreateAndPublishCensus(db *censusdb.CensusDB, storage storagelayer.Storage,
 		// iterate over holders in batches to add them to the tree secuentally
 		// and update the progress if the channel is provided
 		for i := 0; i < len(holdersAddresses); i += holdersBatchSize {
-			end := i + holdersBatchSize
-			if end > len(holdersAddresses) {
-				end = len(holdersAddresses)
-			}
+			end := min(i+holdersBatchSize, len(holdersAddresses))
 			if _, err := ref.Tree().AddBatch(holdersAddresses[i:end], holdersValues[i:end]); err != nil {
 				return nil, "", nil, err
 			}
@@ -340,7 +337,7 @@ func (capi *census3API) CalculateStrategyHolders(ctx context.Context,
 	} else {
 		// init the operators and the predicate evaluator
 		operators := strategyoperators.InitOperators(capi.conf.MainCtx, capi.db.QueriesRO, tokensInfo)
-		eval := lexer.NewEval[*strategyoperators.StrategyIteration](operators.Map())
+		eval := lexer.NewEval(operators.Map())
 		// execute the evaluation of the predicate
 		res, err := eval.EvalToken(validPredicate, progressCh)
 		if err != nil {

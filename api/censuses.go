@@ -253,7 +253,7 @@ func (capi *census3API) createAndPublishCensus(req *Census, qID string) (uint64,
 // holders. If none of the previous conditions are met, it returns the same
 // holders and an accuracy of 100%.
 func (capi *census3API) transformCensus(holders map[common.Address]*big.Int,
-	anonymous, farcaster bool, progressCh chan float64,
+	anonymous, _ bool, progressCh chan float64,
 ) (map[common.Address]*big.Int, float64, error) {
 	// if the census is anonymous, round the balances and return the final accuracy
 	if anonymous {

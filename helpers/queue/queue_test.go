@@ -104,7 +104,7 @@ func TestQueueDataRace(t *testing.T) {
 	// create and lunch consumers
 	var asyncErrors sync.Map
 	updatersWg := new(sync.WaitGroup)
-	for i := 0; i < drConsumers; i++ {
+	for range drConsumers {
 		updatersWg.Add(1)
 		go func() {
 			defer updatersWg.Done()
@@ -139,7 +139,7 @@ func TestQueueDataRace(t *testing.T) {
 	}
 	// create and lunch consumers
 	dequeuersWg := new(sync.WaitGroup)
-	for i := 0; i < drConsumers; i++ {
+	for range drConsumers {
 		dequeuersWg.Add(1)
 		go func() {
 			defer dequeuersWg.Done()

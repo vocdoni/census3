@@ -128,6 +128,16 @@ var (
 		HTTPstatus: apirest.HTTPstatusNotFound,
 		Err:        fmt.Errorf("token holder not found for the token provided"),
 	}
+	ErrMalformedHolderAddress = apirest.APIerror{
+		Code:       4024,
+		HTTPstatus: apirest.HTTPstatusBadRequest,
+		Err:        fmt.Errorf("malformed holder address, it must be a valid ethereum address"),
+	}
+	ErrCensusAddressNotFound = apirest.APIerror{
+		Code:       4025,
+		HTTPstatus: apirest.HTTPstatusNotFound,
+		Err:        fmt.Errorf("address not found in the census"),
+	}
 	ErrCantCreateToken = apirest.APIerror{
 		Code:       5000,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
@@ -282,5 +292,20 @@ var (
 		Code:       5030,
 		HTTPstatus: apirest.HTTPstatusInternalErr,
 		Err:        fmt.Errorf("error getting strategy holders"),
+	}
+	ErrCantGetCensusRoot = apirest.APIerror{
+		Code:       5031,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error getting census root from the census database"),
+	}
+	ErrCantGetCensusProof = apirest.APIerror{
+		Code:       5032,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error getting census proof from the census database"),
+	}
+	ErrEncodeCensusProof = apirest.APIerror{
+		Code:       5033,
+		HTTPstatus: apirest.HTTPstatusInternalErr,
+		Err:        fmt.Errorf("error encoding census proof"),
 	}
 )

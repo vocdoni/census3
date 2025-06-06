@@ -77,14 +77,15 @@ type TokenHolders struct {
 }
 
 type Census struct {
-	CensusID   uint64         `json:"ID"`
-	StrategyID uint64         `json:"strategyID"`
-	MerkleRoot types.HexBytes `json:"merkleRoot"`
-	URI        string         `json:"uri"`
-	Size       uint64         `json:"size"`
-	Weight     string         `json:"weight"`
-	Anonymous  bool           `json:"anonymous"`
-	Accuracy   float64        `json:"accuracy"`
+	CensusID             uint64         `json:"ID"`
+	StrategyID           uint64         `json:"strategyID"`
+	MerkleRoot           types.HexBytes `json:"merkleRoot"`
+	URI                  string         `json:"uri"`
+	Size                 uint64         `json:"size"`
+	Weight               string         `json:"weight"`
+	Anonymous            bool           `json:"anonymous"`
+	Accuracy             float64        `json:"accuracy"`
+	AllowProofGeneration bool           `json:"allowProofGeneration"`
 }
 
 type Censuses struct {
@@ -160,4 +161,12 @@ type GetStrategyHoldersResponse struct {
 type DeleteTokenQueueResponse struct {
 	Done  bool  `json:"done"`
 	Error error `json:"error"`
+}
+
+type HolderCensusProof struct {
+	Root     types.HexBytes `json:"root"`
+	Key      types.HexBytes `json:"key"`
+	Value    types.HexBytes `json:"value"`
+	Siblings types.HexBytes `json:"siblings"`
+	Weight   *types.BigInt  `json:"weight"`
 }

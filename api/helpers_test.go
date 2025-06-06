@@ -56,6 +56,7 @@ func TestCreateAndPublish(t *testing.T) {
 		ID:      1,
 		Type:    defaultCensusType,
 		Holders: testHolders,
+		Remove:  true,
 	}
 	root, _, dump, err := CreateAndPublishCensus(db, storage, opts, nil)
 	c.Assert(err, qt.IsNil)

@@ -3,17 +3,21 @@ package api
 import (
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	queries "github.com/vocdoni/census3/db/sqlc"
 	"github.com/vocdoni/census3/helpers/roundedcensus"
 	"github.com/vocdoni/census3/metrics"
 	"github.com/vocdoni/census3/scanner/providers"
+	"go.vocdoni.io/dvote/api/censusdb"
+	"go.vocdoni.io/dvote/censustree"
 	"go.vocdoni.io/dvote/httprouter"
 	api "go.vocdoni.io/dvote/httprouter/apirest"
 	"go.vocdoni.io/dvote/log"
@@ -33,8 +37,12 @@ func (capi *census3API) initCensusHandlers() error {
 		api.MethodAccessTypePublic, capi.enqueueCensus); err != nil {
 		return err
 	}
-	return capi.endpoint.RegisterMethod("/censuses/strategy/{strategyID}", "GET",
-		api.MethodAccessTypePublic, capi.getStrategyCensuses)
+	if err := capi.endpoint.RegisterMethod("/censuses/strategy/{strategyID}", "GET",
+		api.MethodAccessTypePublic, capi.getStrategyCensuses); err != nil {
+		return err
+	}
+	return capi.endpoint.RegisterMethod("/censuses/{censusID}/proof/{address}", "GET",
+		api.MethodAccessTypePublic, capi.getCensusProof)
 }
 
 // getCensus handler responses with the information regarding of the census
@@ -204,6 +212,7 @@ func (capi *census3API) createAndPublishCensus(req *Census, qID string) (uint64,
 		ID:      newCensusID,
 		Type:    censusType,
 		Holders: holders,
+		Remove:  !req.AllowProofGeneration,
 	}, censusCreationProgress)
 	if err != nil {
 		return 0, ErrCantCreateCensus.WithErr(err)
@@ -358,7 +367,7 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 	// get strategy ID
 	strategyID, err := strconv.Atoi(ctx.URLParam("strategyID"))
 	if err != nil {
-		return ErrMalformedCensusID.WithErr(err)
+		return ErrMalformedStrategyID.WithErr(err)
 	}
 	// get censuses by this strategy ID
 	internalCtx, cancel := context.WithTimeout(ctx.Request.Context(), getStrategyCensusesTimeout)
@@ -396,6 +405,79 @@ func (capi *census3API) getStrategyCensuses(msg *api.APIdata, ctx *httprouter.HT
 	res, err := json.Marshal(censuses)
 	if err != nil {
 		return ErrEncodeCensuses.WithErr(err)
+	}
+	return ctx.Send(res, api.HTTPstatusOK)
+}
+
+// getCensusProof handler returns the proof of the census for the holder
+// address provided in the URL parameter. It returns the root of the census
+// tree, the key of the holder address, the value in the leaf node of the
+// address as a key, and the siblings of the leaf node in the tree.
+func (capi *census3API) getCensusProof(msg *api.APIdata, ctx *httprouter.HTTPContext) error {
+	// get census ID from URL parameter
+	censusID, err := strconv.Atoi(ctx.URLParam("censusID"))
+	if err != nil {
+		return ErrMalformedCensusID.WithErr(err)
+	}
+	// get holder address from URL parameter
+	holderAddress := ctx.URLParam("address")
+	if holderAddress == "" {
+		return ErrMalformedHolderAddress.With("holder address is required")
+	}
+	// get census by its ID
+	innerCtx, cancel := context.WithTimeout(ctx.Request.Context(), getCensusTimeout)
+	defer cancel()
+	census, err := capi.db.QueriesRO.CensusByID(innerCtx, uint64(censusID))
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return ErrCantGetCensus.WithErr(err)
+		}
+	}
+	// encode the census ID to a LE byte slice
+	bID := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bID, uint64(censusID))
+	// load the census reference from the census database by its ID
+	ref, err := capi.censusDB.Load(bID, nil)
+	defer capi.censusDB.UnLoad()
+	if err != nil {
+		if errors.Is(err, censusdb.ErrCensusNotFound) {
+			return ErrNotFoundCensus.WithErr(err)
+		}
+		return ErrCantGetCensus.WithErr(err)
+	}
+	tree := ref.Tree()
+	// get the census root from the tree
+	root, err := tree.Root()
+	if err != nil {
+		return ErrCantGetCensus.WithErr(err)
+	}
+	// get the proof for the holder address, including the siblings and the
+	// value in the leaf node of the address as a key
+	addr := common.HexToAddress(holderAddress)
+	key := addr.Bytes()[:censustree.DefaultMaxKeyLen]
+	if census.CensusType != uint64(anonymousCensusType) {
+		if key, err = tree.Hash(addr.Bytes()); err != nil {
+			return err
+		}
+	}
+	value, siblings, err := tree.GenProof(key)
+	if err != nil {
+		if strings.Contains(err.Error(), "key does not exist") {
+			return ErrCensusAddressNotFound.Withf("address %s not found in census %d", holderAddress, censusID)
+		}
+		return ErrCantGetCensusProof.WithErr(err)
+	}
+	// encode the response with the census proof information by converting the
+	// value to a big.Int to get the weight of the holder
+	res, err := json.Marshal(HolderCensusProof{
+		Root:     root,
+		Key:      key,
+		Value:    value,
+		Siblings: siblings,
+		Weight:   (*types.BigInt)(ref.Tree().BytesToBigInt(value)),
+	})
+	if err != nil {
+		return ErrEncodeCensusProof.WithErr(err)
 	}
 	return ctx.Send(res, api.HTTPstatusOK)
 }

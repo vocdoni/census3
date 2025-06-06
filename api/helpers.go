@@ -20,6 +20,7 @@ import (
 	"go.vocdoni.io/dvote/censustree"
 	storagelayer "go.vocdoni.io/dvote/data"
 	"go.vocdoni.io/dvote/httprouter"
+	"go.vocdoni.io/dvote/log"
 	"go.vocdoni.io/dvote/types"
 	"go.vocdoni.io/proto/build/go/models"
 )
@@ -121,6 +122,7 @@ type CensusOptions struct {
 	ID      uint64
 	Type    models.Census_Type
 	Holders map[common.Address]*big.Int
+	Remove  bool // if true, it will be removed from the db once it is created
 }
 
 // CreateAndPublishCensus function creates a new census tree based on the
@@ -139,7 +141,7 @@ func CreateAndPublishCensus(db *censusdb.CensusDB, storage storagelayer.Storage,
 	// encode the holders
 	holdersAddresses, holdersValues := [][]byte{}, [][]byte{}
 	for addr, balance := range opts.Holders {
-		key := addr.Bytes()[:censustree.DefaultMaxKeyLen]
+		key := addr.Bytes()
 		if opts.Type != anonymousCensusType {
 			if key, err = ref.Tree().Hash(addr.Bytes()); err != nil {
 				return nil, "", nil, err
@@ -192,8 +194,11 @@ func CreateAndPublishCensus(db *censusdb.CensusDB, storage storagelayer.Storage,
 	if err != nil {
 		return nil, "", nil, err
 	}
-	if err := db.Del(bID); err != nil {
-		return nil, "", nil, err
+	// if the remove flag is set, remove the census from the db
+	if opts.Remove {
+		if err := db.Del(bID); err != nil {
+			log.Warnw("failed to remove census from db", "id", opts.ID, "error", err)
+		}
 	}
 	return root, uri, dump, nil
 }

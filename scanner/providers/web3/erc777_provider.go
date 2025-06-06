@@ -153,7 +153,7 @@ func (p *ERC777HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fr
 	balances := make(map[common.Address]*big.Int)
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
-		logData, err := p.contract.ERC777ContractFilterer.ParseTransfer(currentLog)
+		logData, err := p.contract.ParseTransfer(currentLog)
 		if err != nil {
 			return nil, newTransfers, lastBlock, false, nil,
 				errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC777] %s: %w", p.address, err))
@@ -221,7 +221,7 @@ func (p *ERC777HolderProvider) ChainID() uint64 {
 func (p *ERC777HolderProvider) Name(_ []byte) (string, error) {
 	var err error
 	if p.name == "" {
-		p.name, err = p.contract.ERC777ContractCaller.Name(nil)
+		p.name, err = p.contract.Name(nil)
 	}
 	return p.name, err
 }
@@ -232,7 +232,7 @@ func (p *ERC777HolderProvider) Name(_ []byte) (string, error) {
 func (p *ERC777HolderProvider) Symbol(_ []byte) (string, error) {
 	var err error
 	if p.symbol == "" {
-		p.symbol, err = p.contract.ERC777ContractCaller.Symbol(nil)
+		p.symbol, err = p.contract.Symbol(nil)
 	}
 	return p.symbol, err
 }
@@ -253,7 +253,7 @@ func (p *ERC777HolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
 // set in the provider. It also receives an external ID but it is not used by
 // the provider. It calls to the contract to get the balance.
 func (p *ERC777HolderProvider) BalanceOf(addr common.Address, _ []byte) (*big.Int, error) {
-	return p.contract.ERC777ContractCaller.BalanceOf(nil, addr)
+	return p.contract.BalanceOf(nil, addr)
 }
 
 // BalanceAt returns the balance of the given address for the current token at

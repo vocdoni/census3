@@ -1,23 +1,38 @@
-run:
-        go: '1.22'
-issues:
-        max-same-issues: 0
-        exclude-use-default: false
-        exclude-files:
-        - scanner/providers/gitcoin/gitcoin_stamps.go
+version: "2"
 linters:
-        enable:
-        - misspell
-        - gofumpt
-        - lll
-        - staticcheck
-        - unused
-        - typecheck
-        - ineffassign
-        - errcheck
-        - gosimple
-        - goconst
-
-linters-settings:
-        lll:
-                line-length: 130
+  enable:
+    - goconst
+  #- revive // To be enabled...
+  settings:
+    lll:
+      line-length: 130
+    revive:
+      enable-all-rules: true
+      rules:
+        - name: add-constant
+          disabled: true
+        - name: use-errors-new
+          disabled: true
+        - name: max-public-structs
+          disabled: true
+        - name: line-length-limit
+          disabled: true
+        - name: exported
+          disabled: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

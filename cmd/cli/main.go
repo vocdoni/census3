@@ -135,9 +135,15 @@ func main() {
 				return
 			}
 			fmt.Print("Enter Start Block: ")
-			fmt.Scanln(&startBlock)
+			if _, err := fmt.Scanln(&startBlock); err != nil {
+				color.Red("Invalid start block: %v", err)
+				return
+			}
 			fmt.Print("Enter Tags (comma-separated): ")
-			fmt.Scanln(&tags)
+			if _, err := fmt.Scanln(&tags); err != nil {
+				color.Red("Invalid tags: %v", err)
+				return
+			}
 
 			chainIDUint, err := strconv.ParseUint(chainID, 10, 64)
 			if err != nil {

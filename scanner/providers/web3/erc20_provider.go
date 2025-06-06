@@ -155,7 +155,7 @@ func (p *ERC20HolderProvider) HoldersBalances(ctx context.Context, _ []byte, fro
 	balances := make(map[common.Address]*big.Int)
 	// iterate the logs and update the balances
 	for _, currentLog := range logs {
-		logData, err := p.contract.ERC20ContractFilterer.ParseTransfer(currentLog)
+		logData, err := p.contract.ParseTransfer(currentLog)
 		if err != nil {
 			return nil, newTransfers, lastBlock, false, big.NewInt(0),
 				errors.Join(ErrParsingTokenLogs, fmt.Errorf("[ERC20] %s: %w", p.address, err))
@@ -229,7 +229,7 @@ func (p *ERC20HolderProvider) ChainID() uint64 {
 func (p *ERC20HolderProvider) Name(_ []byte) (string, error) {
 	var err error
 	if p.name == "" {
-		p.name, err = p.contract.ERC20ContractCaller.Name(nil)
+		p.name, err = p.contract.Name(nil)
 	}
 	return p.name, err
 }
@@ -240,7 +240,7 @@ func (p *ERC20HolderProvider) Name(_ []byte) (string, error) {
 func (p *ERC20HolderProvider) Symbol(_ []byte) (string, error) {
 	var err error
 	if p.symbol == "" {
-		p.symbol, err = p.contract.ERC20ContractCaller.Symbol(nil)
+		p.symbol, err = p.contract.Symbol(nil)
 	}
 	return p.symbol, err
 }
@@ -250,7 +250,7 @@ func (p *ERC20HolderProvider) Symbol(_ []byte) (string, error) {
 // is not used by the provider.
 func (p *ERC20HolderProvider) Decimals(_ []byte) (uint64, error) {
 	if p.decimals == 0 {
-		decimals, err := p.contract.ERC20ContractCaller.Decimals(nil)
+		decimals, err := p.contract.Decimals(nil)
 		if err != nil {
 			return 0, err
 		}
@@ -263,14 +263,14 @@ func (p *ERC20HolderProvider) Decimals(_ []byte) (uint64, error) {
 // It gets the total supply from the contract. It also receives an external ID
 // but it is not used by the provider.
 func (p *ERC20HolderProvider) TotalSupply(_ []byte) (*big.Int, error) {
-	return p.contract.ERC20ContractCaller.TotalSupply(nil)
+	return p.contract.TotalSupply(nil)
 }
 
 // BalanceOf returns the balance of the given address for the current token set
 // in the provider. It gets the balance from the contract. It also receives an
 // external ID but it is not used by the provider.
 func (p *ERC20HolderProvider) BalanceOf(addr common.Address, _ []byte) (*big.Int, error) {
-	return p.contract.ERC20ContractCaller.BalanceOf(nil, addr)
+	return p.contract.BalanceOf(nil, addr)
 }
 
 // BalanceAt returns the balance of the given address for the current token at

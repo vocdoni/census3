@@ -41,7 +41,7 @@ func Test_basicOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as first part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("", "B", partialResults, nil)
+		iter = lexer.MockIteration("", "B", partialResults, nil)
 		results, decimals, err = mso.andOperator(iter)
 		c.Assert(err, qt.IsNil)
 		c.Assert(decimals, qt.Equals, uint64(18))
@@ -64,7 +64,7 @@ func Test_basicOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as second part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("A", "", nil, partialResults)
+		iter = lexer.MockIteration("A", "", nil, partialResults)
 		results, decimals, err = mso.andOperator(iter)
 		c.Assert(err, qt.IsNil)
 		c.Assert(decimals, qt.Equals, uint64(18))
@@ -125,7 +125,7 @@ func Test_basicOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as first part of the
 		// OR operator
-		iter = lexer.MockIteration[*StrategyIteration]("", "B", partialResults, nil)
+		iter = lexer.MockIteration("", "B", partialResults, nil)
 		results, decimals, err = mso.orOperator(iter)
 		c.Assert(err, qt.IsNil)
 		c.Assert(decimals, qt.Equals, uint64(18))
@@ -152,7 +152,7 @@ func Test_basicOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as second part of the
 		// OR operator
-		iter = lexer.MockIteration[*StrategyIteration]("A", "", nil, partialResults)
+		iter = lexer.MockIteration("A", "", nil, partialResults)
 		results, decimals, err = mso.orOperator(iter)
 		c.Assert(err, qt.IsNil)
 		c.Assert(decimals, qt.Equals, uint64(18))
@@ -215,7 +215,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as first part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("", "B", partialResults, nil)
+		iter = lexer.MockIteration("", "B", partialResults, nil)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -231,7 +231,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as second part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("A", "", nil, partialResults)
+		iter = lexer.MockIteration("A", "", nil, partialResults)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -273,7 +273,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as first part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("", "B", partialResults, nil)
+		iter = lexer.MockIteration("", "B", partialResults, nil)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -289,7 +289,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as second part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("A", "", nil, partialResults)
+		iter = lexer.MockIteration("A", "", nil, partialResults)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -331,7 +331,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as first part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("", "B", partialResults, nil)
+		iter = lexer.MockIteration("", "B", partialResults, nil)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -347,7 +347,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as second part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("A", "", nil, partialResults)
+		iter = lexer.MockIteration("A", "", nil, partialResults)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -391,7 +391,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as first part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("", "B", partialResults, nil)
+		iter = lexer.MockIteration("", "B", partialResults, nil)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -408,7 +408,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as second part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("A", "", nil, partialResults)
+		iter = lexer.MockIteration("A", "", nil, partialResults)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -453,7 +453,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as first part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("", "B", partialResults, nil)
+		iter = lexer.MockIteration("", "B", partialResults, nil)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -470,7 +470,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as second part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("A", "", nil, partialResults)
+		iter = lexer.MockIteration("A", "", nil, partialResults)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -515,7 +515,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as first part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("", "B", partialResults, nil)
+		iter = lexer.MockIteration("", "B", partialResults, nil)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{
@@ -532,7 +532,7 @@ func TestOperators(t *testing.T) {
 		}
 		// check with partial results from previous iteration as second part of the
 		// AND operator
-		iter = lexer.MockIteration[*StrategyIteration]("A", "", nil, partialResults)
+		iter = lexer.MockIteration("A", "", nil, partialResults)
 		results, err = op(iter)
 		c.Assert(err, qt.IsNil)
 		expectedHolders = map[string]*big.Int{

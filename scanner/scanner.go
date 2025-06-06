@@ -173,7 +173,7 @@ func (s *Scanner) Start(ctx context.Context, concurrentTokens int) {
 				}(*token)
 			}
 			// wait for all the tokens to be scanned
-			for i := 0; i < concurrentTokens; i++ {
+			for range concurrentTokens {
 				sem <- struct{}{}
 			}
 			log.Infow("scan iteration finished",

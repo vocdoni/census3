@@ -159,7 +159,7 @@ func (c *HTTPclient) HoldersByStrategyQueue(strategyID uint64, queueID string) (
 			fmt.Errorf("%d %s", res.StatusCode, http.StatusText(res.StatusCode)))
 	}
 	// decode the queue response
-	item := map[string]interface{}{}
+	item := map[string]any{}
 	if err := json.NewDecoder(res.Body).Decode(&item); err != nil {
 		return nil, false, fmt.Errorf("%w: %w", ErrDecodingResponse, err)
 	}
@@ -171,7 +171,7 @@ func (c *HTTPclient) HoldersByStrategyQueue(strategyID uint64, queueID string) (
 		return nil, true, fmt.Errorf("error in queue item: %s", strErr)
 	}
 	// convert the data to a map of addresses and amounts
-	rawHolders, ok := item["data"].(map[string]interface{})
+	rawHolders, ok := item["data"].(map[string]any)
 	if !ok {
 		return nil, true, fmt.Errorf("error getting data from queue item")
 	}

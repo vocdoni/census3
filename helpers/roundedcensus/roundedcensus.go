@@ -1,35 +1,35 @@
+// roundedcensus package provides an algorithm to anonymize participant
+// balances in a voting system while maintaining a certain level of accuracy.
+// It sorts participants by balance, groups them based on a privacy threshold
+// and balance differences, rounds their balances, and calculates lost balance
+// for accuracy measurement.
+//
+// The main steps of the algorithm are:
+//
+// 1. Sort Participants by Balance:
+//   - Participants are sorted in ascending order based on their balances.
+//
+// 2. Group Participants:
+//   - Participants are initially grouped with a size equal to the privacy
+//     threshold.
+//   - The group can extend if consecutive participants have the same balance
+//     or if the difference in balances between consecutive participants is less
+//     than or equal to the groupBalanceDiff threshold.
+//
+// 3. Round Group Balances:
+//   - Each group's balances are rounded down to the lowest common value within
+//     that group.
+//
+// 4. (optional) Accuracy loop:
+//   - The algorithm tries to find the highest accuracy possible while
+//     maintaining a minimum privacy threshold. It starts with the minimum
+//     privacy threshold and increases it by a small amount until the accuracy
+//     is maximized.
+//
+// 5. Output Rounded Balances and Accuracy:
+//   - The algorithm provides the new list of participants with their rounded
+//     balances and the calculated accuracy to quantify the balance preservation.
 package roundedcensus
-
-/*
-roundedcensus package provides an algorithm to anonymize participant balances in
-a voting system while maintaining a certain level of accuracy. It sorts participants
-by balance, groups them based on a privacy threshold and balance differences,
-rounds their balances, and calculates lost balance for accuracy measurement.
-
-The main steps of the algorithm are:
-
-1. Sort Participants by Balance:
-   - Participants are sorted in ascending order based on their balances.
-
-2. Group Participants:
-   - Participants are initially grouped with a size equal to the privacy threshold.
-   - The group can extend if consecutive participants have the same balance or if
-     the difference in balances between consecutive participants is less than or
-     equal to the groupBalanceDiff threshold.
-
-3. Round Group Balances:
-   - Each group's balances are rounded down to the lowest common value within
-     that group.
-
-4. (optional) Accuracy loop:
-   - The algorithm tries to find the highest accuracy possible while maintaining
-     a minimum privacy threshold. It starts with the minimum privacy threshold
-	 and increases it by a small amount until the accuracy is maximized.
-
-5. Output Rounded Balances and Accuracy:
-   - The algorithm provides the new list of participants with their rounded
-     balances and the calculated accuracy to quantify the balance preservation.
-*/
 
 import (
 	"fmt"

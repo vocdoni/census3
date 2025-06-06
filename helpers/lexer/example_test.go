@@ -80,16 +80,9 @@ func OR(iter *Iteration[[]string]) ([]string, error) {
 		dataB = data[tagB]
 	}
 
-	res := append([]string{}, dataB...)
+	res := slices.Clone(dataB)
 	for _, a := range dataA {
-		exist := false
-		for _, b := range dataB {
-			if a == b {
-				exist = true
-				break
-			}
-		}
-		if !exist {
+		if !slices.Contains(dataB, a) {
 			res = append(res, a)
 		}
 	}
@@ -108,26 +101,12 @@ func XOR(iter *Iteration[[]string]) ([]string, error) {
 
 	res := []string{}
 	for _, a := range dataA {
-		exist := false
-		for _, b := range dataB {
-			if a == b {
-				exist = true
-				break
-			}
-		}
-		if !exist {
+		if !slices.Contains(dataB, a) {
 			res = append(res, a)
 		}
 	}
 	for _, b := range dataB {
-		exist := false
-		for _, a := range dataA {
-			if b == a {
-				exist = true
-				break
-			}
-		}
-		if !exist {
+		if !slices.Contains(dataA, b) {
 			res = append(res, b)
 		}
 	}

@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	qt "github.com/frankban/quicktest"
@@ -55,14 +56,7 @@ func testAndOperator(iter *Iteration[[]int]) ([]int, error) {
 
 	res := []int{}
 	for _, a := range dataA {
-		exist := false
-		for _, b := range dataB {
-			if a == b {
-				exist = true
-				break
-			}
-		}
-		if exist {
+		if slices.Contains(dataB, a) {
 			res = append(res, a)
 		}
 	}
@@ -87,16 +81,9 @@ func testOrOperator(iter *Iteration[[]int]) ([]int, error) {
 		}
 	}
 
-	res := append([]int{}, dataB...)
+	res := slices.Clone(dataB)
 	for _, a := range dataA {
-		exist := false
-		for _, b := range dataB {
-			if a == b {
-				exist = true
-				break
-			}
-		}
-		if !exist {
+		if !slices.Contains(dataB, a) {
 			res = append(res, a)
 		}
 	}
@@ -112,7 +99,7 @@ func TestEval(t *testing.T) {
 			token, err := lx.Parse(predicate)
 			c.Assert(err, qt.IsNil)
 
-			res, err := NewEval[[]int](testEvalOperators).EvalToken(token, nil)
+			res, err := NewEval(testEvalOperators).EvalToken(token, nil)
 			c.Assert(err, qt.IsNil)
 			c.Assert(res, qt.ContentEquals, results)
 		}
@@ -124,7 +111,7 @@ func TestEval(t *testing.T) {
 			token, err := lx.Parse(predicate)
 			c.Assert(err, qt.IsNil)
 
-			_, err = NewEval[[]int](testEvalOperators).EvalToken(token, nil)
+			_, err = NewEval(testEvalOperators).EvalToken(token, nil)
 			c.Assert(err, qt.IsNotNil)
 		}
 
@@ -132,7 +119,7 @@ func TestEval(t *testing.T) {
 		c.Assert(err, qt.IsNil)
 		// force undefined data
 		token.Childs.Tokens[1] = NewLiteralToken("naturals")
-		_, err = NewEval[[]int](testEvalOperators).EvalToken(token, nil)
+		_, err = NewEval(testEvalOperators).EvalToken(token, nil)
 		c.Assert(err, qt.IsNotNil)
 	})
 }

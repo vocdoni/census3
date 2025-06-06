@@ -1,8 +1,6 @@
 module github.com/vocdoni/census3
 
-go 1.22.0
-
-toolchain go1.22.4
+go 1.24
 
 require (
 	github.com/VictoriaMetrics/metrics v1.24.0

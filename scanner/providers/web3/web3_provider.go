@@ -37,7 +37,7 @@ func creationBlock(client *web3.Client, ctx context.Context, addr common.Address
 	// 1 and nil. It is assumed that the contract is created at block 1 to start
 	// scanning from the first block.
 	getCodeSupport := false
-	for i := 0; i < web3.DefaultMaxWeb3ClientRetries; i++ {
+	for range web3.DefaultMaxWeb3ClientRetries {
 		ethClient, err := client.EthClient()
 		if err != nil {
 			return 0, err
@@ -53,7 +53,7 @@ func creationBlock(client *web3.Client, ctx context.Context, addr common.Address
 	// get the latest block number
 	var err error
 	var lastBlock uint64
-	for i := 0; i < web3.DefaultMaxWeb3ClientRetries; i++ {
+	for range web3.DefaultMaxWeb3ClientRetries {
 		lastBlock, err = client.BlockNumber(ctx)
 		if err == nil {
 			break
@@ -64,7 +64,7 @@ func creationBlock(client *web3.Client, ctx context.Context, addr common.Address
 		return 0, err
 	}
 	var minCreationBlock uint64
-	for i := 0; i < web3.DefaultMaxWeb3ClientRetries; i++ {
+	for range web3.DefaultMaxWeb3ClientRetries {
 		creationBlock, err := creationBlockInRange(client, ctx, addr, 0, lastBlock)
 		if err != nil {
 			time.Sleep(RetryWeb3Cooldown)

@@ -414,9 +414,9 @@ func (op *StrategyOperators) orHoldersDBOperator(ctx context.Context,
 }
 
 // intersection method returns the common token holders between two maps of
-// holders balances. It returns a map with the common holders addresses as keys
-// and the balances of both tokens as values. It uses a buffered channel to
-// process the results in parallel.
+// holders balances. It returns a map with the common holders addresses as
+// keys and the balances of both tokens as values. It uses a buffered channel
+// to process the results in parallel.
 func intersection(dataA, dataB map[string]*big.Int) map[string][2]*big.Int {
 	data := make(map[string][2]*big.Int)
 	var mu sync.Mutex // to safely update 'data'
@@ -450,9 +450,9 @@ func intersection(dataA, dataB map[string]*big.Int) map[string][2]*big.Int {
 }
 
 // combination method returns the common and not common token holders between
-// two maps of holders balances. It returns a map with the holders addresses as
-// keys and the balances of both tokens as values. It uses a buffered channel to
-// process the results in parallel.
+// two maps of holders balances. It returns a map with the holders addresses
+// as keys and the balances of both tokens as values. It uses a buffered
+// channel to process the results in parallel.
 func combination(dataA, dataB map[string]*big.Int) map[string][2]*big.Int {
 	// init result data with dataA
 	data := make(map[string][2]*big.Int)

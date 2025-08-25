@@ -250,7 +250,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	tokenType := providers.TokenTypeID(req.Type)
 	provider, err := capi.holderProviders.GetProvider(internalCtx, tokenType)
 	if err != nil {
-		return ErrCantCreateCensus.WithErr(fmt.Errorf("token type not supported: %w", err))
+		return ErrMalformedToken.WithErr(fmt.Errorf("token type not supported: %w", err))
 	}
 	if !provider.IsExternal() {
 		if err := provider.SetRef(web3.Web3ProviderRef{
@@ -285,7 +285,7 @@ func (capi *census3API) createToken(msg *api.APIdata, ctx *httprouter.HTTPContex
 	// init db transaction
 	tx, err := capi.db.RW.BeginTx(internalCtx, nil)
 	if err != nil {
-		return ErrCantCreateStrategy.WithErr(err)
+		return ErrCantCreateToken.WithErr(err)
 	}
 	defer func() {
 		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {

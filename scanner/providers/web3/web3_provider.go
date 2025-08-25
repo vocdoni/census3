@@ -157,7 +157,7 @@ func RangeOfLogs(ctx context.Context, client *web3.Client, addr common.Address,
 				"address", addr.Hex(),
 				"fromBlock", fromBlock,
 				"toBlock", toBlock)
-			// compose the filter to get the logs of the ERC20 Transfer events
+			// compose the filter to get the logs of the events provided
 			filter := ethereum.FilterQuery{
 				Addresses: []common.Address{addr},
 				FromBlock: new(big.Int).SetUint64(fromBlock),

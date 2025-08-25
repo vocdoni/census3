@@ -52,6 +52,8 @@ func (m *ProviderManager) GetProvider(ctx context.Context, providerType uint64) 
 		provider = &web3.ERC721HolderProvider{}
 	case providers.CONTRACT_TYPE_ERC777:
 		provider = &web3.ERC777HolderProvider{}
+	case providers.CONTRACT_TYPE_ERC1155:
+		provider = &web3.ERC1155HolderProvider{}
 	case providers.CONTRACT_TYPE_POAP:
 		provider = &poap.POAPHolderProvider{}
 	case providers.CONTRACT_TYPE_GITCOIN:

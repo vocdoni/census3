@@ -23,6 +23,7 @@ const (
 	GetTokenTypes = "/tokens/types"
 
 	// Strategies endpoints:
+	GetTokenStrategies = "/strategies/token/%s?chainID=%d&externalID=%s"
 
 	// GetStrategiesURI is the URI for getting strategies, it accepts a pageSize,
 	// nextCursor and prevCursor
